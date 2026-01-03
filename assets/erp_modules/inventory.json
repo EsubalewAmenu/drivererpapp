@@ -1,0 +1,36 @@
+{
+  "id": "inventory",
+  "name": "Inventory",
+  "icon": "box",
+  "settings": {
+    "primaryColor": "#10B981",
+    "version": "1.0.0"
+  },
+  "dashboard": {
+    "kpiCards": [
+      {
+        "label": "Total Value",
+        "calculation": "SUM(qty * cost_price)",
+        "format": "currency"
+      },
+      {
+        "label": "Low Stock",
+        "calculation": "COUNT(qty < min_level)",
+        "format": "number"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "items",
+      "label": "Items",
+      "columns": [
+        { "key": "sku", "label": "SKU", "type": "scanner" },
+        { "key": "name", "label": "Item Name", "type": "text" },
+        { "key": "qty", "label": "Quantity", "type": "number" },
+        { "key": "cost_price", "label": "Cost Price", "type": "currency" },
+        { "key": "min_level", "label": "Min Level", "type": "number" }
+      ]
+    }
+  ]
+}
