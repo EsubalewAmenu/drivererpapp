@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../theme/app_theme.dart';
-import 'dashboard_screen.dart';
+import 'system_scanning_screen.dart';
 
 class LandingScreen extends StatelessWidget {
   const LandingScreen({super.key});
@@ -193,7 +193,7 @@ class LandingScreen extends StatelessWidget {
       if (context.mounted) {
         Navigator.pop(context); // Close dialog
         Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          MaterialPageRoute(builder: (_) => const SystemScanningScreen()),
         );
       }
     });
