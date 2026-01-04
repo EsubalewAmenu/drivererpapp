@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/schema_models.dart';
 import '../services/drive_service.dart';
 import '../theme/app_theme.dart';
+import 'dynamic_form_screen.dart';
 import 'record_detail_screen.dart';
 
 class ModuleScreen extends StatefulWidget {
@@ -48,13 +49,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
             ModuleDashboard(module: widget.module, primaryColor: primaryColor),
             ...widget.module.tabs.map((t) => ModuleTabScreen(tab: t, primaryColor: primaryColor)),
           ],
-        ),
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: primaryColor,
-          child: const Icon(Icons.add),
-          onPressed: () {
-            // TODO: Add item based on current tab
-          },
         ),
       ),
     );
@@ -220,12 +214,30 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return Column(
-      children: [
-        _buildSearchBar(),
-        _buildQuickFilters(),
-        Expanded(child: _buildListView()),
-      ],
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Column(
+        children: [
+          _buildSearchBar(),
+          _buildQuickFilters(),
+          Expanded(child: _buildListView()),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: widget.primaryColor,
+        child: const Icon(Icons.add),
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DynamicFormScreen(
+                tab: widget.tab,
+                primaryColor: widget.primaryColor,
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
