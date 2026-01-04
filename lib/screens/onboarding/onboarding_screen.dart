@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../../services/auth_service.dart';
+import '../../services/drive_service.dart';
 import '../../theme/app_theme.dart';
 import '../dashboard_screen.dart';
 
@@ -14,6 +17,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentStep = 0;
   String? _choice; // 'new' or 'join'
+  bool _isCreating = false;
   
   // Form Data
   final TextEditingController _nameController = TextEditingController();
@@ -270,17 +274,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_currentStep == 0) return const SizedBox.shrink();
 
     return FilledButton(
-      onPressed: () {
+      onPressed: _isCreating ? null : () async {
         if (_choice == 'new') {
           if (_currentStep < 3) {
+            if (_currentStep == 1 && _nameController.text.isEmpty) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Please enter a business name')),
+              );
+              return;
+            }
             setState(() => _currentStep++);
           } else {
-            // Finish Onboarding
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (_) => const DashboardScreen()),
-              (route) => false,
-            );
+            // Finish Onboarding - Create Workspace & Modules
+            await _createWorkspaceAndModules();
           }
         } else {
           // Join Logic
@@ -298,10 +304,51 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         minimumSize: const Size(double.infinity, 60),
       ),
-      child: Text(
-        _currentStep == 3 || _choice == 'join' ? 'LAUNCH WORKSPACE' : 'CONTINUE',
-        style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5),
-      ),
+      child: _isCreating 
+        ? const SizedBox(
+            height: 24, 
+            width: 24, 
+            child: CircularProgressIndicator(color: AppTheme.backgroundColor, strokeWidth: 2)
+          )
+        : Text(
+            _currentStep == 3 || _choice == 'join' ? 'LAUNCH WORKSPACE' : 'CONTINUE',
+            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5),
+          ),
     );
+  }
+
+  Future<void> _createWorkspaceAndModules() async {
+    setState(() => _isCreating = true);
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      if (authService.authClient == null) throw Exception("Not authenticated");
+      
+      final driveService = DriveService(authService.authClient!);
+      
+      // 1. Create Workspace Folder
+      final workspaceName = _nameController.text.trim();
+      final workspaceFolder = await driveService.createWorkspace(widget.rootFolderId, workspaceName);
+      final workspaceId = workspaceFolder.id!;
+      
+      // 2. Create Module Folders
+      for (final module in _selectedModules) {
+        await driveService.createWorkspace(workspaceId, module);
+      }
+      
+      if (mounted) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating workspace: $e')),
+        );
+        setState(() => _isCreating = false);
+      }
+    }
   }
 }
