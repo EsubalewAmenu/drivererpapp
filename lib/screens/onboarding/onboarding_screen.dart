@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../services/auth_service.dart';
 import '../../services/drive_service.dart';
+import '../../providers/workspace_provider.dart';
 import '../../theme/app_theme.dart';
 import '../dashboard_screen.dart';
 
@@ -335,7 +336,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         await driveService.createWorkspace(workspaceId, module);
       }
       
+      // Set global workspace
       if (mounted) {
+        Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(workspaceFolder);
+        
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const DashboardScreen()),

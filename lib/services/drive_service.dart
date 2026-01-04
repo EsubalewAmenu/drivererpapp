@@ -74,6 +74,20 @@ class DriveService {
     }
   }
 
+  /// Lists subfolders (modules) inside a workspace folder.
+  Future<List<drive.File>> listModules(String workspaceId) async {
+    try {
+      final fileList = await _driveApi.files.list(
+        q: "'$workspaceId' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+        $fields: 'files(id, name)',
+      );
+      return fileList.files ?? [];
+    } catch (e) {
+      print('Error listing modules: $e');
+      rethrow;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> readSheet(String workspace, String sheetName) async {
     // TODO: Implement real sheet reading
     return [];

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../providers/workspace_provider.dart';
 import 'dashboard_screen.dart';
 import 'onboarding/onboarding_screen.dart';
 
@@ -92,6 +94,9 @@ class WorkspaceSelectorScreen extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: InkWell(
         onTap: () {
+          // Set global workspace
+          Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(workspace);
+          
           // Boot into workspace
           Navigator.pushReplacement(
             context,

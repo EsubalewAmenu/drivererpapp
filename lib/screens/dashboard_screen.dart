@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import '../models/schema_models.dart';
 import '../services/schema_service.dart';
+import '../services/auth_service.dart';
+import '../services/drive_service.dart';
+import '../providers/workspace_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_drawer.dart';
 import 'module_screen.dart';
@@ -15,7 +20,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  late Future<List<ModuleSchema>> _modulesFuture;
+  late Future<List<drive.File>> _modulesFuture;
   String _selectedPeriod = 'Today'; // 'Today', 'Week', 'Month'
   
   // Mock KPI Data
@@ -28,7 +33,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _modulesFuture = SchemaService().loadModules();
+    _loadModules();
+  }
+
+  void _loadModules() {
+    final workspace = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace;
+    final authService = Provider.of<AuthService>(context, listen: false);
+    
+    if (workspace != null && authService.authClient != null) {
+      final driveService = DriveService(authService.authClient!);
+      _modulesFuture = driveService.listModules(workspace.id!);
+    } else {
+      _modulesFuture = Future.value([]);
+    }
   }
 
   @override
@@ -43,7 +60,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: AppTheme.backgroundColor,
       drawer: const AppDrawer(),
       appBar: AppBar(
-        title: Text('DRIVE ERP', style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+        title: Consumer<WorkspaceProvider>(
+          builder: (context, provider, child) {
+            return Text(
+              (provider.currentWorkspace?.name ?? 'DRIVE ERP').toUpperCase(),
+              style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0),
+            );
+          },
+        ),
         centerTitle: true,
         backgroundColor: AppTheme.backgroundColor,
         elevation: 0,
@@ -189,10 +213,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildCoreModulesGrid() {
-    return FutureBuilder<List<ModuleSchema>>(
+    return FutureBuilder<List<drive.File>>(
       future: _modulesFuture,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return Center(
+            child: Text(
+              'No modules installed.\nVisit the Marketplace to expand.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+            ),
+          );
+        }
         
         final modules = snapshot.data!;
         return GridView.builder(
@@ -206,7 +242,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           itemCount: modules.length,
           itemBuilder: (context, index) {
-            return _buildModuleCard(modules[index], isActive: true);
+            final folder = modules[index];
+            // Create a temporary schema from the folder
+            final module = ModuleSchema(
+              id: folder.id ?? 'unknown',
+              name: folder.name ?? 'Unknown Module',
+              icon: 'folder',
+              settings: ModuleSettings(primaryColor: '#10B981', version: '1.0.0'), // Default color
+              dashboard: DashboardConfig(kpiCards: []),
+              tabs: [],
+            );
+            return _buildModuleCard(module, isActive: true);
           },
         );
       },

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
+import 'providers/workspace_provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
 
@@ -16,6 +17,7 @@ class MainApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
+        ChangeNotifierProvider(create: (_) => WorkspaceProvider()),
       ],
       child: MaterialApp(
         title: 'DriveERP',

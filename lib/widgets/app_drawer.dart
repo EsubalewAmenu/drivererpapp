@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
+import '../providers/workspace_provider.dart';
 import '../screens/settings_screen.dart';
 import '../screens/system_scanning_screen.dart';
 import '../screens/landing_screen.dart';
@@ -60,6 +61,10 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildWorkspaceSwitcher(BuildContext context) {
+    final workspace = Provider.of<WorkspaceProvider>(context).currentWorkspace;
+    final workspaceName = workspace?.name ?? 'Select Workspace';
+    final initial = workspaceName.isNotEmpty ? workspaceName[0].toUpperCase() : '?';
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Container(
@@ -82,14 +87,14 @@ class AppDrawer extends StatelessWidget {
               CircleAvatar(
                 radius: 16,
                 backgroundColor: Colors.blueGrey,
-                child: Text('A', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: Colors.white, fontSize: 12)),
+                child: Text(initial, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: Colors.white, fontSize: 12)),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Acme Corp', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+                    Text(workspaceName, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
                     Text('Switch Workspace', style: GoogleFonts.inter(fontSize: 10, color: AppTheme.secondaryTextColor)),
                   ],
                 ),
