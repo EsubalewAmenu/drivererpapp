@@ -5,6 +5,7 @@ import '../services/drive_service.dart';
 import '../theme/app_theme.dart';
 import 'dynamic_form_screen.dart';
 import 'record_detail_screen.dart';
+import 'schema_editor_screen.dart';
 
 class ModuleScreen extends StatefulWidget {
   final ModuleSchema module;
@@ -31,6 +32,18 @@ class _ModuleScreenState extends State<ModuleScreen> {
           ),
           centerTitle: true,
           backgroundColor: AppTheme.backgroundColor,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.edit_note_rounded),
+              tooltip: 'Edit Blueprint',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => SchemaEditorScreen(module: widget.module)),
+                );
+              },
+            ),
+          ],
           elevation: 0,
           bottom: TabBar(
             isScrollable: true,

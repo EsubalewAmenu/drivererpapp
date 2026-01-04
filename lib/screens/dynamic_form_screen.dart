@@ -96,6 +96,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         return _buildDatePicker(column);
       case 'image':
         return _buildImagePicker(column);
+      case 'scanner':
+        return _buildScanner(column);
+      case 'signature':
+        return _buildSignaturePad(column);
       case 'relation':
         return _buildRelationPicker(column);
       case 'number':
@@ -242,11 +246,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           decoration: BoxDecoration(
             color: AppTheme.surfaceColor,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.2), style: BorderStyle.solid), // Dashed border simulation
+            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.2), style: BorderStyle.solid),
           ),
           child: InkWell(
             onTap: () {
-              // TODO: Implement Camera/Gallery picker
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Camera integration coming soon')));
             },
             borderRadius: BorderRadius.circular(12),
@@ -260,6 +263,89 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                   style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
                 ),
               ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildScanner(ColumnConfig column) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          column.label.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.secondaryTextColor,
+            letterSpacing: 1.0,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 80,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.2)),
+          ),
+          child: InkWell(
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanner integration coming soon')));
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.qr_code_scanner_rounded, size: 24, color: AppTheme.secondaryTextColor),
+                const SizedBox(width: 12),
+                Text(
+                  'Scan Barcode/QR',
+                  style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSignaturePad(ColumnConfig column) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          column.label.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.secondaryTextColor,
+            letterSpacing: 1.0,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          height: 150,
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.2)),
+          ),
+          child: InkWell(
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Signature pad coming soon')));
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Center(
+              child: Text(
+                'Tap to sign',
+                style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+              ),
             ),
           ),
         ),
