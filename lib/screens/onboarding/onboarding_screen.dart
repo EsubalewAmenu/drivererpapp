@@ -4,7 +4,8 @@ import '../../theme/app_theme.dart';
 import '../dashboard_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({super.key});
+  final String rootFolderId;
+  const OnboardingScreen({super.key, required this.rootFolderId});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();

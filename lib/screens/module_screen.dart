@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
+import '../services/auth_service.dart';
 import '../services/drive_service.dart';
 import '../theme/app_theme.dart';
 import 'dynamic_form_screen.dart';
@@ -93,7 +95,9 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
   }
 
   Future<void> _calculateKpis() async {
-    final driveService = DriveService();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (authService.authClient == null) return;
+    final driveService = DriveService(authService.authClient!);
     final Map<String, String> results = {};
 
     // Assuming the first tab is the primary data source for now
@@ -265,7 +269,7 @@ class ModuleTabScreen extends StatefulWidget {
 }
 
 class _ModuleTabScreenState extends State<ModuleTabScreen> {
-  final DriveService _driveService = DriveService();
+  late final DriveService _driveService;
   final String _currentWorkspace = 'Default Workspace'; // TODO: Get from global state
   
   List<Map<String, dynamic>> _allData = [];
@@ -279,6 +283,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   @override
   void initState() {
     super.initState();
+    final authService = Provider.of<AuthService>(context, listen: false);
+    _driveService = DriveService(authService.authClient!);
     _loadData();
     _searchController.addListener(() {
       setState(() {

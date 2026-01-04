@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
+import '../services/auth_service.dart';
 import '../services/drive_service.dart';
 import '../theme/app_theme.dart';
 
@@ -417,7 +419,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         // Save to DriveService (Mock for now)
         // We assume the sheet name is the tab ID for simplicity in this mock
         final sheetName = widget.tab.id;
-        final driveService = DriveService();
+        final authService = Provider.of<AuthService>(context, listen: false);
+        if (authService.authClient == null) throw Exception("Not authenticated");
+        final driveService = DriveService(authService.authClient!);
         
         // Read existing data
         final currentData = await driveService.readSheet('Default Workspace', sheetName);

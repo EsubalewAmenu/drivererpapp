@@ -1,38 +1,85 @@
-import 'dart:convert';
+import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:http/http.dart' as http;
 
 class DriveService {
-  // Simulating Drive with in-memory storage for now.
-  // TODO: Replace with SharedPreferences or Google Drive API.
-  final Map<String, String> _storage = {};
-  static const String _manifestKey = 'drive_erp_manifest';
+  final http.Client authClient;
+  late final drive.DriveApi _driveApi;
 
-  Future<List<String>> getWorkspaces() async {
-    final data = _storage[_manifestKey];
-    if (data != null) {
-      return List<String>.from(json.decode(data));
-    }
-    return ['Default Workspace'];
+  // The name of the root folder for our app
+  static const String _rootFolderName = 'DriveERP_Data';
+
+  DriveService(this.authClient) {
+    _driveApi = drive.DriveApi(authClient);
   }
 
-  Future<void> createWorkspace(String name) async {
-    final workspaces = await getWorkspaces();
-    if (!workspaces.contains(name)) {
-      workspaces.add(name);
-      _storage[_manifestKey] = json.encode(workspaces);
+  /// Checks if the root folder exists. Returns the folder ID if it does, or null.
+  Future<String?> checkRootFolder() async {
+    try {
+      final fileList = await _driveApi.files.list(
+        q: "mimeType = 'application/vnd.google-apps.folder' and name = '$_rootFolderName' and trashed = false",
+        $fields: 'files(id, name)',
+      );
+
+      if (fileList.files != null && fileList.files!.isNotEmpty) {
+        return fileList.files!.first.id;
+      }
+      return null;
+    } catch (e) {
+      print('Error checking root folder: $e');
+      rethrow;
+    }
+  }
+
+  /// Creates the root folder and returns its ID.
+  Future<String> createRootFolder() async {
+    try {
+      final folder = drive.File()
+        ..name = _rootFolderName
+        ..mimeType = 'application/vnd.google-apps.folder';
+
+      final createdFolder = await _driveApi.files.create(folder);
+      return createdFolder.id!;
+    } catch (e) {
+      print('Error creating root folder: $e');
+      rethrow;
+    }
+  }
+
+  /// Lists subfolders (workspaces) inside the root folder.
+  Future<List<drive.File>> listWorkspaces(String rootFolderId) async {
+    try {
+      final fileList = await _driveApi.files.list(
+        q: "'$rootFolderId' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
+        $fields: 'files(id, name)',
+      );
+      return fileList.files ?? [];
+    } catch (e) {
+      print('Error listing workspaces: $e');
+      rethrow;
+    }
+  }
+  
+  /// Creates a new workspace folder inside the root folder.
+  Future<drive.File> createWorkspace(String rootFolderId, String workspaceName) async {
+    try {
+      final folder = drive.File()
+        ..name = workspaceName
+        ..parents = [rootFolderId]
+        ..mimeType = 'application/vnd.google-apps.folder';
+
+      return await _driveApi.files.create(folder);
+    } catch (e) {
+      print('Error creating workspace: $e');
+      rethrow;
     }
   }
 
   Future<List<Map<String, dynamic>>> readSheet(String workspace, String sheetName) async {
-    final key = 'workspace_${workspace}_$sheetName';
-    final data = _storage[key];
-    if (data != null) {
-      return List<Map<String, dynamic>>.from(json.decode(data));
-    }
+    // TODO: Implement real sheet reading
     return [];
   }
 
   Future<void> writeSheet(String workspace, String sheetName, List<Map<String, dynamic>> data) async {
-    final key = 'workspace_${workspace}_$sheetName';
-    _storage[key] = json.encode(data);
+    // TODO: Implement real sheet writing
   }
 }

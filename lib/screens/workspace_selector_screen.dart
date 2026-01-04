@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
 import 'onboarding/onboarding_screen.dart';
 
 class WorkspaceSelectorScreen extends StatelessWidget {
-  const WorkspaceSelectorScreen({super.key});
+  final List<drive.File> workspaces;
+  final String rootFolderId;
+
+  const WorkspaceSelectorScreen({
+    super.key, 
+    required this.workspaces,
+    required this.rootFolderId,
+  });
 
   @override
   Widget build(BuildContext context) {
-    // Mock data for workspaces
-    final workspaces = [
-      {'name': 'Acme Corp', 'role': 'Admin', 'id': '1'},
-      {'name': 'Global Logistics', 'role': 'Driver', 'id': '2'},
-    ];
-
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
@@ -40,7 +42,15 @@ class WorkspaceSelectorScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Expanded(
-                child: ListView.separated(
+                child: workspaces.isEmpty 
+                ? Center(
+                    child: Text(
+                      'No workspaces found.\nCreate one to get started.',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+                    ),
+                  )
+                : ListView.separated(
                   itemCount: workspaces.length,
                   separatorBuilder: (context, index) => const SizedBox(height: 16),
                   itemBuilder: (context, index) {
@@ -54,7 +64,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const OnboardingScreen()),
+                    MaterialPageRoute(builder: (context) => OnboardingScreen(rootFolderId: rootFolderId)),
                   );
                 },
                 icon: const Icon(Icons.add_rounded),
@@ -76,7 +86,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildWorkspaceCard(BuildContext context, Map<String, String> workspace) {
+  Widget _buildWorkspaceCard(BuildContext context, drive.File workspace) {
     return Card(
       color: AppTheme.surfaceColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
@@ -102,7 +112,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    workspace['name']![0],
+                    (workspace.name ?? 'U')[0].toUpperCase(),
                     style: GoogleFonts.inter(
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
@@ -117,7 +127,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      workspace['name']!,
+                      workspace.name ?? 'Unnamed Workspace',
                       style: GoogleFonts.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
@@ -126,7 +136,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      workspace['role']!.toUpperCase(),
+                      'ID: ${workspace.id}',
                       style: GoogleFonts.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,

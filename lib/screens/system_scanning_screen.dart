@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
+import '../services/drive_service.dart';
 import 'workspace_selector_screen.dart';
 
 class SystemScanningScreen extends StatefulWidget {
@@ -12,62 +16,105 @@ class SystemScanningScreen extends StatefulWidget {
 }
 
 class _SystemScanningScreenState extends State<SystemScanningScreen> {
-  final List<String> _statusMessages = [
-    "Establishing secure handshake...",
-    "Scanning Drive for .drive_erp_manifest...",
-    "Verifying cryptographic signatures...",
-    "Validating data integrity...",
-    "Syncing workspace configuration...",
-    "System ready."
-  ];
-
-  int _currentIndex = 0;
+  String _statusMessage = "Initializing system...";
   double _progress = 0.0;
 
   @override
   void initState() {
     super.initState();
-    _startScanningSequence();
+    // Start scanning after the first frame to ensure context is available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _startScanningSequence();
+    });
   }
 
-  void _startScanningSequence() {
-    const totalDuration = Duration(seconds: 3);
-    const stepDuration = Duration(milliseconds: 600); // 3000ms / 5 steps
-
-    Timer.periodic(stepDuration, (timer) {
-      if (_currentIndex < _statusMessages.length - 1) {
-        setState(() {
-          _currentIndex++;
-          _progress = (_currentIndex + 1) / _statusMessages.length;
-        });
-      } else {
-        timer.cancel();
-        // Navigate to WorkspaceSelector after a brief pause on "System ready"
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(builder: (_) => const WorkspaceSelectorScreen()),
-            );
-          }
-        });
+  Future<void> _startScanningSequence() async {
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      
+      // Wait for auth client if not ready (though it should be if we are here)
+      if (authService.authClient == null) {
+        setState(() => _statusMessage = "Waiting for authentication...");
+        // In a real app, you might want to retry or redirect to login
+        await Future.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
+        if (authService.authClient == null) {
+           // Fallback or error
+           setState(() => _statusMessage = "Authentication failed.");
+           return;
+        }
       }
-    });
+
+      final driveService = DriveService(authService.authClient!);
+
+      // Step 1: Check Root Folder
+      setState(() {
+        _statusMessage = "Scanning Drive for DriveERP_Data...";
+        _progress = 0.2;
+      });
+      
+      String? rootFolderId = await driveService.checkRootFolder();
+
+      // Step 2: Create Root Folder if missing
+      if (rootFolderId == null) {
+        setState(() {
+          _statusMessage = "Initializing DriveERP_Data environment...";
+          _progress = 0.4;
+        });
+        rootFolderId = await driveService.createRootFolder();
+      } else {
+        setState(() {
+          _statusMessage = "DriveERP_Data found. Verifying integrity...";
+          _progress = 0.5;
+        });
+        await Future.delayed(const Duration(milliseconds: 500)); // UX delay
+      }
+
+      // Step 3: List Workspaces
+      setState(() {
+        _statusMessage = "Syncing workspace configuration...";
+        _progress = 0.7;
+      });
+
+      final workspaces = await driveService.listWorkspaces(rootFolderId);
+
+      // Step 4: Ready
+      setState(() {
+        _statusMessage = "System ready.";
+        _progress = 1.0;
+      });
+
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => WorkspaceSelectorScreen(
+              workspaces: workspaces,
+              rootFolderId: rootFolderId!,
+            ),
+          ),
+        );
+      }
+
+    } catch (e) {
+      if (mounted) {
+        String errorMessage = "System Error: $e";
+        if (e.toString().contains("disabled") || e.toString().contains("has not been used")) {
+           errorMessage = "API Error: Google Drive API is not enabled.\nPlease enable it in Google Cloud Console.";
+        }
+        
+        setState(() {
+          _statusMessage = errorMessage;
+          _progress = 0.0;
+        });
+        print("Scanning Error: $e");
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Using dark theme for the "technical/terminal" feel, or consistent light theme?
-    // The prompt mentions "High Trust" perception. Often technical scans look good in dark mode,
-    // but if the rest is white, maybe stick to white.
-    // However, the "Enterprise HUD" description earlier mentioned dark mode.
-    // The Landing page was requested to be "Minimalist white".
-    // Let's stick to the AppTheme.darkTheme for this "System" operation to give it a "Terminal/Backend" feel,
-    // OR keep it consistent with the Landing page.
-    // Given "High Trust" and "Technical status messages", a clean technical look is best.
-    // Let's use the Dark theme for this specific "System" screen to contrast with the "Public" landing page,
-    // implying we are now "inside" the system. Or maybe just consistent light.
-    // Let's go with Dark for the "System" feel as per the original "Enterprise HUD" spec which was dark.
-
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       body: SafeArea(
@@ -122,8 +169,8 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: Text(
-                  _statusMessages[_currentIndex],
-                  key: ValueKey<int>(_currentIndex),
+                  _statusMessage,
+                  key: ValueKey<String>(_statusMessage),
                   style: GoogleFonts.sourceCodePro( // Monospace for technical feel
                     color: AppTheme.textColor,
                     fontSize: 16,

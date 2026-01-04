@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
 import '../screens/settings_screen.dart';
-import '../screens/workspace_selector_screen.dart';
+import '../screens/system_scanning_screen.dart';
+import '../screens/landing_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -68,10 +71,10 @@ class AppDrawer extends StatelessWidget {
         ),
         child: InkWell(
           onTap: () {
-            // Navigate to workspace selector
+            // Navigate to system scanning to refresh workspaces
              Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const WorkspaceSelectorScreen()),
+              MaterialPageRoute(builder: (context) => const SystemScanningScreen()),
             );
           },
           child: Row(
@@ -148,12 +151,14 @@ class AppDrawer extends StatelessWidget {
                 color: const Color(0xFFF43F5E),
               ),
             ),
-            onTap: () {
-              // TODO: Implement actual logout logic
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const WorkspaceSelectorScreen()),
-              );
+            onTap: () async {
+              await Provider.of<AuthService>(context, listen: false).signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LandingScreen()),
+                  (route) => false,
+                );
+              }
             },
           ),
         ],
