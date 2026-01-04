@@ -23,6 +23,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   late Future<List<drive.File>> _modulesFuture;
   String _selectedPeriod = 'Today'; // 'Today', 'Week', 'Month'
   
+  final List<Map<String, String>> _catalog = [
+    {'name': 'CRM', 'icon': 'people', 'desc': 'Customer Relationship Management', 'color': '#3B82F6'}, // Blue
+    {'name': 'Inventory', 'icon': 'inventory', 'desc': 'Stock & Warehouse', 'color': '#F59E0B'}, // Amber
+    {'name': 'HR', 'icon': 'badge', 'desc': 'Human Resources', 'color': '#8B5CF6'}, // Violet
+    {'name': 'Sales', 'icon': 'shopping_cart', 'desc': 'Orders & Invoices', 'color': '#10B981'}, // Emerald
+    {'name': 'Marketing', 'icon': 'campaign', 'desc': 'Campaigns & Leads', 'color': '#EC4899'}, // Pink
+    {'name': 'Expenses', 'icon': 'receipt_long', 'desc': 'Cost Tracking', 'color': '#EF4444'}, // Red
+    {'name': 'Projects', 'icon': 'assignment', 'desc': 'Task Management', 'color': '#14B8A6'}, // Teal
+    {'name': 'Accounting', 'icon': 'account_balance', 'desc': 'Financial Records', 'color': '#6366F1'}, // Indigo
+    {'name': 'Analytics', 'icon': 'analytics', 'desc': 'Business Intelligence', 'color': '#06B6D4'}, // Cyan
+    {'name': 'Support', 'icon': 'support_agent', 'desc': 'Helpdesk & Tickets', 'color': '#F97316'}, // Orange
+  ];
+  
   // Mock KPI Data
   final Map<String, Map<String, double>> _kpiData = {
     'Today': {'sales': 1250.00, 'expenses': 450.00},
@@ -84,24 +97,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildDateFilter(),
-              const SizedBox(height: 24),
-              _buildKPIEngine(sales, expenses, profit, kpiColor),
-              const SizedBox(height: 32),
-              _buildSectionHeader('CORE MODULES'),
-              const SizedBox(height: 16),
-              _buildCoreModulesGrid(),
-              const SizedBox(height: 32),
-              _buildSectionHeader('EXPANSION MARKETPLACE'),
-              const SizedBox(height: 16),
-              _buildExpansionMarketplaceGrid(),
-            ],
-          ),
+        child: FutureBuilder<List<drive.File>>(
+          future: _modulesFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final driveFiles = snapshot.data ?? [];
+            final activeModuleNames = driveFiles.map((f) => f.name).toSet();
+
+            final activeModules = _catalog.where((m) => activeModuleNames.contains(m['name'])).toList();
+            final expansionModules = _catalog.where((m) => !activeModuleNames.contains(m['name'])).toList();
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildDateFilter(),
+                  const SizedBox(height: 24),
+                  _buildKPIEngine(sales, expenses, profit, kpiColor),
+                  const SizedBox(height: 32),
+                  _buildSectionHeader('CORE MODULES'),
+                  const SizedBox(height: 16),
+                  _buildCoreModulesGrid(activeModules, driveFiles),
+                  const SizedBox(height: 32),
+                  _buildSectionHeader('EXPANSION MARKETPLACE'),
+                  const SizedBox(height: 16),
+                  _buildExpansionMarketplaceGrid(expansionModules),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -212,60 +240,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildCoreModulesGrid() {
-    return FutureBuilder<List<drive.File>>(
-      future: _modulesFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
+  Widget _buildCoreModulesGrid(List<Map<String, String>> activeModules, List<drive.File> driveFiles) {
+    if (activeModules.isEmpty) {
+      return Center(
+        child: Text(
+          'No modules installed.\nVisit the Marketplace to expand.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+        ),
+      );
+    }
+    
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        crossAxisSpacing: 16,
+        mainAxisSpacing: 16,
+        childAspectRatio: 1.1,
+      ),
+      itemCount: activeModules.length,
+      itemBuilder: (context, index) {
+        final moduleInfo = activeModules[index];
+        final folder = driveFiles.firstWhere((f) => f.name == moduleInfo['name']);
         
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return Center(
-            child: Text(
-              'No modules installed.\nVisit the Marketplace to expand.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
-            ),
-          );
-        }
-        
-        final modules = snapshot.data!;
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.1,
-          ),
-          itemCount: modules.length,
-          itemBuilder: (context, index) {
-            final folder = modules[index];
-            // Create a temporary schema from the folder
-            final module = ModuleSchema(
-              id: folder.id ?? 'unknown',
-              name: folder.name ?? 'Unknown Module',
-              icon: 'folder',
-              settings: ModuleSettings(primaryColor: '#10B981', version: '1.0.0'), // Default color
-              dashboard: DashboardConfig(kpiCards: []),
-              tabs: [],
-            );
-            return _buildModuleCard(module, isActive: true);
-          },
+        // Create a temporary schema from the folder
+        final module = ModuleSchema(
+          id: folder.id ?? 'unknown',
+          name: moduleInfo['name']!,
+          icon: moduleInfo['icon']!,
+          settings: ModuleSettings(primaryColor: moduleInfo['color']!, version: '1.0.0'),
+          dashboard: DashboardConfig(kpiCards: []),
+          tabs: [],
         );
+        return _buildModuleCard(module, isActive: true);
       },
     );
   }
 
-  Widget _buildExpansionMarketplaceGrid() {
-    // Mock Expansion Modules
-    final expansionModules = [
-      {'name': 'Fleet AI', 'icon': 'local_shipping', 'desc': 'Route optimization'},
-      {'name': 'Payroll', 'icon': 'payments', 'desc': 'Automated salary'},
-    ];
-
+  Widget _buildExpansionMarketplaceGrid(List<Map<String, String>> expansionModules) {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -278,7 +292,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       itemCount: expansionModules.length,
       itemBuilder: (context, index) {
         final mod = expansionModules[index];
-        return _buildMarketplaceCard(mod['name']!, mod['icon']!, mod['desc']!);
+        return _buildMarketplaceCard(mod['name']!, mod['icon']!, mod['desc']!, mod['color']!);
       },
     );
   }
@@ -334,7 +348,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildMarketplaceCard(String name, String iconName, String desc) {
+  Widget _buildMarketplaceCard(String name, String iconName, String desc, String colorHex) {
+    final color = Color(int.parse(colorHex.replaceAll('#', '0xFF')));
     return Card(
       color: AppTheme.surfaceColor.withOpacity(0.5),
       shape: RoundedRectangleBorder(
@@ -361,7 +376,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 child: Icon(
                   _getIconData(iconName),
-                  color: AppTheme.secondaryTextColor,
+                  color: color.withOpacity(0.7),
                   size: 24,
                 ),
               ),
@@ -393,6 +408,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'shopping_cart': return Icons.shopping_cart_rounded;
       case 'local_shipping': return Icons.local_shipping_rounded;
       case 'payments': return Icons.payments_rounded;
+      case 'badge': return Icons.badge_rounded;
+      case 'campaign': return Icons.campaign_rounded;
+      case 'receipt_long': return Icons.receipt_long_rounded;
+      case 'assignment': return Icons.assignment_rounded;
+      case 'account_balance': return Icons.account_balance_rounded;
+      case 'analytics': return Icons.analytics_rounded;
+      case 'support_agent': return Icons.support_agent_rounded;
       default: return Icons.widgets_rounded;
     }
   }
