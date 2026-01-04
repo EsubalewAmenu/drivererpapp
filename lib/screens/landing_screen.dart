@@ -1,10 +1,37 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'system_scanning_screen.dart';
 
-class LandingScreen extends StatelessWidget {
+class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
+
+  @override
+  State<LandingScreen> createState() => _LandingScreenState();
+}
+
+class _LandingScreenState extends State<LandingScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Attempt silent sign-in
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSilentSignIn();
+    });
+  }
+
+  Future<void> _checkSilentSignIn() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    await authService.signInSilently();
+    if (authService.isAuthenticated && mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => const SystemScanningScreen()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,10 +116,7 @@ class LandingScreen extends StatelessWidget {
 
                 // Google Sign In Button
                 FilledButton.icon(
-                  onPressed: () {
-                    // Simulate Auth Flow
-                    _simulateGoogleAuth(context);
-                  },
+                  onPressed: () => _handleGoogleSignIn(context),
                   icon: const Icon(Icons.login_rounded), // Placeholder for Google Icon
                   label: Text(
                     'Continue with Google',
@@ -161,41 +185,32 @@ class LandingScreen extends StatelessWidget {
     );
   }
 
-  void _simulateGoogleAuth(BuildContext context) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(color: AppTheme.primaryColor),
-              const SizedBox(height: 24),
-              Text(
-                'Connecting to Drive...',
-                style: GoogleFonts.inter(
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.lightTextColor,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> _handleGoogleSignIn(BuildContext context) async {
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
 
-    // Simulate delay then navigate
-    Future.delayed(const Duration(seconds: 2), () {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      await authService.signIn();
+
       if (context.mounted) {
-        Navigator.pop(context); // Close dialog
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const SystemScanningScreen()),
+        Navigator.pop(context); // Close loading dialog
+        if (authService.isAuthenticated) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const SystemScanningScreen()),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Sign in failed: $e')),
         );
       }
-    });
+    }
   }
 }

@@ -1,4 +1,4 @@
-package com.example.drivererpapp
+package com.datascience.apps.drivererp
 
 import io.flutter.embedding.android.FlutterActivity
 

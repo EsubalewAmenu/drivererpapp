@@ -302,7 +302,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       });
     }
   }
-  }
 
   void _applyFilters() {
     setState(() {
