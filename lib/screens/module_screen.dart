@@ -59,7 +59,11 @@ class _ModuleScreenState extends State<ModuleScreen> {
         ),
         body: TabBarView(
           children: [
-            ModuleDashboard(module: widget.module, primaryColor: primaryColor),
+            ModuleDashboard(
+              key: UniqueKey(), // Force rebuild when tab changes or parent rebuilds
+              module: widget.module, 
+              primaryColor: primaryColor
+            ),
             ...widget.module.tabs.map((t) => ModuleTabScreen(tab: t, primaryColor: primaryColor)),
           ],
         ),
@@ -68,14 +72,109 @@ class _ModuleScreenState extends State<ModuleScreen> {
   }
 }
 
-class ModuleDashboard extends StatelessWidget {
+class ModuleDashboard extends StatefulWidget {
   final ModuleSchema module;
   final Color primaryColor;
 
   const ModuleDashboard({super.key, required this.module, required this.primaryColor});
 
   @override
+  State<ModuleDashboard> createState() => _ModuleDashboardState();
+}
+
+class _ModuleDashboardState extends State<ModuleDashboard> {
+  Map<String, String> _kpiValues = {};
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _calculateKpis();
+  }
+
+  Future<void> _calculateKpis() async {
+    final driveService = DriveService();
+    final Map<String, String> results = {};
+
+    // Assuming the first tab is the primary data source for now
+    // In a real app, we'd need to know which sheet/tab the KPI refers to.
+    // For Inventory, it's the 'stock' tab.
+    if (widget.module.tabs.isEmpty) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final tabId = widget.module.tabs.first.id;
+    final data = await driveService.readSheet('Default Workspace', tabId);
+
+    for (var card in widget.module.dashboard.kpiCards) {
+      results[card.label] = _evaluateFormula(card.calculation, card.format, data);
+    }
+
+    if (mounted) {
+      setState(() {
+        _kpiValues = results;
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _evaluateFormula(String formula, String format, List<Map<String, dynamic>> data) {
+    try {
+      if (formula.startsWith('SUM(')) {
+        // SUM(cost_price * qty)
+        final expression = formula.substring(4, formula.length - 1);
+        double total = 0;
+        
+        for (var row in data) {
+          if (expression.contains('*')) {
+            final parts = expression.split('*').map((e) => e.trim()).toList();
+            final val1 = double.tryParse(row[parts[0]]?.toString() ?? '0') ?? 0;
+            final val2 = double.tryParse(row[parts[1]]?.toString() ?? '0') ?? 0;
+            total += val1 * val2;
+          } else {
+            final val = double.tryParse(row[expression]?.toString() ?? '0') ?? 0;
+            total += val;
+          }
+        }
+        
+        if (format == 'currency') {
+          return '\$${total.toStringAsFixed(2)}';
+        }
+        return total.toStringAsFixed(2);
+      } 
+      else if (formula.startsWith('COUNT(')) {
+        // COUNT(qty < 10)
+        final expression = formula.substring(6, formula.length - 1);
+        int count = 0;
+        
+        if (expression.contains('<')) {
+          final parts = expression.split('<').map((e) => e.trim()).toList();
+          final key = parts[0];
+          final threshold = double.tryParse(parts[1]) ?? 0;
+          
+          for (var row in data) {
+            final val = double.tryParse(row[key]?.toString() ?? '0') ?? 0;
+            if (val < threshold) {
+              count++;
+            }
+          }
+        }
+        return count.toString();
+      }
+      
+      return '0';
+    } catch (e) {
+      return 'Error';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -89,19 +188,27 @@ class ModuleDashboard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
-        ...module.dashboard.kpiCards.map((card) => _buildKpiCard(context, card)),
+        ...widget.module.dashboard.kpiCards.map((card) => _buildKpiCard(context, card)),
       ],
     );
   }
 
   Widget _buildKpiCard(BuildContext context, KpiCard card) {
+    final value = _kpiValues[card.label] ?? '0';
+    
+    // Alert Logic: If label is "Shortages" and count > 0, use danger color
+    final isAlert = card.label == 'Shortages' && (int.tryParse(value) ?? 0) > 0;
+    final cardColor = isAlert ? const Color(0xFFF43F5E) : widget.primaryColor;
+    final bgColor = isAlert ? const Color(0xFFF43F5E).withOpacity(0.1) : AppTheme.surfaceColor;
+    final borderColor = isAlert ? const Color(0xFFF43F5E) : widget.primaryColor.withOpacity(0.3);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: bgColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: primaryColor.withOpacity(0.3)),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -114,20 +221,23 @@ class ModuleDashboard extends StatelessWidget {
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.secondaryTextColor,
+                  color: isAlert ? cardColor : AppTheme.secondaryTextColor,
                   letterSpacing: 1.0,
                 ),
               ),
-              Icon(Icons.show_chart_rounded, color: primaryColor),
+              Icon(
+                isAlert ? Icons.warning_rounded : Icons.show_chart_rounded, 
+                color: cardColor
+              ),
             ],
           ),
           const SizedBox(height: 16),
           Text(
-            "0", // Placeholder for calculation result
+            value,
             style: GoogleFonts.sourceCodePro(
               fontSize: 32,
               fontWeight: FontWeight.w700,
-              color: AppTheme.textColor,
+              color: isAlert ? cardColor : AppTheme.textColor,
             ),
           ),
           const SizedBox(height: 8),
@@ -135,7 +245,7 @@ class ModuleDashboard extends StatelessWidget {
             "Formula: ${card.calculation}",
             style: GoogleFonts.inter(
               fontSize: 12,
-              color: AppTheme.secondaryTextColor,
+              color: isAlert ? cardColor.withOpacity(0.8) : AppTheme.secondaryTextColor,
             ),
           ),
         ],
@@ -179,28 +289,19 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   Future<void> _loadData() async {
-    // Simulate network delay for "High Trust" feel
-    await Future.delayed(const Duration(milliseconds: 800));
+    setState(() => _isLoading = true);
     
-    // Mock data since DriveService might not be fully connected yet
-    // In real app, use: final data = await _driveService.readSheet(_currentWorkspace, widget.tab.id);
-    final mockData = List.generate(10, (index) {
-      final map = <String, dynamic>{};
-      for (var col in widget.tab.columns) {
-        map[col.key] = 'Item $index - ${col.label}';
-      }
-      // Add some variation for filtering
-      map['status'] = index % 2 == 0 ? 'Active' : 'Inactive';
-      return map;
-    });
-
+    // Load actual data from DriveService
+    final data = await _driveService.readSheet(_currentWorkspace, widget.tab.id);
+    
     if (mounted) {
       setState(() {
-        _allData = mockData;
-        _filteredData = mockData;
+        _allData = data;
+        _filteredData = data;
         _isLoading = false;
       });
     }
+  }
   }
 
   void _applyFilters() {
@@ -239,8 +340,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: widget.primaryColor,
         child: const Icon(Icons.add),
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => DynamicFormScreen(
@@ -249,6 +350,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               ),
             ),
           );
+          // Refresh data on return
+          _loadData();
         },
       ),
     );
