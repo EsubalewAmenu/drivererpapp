@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/schema_models.dart';
 import '../services/drive_service.dart';
 import '../theme/app_theme.dart';
+import 'record_detail_screen.dart';
 
 class ModuleScreen extends StatefulWidget {
   final ModuleSchema module;
@@ -321,7 +322,17 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
-          // TODO: Show detail view
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => RecordDetailScreen(
+                data: item,
+                columns: widget.tab.columns,
+                primaryColor: widget.primaryColor,
+                title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
+              ),
+            ),
+          );
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
