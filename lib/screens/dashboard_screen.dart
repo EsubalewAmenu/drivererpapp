@@ -3,7 +3,9 @@ import 'package:google_fonts/google_fonts.dart';
 import '../models/schema_models.dart';
 import '../services/schema_service.dart';
 import '../theme/app_theme.dart';
+import '../widgets/app_drawer.dart';
 import 'module_screen.dart';
+import 'settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -39,6 +41,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
+      drawer: const AppDrawer(),
       appBar: AppBar(
         title: Text('DRIVE ERP', style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
         centerTitle: true,
@@ -48,7 +51,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           IconButton(
             icon: const Icon(Icons.settings_rounded),
             onPressed: () {
-              // TODO: Settings
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
             },
           ),
         ],
