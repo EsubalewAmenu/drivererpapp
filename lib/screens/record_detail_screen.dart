@@ -121,6 +121,10 @@ class RecordDetailScreen extends StatelessWidget {
            return _buildStatusField(col.label, displayValue);
         }
 
+        if (col.type == 'formula') {
+           return _buildFormulaField(col.label, displayValue);
+        }
+
         return _buildTextField(col.label, displayValue);
       },
     );
@@ -250,6 +254,47 @@ class RecordDetailScreen extends StatelessWidget {
                   ],
                 ),
               ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormulaField(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.secondaryTextColor,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceColor.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.1)),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.functions_rounded, size: 16, color: AppTheme.secondaryTextColor),
+              const SizedBox(width: 8),
+              Text(
+                value,
+                style: GoogleFonts.inter(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.textColor,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

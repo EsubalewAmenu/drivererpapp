@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/schema_models.dart';
+import '../services/drive_service.dart';
 import '../theme/app_theme.dart';
 
 class DynamicFormScreen extends StatefulWidget {
@@ -100,6 +101,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         return _buildScanner(column);
       case 'signature':
         return _buildSignaturePad(column);
+      case 'select':
+      case 'dropdown':
+        return _buildDropdown(column);
+      case 'formula':
+        return _buildFormulaField(column);
       case 'relation':
         return _buildRelationPicker(column);
       case 'number':
@@ -145,6 +151,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               borderSide: BorderSide(color: widget.primaryColor),
             ),
           ),
+          onChanged: (value) {
+            // Trigger rebuild for formulas
+            setState(() {});
+          },
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter ${column.label.toLowerCase()}';
@@ -399,12 +409,123 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     );
   }
 
-  void _saveForm() {
+  void _saveForm() async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
-      // TODO: Save to DriveService
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record saved locally')));
-      Navigator.pop(context);
+      
+      try {
+        // Save to DriveService (Mock for now)
+        // We assume the sheet name is the tab ID for simplicity in this mock
+        final sheetName = widget.tab.id;
+        final driveService = DriveService();
+        
+        // Read existing data
+        final currentData = await driveService.readSheet('Default Workspace', sheetName);
+        
+        // Append new record
+        currentData.add(_formData);
+        
+        // Write back
+        await driveService.writeSheet('Default Workspace', sheetName, currentData);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record saved to Drive')));
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving: $e')));
+        }
+      }
     }
+  }
+
+  Widget _buildDropdown(ColumnConfig column) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          column.label.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.secondaryTextColor,
+            letterSpacing: 1.0,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: _formData[column.key],
+          dropdownColor: AppTheme.surfaceColor,
+          style: TextStyle(color: AppTheme.textColor),
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: AppTheme.surfaceColor,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          items: (column.options ?? []).map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
+          onChanged: (val) {
+            setState(() {
+              _formData[column.key] = val;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFormulaField(ColumnConfig column) {
+    String value = '0.00';
+    if (column.formula != null) {
+      if (column.formula!.contains('*')) {
+        final parts = column.formula!.split('*').map((e) => e.trim()).toList();
+        if (parts.length == 2) {
+          final key1 = parts[0];
+          final key2 = parts[1];
+          
+          double val1 = double.tryParse(_controllers[key1]?.text ?? '') ?? 0;
+          double val2 = double.tryParse(_controllers[key2]?.text ?? '') ?? 0;
+          
+          value = (val1 * val2).toStringAsFixed(2);
+          _formData[column.key] = value;
+        }
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          column.label.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.secondaryTextColor,
+            letterSpacing: 1.0,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceColor.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.1)),
+          ),
+          child: Text(
+            value,
+            style: GoogleFonts.inter(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: AppTheme.textColor,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }

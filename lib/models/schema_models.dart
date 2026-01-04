@@ -87,11 +87,15 @@ class ColumnConfig {
   final String key;
   final String label;
   final String type;
+  final List<String>? options;
+  final String? formula;
 
   ColumnConfig({
     required this.key,
     required this.label,
     required this.type,
+    this.options,
+    this.formula,
   });
 
   factory ColumnConfig.fromJson(Map<String, dynamic> json) => _$ColumnConfigFromJson(json);

@@ -1,35 +1,47 @@
 {
   "id": "inventory",
   "name": "Inventory",
-  "icon": "box",
+  "icon": "inventory_2_rounded",
   "settings": {
-    "primaryColor": "#10B981",
-    "version": "1.0.0"
+    "primaryColor": "#2196F3",
+    "version": "1.0"
   },
   "dashboard": {
     "kpiCards": [
       {
-        "label": "Total Value",
-        "calculation": "SUM(qty * cost_price)",
+        "label": "Stock Worth",
+        "calculation": "SUM(cost_price * qty)",
         "format": "currency"
       },
       {
-        "label": "Low Stock",
-        "calculation": "COUNT(qty < min_level)",
+        "label": "Shortages",
+        "calculation": "COUNT(qty < 10)",
         "format": "number"
       }
     ]
   },
   "tabs": [
     {
-      "id": "items",
-      "label": "Items",
+      "id": "stock",
+      "label": "Warehouse Inventory",
       "columns": [
-        { "key": "sku", "label": "SKU", "type": "scanner" },
-        { "key": "name", "label": "Item Name", "type": "text" },
+        { "key": "product_image", "label": "Photo", "type": "image" },
+        { "key": "item_name", "label": "Product", "type": "text" },
+        { "key": "barcode_sku", "label": "SKU", "type": "scanner" },
+        { 
+          "key": "category", 
+          "label": "Department", 
+          "type": "select",
+          "options": ["High-End Laptop", "Monitor", "Accessories", "Cables", "Software"]
+        },
         { "key": "qty", "label": "Quantity", "type": "number" },
-        { "key": "cost_price", "label": "Cost Price", "type": "currency" },
-        { "key": "min_level", "label": "Min Level", "type": "number" }
+        { "key": "cost_price", "label": "Unit Cost", "type": "currency" },
+        { 
+          "key": "total_value", 
+          "label": "Line Total", 
+          "type": "formula",
+          "formula": "qty * cost_price"
+        }
       ]
     }
   ]
