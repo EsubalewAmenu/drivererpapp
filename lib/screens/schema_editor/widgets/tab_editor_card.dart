@@ -10,12 +10,16 @@ class TabEditorCard extends StatelessWidget {
   final TabConfig tab;
   final Map<String, dynamic>? rawSettings;
   final Function(TabConfig) onTabChanged;
+  final VoidCallback onDelete;
+  final VoidCallback onEdit;
 
   const TabEditorCard({
     super.key,
     required this.tab,
     required this.rawSettings,
     required this.onTabChanged,
+    required this.onDelete,
+    required this.onEdit,
   });
 
   @override
@@ -25,7 +29,23 @@ class TabEditorCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ExpansionTile(
-        title: Text(tab.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(tab.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+            ),
+            IconButton(
+              icon: const Icon(Icons.edit_rounded, size: 20),
+              color: AppTheme.primaryColor,
+              onPressed: onEdit,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, size: 20),
+              color: Colors.red,
+              onPressed: onDelete,
+            ),
+          ],
+        ),
         subtitle: Text('${tab.columns.length} Columns', style: GoogleFonts.inter(color: AppTheme.secondaryTextColor)),
         iconColor: AppTheme.primaryColor,
         collapsedIconColor: AppTheme.secondaryTextColor,

@@ -4,6 +4,7 @@ import '../../models/schema_models.dart';
 import '../../theme/app_theme.dart';
 import 'widgets/tab_editor_card.dart';
 import 'dialogs/add_tab_dialog.dart';
+import 'dialogs/edit_tab_dialog.dart';
 
 class StructureEditor extends StatefulWidget {
   final List<TabConfig> tabs;
@@ -41,6 +42,8 @@ class _StructureEditorState extends State<StructureEditor> {
             newTabs[index] = updatedTab;
             widget.onTabsChanged(newTabs);
           },
+          onEdit: () => _showEditTabDialog(widget.tabs[index]),
+          onDelete: () => _confirmDeleteTab(widget.tabs[index]),
         );
       },
     );
@@ -56,6 +59,44 @@ class _StructureEditorState extends State<StructureEditor> {
       final newTabs = List<TabConfig>.from(widget.tabs)..add(newTab);
       widget.onTabsChanged(newTabs);
     }
+  }
+
+  Future<void> _showEditTabDialog(TabConfig tab) async {
+    final updatedTab = await showDialog<TabConfig>(
+      context: context,
+      builder: (context) => EditTabDialog(tab: tab),
+    );
+
+    if (updatedTab != null) {
+      final newTabs = List<TabConfig>.from(widget.tabs);
+      final index = newTabs.indexOf(tab);
+      if (index != -1) {
+        newTabs[index] = updatedTab;
+        widget.onTabsChanged(newTabs);
+      }
+    }
+  }
+
+  void _confirmDeleteTab(TabConfig tab) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: Text('Delete Tab', style: TextStyle(color: AppTheme.textColor)),
+        content: Text('Are you sure you want to delete "${tab.label}"? This cannot be undone.', style: TextStyle(color: AppTheme.secondaryTextColor)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              final newTabs = List<TabConfig>.from(widget.tabs)..remove(tab);
+              widget.onTabsChanged(newTabs);
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildAddButton(String label, VoidCallback onTap, {bool isSmall = false}) {
