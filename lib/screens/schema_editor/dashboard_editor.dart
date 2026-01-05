@@ -7,12 +7,14 @@ class DashboardEditor extends StatelessWidget {
   final List<KpiCard> kpis;
   final VoidCallback onAddKpi;
   final Function(int index) onDeleteKpi;
+  final Function(int index, KpiCard kpi) onEditKpi;
 
   const DashboardEditor({
     super.key,
     required this.kpis,
     required this.onAddKpi,
     required this.onDeleteKpi,
+    required this.onEditKpi,
   });
 
   @override
@@ -42,10 +44,21 @@ class DashboardEditor extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(kpi.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent), 
-                  onPressed: () => onDeleteKpi(index),
+                Expanded(
+                  child: Text(kpi.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+                ),
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit_rounded, size: 20),
+                      color: AppTheme.primaryColor,
+                      onPressed: () => onEditKpi(index, kpi),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent), 
+                      onPressed: () => onDeleteKpi(index),
+                    ),
+                  ],
                 ),
               ],
             ),

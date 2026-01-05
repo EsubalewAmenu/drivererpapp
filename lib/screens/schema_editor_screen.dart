@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import 'schema_editor/structure_editor.dart';
 import 'schema_editor/dashboard_editor.dart';
 import 'schema_editor/settings_editor.dart';
+import 'schema_editor/dialogs/edit_kpi_dialog.dart';
 
 class SchemaEditorScreen extends StatefulWidget {
   final ModuleSchema module;
@@ -115,12 +116,15 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
               DashboardEditor(
                 kpis: _kpis,
                 onAddKpi: () {
-                  // TODO: Add KPI logic
+                  _showAddKpiDialog();
                 },
                 onDeleteKpi: (index) {
                   setState(() {
                     _kpis.removeAt(index);
                   });
+                },
+                onEditKpi: (index, kpi) {
+                  _showEditKpiDialog(index, kpi);
                 },
               ),
               SettingsEditor(
@@ -148,5 +152,31 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
       const SnackBar(content: Text('Blueprint updated. Syncing to Drive...')),
     );
     Navigator.pop(context);
+  }
+
+  Future<void> _showAddKpiDialog() async {
+    final newKpi = await showDialog<KpiCard>(
+      context: context,
+      builder: (context) => const EditKpiDialog(),
+    );
+
+    if (newKpi != null) {
+      setState(() {
+        _kpis.add(newKpi);
+      });
+    }
+  }
+
+  Future<void> _showEditKpiDialog(int index, KpiCard kpi) async {
+    final updatedKpi = await showDialog<KpiCard>(
+      context: context,
+      builder: (context) => EditKpiDialog(kpi: kpi),
+    );
+
+    if (updatedKpi != null) {
+      setState(() {
+        _kpis[index] = updatedKpi;
+      });
+    }
   }
 }
