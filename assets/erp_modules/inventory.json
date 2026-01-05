@@ -39,12 +39,13 @@
         { "key": "item_image", "label": "Photo", "type": "image" },
         { "key": "item_name", "label": "Item", "type": "text" },
         { "key": "is_item_variants", "label": "Does it have variants?", "type": "boolean" },
-        { "key": "variant_name", "label": "Variant Name", "type": "text" },
+        { "key": "variant_name", "label": "Variant Name", "type": "text", "dependsOn": "is_item_variants" },
         { 
           "key": "variants", 
           "label": "Variants", 
           "type": "select",
-          "options": ["Big", "Small"]
+          "options": ["Big", "Small"],
+          "dependsOn": "is_item_variants"
         },
         { "key": "batch", "label": "Batch Name", "type": "text" },
         { "key": "barcode_sku", "label": "SKU", "type": "scanner" },
@@ -52,13 +53,8 @@
           "key": "warehouse", 
           "label": "Warehouse", 
           "type": "select",
-          "options": ["High-End Laptop", "Monitor", "Accessories", "Cables", "Software"]
-        },
-        { 
-          "key": "category", 
-          "label": "Department", 
-          "type": "select",
-          "options": "multi_warehouse"
+          "options": "settings.warehouses",
+          "dependsOn": "settings.has_multiple_warehouses"
         },
         { "key": "qty", "label": "Quantity", "type": "number" },
         { "key": "min_stock_alerts", "label": "Minimum Stock Alerts", "type": "number" },

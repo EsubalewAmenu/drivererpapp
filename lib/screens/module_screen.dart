@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -19,17 +21,98 @@ class ModuleScreen extends StatefulWidget {
 }
 
 class _ModuleScreenState extends State<ModuleScreen> {
+  ModuleSchema? _fullModule;
+  bool _isLoadingSchema = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSchema();
+  }
+
+  Future<void> _loadSchema() async {
+    try {
+      final fileName = widget.module.name.toLowerCase();
+      final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
+      final jsonMap = jsonDecode(jsonString);
+      
+      // Manually map JSON to ModuleSchema because the structure differs slightly
+      // JSON has primaryColor/version at top level, but Schema expects them in settings
+      // JSON settings is a Map of form fields, Schema settings is ModuleSettings object
+      
+      final settingsMap = jsonMap['settings'] as Map<String, dynamic>;
+      final name = settingsMap['name']?['value'] ?? widget.module.name;
+      
+      final moduleSettings = ModuleSettings(
+        primaryColor: jsonMap['primaryColor'] ?? '#000000',
+        version: jsonMap['version'] ?? '1.0',
+      );
+
+      final dashboard = DashboardConfig.fromJson(jsonMap['dashboard']);
+      
+      // Pre-process tabs to resolve dynamic options
+      final tabsList = jsonMap['tabs'] as List;
+      for (var tab in tabsList) {
+        if (tab['columns'] != null) {
+          for (var col in tab['columns']) {
+            if (col['options'] is String && (col['options'] as String).startsWith('settings.')) {
+              final path = (col['options'] as String).split('.');
+              if (path.length == 2) {
+                final settingKey = path[1];
+                final settingValue = settingsMap[settingKey]?['value'];
+                if (settingValue is List) {
+                  col['options'] = settingValue;
+                } else {
+                  col['options'] = []; // Fallback
+                }
+              }
+            }
+          }
+        }
+      }
+
+      final tabs = tabsList.map((t) => TabConfig.fromJson(t)).toList();
+
+      setState(() {
+        _fullModule = ModuleSchema(
+          id: widget.module.id,
+          name: name,
+          icon: jsonMap['icon'] ?? 'widgets',
+          settings: moduleSettings,
+          dashboard: dashboard,
+          tabs: tabs,
+        );
+        _isLoadingSchema = false;
+      });
+    } catch (e) {
+      print('Error loading module schema: $e');
+      // Fallback to the passed module
+      setState(() {
+        _fullModule = widget.module;
+        _isLoadingSchema = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Color(int.parse(widget.module.settings.primaryColor.replaceAll('#', '0xFF')));
+    if (_isLoadingSchema) {
+      return const Scaffold(
+        backgroundColor: AppTheme.backgroundColor,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    final module = _fullModule ?? widget.module;
+    final primaryColor = Color(int.parse(module.settings.primaryColor.replaceAll('#', '0xFF')));
 
     return DefaultTabController(
-      length: widget.module.tabs.length + 1, // +1 for Dashboard
+      length: module.tabs.length + 1, // +1 for Dashboard
       child: Scaffold(
         backgroundColor: AppTheme.backgroundColor,
         appBar: AppBar(
           title: Text(
-            widget.module.name.toUpperCase(),
+            module.name.toUpperCase(),
             style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0),
           ),
           centerTitle: true,
@@ -41,7 +124,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SchemaEditorScreen(module: widget.module)),
+                  MaterialPageRoute(builder: (context) => SchemaEditorScreen(module: module)),
                 );
               },
             ),
@@ -55,7 +138,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700),
             tabs: [
               const Tab(text: 'DASHBOARD'),
-              ...widget.module.tabs.map((t) => Tab(text: t.label.toUpperCase())),
+              ...module.tabs.map((t) => Tab(text: t.label.toUpperCase())),
             ],
           ),
         ),
@@ -63,10 +146,10 @@ class _ModuleScreenState extends State<ModuleScreen> {
           children: [
             ModuleDashboard(
               key: UniqueKey(), // Force rebuild when tab changes or parent rebuilds
-              module: widget.module, 
+              module: module, 
               primaryColor: primaryColor
             ),
-            ...widget.module.tabs.map((t) => ModuleTabScreen(tab: t, primaryColor: primaryColor)),
+            ...module.tabs.map((t) => ModuleTabScreen(tab: t, primaryColor: primaryColor)),
           ],
         ),
       ),
