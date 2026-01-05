@@ -160,9 +160,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
     try {
       // 1. Construct the JSON object
       final Map<String, dynamic> jsonMap = {
-        'icon': widget.module.icon,
-        'primaryColor': widget.module.primaryColor,
-        'version': widget.module.version,
+        // Core properties are now in settings
         'settings': _rawSettings, // This now contains the updated values
         'dashboard': {
           'kpiCards': _kpis.map((k) => k.toJson()).toList(),

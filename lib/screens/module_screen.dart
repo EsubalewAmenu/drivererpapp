@@ -69,6 +69,11 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final settingsMap = (jsonMap['settings'] as Map<String, dynamic>?) ?? {};
       final name = settingsMap['name']?['value'] ?? widget.module.name;
       
+      // Extract core properties from settings if available, otherwise fallback to root or widget defaults
+      final icon = settingsMap['icon']?['value'] ?? jsonMap['icon'] ?? widget.module.icon;
+      final primaryColor = settingsMap['primaryColor']?['value'] ?? jsonMap['primaryColor'] ?? widget.module.primaryColor;
+      final version = settingsMap['version']?['value'] ?? jsonMap['version'] ?? widget.module.version;
+      
       final dashboard = jsonMap['dashboard'] != null 
           ? DashboardConfig.fromJson(jsonMap['dashboard'])
           : DashboardConfig(kpiCards: []);
@@ -101,9 +106,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final loadedModule = ModuleSchema(
         id: widget.module.id,
         name: name,
-        icon: jsonMap['icon'] ?? widget.module.icon,
-        primaryColor: jsonMap['primaryColor'] ?? widget.module.primaryColor,
-        version: jsonMap['version'] ?? widget.module.version,
+        icon: icon,
+        primaryColor: primaryColor,
+        version: version,
         settings: settingsItems,
         dashboard: dashboard,
         tabs: tabs,

@@ -1,9 +1,9 @@
 {
-  "id": "inventory",
-  "icon": "inventory_2_rounded",
-  "primaryColor": "#2196F3",
-  "version": "1.0",
   "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "inventory" },
+    "icon": { "label": "Icon", "type": "icon", "value": "inventory_2_rounded" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#2196F3" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
     "name": { "label": "Name", "type": "text", "value": "Inventory" },
     "has_multiple_warehouses": { 
       "label": "Do you have multiple warehouses?", 
