@@ -166,8 +166,8 @@ class _StructureEditorState extends State<StructureEditor> {
                           .where((c) => c.key != col.key) // Exclude self
                           .map((c) => DropdownMenuItem(value: c.key, child: Text(c.label))),
                       if (_getAvailableBooleanSettings().isNotEmpty) ...[
-                         const DropdownMenuItem(enabled: false, child: Divider()),
-                         const DropdownMenuItem(enabled: false, child: Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                         const DropdownMenuItem(value: '__divider__', enabled: false, child: Divider()),
+                         const DropdownMenuItem(value: '__header__', enabled: false, child: Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                          ..._getAvailableBooleanSettings().map((s) => DropdownMenuItem(value: s, child: Text(s))),
                       ]
                     ],
