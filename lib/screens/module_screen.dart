@@ -152,6 +152,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
               tab: t, 
               primaryColor: primaryColor,
               settings: module.settings,
+              module: module,
             )),
           ],
         ),
@@ -194,7 +195,17 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
       return;
     }
 
-    final tabId = widget.module.tabs.first.id;
+    // Heuristic: Find the tab that contains 'qty' and 'cost_price' or default to the first one
+    String tabId = widget.module.tabs.first.id;
+    for (var tab in widget.module.tabs) {
+      final hasQty = tab.columns.any((c) => c.key == 'qty');
+      final hasCost = tab.columns.any((c) => c.key == 'cost_price');
+      if (hasQty && hasCost) {
+        tabId = tab.id;
+        break;
+      }
+    }
+
     final data = await driveService.readSheet('Default Workspace', tabId);
 
     for (var card in widget.module.dashboard.kpiCards) {
@@ -348,12 +359,14 @@ class ModuleTabScreen extends StatefulWidget {
   final TabConfig tab;
   final Color primaryColor;
   final Map<String, SettingItem> settings;
+  final ModuleSchema? module;
 
   const ModuleTabScreen({
     super.key, 
     required this.tab, 
     required this.primaryColor,
     this.settings = const {},
+    this.module,
   });
 
   @override
@@ -445,6 +458,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 tab: widget.tab,
                 primaryColor: widget.primaryColor,
                 settings: widget.settings,
+                module: widget.module,
               ),
             ),
           );

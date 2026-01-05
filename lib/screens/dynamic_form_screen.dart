@@ -11,6 +11,7 @@ class DynamicFormScreen extends StatefulWidget {
   final Color primaryColor;
   final Map<String, dynamic>? initialData;
   final Map<String, SettingItem> settings;
+  final ModuleSchema? module;
 
   const DynamicFormScreen({
     super.key,
@@ -18,6 +19,7 @@ class DynamicFormScreen extends StatefulWidget {
     required this.primaryColor,
     this.initialData,
     this.settings = const {},
+    this.module,
   });
 
   @override
@@ -132,6 +134,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       case 'select':
       case 'dropdown':
         return _buildDropdown(column);
+      case 'list':
+        return _buildListEditor(column);
       case 'boolean':
         return _buildSwitch(column);
       case 'formula':
@@ -419,6 +423,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   }
 
   Widget _buildRelationPicker(ColumnConfig column) {
+    final currentValue = _formData[column.key];
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -433,9 +439,63 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         ),
         const SizedBox(height: 8),
         InkWell(
-          onTap: () {
-            // TODO: Implement Entity Lookup
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Entity lookup coming soon')));
+          onTap: () async {
+            // If we have a module and the column specifies a related tab (via options)
+            if (widget.module != null && column.options is String) {
+              final relatedTabId = column.options as String;
+              final relatedTab = widget.module!.tabs.firstWhere(
+                (t) => t.id == relatedTabId, 
+                orElse: () => widget.module!.tabs.first
+              );
+              
+              // Fetch data for the related tab
+              final authService = Provider.of<AuthService>(context, listen: false);
+              if (authService.authClient != null) {
+                final driveService = DriveService(authService.authClient!);
+                // Show loading
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading items...'), duration: Duration(milliseconds: 500)));
+                
+                final items = await driveService.readSheet('Default Workspace', relatedTabId);
+                
+                if (mounted) {
+                  // Show selection dialog
+                  final selected = await showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text('Select ${relatedTab.label}'),
+                      content: SizedBox(
+                        width: double.maxFinite,
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            // Try to find a meaningful label (first text column)
+                            String label = item.values.first.toString();
+                            // Or look for specific keys like 'name', 'item_name'
+                            if (item.containsKey('item_name')) label = item['item_name'];
+                            else if (item.containsKey('name')) label = item['name'];
+                            
+                            return ListTile(
+                              title: Text(label),
+                              onTap: () => Navigator.pop(context, label),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                  
+                  if (selected != null) {
+                    setState(() {
+                      _formData[column.key] = selected;
+                    });
+                  }
+                }
+              }
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Entity lookup configuration missing')));
+            }
           },
           borderRadius: BorderRadius.circular(12),
           child: Container(
@@ -443,15 +503,16 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             decoration: BoxDecoration(
               color: AppTheme.surfaceColor,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.transparent),
             ),
             child: Row(
               children: [
                 Icon(Icons.link_rounded, color: AppTheme.secondaryTextColor, size: 20),
                 const SizedBox(width: 12),
                 Text(
-                  'Select ${column.label}',
+                  currentValue?.toString() ?? 'Select ${column.label}',
                   style: GoogleFonts.inter(
-                    color: AppTheme.secondaryTextColor.withOpacity(0.5),
+                    color: currentValue != null ? AppTheme.textColor : AppTheme.secondaryTextColor.withOpacity(0.5),
                   ),
                 ),
                 const Spacer(),
@@ -530,6 +591,92 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildListEditor(ColumnConfig column) {
+    List<String> currentList = [];
+    if (_formData[column.key] is List) {
+      currentList = List<String>.from(_formData[column.key]);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          column.label.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: AppTheme.secondaryTextColor,
+            letterSpacing: 1.0,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.transparent),
+          ),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ...currentList.map((e) => Chip(
+                label: Text(e),
+                backgroundColor: widget.primaryColor.withOpacity(0.1),
+                labelStyle: TextStyle(color: widget.primaryColor),
+                deleteIcon: Icon(Icons.close, size: 16, color: widget.primaryColor),
+                onDeleted: () {
+                  setState(() {
+                    currentList.remove(e);
+                    _formData[column.key] = currentList;
+                  });
+                },
+              )),
+              ActionChip(
+                label: const Text('Add'),
+                avatar: const Icon(Icons.add, size: 16),
+                onPressed: () {
+                  String newVal = '';
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text('Add ${column.label}'),
+                      content: TextField(
+                        autofocus: true,
+                        onChanged: (v) => newVal = v,
+                        decoration: const InputDecoration(hintText: 'Enter value'),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            if (newVal.isNotEmpty) {
+                              setState(() {
+                                currentList.add(newVal);
+                                _formData[column.key] = currentList;
+                              });
+                              Navigator.pop(context);
+                            }
+                          },
+                          child: const Text('Add'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
