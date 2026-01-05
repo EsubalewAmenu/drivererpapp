@@ -16,6 +16,19 @@ class DriveService {
     _sheetsApi = sheets.SheetsApi(authClient);
   }
 
+  Future<T> _retry<T>(Future<T> Function() action, {int retries = 3}) async {
+    for (int i = 0; i < retries; i++) {
+      try {
+        return await action();
+      } catch (e) {
+        if (i == retries - 1) rethrow;
+        await Future.delayed(Duration(seconds: 1 * (i + 1)));
+        print('Retrying operation due to error: $e');
+      }
+    }
+    throw Exception('Unreachable');
+  }
+
   /// Checks if the root folder exists. Returns the folder ID if it does, or null.
   Future<String?> checkRootFolder() async {
     try {
@@ -94,20 +107,22 @@ class DriveService {
 
   /// Checks if a file exists in a folder and returns its ID.
   Future<String?> getFileId(String folderId, String fileName) async {
-    try {
-      final fileList = await _driveApi.files.list(
-        q: "'$folderId' in parents and name = '$fileName' and trashed = false",
-        $fields: 'files(id, name)',
-      );
+    return _retry(() async {
+      try {
+        final fileList = await _driveApi.files.list(
+          q: "'$folderId' in parents and name = '$fileName' and trashed = false",
+          $fields: 'files(id, name)',
+        );
 
-      if (fileList.files != null && fileList.files!.isNotEmpty) {
-        return fileList.files!.first.id;
+        if (fileList.files != null && fileList.files!.isNotEmpty) {
+          return fileList.files!.first.id;
+        }
+        return null;
+      } catch (e) {
+        print('Error checking file: $e');
+        rethrow;
       }
-      return null;
-    } catch (e) {
-      print('Error checking file: $e');
-      rethrow;
-    }
+    });
   }
 
   /// Reads the content of a file as a String.
@@ -309,38 +324,38 @@ class DriveService {
         final spreadsheet = sheets.Spreadsheet(
           properties: sheets.SpreadsheetProperties(title: spreadsheetName),
         );
-        final created = await _sheetsApi.spreadsheets.create(spreadsheet);
+        final created = await _retry(() => _sheetsApi.spreadsheets.create(spreadsheet));
         spreadsheetId = created.spreadsheetId!;
         
         // Move to folder
-        final file = await _driveApi.files.get(spreadsheetId, $fields: 'parents') as drive.File;
+        final file = await _retry(() => _driveApi.files.get(spreadsheetId!, $fields: 'parents') as Future<drive.File>);
         final previousParents = file.parents?.join(',') ?? '';
         
         if (previousParents.isNotEmpty) {
-           await _driveApi.files.update(
+           await _retry(() => _driveApi.files.update(
             drive.File(), 
-            spreadsheetId, 
+            spreadsheetId!, 
             addParents: moduleFolderId, 
             removeParents: previousParents,
             $fields: 'id, parents',
-          );
+          ));
         } else {
-           await _driveApi.files.update(
+           await _retry(() => _driveApi.files.update(
             drive.File(), 
-            spreadsheetId, 
+            spreadsheetId!, 
             addParents: moduleFolderId,
             $fields: 'id, parents',
-          );
+          ));
         }
         print('Created data spreadsheet: $spreadsheetName ($spreadsheetId)');
       }
 
       // 2. Check/Create Sheet (Tab)
-      final spreadsheet = await _sheetsApi.spreadsheets.get(spreadsheetId);
+      final spreadsheet = await _retry(() => _sheetsApi.spreadsheets.get(spreadsheetId!));
       bool sheetExists = spreadsheet.sheets?.any((s) => s.properties?.title == sheetTitle) ?? false;
       
       if (!sheetExists) {
-        await _sheetsApi.spreadsheets.batchUpdate(
+        await _retry(() => _sheetsApi.spreadsheets.batchUpdate(
           sheets.BatchUpdateSpreadsheetRequest(
             requests: [
               sheets.Request(
@@ -350,14 +365,14 @@ class DriveService {
               ),
             ],
           ),
-          spreadsheetId,
-        );
+          spreadsheetId!,
+        ));
         print('Created sheet: $sheetTitle');
       }
 
       // 3. Handle Headers and Append
       // Read the first row to check headers
-      final headerResponse = await _sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1');
+      final headerResponse = await _retry(() => _sheetsApi.spreadsheets.values.get(spreadsheetId!, '$sheetTitle!1:1'));
       List<String> headers = [];
       
       if (headerResponse.values != null && headerResponse.values!.isNotEmpty) {
@@ -367,32 +382,24 @@ class DriveService {
       // If no headers, write them from data keys
       if (headers.isEmpty) {
         headers = data.keys.toList();
-        await _sheetsApi.spreadsheets.values.append(
+        await _retry(() => _sheetsApi.spreadsheets.values.append(
           sheets.ValueRange(values: [headers]),
-          spreadsheetId,
+          spreadsheetId!,
           '$sheetTitle!A1',
           valueInputOption: 'RAW',
-        );
+        ));
       } else {
         // Check if we have new keys in data that are not in headers
         final newKeys = data.keys.where((k) => !headers.contains(k)).toList();
         if (newKeys.isNotEmpty) {
-          // Append new headers to the first row
-          // We assume the headers are in the first row. 
-          // To append columns, we technically need to know the column index, but appending to 1:1 might work if it finds the next empty cell.
-          // However, 'append' on a range usually appends rows. 
-          // To add columns, we might need 'update' on specific cells, but let's try appending to the row range.
-          // Actually, appending to '1:1' might append a new ROW at the bottom if not careful.
-          // A safer way for columns is to read, modify, and update the header row.
-          
           headers.addAll(newKeys);
           final valueRange = sheets.ValueRange(values: [headers]);
-          await _sheetsApi.spreadsheets.values.update(
+          await _retry(() => _sheetsApi.spreadsheets.values.update(
             valueRange,
-            spreadsheetId,
+            spreadsheetId!,
             '$sheetTitle!1:1',
             valueInputOption: 'RAW',
-          );
+          ));
         }
       }
 
@@ -400,12 +407,12 @@ class DriveService {
       final row = headers.map((h) => data[h]?.toString() ?? '').toList();
       
       // 5. Append Row
-      await _sheetsApi.spreadsheets.values.append(
+      await _retry(() => _sheetsApi.spreadsheets.values.append(
         sheets.ValueRange(values: [row]),
-        spreadsheetId,
+        spreadsheetId!,
         '$sheetTitle!A1',
         valueInputOption: 'RAW',
-      );
+      ));
       print('Appended record to $sheetTitle');
       
     } catch (e) {
@@ -424,7 +431,7 @@ class DriveService {
       }
 
       // 2. Read Data
-      final response = await _sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!A:ZZ');
+      final response = await _retry(() => _sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!A:ZZ'));
       final values = response.values;
 
       if (values == null || values.isEmpty) {
