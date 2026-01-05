@@ -75,10 +75,27 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           val.toString().toLowerCase().contains(_searchQuery.toLowerCase())
         );
         
-        // Quick Filter (Mock implementation)
-        final matchesQuickFilter = _activeFilter == null || 
-          (_activeFilter == 'Active Items' && item['status'] == 'Active') ||
-          (_activeFilter == 'Inactive Items' && item['status'] == 'Inactive');
+        // Quick Filter
+        bool matchesQuickFilter = true;
+        if (_activeFilter != null && widget.tab.quickFilters != null) {
+           try {
+             final filter = widget.tab.quickFilters!.firstWhere((f) => f.key == _activeFilter);
+             if (filter.key == 'all') {
+               matchesQuickFilter = true;
+             } else {
+               final itemValue = item[filter.field];
+               if (filter.operator == '==') {
+                 matchesQuickFilter = itemValue.toString() == filter.value.toString();
+               } else if (filter.operator == 'contains') {
+                 matchesQuickFilter = itemValue.toString().contains(filter.value.toString());
+               }
+               // Add more operators if needed
+             }
+           } catch (e) {
+             // Filter not found or error
+             matchesQuickFilter = true;
+           }
+        }
 
         return matchesSearch && matchesQuickFilter;
       }).toList();
@@ -145,23 +162,31 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   Widget _buildQuickFilters() {
-    final filters = ['Active Items', 'Inactive Items', 'Recent'];
+    if (widget.tab.quickFilters == null || widget.tab.quickFilters!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     return SizedBox(
       height: 40,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
-        itemCount: filters.length,
+        itemCount: widget.tab.quickFilters!.length,
         separatorBuilder: (context, index) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final filter = filters[index];
-          final isSelected = _activeFilter == filter;
+          final filter = widget.tab.quickFilters![index];
+          final isSelected = _activeFilter == filter.key || (_activeFilter == null && filter.key == 'all');
+          
           return FilterChip(
-            label: Text(filter),
+            label: Text(filter.label),
             selected: isSelected,
             onSelected: (selected) {
               setState(() {
-                _activeFilter = selected ? filter : null;
+                if (selected) {
+                   _activeFilter = filter.key;
+                } else {
+                   _activeFilter = 'all';
+                }
                 _applyFilters();
               });
             },

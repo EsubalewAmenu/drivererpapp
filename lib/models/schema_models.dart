@@ -84,15 +84,38 @@ class TabConfig {
   final String id;
   final String label;
   final List<ColumnConfig> columns;
+  @JsonKey(name: 'quick_filters')
+  final List<QuickFilter>? quickFilters;
 
   TabConfig({
     required this.id,
     required this.label,
     required this.columns,
+    this.quickFilters,
   });
 
   factory TabConfig.fromJson(Map<String, dynamic> json) => _$TabConfigFromJson(json);
   Map<String, dynamic> toJson() => _$TabConfigToJson(this);
+}
+
+@JsonSerializable()
+class QuickFilter {
+  final String label;
+  final String key;
+  final String field;
+  final String operator;
+  final dynamic value;
+
+  QuickFilter({
+    required this.label,
+    required this.key,
+    required this.field,
+    required this.operator,
+    this.value,
+  });
+
+  factory QuickFilter.fromJson(Map<String, dynamic> json) => _$QuickFilterFromJson(json);
+  Map<String, dynamic> toJson() => _$QuickFilterToJson(this);
 }
 
 @JsonSerializable()

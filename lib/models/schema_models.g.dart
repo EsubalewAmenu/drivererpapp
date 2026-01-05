@@ -82,13 +82,34 @@ TabConfig _$TabConfigFromJson(Map<String, dynamic> json) => TabConfig(
   columns: (json['columns'] as List<dynamic>)
       .map((e) => ColumnConfig.fromJson(e as Map<String, dynamic>))
       .toList(),
+  quickFilters: (json['quick_filters'] as List<dynamic>?)
+      ?.map((e) => QuickFilter.fromJson(e as Map<String, dynamic>))
+      .toList(),
 );
 
 Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
   'id': instance.id,
   'label': instance.label,
   'columns': instance.columns,
+  'quick_filters': instance.quickFilters,
 };
+
+QuickFilter _$QuickFilterFromJson(Map<String, dynamic> json) => QuickFilter(
+  label: json['label'] as String,
+  key: json['key'] as String,
+  field: json['field'] as String,
+  operator: json['operator'] as String,
+  value: json['value'],
+);
+
+Map<String, dynamic> _$QuickFilterToJson(QuickFilter instance) =>
+    <String, dynamic>{
+      'label': instance.label,
+      'key': instance.key,
+      'field': instance.field,
+      'operator': instance.operator,
+      'value': instance.value,
+    };
 
 ColumnConfig _$ColumnConfigFromJson(Map<String, dynamic> json) => ColumnConfig(
   key: json['key'] as String,
@@ -101,6 +122,7 @@ ColumnConfig _$ColumnConfigFromJson(Map<String, dynamic> json) => ColumnConfig(
   columns: (json['columns'] as List<dynamic>?)
       ?.map((e) => ColumnConfig.fromJson(e as Map<String, dynamic>))
       .toList(),
+  hidden: json['hidden'] as bool?,
 );
 
 Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
@@ -113,4 +135,5 @@ Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
       'dependsOn': instance.dependsOn,
       'default': instance.defaultValue,
       'columns': instance.columns,
+      'hidden': instance.hidden,
     };

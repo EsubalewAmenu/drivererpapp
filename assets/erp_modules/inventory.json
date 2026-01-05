@@ -35,6 +35,10 @@
     {
       "id": "stock_ledger",
       "label": "Stock Entries",
+      "quick_filters": [
+        { "label": "All", "key": "all", "field": "warehouse", "operator": "contains", "value": "" },
+        { "label": "Main Warehouse", "key": "main_warehouse", "field": "warehouse", "operator": "==", "value": "Main Warehouse" }
+      ],
       "columns": [
         { "key": "entry_date", "label": "Date", "type": "date" },
         { "key": "item_sku", "label": "Item SKU", "type": "scanner" },
@@ -61,6 +65,10 @@
     {
       "id": "items",
       "label": "Item Catalog",
+      "quick_filters": [
+        { "label": "All", "key": "all", "field": "item_name", "operator": "contains", "value": "" },
+        { "label": "Low stock", "key": "low_stock", "field": "min_stock_alerts", "operator": "<", "value": "10" }
+      ],
       "columns": [
         { "key": "item_image", "label": "Photo", "type": "image" },
         { "key": "item_name", "label": "Item Name", "type": "text" },
