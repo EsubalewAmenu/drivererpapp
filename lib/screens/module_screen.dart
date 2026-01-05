@@ -37,15 +37,15 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final authService = Provider.of<AuthService>(context, listen: false);
       final driveService = DriveService(authService.authClient!);
       
-      // 1. Check for config.json in the module folder (widget.module.id)
-      String? configFileId = await driveService.getFileId(widget.module.id, 'config.json');
+      // 1. Check for config (Sheet) in the module folder
+      String? configFileId = await driveService.getFileId(widget.module.id, 'config');
       
       Map<String, dynamic> jsonMap;
       bool isLocalConfig = false;
 
       if (configFileId != null) {
-        // 2. Load from Drive
-        final content = await driveService.getFileContent(configFileId);
+        // 2. Load from Drive Sheet
+        final content = await driveService.readConfigSheet(configFileId);
         jsonMap = jsonDecode(content);
       } else {
         // 3. Load from Assets (Fallback)

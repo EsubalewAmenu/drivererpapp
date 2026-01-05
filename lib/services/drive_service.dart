@@ -1,16 +1,19 @@
 import 'dart:convert';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:http/http.dart' as http;
 
 class DriveService {
   final http.Client authClient;
   late final drive.DriveApi _driveApi;
+  late final sheets.SheetsApi _sheetsApi;
 
   // The name of the root folder for our app
   static const String _rootFolderName = 'DriveERP_Data';
 
   DriveService(this.authClient) {
     _driveApi = drive.DriveApi(authClient);
+    _sheetsApi = sheets.SheetsApi(authClient);
   }
 
   /// Checks if the root folder exists. Returns the folder ID if it does, or null.
@@ -169,6 +172,75 @@ class DriveService {
       print('Updated file: $fileId');
     } catch (e) {
       print('Error updating file: $e');
+      rethrow;
+    }
+  }
+
+  /// Creates a Google Sheet for configuration and stores the JSON content in cell A1.
+  Future<String> createConfigSheet(String folderId, String fileName, String content) async {
+    try {
+      // 1. Create Spreadsheet
+      final spreadsheet = sheets.Spreadsheet(
+        properties: sheets.SpreadsheetProperties(title: fileName),
+      );
+      
+      final created = await _sheetsApi.spreadsheets.create(spreadsheet);
+      final fileId = created.spreadsheetId!;
+      print('Created spreadsheet: $fileName ($fileId)');
+
+      // 2. Move to folder (Sheets API creates in root by default)
+      // Get current parents to remove them
+      final file = await _driveApi.files.get(fileId, $fields: 'parents') as drive.File;
+      final previousParents = file.parents?.join(',') ?? '';
+      
+      await _driveApi.files.update(
+        drive.File(), 
+        fileId, 
+        addParents: folderId, 
+        removeParents: previousParents,
+        $fields: 'id, parents',
+      );
+      print('Moved spreadsheet to folder: $folderId');
+
+      // 3. Write content to A1
+      await updateConfigSheet(fileId, content);
+      
+      return fileId;
+    } catch (e) {
+      print('Error creating config sheet: $e');
+      rethrow;
+    }
+  }
+
+  /// Reads the JSON content from cell A1 of the config sheet.
+  Future<String> readConfigSheet(String fileId) async {
+    try {
+      final response = await _sheetsApi.spreadsheets.values.get(fileId, 'Sheet1!A1');
+      if (response.values != null && response.values!.isNotEmpty && response.values![0].isNotEmpty) {
+        return response.values![0][0] as String;
+      }
+      return '{}';
+    } catch (e) {
+      print('Error reading config sheet: $e');
+      rethrow;
+    }
+  }
+
+  /// Updates the JSON content in cell A1 of the config sheet.
+  Future<void> updateConfigSheet(String fileId, String content) async {
+    try {
+      final valueRange = sheets.ValueRange(
+        values: [[content]], // Row 1, Col 1
+      );
+      await _sheetsApi.spreadsheets.values.update(
+        valueRange, 
+        fileId, 
+        'Sheet1!A1', 
+        valueInputOption: 'RAW'
+      );
+      print('Updated config sheet: $fileId');
+    } catch (e) {
+      print('Error updating config sheet: $e');
       rethrow;
     }
   }

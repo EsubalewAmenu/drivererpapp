@@ -176,15 +176,15 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
       final authService = Provider.of<AuthService>(context, listen: false);
       final driveService = DriveService(authService.authClient!);
 
-      // Check if config.json exists
-      final existingFileId = await driveService.getFileId(widget.module.id, 'config.json');
+      // Check if config exists
+      final existingFileId = await driveService.getFileId(widget.module.id, 'config');
 
       if (existingFileId != null) {
-        print('Updating existing config.json ($existingFileId)...');
-        await driveService.updateFile(existingFileId, jsonString);
+        print('Updating existing config sheet ($existingFileId)...');
+        await driveService.updateConfigSheet(existingFileId, jsonString);
       } else {
-        print('Creating new config.json in ${widget.module.id}...');
-        await driveService.createFile(widget.module.id, 'config.json', jsonString);
+        print('Creating new config sheet in ${widget.module.id}...');
+        await driveService.createConfigSheet(widget.module.id, 'config', jsonString);
       }
 
       if (mounted) {
