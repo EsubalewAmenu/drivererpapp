@@ -10,12 +10,14 @@ class DynamicFormScreen extends StatefulWidget {
   final TabConfig tab;
   final Color primaryColor;
   final Map<String, dynamic>? initialData;
+  final Map<String, SettingItem> settings;
 
   const DynamicFormScreen({
     super.key,
     required this.tab,
     required this.primaryColor,
     this.initialData,
+    this.settings = const {},
   });
 
   @override
@@ -94,6 +96,30 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   }
 
   Widget _buildField(ColumnConfig column) {
+    // Handle visibility based on dependsOn
+    if (column.dependsOn != null) {
+      bool isVisible = true;
+      if (column.dependsOn!.startsWith('settings.')) {
+        final settingKey = column.dependsOn!.split('.')[1];
+        final setting = widget.settings[settingKey];
+        // Check if setting exists and is false (assuming boolean dependency for now)
+        if (setting != null && setting.value == false) {
+          isVisible = false;
+        }
+      } else {
+        // Depends on another field in the form
+        final dependentValue = _formData[column.dependsOn];
+        // If dependent value is null or false (for boolean), hide
+        if (dependentValue == null || dependentValue == false) {
+          isVisible = false;
+        }
+      }
+      
+      if (!isVisible) {
+        return const SizedBox.shrink();
+      }
+    }
+
     switch (column.type.toLowerCase()) {
       case 'date':
         return _buildDatePicker(column);
@@ -106,13 +132,16 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       case 'select':
       case 'dropdown':
         return _buildDropdown(column);
+      case 'boolean':
+        return _buildSwitch(column);
       case 'formula':
         return _buildFormulaField(column);
       case 'relation':
         return _buildRelationPicker(column);
       case 'number':
-      case 'currency':
         return _buildTextField(column, isNumeric: true);
+      case 'currency':
+        return _buildTextField(column, isNumeric: true, isCurrency: true);
       case 'longtext':
         return _buildTextField(column, maxLines: 4);
       default:
@@ -120,7 +149,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
   }
 
-  Widget _buildTextField(ColumnConfig column, {bool isNumeric = false, int maxLines = 1}) {
+  Widget _buildTextField(ColumnConfig column, {bool isNumeric = false, bool isCurrency = false, int maxLines = 1}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -144,6 +173,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             fillColor: AppTheme.surfaceColor,
             hintText: 'Enter ${column.label.toLowerCase()}',
             hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withOpacity(0.5)),
+            prefixText: isCurrency ? '\$ ' : null,
+            prefixStyle: TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -283,6 +314,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   }
 
   Widget _buildScanner(ColumnConfig column) {
+    final controller = _controllers[column.key];
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -296,31 +329,51 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          height: 80,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.2)),
-          ),
-          child: InkWell(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanner integration coming soon')));
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.qr_code_scanner_rounded, size: 24, color: AppTheme.secondaryTextColor),
-                const SizedBox(width: 12),
-                Text(
-                  'Scan Barcode/QR',
-                  style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: controller,
+                style: GoogleFonts.inter(color: AppTheme.textColor),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: AppTheme.surfaceColor,
+                  hintText: 'Scan or enter code',
+                  hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withOpacity(0.5)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  prefixIcon: Icon(Icons.qr_code, color: AppTheme.secondaryTextColor),
                 ),
-              ],
+                onChanged: (val) => _formData[column.key] = val,
+                onSaved: (val) => _formData[column.key] = val,
+              ),
             ),
-          ),
+            const SizedBox(width: 12),
+            InkWell(
+              onTap: () {
+                // Mock scanner action
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanner started...')));
+                // Simulate scan result
+                setState(() {
+                  final mockCode = 'SCAN-${DateTime.now().millisecondsSinceEpoch}';
+                  controller?.text = mockCode;
+                  _formData[column.key] = mockCode;
+                });
+              },
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: widget.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: widget.primaryColor),
+                ),
+                child: Icon(Icons.qr_code_scanner_rounded, color: widget.primaryColor),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -444,7 +497,48 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
   }
 
+  Widget _buildSwitch(ColumnConfig column) {
+    final value = _formData[column.key] == true;
+    
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.transparent),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              column.label,
+              style: GoogleFonts.inter(
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.textColor,
+              ),
+            ),
+          ),
+          Switch(
+            value: value,
+            activeColor: widget.primaryColor,
+            onChanged: (val) {
+              setState(() {
+                _formData[column.key] = val;
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDropdown(ColumnConfig column) {
+    List<dynamic> optionsList = [];
+    if (column.options is List) {
+      optionsList = column.options as List;
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -470,7 +564,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               borderSide: BorderSide.none,
             ),
           ),
-          items: (column.options ?? []).map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
+          items: optionsList.map<DropdownMenuItem<String>>((opt) {
+            final strVal = opt.toString();
+            return DropdownMenuItem<String>(value: strVal, child: Text(strVal));
+          }).toList(),
           onChanged: (val) {
             setState(() {
               _formData[column.key] = val;

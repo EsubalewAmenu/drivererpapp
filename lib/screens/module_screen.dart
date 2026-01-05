@@ -148,7 +148,11 @@ class _ModuleScreenState extends State<ModuleScreen> {
               module: module, 
               primaryColor: primaryColor
             ),
-            ...module.tabs.map((t) => ModuleTabScreen(tab: t, primaryColor: primaryColor)),
+            ...module.tabs.map((t) => ModuleTabScreen(
+              tab: t, 
+              primaryColor: primaryColor,
+              settings: module.settings,
+            )),
           ],
         ),
       ),
@@ -343,8 +347,14 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
 class ModuleTabScreen extends StatefulWidget {
   final TabConfig tab;
   final Color primaryColor;
+  final Map<String, SettingItem> settings;
 
-  const ModuleTabScreen({super.key, required this.tab, required this.primaryColor});
+  const ModuleTabScreen({
+    super.key, 
+    required this.tab, 
+    required this.primaryColor,
+    this.settings = const {},
+  });
 
   @override
   State<ModuleTabScreen> createState() => _ModuleTabScreenState();
@@ -434,6 +444,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               builder: (context) => DynamicFormScreen(
                 tab: widget.tab,
                 primaryColor: widget.primaryColor,
+                settings: widget.settings,
               ),
             ),
           );
