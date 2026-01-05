@@ -108,10 +108,9 @@ ColumnConfig _$ColumnConfigFromJson(Map<String, dynamic> json) => ColumnConfig(
   key: json['key'] as String,
   label: json['label'] as String,
   type: json['type'] as String,
-  options: (json['options'] as List<dynamic>?)
-      ?.map((e) => e as String)
-      .toList(),
+  options: json['options'],
   formula: json['formula'] as String?,
+  dependsOn: json['dependsOn'] as String?,
 );
 
 Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
@@ -121,4 +120,5 @@ Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
       'type': instance.type,
       'options': instance.options,
       'formula': instance.formula,
+      'dependsOn': instance.dependsOn,
     };

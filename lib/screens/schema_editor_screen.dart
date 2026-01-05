@@ -148,7 +148,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                ...tab.columns.map((col) => _buildColumnRow(col)),
+                ...tab.columns.map((col) => _buildColumnRow(tab, col)),
                 const SizedBox(height: 16),
                 _buildAddButton('Add Column', () {
                   // TODO: Add column logic
@@ -161,7 +161,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
     );
   }
 
-  Widget _buildColumnRow(ColumnConfig col) {
+  Widget _buildColumnRow(TabConfig tab, ColumnConfig col) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
@@ -185,7 +185,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
             icon: const Icon(Icons.edit_rounded, size: 16),
             color: AppTheme.primaryColor,
             onPressed: () {
-              _showEditColumnDialog(col);
+              _showEditColumnDialog(tab, col);
             },
           ),
         ],
@@ -204,39 +204,201 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
     }
   }
 
-  void _showEditColumnDialog(ColumnConfig col) {
+  void _showEditColumnDialog(TabConfig tab, ColumnConfig col) {
+    final labelController = TextEditingController(text: col.label);
+    String currentType = col.type;
+    String? currentDependsOn = col.dependsOn;
+    
+    // Handle options
+    bool isDynamicOptions = false;
+    List<String> staticOptions = [];
+    String dynamicOptionPath = '';
+
+    if (col.options is List) {
+      staticOptions = List<String>.from(col.options);
+    } else if (col.options is String) {
+      isDynamicOptions = true;
+      dynamicOptionPath = col.options;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: AppTheme.surfaceColor,
+            title: Text('Edit Column', style: GoogleFonts.inter(color: AppTheme.textColor)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: labelController,
+                    style: TextStyle(color: AppTheme.textColor),
+                    decoration: const InputDecoration(labelText: 'Column Name'),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: currentType,
+                    dropdownColor: AppTheme.surfaceColor,
+                    style: TextStyle(color: AppTheme.textColor),
+                    items: ['text', 'number', 'date', 'select', 'boolean', 'image']
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
+                        .toList(),
+                    onChanged: (val) {
+                      setState(() => currentType = val!);
+                    },
+                    decoration: const InputDecoration(labelText: 'Data Type'),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: currentDependsOn,
+                    dropdownColor: AppTheme.surfaceColor,
+                    style: TextStyle(color: AppTheme.textColor),
+                    decoration: const InputDecoration(labelText: 'Depends On (Optional)'),
+                    items: [
+                      const DropdownMenuItem(value: null, child: Text('None')),
+                      ...tab.columns
+                          .where((c) => c.key != col.key) // Exclude self
+                          .map((c) => DropdownMenuItem(value: c.key, child: Text(c.label))),
+                      if (_getAvailableBooleanSettings().isNotEmpty) ...[
+                         const DropdownMenuItem(enabled: false, child: Divider()),
+                         const DropdownMenuItem(enabled: false, child: Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                         ..._getAvailableBooleanSettings().map((s) => DropdownMenuItem(value: s, child: Text(s))),
+                      ]
+                    ],
+                    onChanged: (val) => setState(() => currentDependsOn = val),
+                  ),
+                  
+                  if (currentType == 'select') ...[
+                    const SizedBox(height: 24),
+                    Text('Options Source', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+                    Row(
+                      children: [
+                        Expanded(child: RadioListTile<bool>(
+                          title: Text('Static', style: TextStyle(color: AppTheme.textColor)),
+                          value: false,
+                          groupValue: isDynamicOptions,
+                          onChanged: (v) => setState(() => isDynamicOptions = v!),
+                          activeColor: AppTheme.primaryColor,
+                          contentPadding: EdgeInsets.zero,
+                        )),
+                        Expanded(child: RadioListTile<bool>(
+                          title: Text('Dynamic', style: TextStyle(color: AppTheme.textColor)),
+                          value: true,
+                          groupValue: isDynamicOptions,
+                          onChanged: (v) => setState(() => isDynamicOptions = v!),
+                          activeColor: AppTheme.primaryColor,
+                          contentPadding: EdgeInsets.zero,
+                        )),
+                      ],
+                    ),
+                    
+                    if (isDynamicOptions)
+                      DropdownButtonFormField<String>(
+                        value: _getAvailableListSettings().contains(dynamicOptionPath.replaceFirst('settings.', '')) 
+                            ? dynamicOptionPath.replaceFirst('settings.', '') 
+                            : null,
+                        dropdownColor: AppTheme.surfaceColor,
+                        style: TextStyle(color: AppTheme.textColor),
+                        items: _getAvailableListSettings().map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+                        onChanged: (val) => setState(() => dynamicOptionPath = val != null ? 'settings.$val' : ''),
+                        decoration: const InputDecoration(labelText: 'Select Setting List'),
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              ...staticOptions.map((opt) => Chip(
+                                label: Text(opt),
+                                onDeleted: () => setState(() => staticOptions.remove(opt)),
+                              )),
+                              ActionChip(
+                                label: const Icon(Icons.add, size: 16),
+                                onPressed: () {
+                                  _showAddOptionDialog(context, (newOpt) {
+                                    setState(() => staticOptions.add(newOpt));
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                  ]
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () {
+                  // Save logic
+                  final newCol = ColumnConfig(
+                    key: col.key,
+                    label: labelController.text,
+                    type: currentType,
+                    dependsOn: currentDependsOn,
+                    options: currentType == 'select' 
+                        ? (isDynamicOptions ? dynamicOptionPath : staticOptions)
+                        : null,
+                  );
+                  
+                  // Update state
+                  this.setState(() {
+                    final tabIndex = _tabs.indexOf(tab);
+                    final colIndex = _tabs[tabIndex].columns.indexOf(col);
+                    _tabs[tabIndex].columns[colIndex] = newCol;
+                  });
+                  
+                  Navigator.pop(context);
+                }, 
+                child: const Text('Save')
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
+  List<String> _getAvailableListSettings() {
+    if (_rawSettings == null) return [];
+    return _rawSettings!.entries
+        .where((e) => (e.value as Map)['type'] == 'list')
+        .map((e) => e.key)
+        .toList();
+  }
+
+  List<String> _getAvailableBooleanSettings() {
+    if (_rawSettings == null) return [];
+    return _rawSettings!.entries
+        .where((e) => (e.value as Map)['type'] == 'boolean')
+        .map((e) => 'settings.${e.key}')
+        .toList();
+  }
+
+  void _showAddOptionDialog(BuildContext context, Function(String) onAdd) {
+    String val = '';
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
-        title: Text('Edit Column', style: GoogleFonts.inter(color: AppTheme.textColor)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: TextEditingController(text: col.label),
-              style: TextStyle(color: AppTheme.textColor),
-              decoration: const InputDecoration(labelText: 'Column Name'),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              value: col.type,
-              dropdownColor: AppTheme.surfaceColor,
-              style: TextStyle(color: AppTheme.textColor),
-              items: ['text', 'number', 'date', 'select', 'formula', 'scanner', 'image', 'signature']
-                  .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
-                  .toList(),
-              onChanged: (val) {},
-              decoration: const InputDecoration(labelText: 'Data Type'),
-            ),
-          ],
+        title: const Text('Add Option'),
+        content: TextField(
+          autofocus: true,
+          onChanged: (v) => val = v,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Save')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Add')),
         ],
       ),
-    );
+    ).then((_) {
+      if (val.isNotEmpty) onAdd(val);
+    });
   }
 
   // --- Dashboard Editor ---
