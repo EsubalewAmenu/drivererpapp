@@ -107,6 +107,8 @@ class DynamicFormRenderer extends StatelessWidget {
           column: col,
           value: value?.toString(),
           onChanged: (val) => onFieldChanged(col.key, val),
+          data: data,
+          module: module,
         );
 
       case 'relation':
@@ -115,6 +117,7 @@ class DynamicFormRenderer extends StatelessWidget {
           value: value?.toString(),
           module: module,
           onChanged: (val) => onFieldChanged(col.key, val),
+          data: data,
         );
 
       case 'image':

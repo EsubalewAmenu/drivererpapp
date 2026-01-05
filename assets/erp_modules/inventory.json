@@ -56,6 +56,13 @@
           "type": "table", 
           "columns": [
              { "key": "item_ref", "label": "Select Item", "type": "relation", "options": "items" },
+             { 
+               "key": "variant", 
+               "label": "Variant", 
+               "type": "select", 
+               "options": "item_ref.variants",
+               "dependsOn": "item_ref"
+             },
              { "key": "qty", "label": "Quantity", "type": "number" },
              { "key": "cost_price", "label": "Unit Cost", "type": "currency" }
           ]

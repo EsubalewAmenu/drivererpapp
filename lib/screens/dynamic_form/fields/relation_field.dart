@@ -11,6 +11,7 @@ class DynamicRelationField extends StatefulWidget {
   final String? value;
   final ModuleSchema? module;
   final Function(String) onChanged;
+  final Map<String, dynamic> data;
 
   const DynamicRelationField({
     super.key,
@@ -18,6 +19,7 @@ class DynamicRelationField extends StatefulWidget {
     required this.value,
     required this.module,
     required this.onChanged,
+    required this.data,
   });
 
   @override
@@ -42,6 +44,19 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
         const SizedBox(height: 8),
         InkWell(
           onTap: () async {
+            // Check dependency first
+            if (widget.column.dependsOn != null) {
+              final parentKey = widget.column.dependsOn!;
+              // Check if it's a field dependency (not settings)
+              if (!parentKey.startsWith('settings.')) {
+                 final parentValue = widget.data[parentKey];
+                 if (parentValue == null || parentValue.toString().isEmpty) {
+                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please select a value for $parentKey first')));
+                   return;
+                 }
+              }
+            }
+
             // If we have a module and the column specifies a related tab (via options)
             if (widget.module != null && widget.column.options is String) {
               final relatedTabId = widget.column.options as String;
@@ -57,8 +72,17 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                 // Show loading
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading items...'), duration: Duration(milliseconds: 500)));
                 
-                final items = await driveService.fetchRecords(widget.module!.id, widget.module!.name, relatedTabId);
+                var items = await driveService.fetchRecords(widget.module!.id, widget.module!.name, relatedTabId);
                 
+                // Filter items if dependency exists
+                if (widget.column.dependsOn != null && !widget.column.dependsOn!.startsWith('settings.')) {
+                   final parentKey = widget.column.dependsOn!;
+                   final parentValue = widget.data[parentKey];
+                   
+                   // Filter items where item[parentKey] == parentValue
+                   items = items.where((item) => item[parentKey]?.toString() == parentValue?.toString()).toList();
+                }
+
                 if (mounted) {
                   // Show selection dialog
                   final selected = await showDialog<String>(
@@ -67,7 +91,12 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                       title: Text('Select ${relatedTab.label}'),
                       content: SizedBox(
                         width: double.maxFinite,
-                        child: ListView.builder(
+                        child: items.isEmpty 
+                          ? const Padding(
+                              padding: EdgeInsets.all(16.0),
+                              child: Text('No items found matching selection'),
+                            )
+                          : ListView.builder(
                           shrinkWrap: true,
                           itemCount: items.length,
                           itemBuilder: (context, index) {

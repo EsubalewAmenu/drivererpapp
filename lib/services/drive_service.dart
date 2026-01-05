@@ -328,24 +328,31 @@ class DriveService {
         spreadsheetId = created.spreadsheetId!;
         
         // Move to folder
-        final file = await _retry(() => _driveApi.files.get(spreadsheetId!, $fields: 'parents') as Future<drive.File>);
+        final file = await _retry(() async {
+           final result = await _driveApi.files.get(spreadsheetId!, $fields: 'parents');
+           return result as drive.File;
+        });
         final previousParents = file.parents?.join(',') ?? '';
         
         if (previousParents.isNotEmpty) {
-           await _retry(() => _driveApi.files.update(
-            drive.File(), 
-            spreadsheetId!, 
-            addParents: moduleFolderId, 
-            removeParents: previousParents,
-            $fields: 'id, parents',
-          ));
+           await _retry(() async {
+             await _driveApi.files.update(
+              drive.File(), 
+              spreadsheetId!, 
+              addParents: moduleFolderId, 
+              removeParents: previousParents,
+              $fields: 'id, parents',
+            );
+           });
         } else {
-           await _retry(() => _driveApi.files.update(
-            drive.File(), 
-            spreadsheetId!, 
-            addParents: moduleFolderId,
-            $fields: 'id, parents',
-          ));
+           await _retry(() async {
+             await _driveApi.files.update(
+              drive.File(), 
+              spreadsheetId!, 
+              addParents: moduleFolderId,
+              $fields: 'id, parents',
+            );
+           });
         }
         print('Created data spreadsheet: $spreadsheetName ($spreadsheetId)');
       }
