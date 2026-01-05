@@ -28,7 +28,7 @@ class _StructureEditorState extends State<StructureEditor> {
       itemBuilder: (context, index) {
         if (index == widget.tabs.length) {
           return _buildAddButton('Add New Tab', () {
-            // TODO: Add tab logic
+            _showAddTabDialog();
           });
         }
         return _buildTabEditorCard(widget.tabs[index]);
@@ -153,6 +153,45 @@ class _StructureEditorState extends State<StructureEditor> {
               Navigator.pop(context);
             },
             child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddTabDialog() {
+    final labelController = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: Text('Add New Tab', style: GoogleFonts.inter(color: AppTheme.textColor)),
+        content: TextField(
+          controller: labelController,
+          style: TextStyle(color: AppTheme.textColor),
+          decoration: const InputDecoration(labelText: 'Tab Name'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              if (labelController.text.isEmpty) return;
+              
+              final id = labelController.text.toLowerCase().replaceAll(' ', '_');
+              final newTab = TabConfig(
+                id: id,
+                label: labelController.text,
+                columns: [],
+              );
+              
+              final newTabs = List<TabConfig>.from(widget.tabs);
+              newTabs.add(newTab);
+              
+              widget.onTabsChanged(newTabs);
+              Navigator.pop(context);
+            }, 
+            child: const Text('Add')
           ),
         ],
       ),
