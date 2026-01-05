@@ -206,21 +206,28 @@ class _SettingsEditorState extends State<SettingsEditor> {
     }
   }
 
-  Future<void> _showEditSettingDialog(String key, Map<String, dynamic> item) async {
+  Future<void> _showEditSettingDialog(String oldKey, Map<String, dynamic> item) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => EditSettingDialog(
-        settingKey: key,
+        settingKey: oldKey,
         settingData: item,
         existingKeys: widget.rawSettings?.keys.toList() ?? [],
       ),
     );
 
     if (result != null) {
+      final newKey = result['key'];
       final data = result['data'];
       
       final newSchema = Map<String, dynamic>.from(widget.rawSettings ?? {});
-      newSchema[key] = data;
+      
+      if (newKey != oldKey) {
+        newSchema.remove(oldKey);
+        // Note: Value migration for renamed keys would need to happen in parent
+      }
+      
+      newSchema[newKey] = data;
       
       widget.onSchemaChanged(newSchema);
     }

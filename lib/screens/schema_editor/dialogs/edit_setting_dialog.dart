@@ -59,16 +59,15 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (!isEditing)
-              TextField(
-                controller: _keyController,
-                style: TextStyle(color: AppTheme.textColor),
-                decoration: const InputDecoration(
-                  labelText: 'Setting Key (ID)',
-                  helperText: 'Unique identifier (e.g. tax_rate)',
-                ),
+            TextField(
+              controller: _keyController,
+              style: TextStyle(color: AppTheme.textColor),
+              decoration: const InputDecoration(
+                labelText: 'Setting Key (ID)',
+                helperText: 'Unique identifier (e.g. tax_rate)',
               ),
-            if (!isEditing) const SizedBox(height: 16),
+            ),
+            const SizedBox(height: 16),
             
             TextField(
               controller: _labelController,
@@ -129,11 +128,12 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
         TextButton(
           onPressed: () {
             if (_labelController.text.isEmpty) return;
-            if (!isEditing && _keyController.text.isEmpty) return;
+            if (_keyController.text.isEmpty) return;
             
-            final key = isEditing ? widget.settingKey! : _keyController.text.toLowerCase().replaceAll(' ', '_');
+            final key = _keyController.text.toLowerCase().replaceAll(' ', '_');
             
-            if (!isEditing && widget.existingKeys.contains(key)) {
+            // Check if key exists (exclude current key if editing)
+            if (widget.existingKeys.contains(key) && key != widget.settingKey) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Key already exists!')),
               );
