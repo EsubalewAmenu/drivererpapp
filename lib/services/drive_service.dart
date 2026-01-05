@@ -299,12 +299,161 @@ class DriveService {
     }
   }
 
-  Future<List<Map<String, dynamic>>> readSheet(String workspace, String sheetName) async {
-    // TODO: Implement real sheet reading
-    return [];
+  Future<void> saveRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, Map<String, dynamic> data) async {
+    try {
+      // 1. Find or Create Spreadsheet
+      String? spreadsheetId = await getFileId(moduleFolderId, spreadsheetName);
+      
+      if (spreadsheetId == null) {
+        // Create new spreadsheet
+        final spreadsheet = sheets.Spreadsheet(
+          properties: sheets.SpreadsheetProperties(title: spreadsheetName),
+        );
+        final created = await _sheetsApi.spreadsheets.create(spreadsheet);
+        spreadsheetId = created.spreadsheetId!;
+        
+        // Move to folder
+        final file = await _driveApi.files.get(spreadsheetId, $fields: 'parents') as drive.File;
+        final previousParents = file.parents?.join(',') ?? '';
+        
+        if (previousParents.isNotEmpty) {
+           await _driveApi.files.update(
+            drive.File(), 
+            spreadsheetId, 
+            addParents: moduleFolderId, 
+            removeParents: previousParents,
+            $fields: 'id, parents',
+          );
+        } else {
+           await _driveApi.files.update(
+            drive.File(), 
+            spreadsheetId, 
+            addParents: moduleFolderId,
+            $fields: 'id, parents',
+          );
+        }
+        print('Created data spreadsheet: $spreadsheetName ($spreadsheetId)');
+      }
+
+      // 2. Check/Create Sheet (Tab)
+      final spreadsheet = await _sheetsApi.spreadsheets.get(spreadsheetId);
+      bool sheetExists = spreadsheet.sheets?.any((s) => s.properties?.title == sheetTitle) ?? false;
+      
+      if (!sheetExists) {
+        await _sheetsApi.spreadsheets.batchUpdate(
+          sheets.BatchUpdateSpreadsheetRequest(
+            requests: [
+              sheets.Request(
+                addSheet: sheets.AddSheetRequest(
+                  properties: sheets.SheetProperties(title: sheetTitle),
+                ),
+              ),
+            ],
+          ),
+          spreadsheetId,
+        );
+        print('Created sheet: $sheetTitle');
+      }
+
+      // 3. Handle Headers and Append
+      // Read the first row to check headers
+      final headerResponse = await _sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1');
+      List<String> headers = [];
+      
+      if (headerResponse.values != null && headerResponse.values!.isNotEmpty) {
+        headers = headerResponse.values!.first.map((e) => e.toString()).toList();
+      }
+
+      // If no headers, write them from data keys
+      if (headers.isEmpty) {
+        headers = data.keys.toList();
+        await _sheetsApi.spreadsheets.values.append(
+          sheets.ValueRange(values: [headers]),
+          spreadsheetId,
+          '$sheetTitle!A1',
+          valueInputOption: 'RAW',
+        );
+      } else {
+        // Check if we have new keys in data that are not in headers
+        final newKeys = data.keys.where((k) => !headers.contains(k)).toList();
+        if (newKeys.isNotEmpty) {
+          // Append new headers to the first row
+          // We assume the headers are in the first row. 
+          // To append columns, we technically need to know the column index, but appending to 1:1 might work if it finds the next empty cell.
+          // However, 'append' on a range usually appends rows. 
+          // To add columns, we might need 'update' on specific cells, but let's try appending to the row range.
+          // Actually, appending to '1:1' might append a new ROW at the bottom if not careful.
+          // A safer way for columns is to read, modify, and update the header row.
+          
+          headers.addAll(newKeys);
+          final valueRange = sheets.ValueRange(values: [headers]);
+          await _sheetsApi.spreadsheets.values.update(
+            valueRange,
+            spreadsheetId,
+            '$sheetTitle!1:1',
+            valueInputOption: 'RAW',
+          );
+        }
+      }
+
+      // 4. Prepare Row Data
+      final row = headers.map((h) => data[h]?.toString() ?? '').toList();
+      
+      // 5. Append Row
+      await _sheetsApi.spreadsheets.values.append(
+        sheets.ValueRange(values: [row]),
+        spreadsheetId,
+        '$sheetTitle!A1',
+        valueInputOption: 'RAW',
+      );
+      print('Appended record to $sheetTitle');
+      
+    } catch (e) {
+      print('Error saving record: $e');
+      rethrow;
+    }
   }
 
-  Future<void> writeSheet(String workspace, String sheetName, List<Map<String, dynamic>> data) async {
-    // TODO: Implement real sheet writing
+  Future<List<Map<String, dynamic>>> fetchRecords(String moduleFolderId, String spreadsheetName, String sheetTitle) async {
+    try {
+      // 1. Find Spreadsheet
+      String? spreadsheetId = await getFileId(moduleFolderId, spreadsheetName);
+      
+      if (spreadsheetId == null) {
+        return [];
+      }
+
+      // 2. Read Data
+      final response = await _sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!A:ZZ');
+      final values = response.values;
+
+      if (values == null || values.isEmpty) {
+        return [];
+      }
+
+      // 3. Parse Headers
+      final headers = values.first.map((e) => e.toString()).toList();
+      final records = <Map<String, dynamic>>[];
+
+      // 4. Parse Rows
+      for (var i = 1; i < values.length; i++) {
+        final row = values[i];
+        final record = <String, dynamic>{};
+        
+        for (var j = 0; j < headers.length; j++) {
+          if (j < row.length) {
+            record[headers[j]] = row[j];
+          } else {
+            record[headers[j]] = null;
+          }
+        }
+        records.add(record);
+      }
+
+      return records;
+    } catch (e) {
+      print('Error fetching records: $e');
+      return [];
+    }
   }
 }

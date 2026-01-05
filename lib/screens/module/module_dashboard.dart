@@ -51,7 +51,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
       }
     }
 
-    final data = await driveService.readSheet('Default Workspace', tabId);
+    final data = await driveService.fetchRecords(widget.module.id, widget.module.name, tabId);
 
     for (var card in widget.module.dashboard.kpiCards) {
       results[card.label] = _evaluateFormula(card.calculation, card.format, data);

@@ -55,8 +55,17 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     
+    if (widget.module == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
     // Load actual data from DriveService
-    final data = await _driveService.readSheet(_currentWorkspace, widget.tab.id);
+    final data = await _driveService.fetchRecords(
+      widget.module!.id, 
+      widget.module!.name, 
+      widget.tab.id
+    );
     
     if (mounted) {
       setState(() {

@@ -73,24 +73,29 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _formKey.currentState!.save();
       
       try {
-        // Save to DriveService (Mock for now)
-        // We assume the sheet name is the tab ID for simplicity in this mock
-        final sheetName = widget.tab.id;
         final authService = Provider.of<AuthService>(context, listen: false);
         if (authService.authClient == null) throw Exception("Not authenticated");
+        
+        if (widget.module == null) throw Exception("Module context missing");
+
         final driveService = DriveService(authService.authClient!);
         
-        // Read existing data
-        final currentData = await driveService.readSheet('Default Workspace', sheetName);
-        
-        // Append new record
-        currentData.add(_formData);
-        
-        // Write back
-        await driveService.writeSheet('Default Workspace', sheetName, currentData);
+        // Show loading indicator
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Saving to Drive...'), duration: Duration(seconds: 1)),
+          );
+        }
+
+        await driveService.saveRecord(
+          widget.module!.id, // Module Folder ID
+          widget.module!.name, // Spreadsheet Name
+          widget.tab.id, // Sheet Name
+          _formData,
+        );
         
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record saved to Drive')));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record saved successfully')));
           Navigator.pop(context);
         }
       } catch (e) {
@@ -139,6 +144,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               primaryColor: widget.primaryColor,
               controllers: _controllers,
               module: widget.module,
+              settings: widget.settings,
               onFieldChanged: (key, value) {
                 setState(() {
                   _formData[key] = value;

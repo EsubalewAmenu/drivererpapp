@@ -57,7 +57,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                 // Show loading
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading items...'), duration: Duration(milliseconds: 500)));
                 
-                final items = await driveService.readSheet('Default Workspace', relatedTabId);
+                final items = await driveService.fetchRecords(widget.module!.id, widget.module!.name, relatedTabId);
                 
                 if (mounted) {
                   // Show selection dialog
