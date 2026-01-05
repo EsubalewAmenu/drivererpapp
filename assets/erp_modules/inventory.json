@@ -33,25 +33,6 @@
   },
   "tabs": [
     {
-      "id": "items",
-      "label": "Item Catalog",
-      "columns": [
-        { "key": "item_image", "label": "Photo", "type": "image" },
-        { "key": "item_name", "label": "Item Name", "type": "text" },
-        { "key": "barcode_sku", "label": "SKU", "type": "scanner" },
-        { "key": "is_item_variants", "label": "Does it have variants?", "type": "boolean" },
-        { "key": "variant_name", "label": "Variant Name", "type": "text", "dependsOn": "is_item_variants" },
-        { 
-          "key": "variants", 
-          "label": "Variants", 
-          "type": "list",
-          "dependsOn": "is_item_variants",
-          "default": ["Small", "Big"]
-        },
-        { "key": "min_stock_alerts", "label": "Minimum Stock Alerts", "type": "number" }
-      ]
-    },
-    {
       "id": "stock_ledger",
       "label": "Stock Entries",
       "columns": [
@@ -68,6 +49,25 @@
         { "key": "item_ref", "label": "Select Item", "type": "relation", "options": "items" },
         { "key": "qty", "label": "Quantity", "type": "number" },
         { "key": "cost_price", "label": "Unit Cost", "type": "currency" }
+      ]
+    },
+    {
+      "id": "items",
+      "label": "Item Catalog",
+      "columns": [
+        { "key": "item_image", "label": "Photo", "type": "image" },
+        { "key": "item_name", "label": "Item Name", "type": "text" },
+        { "key": "barcode_sku", "label": "SKU", "type": "scanner" },
+        { "key": "is_item_variants", "label": "Does it have variants?", "type": "boolean" },
+        { "key": "variant_name", "label": "Variant Name", "type": "text", "dependsOn": "is_item_variants" },
+        { 
+          "key": "variants", 
+          "label": "Variants", 
+          "type": "list",
+          "dependsOn": "is_item_variants",
+          "default": ["Small", "Big"]
+        },
+        { "key": "min_stock_alerts", "label": "Minimum Stock Alerts", "type": "number" }
       ]
     }
   ]
