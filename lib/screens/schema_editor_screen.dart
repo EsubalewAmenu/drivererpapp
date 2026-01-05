@@ -131,6 +131,11 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
                     _settingsValues[key] = value;
                   });
                 },
+                onSchemaChanged: (newSchema) {
+                  setState(() {
+                    _rawSettings = newSchema;
+                  });
+                },
               ),
             ],
           ),
