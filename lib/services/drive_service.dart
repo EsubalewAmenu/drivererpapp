@@ -176,20 +176,24 @@ class DriveService {
     }
   }
 
-  /// Creates a Google Sheet for configuration and stores the JSON content in cell A1.
-  Future<String> createConfigSheet(String folderId, String fileName, String content) async {
+  /// Creates a Google Sheet for configuration with multiple sheets.
+  Future<String> createModuleConfig(String folderId, String fileName, Map<String, dynamic> config) async {
     try {
-      // 1. Create Spreadsheet
+      // 1. Create Spreadsheet with specific sheets
       final spreadsheet = sheets.Spreadsheet(
         properties: sheets.SpreadsheetProperties(title: fileName),
+        sheets: [
+          sheets.Sheet(properties: sheets.SheetProperties(title: 'settings')),
+          sheets.Sheet(properties: sheets.SheetProperties(title: 'dashboard')),
+          sheets.Sheet(properties: sheets.SheetProperties(title: 'tabs')),
+        ],
       );
       
       final created = await _sheetsApi.spreadsheets.create(spreadsheet);
       final fileId = created.spreadsheetId!;
       print('Created spreadsheet: $fileName ($fileId)');
 
-      // 2. Move to folder (Sheets API creates in root by default)
-      // Get current parents to remove them
+      // 2. Move to folder
       final file = await _driveApi.files.get(fileId, $fields: 'parents') as drive.File;
       final previousParents = file.parents?.join(',') ?? '';
       
@@ -202,46 +206,96 @@ class DriveService {
       );
       print('Moved spreadsheet to folder: $folderId');
 
-      // 3. Write content to A1
-      await updateConfigSheet(fileId, content);
+      // 3. Write data
+      await updateModuleConfig(fileId, config);
       
       return fileId;
     } catch (e) {
-      print('Error creating config sheet: $e');
+      print('Error creating module config: $e');
       rethrow;
     }
   }
 
-  /// Reads the JSON content from cell A1 of the config sheet.
-  Future<String> readConfigSheet(String fileId) async {
+  /// Updates the module configuration in the spreadsheet.
+  Future<void> updateModuleConfig(String fileId, Map<String, dynamic> config) async {
+     // Write settings
+     if (config.containsKey('settings')) {
+       await _writeMapToSheet(fileId, 'settings', config['settings']);
+     }
+     
+     // Write dashboard
+     if (config.containsKey('dashboard')) {
+       await _writeMapToSheet(fileId, 'dashboard', config['dashboard']);
+     }
+     
+     // Write tabs
+     if (config.containsKey('tabs')) {
+       final tabsList = config['tabs'] as List;
+       // Map tabs by their ID for storage
+       final tabsMap = {for (var t in tabsList) (t['id'] as String): t};
+       await _writeMapToSheet(fileId, 'tabs', tabsMap);
+     }
+  }
+
+  /// Reads the module configuration from the spreadsheet.
+  Future<Map<String, dynamic>> readModuleConfig(String fileId) async {
+    final config = <String, dynamic>{};
+    
     try {
-      final response = await _sheetsApi.spreadsheets.values.get(fileId, 'Sheet1!A1');
-      if (response.values != null && response.values!.isNotEmpty && response.values![0].isNotEmpty) {
-        return response.values![0][0] as String;
-      }
-      return '{}';
+      // Read settings
+      final settingsMap = await _readMapFromSheet(fileId, 'settings');
+      config['settings'] = settingsMap.map((k, v) => MapEntry(k, jsonDecode(v)));
+      
+      // Read dashboard
+      final dashboardMap = await _readMapFromSheet(fileId, 'dashboard');
+      config['dashboard'] = dashboardMap.map((k, v) => MapEntry(k, jsonDecode(v)));
+      
+      // Read tabs
+      final tabsMap = await _readMapFromSheet(fileId, 'tabs');
+      config['tabs'] = tabsMap.values.map((v) => jsonDecode(v)).toList();
+      
+      return config;
     } catch (e) {
-      print('Error reading config sheet: $e');
-      rethrow;
+      print('Error reading module config: $e');
+      return {};
     }
   }
 
-  /// Updates the JSON content in cell A1 of the config sheet.
-  Future<void> updateConfigSheet(String fileId, String content) async {
+  Future<void> _writeMapToSheet(String fileId, String sheetTitle, Map<String, dynamic> data) async {
     try {
-      final valueRange = sheets.ValueRange(
-        values: [[content]], // Row 1, Col 1
-      );
+      // Clear first to avoid stale data
+      await _sheetsApi.spreadsheets.values.clear(sheets.ClearValuesRequest(), fileId, '$sheetTitle!A:B');
+      
+      final rows = data.entries.map((e) => [e.key, jsonEncode(e.value)]).toList();
+      final valueRange = sheets.ValueRange(values: rows);
+      
       await _sheetsApi.spreadsheets.values.update(
-        valueRange, 
-        fileId, 
-        'Sheet1!A1', 
-        valueInputOption: 'RAW'
+        valueRange,
+        fileId,
+        '$sheetTitle!A1',
+        valueInputOption: 'RAW',
       );
-      print('Updated config sheet: $fileId');
     } catch (e) {
-      print('Error updating config sheet: $e');
-      rethrow;
+      print('Error writing to sheet $sheetTitle: $e');
+      // Don't rethrow, try to continue
+    }
+  }
+
+  Future<Map<String, String>> _readMapFromSheet(String fileId, String sheetTitle) async {
+    try {
+      final response = await _sheetsApi.spreadsheets.values.get(fileId, '$sheetTitle!A:B');
+      final map = <String, String>{};
+      if (response.values != null) {
+        for (var row in response.values!) {
+          if (row.length >= 2) {
+            map[row[0] as String] = row[1] as String;
+          }
+        }
+      }
+      return map;
+    } catch (e) {
+      print('Error reading sheet $sheetTitle: $e');
+      return {};
     }
   }
 

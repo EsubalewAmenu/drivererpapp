@@ -45,8 +45,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
       if (configFileId != null) {
         // 2. Load from Drive Sheet
-        final content = await driveService.readConfigSheet(configFileId);
-        jsonMap = jsonDecode(content);
+        jsonMap = await driveService.readModuleConfig(configFileId);
       } else {
         // 3. Load from Assets (Fallback)
         isLocalConfig = true;

@@ -179,10 +179,10 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
 
       if (existingFileId != null) {
         print('Updating existing config sheet ($existingFileId)...');
-        await driveService.updateConfigSheet(existingFileId, jsonString);
+        await driveService.updateModuleConfig(existingFileId, jsonMap);
       } else {
         print('Creating new config sheet in ${widget.module.id}...');
-        await driveService.createConfigSheet(widget.module.id, 'config', jsonString);
+        await driveService.createModuleConfig(widget.module.id, 'config', jsonMap);
       }
 
       if (mounted) {
