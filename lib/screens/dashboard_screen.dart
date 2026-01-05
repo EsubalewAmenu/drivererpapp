@@ -10,6 +10,7 @@ import '../providers/workspace_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_drawer.dart';
 import 'module_screen.dart';
+import 'module_details_screen.dart';
 import 'settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -358,8 +359,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: InkWell(
         onTap: () {
-          // Activate logic
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Activating $name...')));
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ModuleDetailsScreen(
+                moduleInfo: {
+                  'name': name,
+                  'icon': iconName,
+                  'desc': desc,
+                  'color': colorHex,
+                },
+              ),
+            ),
+          );
         },
         borderRadius: BorderRadius.circular(20),
         child: Padding(

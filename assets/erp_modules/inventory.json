@@ -1,10 +1,21 @@
 {
   "id": "inventory",
-  "name": "Inventory",
   "icon": "inventory_2_rounded",
+  "primaryColor": "#2196F3",
+  "version": "1.0",
   "settings": {
-    "primaryColor": "#2196F3",
-    "version": "1.0"
+    "name": { "label": "Name", "type": "text", "value": "Inventory" },
+    "has_multiple_warehouses": { 
+      "label": "Do you have multiple warehouses?", 
+      "type": "boolean", 
+      "value": false 
+    },
+    "warehouses": { 
+      "label": "Warehouses", 
+      "type": "list", 
+      "value": ["Main Warehouse"],
+      "dependsOn": "has_multiple_warehouses" 
+    }
   },
   "dashboard": {
     "kpiCards": [
@@ -23,18 +34,34 @@
   "tabs": [
     {
       "id": "stock",
-      "label": "Warehouse Inventory",
+      "label": "Inventory",
       "columns": [
-        { "key": "product_image", "label": "Photo", "type": "image" },
-        { "key": "item_name", "label": "Product", "type": "text" },
+        { "key": "item_image", "label": "Photo", "type": "image" },
+        { "key": "item_name", "label": "Item", "type": "text" },
+        { "key": "is_item_variants", "label": "Does it have variants?", "type": "boolean" },
+        { "key": "variant_name", "label": "Variant Name", "type": "text" },
+        { 
+          "key": "variants", 
+          "label": "Variants", 
+          "type": "select",
+          "options": ["Big", "Small"]
+        },
+        { "key": "batch", "label": "Batch Name", "type": "text" },
         { "key": "barcode_sku", "label": "SKU", "type": "scanner" },
+        { 
+          "key": "warehouse", 
+          "label": "Warehouse", 
+          "type": "select",
+          "options": ["High-End Laptop", "Monitor", "Accessories", "Cables", "Software"]
+        },
         { 
           "key": "category", 
           "label": "Department", 
           "type": "select",
-          "options": ["High-End Laptop", "Monitor", "Accessories", "Cables", "Software"]
+          "options": "multi_warehouse"
         },
         { "key": "qty", "label": "Quantity", "type": "number" },
+        { "key": "min_stock_alerts", "label": "Minimum Stock Alerts", "type": "number" },
         { "key": "cost_price", "label": "Unit Cost", "type": "currency" },
         { 
           "key": "total_value", 

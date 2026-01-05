@@ -1,0 +1,243 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
+import '../services/drive_service.dart';
+import '../providers/workspace_provider.dart';
+import 'dashboard_screen.dart';
+import 'module_configuration_screen.dart';
+
+class ModuleDetailsScreen extends StatefulWidget {
+  final Map<String, String> moduleInfo;
+
+  const ModuleDetailsScreen({super.key, required this.moduleInfo});
+
+  @override
+  State<ModuleDetailsScreen> createState() => _ModuleDetailsScreenState();
+}
+
+class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Color(int.parse(widget.moduleInfo['color']!.replaceAll('#', '0xFF')));
+    final name = widget.moduleInfo['name']!;
+    final desc = widget.moduleInfo['desc']!;
+    final iconName = widget.moduleInfo['icon']!;
+
+    return Scaffold(
+      backgroundColor: AppTheme.backgroundColor,
+      appBar: AppBar(
+        backgroundColor: AppTheme.backgroundColor,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.textColor),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Center(
+                child: Container(
+                  width: 100,
+                  height: 100,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    _getIconData(iconName),
+                    size: 48,
+                    color: color,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Center(
+                child: Text(
+                  name.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.0,
+                    color: AppTheme.textColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Center(
+                child: Text(
+                  desc,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    color: AppTheme.secondaryTextColor,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 48),
+
+              // Features / Pros
+              Text(
+                'KEY BENEFITS',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.secondaryTextColor,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ..._getPros(name).map((pro) => _buildFeatureItem(pro['title']!, pro['subtitle']!)),
+              
+              const Spacer(),
+
+              // Activate Button
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        side: BorderSide(color: color),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: Text(
+                        'BACK',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ModuleConfigurationScreen(moduleInfo: widget.moduleInfo),
+                          ),
+                        );
+                      },
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: color,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      child: Text(
+                        'CONTINUE',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeatureItem(String title, String subtitle) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: Row(
+        children: [
+          const Icon(Icons.check_circle_rounded, color: AppTheme.primaryColor, size: 20),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.inter(
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.textColor,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: AppTheme.secondaryTextColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Map<String, String>> _getPros(String moduleName) {
+    switch (moduleName) {
+      case 'Inventory':
+        return [
+          {'title': 'Real-time Tracking', 'subtitle': 'Monitor stock levels instantly.'},
+          {'title': 'Automated Alerts', 'subtitle': 'Get notified when stock is low.'},
+          {'title': 'Barcode Scanning', 'subtitle': 'Quickly add items with your camera.'},
+        ];
+      case 'CRM':
+        return [
+          {'title': 'Contact Management', 'subtitle': 'Keep all customer details in one place.'},
+          {'title': 'Lead Tracking', 'subtitle': 'Follow potential sales from start to finish.'},
+          {'title': 'Interaction History', 'subtitle': 'See every email and call log.'},
+        ];
+      case 'HR':
+        return [
+          {'title': 'Employee Records', 'subtitle': 'Manage personal and professional details.'},
+          {'title': 'Leave Management', 'subtitle': 'Track vacation and sick days easily.'},
+          {'title': 'Payroll Integration', 'subtitle': 'Simplify salary processing.'},
+        ];
+      case 'Sales':
+        return [
+          {'title': 'Order Management', 'subtitle': 'Create and track orders efficiently.'},
+          {'title': 'Invoice Generation', 'subtitle': 'Send professional invoices in seconds.'},
+          {'title': 'Sales Analytics', 'subtitle': 'Visualize your sales performance.'},
+        ];
+      default:
+        return [
+          {'title': 'Streamlined Workflow', 'subtitle': 'Automate repetitive tasks and save time.'},
+          {'title': 'Real-time Data', 'subtitle': 'Access your data instantly from anywhere.'},
+          {'title': 'Secure Storage', 'subtitle': 'All data is stored safely in your Google Drive.'},
+        ];
+    }
+  }
+
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'inventory': return Icons.inventory_2_rounded;
+      case 'people': return Icons.people_alt_rounded;
+      case 'shopping_cart': return Icons.shopping_cart_rounded;
+      case 'local_shipping': return Icons.local_shipping_rounded;
+      case 'payments': return Icons.payments_rounded;
+      case 'badge': return Icons.badge_rounded;
+      case 'campaign': return Icons.campaign_rounded;
+      case 'receipt_long': return Icons.receipt_long_rounded;
+      case 'assignment': return Icons.assignment_rounded;
+      case 'account_balance': return Icons.account_balance_rounded;
+      case 'analytics': return Icons.analytics_rounded;
+      case 'support_agent': return Icons.support_agent_rounded;
+      default: return Icons.widgets_rounded;
+    }
+  }
+}
