@@ -113,10 +113,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
         tabs: tabs,
       );
 
-      setState(() {
-        _fullModule = loadedModule;
-        _isLoadingSchema = false;
-      });
+      if (mounted) {
+        setState(() {
+          _fullModule = loadedModule;
+          _isLoadingSchema = false;
+        });
+      }
 
       // 4. If local config, navigate to Editor to complete setup
       if (isLocalConfig && mounted) {
@@ -135,10 +137,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
     } catch (e) {
       print('Error loading module schema: $e');
-      setState(() {
-        _fullModule = widget.module;
-        _isLoadingSchema = false;
-      });
+      if (mounted) {
+        setState(() {
+          _fullModule = widget.module;
+          _isLoadingSchema = false;
+        });
+      }
     }
   }
 
