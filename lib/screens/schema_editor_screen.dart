@@ -97,7 +97,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
             TextButton(
               onPressed: _saveChanges,
               child: Text(
-                widget.isNewSetup ? 'COMPLETE' : 'SAVE', 
+                widget.isNewSetup ? 'ACTIVATE' : 'SAVE', 
                 style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.primaryColor)
               ),
             ),

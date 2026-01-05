@@ -6,7 +6,6 @@ import '../services/auth_service.dart';
 import '../services/drive_service.dart';
 import '../providers/workspace_provider.dart';
 import 'dashboard_screen.dart';
-import 'module_configuration_screen.dart';
 
 class ModuleDetailsScreen extends StatefulWidget {
   final Map<String, String> moduleInfo;
@@ -18,6 +17,47 @@ class ModuleDetailsScreen extends StatefulWidget {
 }
 
 class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
+  bool _isActivating = false;
+
+  Future<void> _activateModule() async {
+    setState(() => _isActivating = true);
+
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      
+      if (authService.authClient == null || workspaceProvider.currentWorkspace == null) {
+        throw Exception("Authentication or Workspace missing");
+      }
+
+      final driveService = DriveService(authService.authClient!);
+      final workspaceId = workspaceProvider.currentWorkspace!.id!;
+      
+      final moduleName = widget.moduleInfo['name']!;
+
+      // Create the module folder in Drive
+      await driveService.createWorkspace(workspaceId, moduleName);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$moduleName activated successfully!')),
+        );
+        
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error activating module: $e')),
+        );
+        setState(() => _isActivating = false);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -123,27 +163,26 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                   const SizedBox(width: 16),
                   Expanded(
                     child: FilledButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ModuleConfigurationScreen(moduleInfo: widget.moduleInfo),
-                          ),
-                        );
-                      },
+                      onPressed: _isActivating ? null : _activateModule,
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         backgroundColor: color,
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                       ),
-                      child: Text(
-                        'CONTINUE',
-                        style: GoogleFonts.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
+                      child: _isActivating 
+                        ? const SizedBox(
+                            width: 20, 
+                            height: 20, 
+                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                          )
+                        : Text(
+                            'ACTIVATE',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
                     ),
                   ),
                 ],
