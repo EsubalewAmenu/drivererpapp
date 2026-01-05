@@ -30,10 +30,12 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
   List<String> _options = [];
   bool _isLoading = false;
   bool _isVisible = true;
+  String _label = '';
 
   @override
   void initState() {
     super.initState();
+    _label = widget.column.label;
     _loadOptions();
   }
 
@@ -83,6 +85,7 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
           final targetProperty = parts[1];
           
           final targetValue = widget.data[targetFieldKey];
+
           if (targetValue == null || targetValue.toString().isEmpty) {
             setState(() => _options = []);
             return;
@@ -90,7 +93,9 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
 
           // We need to find which Tab the targetFieldKey refers to.
           // We can't easily know the schema of the target field here without searching the whole module.
-          if (widget.module == null) return;
+          if (widget.module == null) {
+             return;
+          }
 
           // Find the column config for targetFieldKey in the current context?
           // We don't have the full list of columns here, only this column.
@@ -130,7 +135,14 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
                 
                 // Find the record where the first value (or name) matches targetValue
                 final record = records.firstWhere(
-                  (r) => r.values.first.toString() == targetValue || r['name'] == targetValue || r['item_name'] == targetValue,
+                  (r) {
+                    final val = targetValue.toString().toLowerCase().trim();
+                    final first = r.values.first.toString().toLowerCase().trim();
+                    final name = r['name']?.toString().toLowerCase().trim();
+                    final itemName = r['item_name']?.toString().toLowerCase().trim();
+                    
+                    return first == val || name == val || itemName == val;
+                  },
                   orElse: () => {},
                 );
 
@@ -162,6 +174,33 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
                        return;
                      }
                    }
+                }
+                
+                // Update label if dynamicLabel is configured
+                if (widget.column.dynamicLabel != null && widget.column.dynamicLabel!.contains('.')) {
+                   final parts = widget.column.dynamicLabel!.split('.');
+                   if (parts.length == 2) {
+                     final labelProperty = parts[1];
+                     
+                     // Case-insensitive key lookup
+                     final key = record.keys.firstWhere(
+                       (k) => k.toLowerCase() == labelProperty.toLowerCase(),
+                       orElse: () => '',
+                     );
+
+                     if (key.isNotEmpty) {
+                        final val = record[key];
+                        if (val != null && val.toString().isNotEmpty) {
+                          setState(() => _label = val.toString());
+                        } else {
+                          setState(() => _label = widget.column.label);
+                        }
+                     } else {
+                       setState(() => _label = widget.column.label);
+                     }
+                   }
+                } else {
+                   setState(() => _label = widget.column.label);
                 }
                 
                 setState(() => _isVisible = true);
@@ -224,7 +263,7 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          widget.column.label.toUpperCase(),
+          _label.toUpperCase(),
           style: GoogleFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,

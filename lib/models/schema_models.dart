@@ -130,6 +130,7 @@ class ColumnConfig {
   final dynamic defaultValue;
   final List<ColumnConfig>? columns;
   final bool? hidden;
+  final String? dynamicLabel;
 
   ColumnConfig({
     required this.key,
@@ -141,6 +142,7 @@ class ColumnConfig {
     this.defaultValue,
     this.columns,
     this.hidden,
+    this.dynamicLabel,
   });
 
   factory ColumnConfig.fromJson(Map<String, dynamic> json) => _$ColumnConfigFromJson(json);

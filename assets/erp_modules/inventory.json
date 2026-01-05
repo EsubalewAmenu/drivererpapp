@@ -61,7 +61,8 @@
                "label": "Variant", 
                "type": "select", 
                "options": "item_ref.variants",
-               "dependsOn": "item_ref"
+               "dependsOn": "item_ref",
+               "dynamicLabel": "item_ref.variant_name"
              },
              { "key": "qty", "label": "Quantity", "type": "number" },
              { "key": "cost_price", "label": "Unit Cost", "type": "currency" }
