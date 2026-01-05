@@ -271,7 +271,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           id: folder.id ?? 'unknown',
           name: moduleInfo['name']!,
           icon: moduleInfo['icon']!,
-          settings: ModuleSettings(primaryColor: moduleInfo['color']!, version: '1.0.0'),
+          primaryColor: moduleInfo['color']!,
+          version: '1.0.0',
+          settings: {},
           dashboard: DashboardConfig(kpiCards: []),
           tabs: [],
         );
@@ -324,7 +326,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 child: Icon(
                   _getIconData(module.icon),
-                  color: Color(int.parse(module.settings.primaryColor.replaceAll('#', '0xFF'))),
+                  color: Color(int.parse(module.primaryColor.replaceAll('#', '0xFF'))),
                   size: 24,
                 ),
               ),

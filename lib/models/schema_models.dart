@@ -7,7 +7,9 @@ class ModuleSchema {
   final String id;
   final String name;
   final String icon;
-  final ModuleSettings settings;
+  final String primaryColor;
+  final String version;
+  final Map<String, SettingItem> settings;
   final DashboardConfig dashboard;
   final List<TabConfig> tabs;
 
@@ -15,6 +17,8 @@ class ModuleSchema {
     required this.id,
     required this.name,
     required this.icon,
+    required this.primaryColor,
+    required this.version,
     required this.settings,
     required this.dashboard,
     required this.tabs,
@@ -25,17 +29,26 @@ class ModuleSchema {
 }
 
 @JsonSerializable()
-class ModuleSettings {
-  final String primaryColor;
-  final String version;
+class SettingItem {
+  final String label;
+  final String type;
+  final dynamic value;
+  final String? dependsOn;
+  @JsonKey(name: 'default')
+  final dynamic defaultValue;
+  final List<dynamic>? options;
 
-  ModuleSettings({
-    required this.primaryColor,
-    required this.version,
+  SettingItem({
+    required this.label,
+    required this.type,
+    this.value,
+    this.dependsOn,
+    this.defaultValue,
+    this.options,
   });
 
-  factory ModuleSettings.fromJson(Map<String, dynamic> json) => _$ModuleSettingsFromJson(json);
-  Map<String, dynamic> toJson() => _$ModuleSettingsToJson(this);
+  factory SettingItem.fromJson(Map<String, dynamic> json) => _$SettingItemFromJson(json);
+  Map<String, dynamic> toJson() => _$SettingItemToJson(this);
 }
 
 @JsonSerializable()

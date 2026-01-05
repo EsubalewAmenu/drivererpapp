@@ -43,11 +43,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final settingsMap = jsonMap['settings'] as Map<String, dynamic>;
       final name = settingsMap['name']?['value'] ?? widget.module.name;
       
-      final moduleSettings = ModuleSettings(
-        primaryColor: jsonMap['primaryColor'] ?? '#000000',
-        version: jsonMap['version'] ?? '1.0',
-      );
-
       final dashboard = DashboardConfig.fromJson(jsonMap['dashboard']);
       
       // Pre-process tabs to resolve dynamic options
@@ -72,13 +67,17 @@ class _ModuleScreenState extends State<ModuleScreen> {
       }
 
       final tabs = tabsList.map((t) => TabConfig.fromJson(t)).toList();
+      
+      final settingsItems = settingsMap.map((k, v) => MapEntry(k, SettingItem.fromJson(v)));
 
       setState(() {
         _fullModule = ModuleSchema(
           id: widget.module.id,
           name: name,
           icon: jsonMap['icon'] ?? 'widgets',
-          settings: moduleSettings,
+          primaryColor: jsonMap['primaryColor'] ?? '#000000',
+          version: jsonMap['version'] ?? '1.0',
+          settings: settingsItems,
           dashboard: dashboard,
           tabs: tabs,
         );
@@ -104,7 +103,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
     }
 
     final module = _fullModule ?? widget.module;
-    final primaryColor = Color(int.parse(module.settings.primaryColor.replaceAll('#', '0xFF')));
+    final primaryColor = Color(int.parse(module.primaryColor.replaceAll('#', '0xFF')));
 
     return DefaultTabController(
       length: module.tabs.length + 1, // +1 for Dashboard

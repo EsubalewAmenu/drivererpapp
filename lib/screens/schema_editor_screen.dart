@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/schema_models.dart';
@@ -19,6 +21,10 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
   late List<TabConfig> _tabs;
   late List<KpiCard> _kpis;
   late TextEditingController _moduleNameController;
+  late Map<String, dynamic> _settingsValues;
+  
+  Map<String, dynamic>? _rawSettings;
+  bool _isLoadingSettings = true;
 
   @override
   void initState() {
@@ -29,6 +35,38 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
     _tabs = List.from(widget.module.tabs); 
     _kpis = List.from(widget.module.dashboard.kpiCards);
     _moduleNameController = TextEditingController(text: widget.module.name);
+    
+    _settingsValues = {};
+    _loadSettingsFromFile();
+  }
+
+  Future<void> _loadSettingsFromFile() async {
+    try {
+      final fileName = widget.module.name.toLowerCase();
+      final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
+      final jsonMap = jsonDecode(jsonString);
+      
+      if (mounted) {
+        setState(() {
+          _rawSettings = jsonMap['settings'];
+          _isLoadingSettings = false;
+          
+          // Initialize values from raw JSON
+          if (_rawSettings != null) {
+            _rawSettings!.forEach((key, value) {
+               _settingsValues[key] = value['value'];
+            });
+          }
+        });
+      }
+    } catch (e) {
+      print('Error loading settings: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingSettings = false;
+        });
+      }
+    }
   }
 
   @override
@@ -262,28 +300,128 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
   // --- Settings Editor ---
 
   Widget _buildSettingsEditor() {
-    return Padding(
+    if (_isLoadingSettings) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    if (_rawSettings == null) {
+      return Center(
+        child: Text(
+          'No settings found in JSON file.',
+          style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+        ),
+      );
+    }
+
+    return ListView(
       padding: const EdgeInsets.all(24.0),
-      child: Column(
-        children: [
-          TextField(
-            controller: _moduleNameController,
-            style: GoogleFonts.inter(color: AppTheme.textColor),
-            decoration: InputDecoration(
-              labelText: 'Module Name',
-              labelStyle: TextStyle(color: AppTheme.secondaryTextColor),
-              enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppTheme.secondaryTextColor)),
-              focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor)),
-            ),
+      children: [
+        ..._rawSettings!.entries.map((entry) {
+          final key = entry.key;
+          final item = entry.value as Map<String, dynamic>;
+          
+          if (item['dependsOn'] != null) {
+             final dependencyValue = _settingsValues[item['dependsOn']];
+             if (dependencyValue != true) return const SizedBox.shrink();
+          }
+
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: _buildSettingField(key, item),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildSettingField(String key, Map<String, dynamic> item) {
+    final label = item['label'] as String? ?? key;
+    final type = item['type'] as String? ?? 'text';
+
+    switch (type) {
+      case 'boolean':
+        return SwitchListTile(
+          title: Text(label, style: GoogleFonts.inter(color: AppTheme.textColor)),
+          value: _settingsValues[key] == true,
+          onChanged: (val) {
+            setState(() {
+              _settingsValues[key] = val;
+            });
+          },
+          activeColor: AppTheme.primaryColor,
+          contentPadding: EdgeInsets.zero,
+        );
+      case 'text':
+        return TextFormField(
+          initialValue: _settingsValues[key]?.toString(),
+          style: GoogleFonts.inter(color: AppTheme.textColor),
+          decoration: InputDecoration(
+            labelText: label,
+            labelStyle: TextStyle(color: AppTheme.secondaryTextColor),
+            enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: AppTheme.secondaryTextColor)),
+            focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: AppTheme.primaryColor)),
           ),
-          const SizedBox(height: 24),
-          // Color Picker Placeholder
-          Row(
-            children: [
-              Text('Theme Color', style: GoogleFonts.inter(color: AppTheme.textColor)),
-              const Spacer(),
-              CircleAvatar(backgroundColor: Color(int.parse(widget.module.settings.primaryColor.replaceAll('#', '0xFF')))),
-            ],
+          onChanged: (val) {
+            _settingsValues[key] = val;
+          },
+        );
+      case 'list':
+        List<String> currentList = (_settingsValues[key] as List?)?.cast<String>() ?? [];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontSize: 12)),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: [
+                ...currentList.map((e) => Chip(
+                  label: Text(e),
+                  onDeleted: () {
+                    setState(() {
+                      currentList.remove(e);
+                      _settingsValues[key] = currentList;
+                    });
+                  },
+                )),
+                ActionChip(
+                  label: const Icon(Icons.add, size: 16),
+                  onPressed: () {
+                    _showAddListItemDialog(key, currentList);
+                  },
+                ),
+              ],
+            ),
+          ],
+        );
+      default:
+        return Text('Unsupported type: $type', style: const TextStyle(color: Colors.red));
+    }
+  }
+
+  void _showAddListItemDialog(String key, List<String> currentList) {
+    String newValue = '';
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Add to $key'),
+        content: TextField(
+          autofocus: true,
+          onChanged: (val) => newValue = val,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              if (newValue.isNotEmpty) {
+                setState(() {
+                  currentList.add(newValue);
+                  _settingsValues[key] = currentList;
+                });
+                Navigator.pop(context);
+              }
+            },
+            child: const Text('Add'),
           ),
         ],
       ),
