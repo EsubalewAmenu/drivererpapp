@@ -2,7 +2,10 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
+import '../services/auth_service.dart';
+import '../services/drive_service.dart';
 import '../theme/app_theme.dart';
 import 'schema_editor/structure_editor.dart';
 import 'schema_editor/dashboard_editor.dart';
@@ -11,8 +14,13 @@ import 'schema_editor/dialogs/edit_kpi_dialog.dart';
 
 class SchemaEditorScreen extends StatefulWidget {
   final ModuleSchema module;
+  final bool isNewSetup;
 
-  const SchemaEditorScreen({super.key, required this.module});
+  const SchemaEditorScreen({
+    super.key, 
+    required this.module,
+    this.isNewSetup = false,
+  });
 
   @override
   State<SchemaEditorScreen> createState() => _SchemaEditorScreenState();
@@ -27,48 +35,32 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
   late Map<String, dynamic> _settingsValues;
   
   Map<String, dynamic>? _rawSettings;
-  bool _isLoadingSettings = true;
+  bool _isLoadingSettings = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     
-    // Deep copy for editing (simplified)
+    // Deep copy for editing
     _tabs = List.from(widget.module.tabs); 
     _kpis = List.from(widget.module.dashboard.kpiCards);
     
     _settingsValues = {};
-    _loadSettingsFromFile();
-  }
-
-  Future<void> _loadSettingsFromFile() async {
-    try {
-      final fileName = widget.module.name.toLowerCase();
-      final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
-      final jsonMap = jsonDecode(jsonString);
+    _rawSettings = {};
+    
+    // Initialize settings from the passed module
+    widget.module.settings.forEach((key, item) {
+      // Use value if present, otherwise default
+      _settingsValues[key] = item.value ?? item.defaultValue;
       
-      if (mounted) {
-        setState(() {
-          _rawSettings = jsonMap['settings'];
-          _isLoadingSettings = false;
-          
-          // Initialize values from raw JSON
-          if (_rawSettings != null) {
-            _rawSettings!.forEach((key, value) {
-               _settingsValues[key] = value['value'];
-            });
-          }
-        });
-      }
-    } catch (e) {
-      print('Error loading settings: $e');
-      if (mounted) {
-        setState(() {
-          _isLoadingSettings = false;
-        });
-      }
-    }
+      // Reconstruct raw settings map for the editor
+      // We need to ensure the 'value' in the raw map reflects the current value
+      var itemJson = item.toJson();
+      itemJson['value'] = _settingsValues[key];
+      _rawSettings![key] = itemJson;
+    });
   }
 
   @override
@@ -76,7 +68,10 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text('BLUEPRINT EDITOR', style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+        title: Text(
+          widget.isNewSetup ? 'COMPLETE SETUP' : 'BLUEPRINT EDITOR', 
+          style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)
+        ),
         centerTitle: true,
         backgroundColor: AppTheme.backgroundColor,
         elevation: 0,
@@ -93,65 +88,125 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
           ],
         ),
         actions: [
-          TextButton(
-            onPressed: _saveChanges,
-            child: Text('SAVE', style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.primaryColor)),
+          if (_isSaving)
+            const Center(child: Padding(
+              padding: EdgeInsets.only(right: 16.0),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            ))
+          else
+            TextButton(
+              onPressed: _saveChanges,
+              child: Text(
+                widget.isNewSetup ? 'COMPLETE' : 'SAVE', 
+                style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.primaryColor)
+              ),
+            ),
+        ],
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          StructureEditor(
+            tabs: _tabs,
+            rawSettings: _rawSettings,
+            onTabsChanged: (newTabs) {
+              setState(() {
+                _tabs = newTabs;
+              });
+            },
+          ),
+          DashboardEditor(
+            kpis: _kpis,
+            onAddKpi: () {
+              _showAddKpiDialog();
+            },
+            onDeleteKpi: (index) {
+              setState(() {
+                _kpis.removeAt(index);
+              });
+            },
+            onEditKpi: (index, kpi) {
+              _showEditKpiDialog(index, kpi);
+            },
+          ),
+          SettingsEditor(
+            rawSettings: _rawSettings,
+            settingsValues: _settingsValues,
+            onSettingChanged: (key, value) {
+              setState(() {
+                _settingsValues[key] = value;
+                // Also update the raw settings value so it persists in the map
+                if (_rawSettings != null && _rawSettings![key] != null) {
+                  _rawSettings![key]['value'] = value;
+                }
+              });
+            },
+            onSchemaChanged: (newSchema) {
+              setState(() {
+                _rawSettings = newSchema;
+              });
+            },
           ),
         ],
       ),
-      body: _isLoadingSettings 
-        ? const Center(child: CircularProgressIndicator())
-        : TabBarView(
-            controller: _tabController,
-            children: [
-              StructureEditor(
-                tabs: _tabs,
-                rawSettings: _rawSettings,
-                onTabsChanged: (newTabs) {
-                  setState(() {
-                    _tabs = newTabs;
-                  });
-                },
-              ),
-              DashboardEditor(
-                kpis: _kpis,
-                onAddKpi: () {
-                  _showAddKpiDialog();
-                },
-                onDeleteKpi: (index) {
-                  setState(() {
-                    _kpis.removeAt(index);
-                  });
-                },
-                onEditKpi: (index, kpi) {
-                  _showEditKpiDialog(index, kpi);
-                },
-              ),
-              SettingsEditor(
-                rawSettings: _rawSettings,
-                settingsValues: _settingsValues,
-                onSettingChanged: (key, value) {
-                  setState(() {
-                    _settingsValues[key] = value;
-                  });
-                },
-                onSchemaChanged: (newSchema) {
-                  setState(() {
-                    _rawSettings = newSchema;
-                  });
-                },
-              ),
-            ],
-          ),
     );
   }
 
-  void _saveChanges() {
-    // In a real app, this would serialize the state back to JSON and upload to Drive
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Blueprint updated. Syncing to Drive...')),
-    );
-    Navigator.pop(context);
+  Future<void> _saveChanges() async {
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      // 1. Construct the JSON object
+      final Map<String, dynamic> jsonMap = {
+        'icon': widget.module.icon,
+        'primaryColor': widget.module.primaryColor,
+        'version': widget.module.version,
+        'settings': _rawSettings, // This now contains the updated values
+        'dashboard': {
+          'kpiCards': _kpis.map((k) => k.toJson()).toList(),
+        },
+        'tabs': _tabs.map((t) => t.toJson()).toList(),
+      };
+
+      final jsonString = const JsonEncoder.withIndent('  ').convert(jsonMap);
+
+      // 2. Save to Drive
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final driveService = DriveService(authService.authClient!);
+
+      // Check if config.json exists
+      final existingFileId = await driveService.getFileId(widget.module.id, 'config.json');
+
+      if (existingFileId != null) {
+        print('Updating existing config.json ($existingFileId)...');
+        await driveService.updateFile(existingFileId, jsonString);
+      } else {
+        print('Creating new config.json in ${widget.module.id}...');
+        await driveService.createFile(widget.module.id, 'config.json', jsonString);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Configuration saved successfully.')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      print('Error saving configuration: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving configuration: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   Future<void> _showAddKpiDialog() async {
