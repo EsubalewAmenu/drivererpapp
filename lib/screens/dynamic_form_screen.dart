@@ -103,6 +103,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
               },
               controllers: _controllers,
               module: widget.module,
+              settings: widget.settings,
             ),
           ),
         ),

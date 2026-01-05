@@ -17,6 +17,7 @@ class DynamicFormRenderer extends StatelessWidget {
   final Function(String key, dynamic value) onFieldChanged;
   final Map<String, TextEditingController> controllers;
   final ModuleSchema? module;
+  final Map<String, SettingItem> settings;
 
   const DynamicFormRenderer({
     super.key,
@@ -26,18 +27,42 @@ class DynamicFormRenderer extends StatelessWidget {
     required this.onFieldChanged,
     required this.controllers,
     this.module,
+    this.settings = const {},
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: columns.map((col) {
+        if (!_shouldShowField(col)) {
+          return const SizedBox.shrink();
+        }
         return Padding(
           padding: const EdgeInsets.only(bottom: 24),
           child: _buildField(context, col),
         );
       }).toList(),
     );
+  }
+
+  bool _shouldShowField(ColumnConfig col) {
+    if (col.dependsOn == null) return true;
+
+    final dependency = col.dependsOn!;
+    
+    // Check if it depends on settings
+    if (dependency.startsWith('settings.')) {
+      final settingKey = dependency.split('.')[1];
+      final setting = settings[settingKey];
+      return setting?.value == true;
+    }
+
+    // Check if it depends on another field in the form
+    final dependentValue = data[dependency];
+    // Simple truthy check: true, or non-empty string, or non-null object
+    if (dependentValue is bool) return dependentValue;
+    if (dependentValue is String) return dependentValue.isNotEmpty;
+    return dependentValue != null;
   }
 
   Widget _buildField(BuildContext context, ColumnConfig col) {
