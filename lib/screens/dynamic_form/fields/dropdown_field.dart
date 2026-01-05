@@ -29,6 +29,7 @@ class DynamicDropdownField extends StatefulWidget {
 class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
   List<String> _options = [];
   bool _isLoading = false;
+  bool _isVisible = true;
 
   @override
   void initState() {
@@ -133,6 +134,38 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
                   orElse: () => {},
                 );
 
+                // Check for generic dependency logic based on target column schema
+                final relatedTab = widget.module!.tabs.firstWhere(
+                  (t) => t.id == relatedTabId, 
+                  orElse: () => widget.module!.tabs.first
+                );
+                final targetColumn = _findColumn(relatedTab.columns, targetProperty);
+
+                if (targetColumn?.dependsOn != null) {
+                   final dependencyKey = targetColumn!.dependsOn!;
+                   if (record.containsKey(dependencyKey)) {
+                     final depValue = record[dependencyKey];
+                     bool isActive = true;
+                     if (depValue is bool) {
+                       isActive = depValue;
+                     } else if (depValue is String) {
+                       isActive = depValue.toLowerCase() == 'true';
+                     } else if (depValue == null) {
+                       isActive = false;
+                     }
+                     
+                     if (!isActive) {
+                       setState(() {
+                         _options = [];
+                         _isVisible = false;
+                       });
+                       return;
+                     }
+                   }
+                }
+                
+                setState(() => _isVisible = true);
+
                 if (record.isNotEmpty && record.containsKey(targetProperty)) {
                   final propValue = record[targetProperty];
                   if (propValue is String) {
@@ -185,6 +218,8 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isVisible) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
