@@ -36,10 +36,16 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     super.initState();
     // Initialize form data and controllers
     for (var col in widget.tab.columns) {
-      final initialValue = widget.initialData?[col.key];
+      var initialValue = widget.initialData?[col.key];
+      
+      // Apply default value if no initial data and default exists
+      if (initialValue == null && col.defaultValue != null) {
+        initialValue = col.defaultValue;
+      }
+
       _formData[col.key] = initialValue;
       
-      if (col.type != 'image' && col.type != 'date') {
+      if (col.type != 'image' && col.type != 'date' && col.type != 'list') {
         _controllers[col.key] = TextEditingController(text: initialValue?.toString() ?? '');
       }
     }

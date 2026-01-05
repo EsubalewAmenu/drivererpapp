@@ -103,6 +103,8 @@ class ColumnConfig {
   final dynamic options; // Can be List<String> or String (reference)
   final String? formula;
   final String? dependsOn;
+  @JsonKey(name: 'default')
+  final dynamic defaultValue;
 
   ColumnConfig({
     required this.key,
@@ -111,6 +113,7 @@ class ColumnConfig {
     this.options,
     this.formula,
     this.dependsOn,
+    this.defaultValue,
   });
 
   factory ColumnConfig.fromJson(Map<String, dynamic> json) => _$ColumnConfigFromJson(json);

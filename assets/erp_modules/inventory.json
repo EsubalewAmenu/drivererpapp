@@ -45,7 +45,8 @@
           "key": "variants", 
           "label": "Variants", 
           "type": "list",
-          "dependsOn": "is_item_variants"
+          "dependsOn": "is_item_variants",
+          "default": ["Small", "Big"]
         },
         { "key": "min_stock_alerts", "label": "Minimum Stock Alerts", "type": "number" }
       ]

@@ -6,27 +6,22 @@ part of 'schema_models.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
-ModuleSchema _$ModuleSchemaFromJson(Map<String, dynamic> json) {
-  String name = json['name'] as String? ?? 
-      (json['settings'] != null && json['settings']['name'] != null ? json['settings']['name']['value'] as String : 'Unknown');
-
-  return ModuleSchema(
-    id: json['id'] as String,
-    name: name,
-    icon: json['icon'] as String,
-    primaryColor: json['primaryColor'] as String,
-    version: json['version'] as String,
-    settings: (json['settings'] as Map<String, dynamic>).map(
-      (k, e) => MapEntry(k, SettingItem.fromJson(e as Map<String, dynamic>)),
-    ),
-    dashboard: DashboardConfig.fromJson(
-      json['dashboard'] as Map<String, dynamic>,
-    ),
-    tabs: (json['tabs'] as List<dynamic>)
-        .map((e) => TabConfig.fromJson(e as Map<String, dynamic>))
-        .toList(),
-  );
-}
+ModuleSchema _$ModuleSchemaFromJson(Map<String, dynamic> json) => ModuleSchema(
+  id: json['id'] as String,
+  name: json['name'] as String,
+  icon: json['icon'] as String,
+  primaryColor: json['primaryColor'] as String,
+  version: json['version'] as String,
+  settings: (json['settings'] as Map<String, dynamic>).map(
+    (k, e) => MapEntry(k, SettingItem.fromJson(e as Map<String, dynamic>)),
+  ),
+  dashboard: DashboardConfig.fromJson(
+    json['dashboard'] as Map<String, dynamic>,
+  ),
+  tabs: (json['tabs'] as List<dynamic>)
+      .map((e) => TabConfig.fromJson(e as Map<String, dynamic>))
+      .toList(),
+);
 
 Map<String, dynamic> _$ModuleSchemaToJson(ModuleSchema instance) =>
     <String, dynamic>{
@@ -41,32 +36,23 @@ Map<String, dynamic> _$ModuleSchemaToJson(ModuleSchema instance) =>
     };
 
 SettingItem _$SettingItemFromJson(Map<String, dynamic> json) => SettingItem(
-      label: json['label'] as String,
-      type: json['type'] as String,
-      value: json['value'],
-      dependsOn: json['dependsOn'] as String?,
-      defaultValue: json['default'],
-      options: json['options'] as List<dynamic>?,
-    );
+  label: json['label'] as String,
+  type: json['type'] as String,
+  value: json['value'],
+  dependsOn: json['dependsOn'] as String?,
+  defaultValue: json['default'],
+  options: json['options'] as List<dynamic>?,
+);
 
-Map<String, dynamic> _$SettingItemToJson(SettingItem instance) {
-  final val = <String, dynamic>{
-    'label': instance.label,
-    'type': instance.type,
-  };
-
-  void writeNotNull(String key, dynamic value) {
-    if (value != null) {
-      val[key] = value;
-    }
-  }
-
-  writeNotNull('value', instance.value);
-  writeNotNull('dependsOn', instance.dependsOn);
-  writeNotNull('default', instance.defaultValue);
-  writeNotNull('options', instance.options);
-  return val;
-}
+Map<String, dynamic> _$SettingItemToJson(SettingItem instance) =>
+    <String, dynamic>{
+      'label': instance.label,
+      'type': instance.type,
+      'value': instance.value,
+      'dependsOn': instance.dependsOn,
+      'default': instance.defaultValue,
+      'options': instance.options,
+    };
 
 DashboardConfig _$DashboardConfigFromJson(Map<String, dynamic> json) =>
     DashboardConfig(
@@ -111,6 +97,7 @@ ColumnConfig _$ColumnConfigFromJson(Map<String, dynamic> json) => ColumnConfig(
   options: json['options'],
   formula: json['formula'] as String?,
   dependsOn: json['dependsOn'] as String?,
+  defaultValue: json['default'],
 );
 
 Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
@@ -121,4 +108,5 @@ Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
       'options': instance.options,
       'formula': instance.formula,
       'dependsOn': instance.dependsOn,
+      'default': instance.defaultValue,
     };
