@@ -105,6 +105,7 @@ class ColumnConfig {
   final String? dependsOn;
   @JsonKey(name: 'default')
   final dynamic defaultValue;
+  final List<ColumnConfig>? columns;
 
   ColumnConfig({
     required this.key,
@@ -114,6 +115,7 @@ class ColumnConfig {
     this.formula,
     this.dependsOn,
     this.defaultValue,
+    this.columns,
   });
 
   factory ColumnConfig.fromJson(Map<String, dynamic> json) => _$ColumnConfigFromJson(json);

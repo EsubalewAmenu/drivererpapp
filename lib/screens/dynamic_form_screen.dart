@@ -142,6 +142,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         return _buildDropdown(column);
       case 'list':
         return _buildListEditor(column);
+      case 'table':
+        return _buildTableEditor(column);
       case 'boolean':
         return _buildSwitch(column);
       case 'formula':
@@ -597,6 +599,235 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildTableEditor(ColumnConfig column) {
+    List<Map<String, dynamic>> rows = [];
+    if (_formData[column.key] is List) {
+      rows = List<Map<String, dynamic>>.from(_formData[column.key]);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              column.label.toUpperCase(),
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.secondaryTextColor,
+                letterSpacing: 1.0,
+              ),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                _showAddRowDialog(column, (newRow) {
+                  setState(() {
+                    rows.add(newRow);
+                    _formData[column.key] = rows;
+                  });
+                });
+              },
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Add Item'),
+              style: TextButton.styleFrom(
+                foregroundColor: widget.primaryColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        if (rows.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppTheme.surfaceColor,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.1)),
+            ),
+            child: Center(
+              child: Text(
+                'No items added yet',
+                style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+              ),
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: rows.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 8),
+            itemBuilder: (context, index) {
+              final row = rows[index];
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.surfaceColor,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.1)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: column.columns?.map((col) {
+                          final val = row[col.key];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '${col.label}: $val',
+                              style: GoogleFonts.inter(color: AppTheme.textColor, fontSize: 13),
+                            ),
+                          );
+                        }).toList() ?? [],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20),
+                      color: Colors.red[400],
+                      onPressed: () {
+                        setState(() {
+                          rows.removeAt(index);
+                          _formData[column.key] = rows;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  void _showAddRowDialog(ColumnConfig tableColumn, Function(Map<String, dynamic>) onAdd) {
+    final Map<String, dynamic> rowData = {};
+    final Map<String, TextEditingController> rowControllers = {};
+    
+    // Initialize controllers
+    if (tableColumn.columns != null) {
+      for (var col in tableColumn.columns!) {
+        if (col.type != 'image' && col.type != 'date' && col.type != 'list' && col.type != 'relation') {
+          rowControllers[col.key] = TextEditingController();
+        }
+      }
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: AppTheme.backgroundColor,
+            title: Text('Add ${tableColumn.label}', style: TextStyle(color: AppTheme.textColor)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: tableColumn.columns?.map((col) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: _buildRowField(col, rowData, rowControllers, setState),
+                  );
+                }).toList() ?? [],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () {
+                  // Save text controller values
+                  rowControllers.forEach((key, controller) {
+                    if (!rowData.containsKey(key)) {
+                      rowData[key] = controller.text;
+                    }
+                  });
+                  onAdd(rowData);
+                  Navigator.pop(context);
+                },
+                child: const Text('Add'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
+  Widget _buildRowField(ColumnConfig col, Map<String, dynamic> data, Map<String, TextEditingController> controllers, StateSetter setState) {
+    // Simplified field builder for dialog
+    if (col.type == 'relation') {
+      return InkWell(
+        onTap: () async {
+           if (widget.module != null && col.options is String) {
+              final relatedTabId = col.options as String;
+              final authService = Provider.of<AuthService>(context, listen: false);
+              if (authService.authClient != null) {
+                final driveService = DriveService(authService.authClient!);
+                final items = await driveService.readSheet('Default Workspace', relatedTabId);
+                
+                if (mounted) {
+                  final selected = await showDialog<String>(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Text('Select Item'),
+                      content: SizedBox(
+                        width: double.maxFinite,
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: items.length,
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            String label = item.values.first.toString();
+                            if (item.containsKey('item_name')) label = item['item_name'];
+                            else if (item.containsKey('name')) label = item['name'];
+                            return ListTile(
+                              title: Text(label),
+                              onTap: () => Navigator.pop(context, label),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  );
+                  if (selected != null) {
+                    setState(() => data[col.key] = selected);
+                  }
+                }
+              }
+           }
+        },
+        child: InputDecorator(
+          decoration: InputDecoration(
+            labelText: col.label,
+            border: OutlineInputBorder(),
+            filled: true,
+            fillColor: AppTheme.surfaceColor,
+          ),
+          child: Text(data[col.key]?.toString() ?? 'Select...'),
+        ),
+      );
+    }
+    
+    return TextFormField(
+      controller: controllers[col.key],
+      decoration: InputDecoration(
+        labelText: col.label,
+        border: OutlineInputBorder(),
+        filled: true,
+        fillColor: AppTheme.surfaceColor,
+      ),
+      keyboardType: col.type == 'number' || col.type == 'currency' ? TextInputType.number : TextInputType.text,
+      onChanged: (val) => data[col.key] = val,
     );
   }
 

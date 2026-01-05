@@ -46,9 +46,16 @@
           "dependsOn": "settings.has_multiple_warehouses"
         },
         { "key": "batch", "label": "Batch Name", "type": "text" },
-        { "key": "item_ref", "label": "Select Item", "type": "relation", "options": "items" },
-        { "key": "qty", "label": "Quantity", "type": "number" },
-        { "key": "cost_price", "label": "Unit Cost", "type": "currency" }
+        { 
+          "key": "items", 
+          "label": "Items", 
+          "type": "table", 
+          "columns": [
+             { "key": "item_ref", "label": "Select Item", "type": "relation", "options": "items" },
+             { "key": "qty", "label": "Quantity", "type": "number" },
+             { "key": "cost_price", "label": "Unit Cost", "type": "currency" }
+          ]
+        }
       ]
     },
     {
