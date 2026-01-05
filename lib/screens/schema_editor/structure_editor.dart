@@ -103,6 +103,10 @@ class _StructureEditorState extends State<StructureEditor> {
       case 'date': return Icons.calendar_today;
       case 'select': return Icons.list;
       case 'formula': return Icons.functions;
+      case 'scanner': return Icons.qr_code_scanner;
+      case 'currency': return Icons.attach_money;
+      case 'boolean': return Icons.check_box;
+      case 'image': return Icons.image;
       default: return Icons.short_text;
     }
   }
@@ -146,7 +150,10 @@ class _StructureEditorState extends State<StructureEditor> {
                     value: currentType,
                     dropdownColor: AppTheme.surfaceColor,
                     style: TextStyle(color: AppTheme.textColor),
-                    items: ['text', 'number', 'date', 'select', 'boolean', 'image']
+                    items: {
+                      'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula',
+                      currentType // Ensure current value is always in the list
+                    }
                         .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
                         .toList(),
                     onChanged: (val) {
@@ -169,7 +176,11 @@ class _StructureEditorState extends State<StructureEditor> {
                          const DropdownMenuItem(value: '__divider__', enabled: false, child: Divider()),
                          const DropdownMenuItem(value: '__header__', enabled: false, child: Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                          ..._getAvailableBooleanSettings().map((s) => DropdownMenuItem(value: s, child: Text(s))),
-                      ]
+                      ],
+                      if (currentDependsOn != null && 
+                          !tab.columns.any((c) => c.key == currentDependsOn) &&
+                          !_getAvailableBooleanSettings().contains(currentDependsOn))
+                        DropdownMenuItem(value: currentDependsOn, child: Text('$currentDependsOn (Missing)')),
                     ],
                     onChanged: (val) => setState(() => currentDependsOn = val),
                   ),
