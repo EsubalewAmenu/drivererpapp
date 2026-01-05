@@ -54,7 +54,7 @@ class _StructureEditorState extends State<StructureEditor> {
                 ...tab.columns.map((col) => _buildColumnRow(tab, col)),
                 const SizedBox(height: 16),
                 _buildAddButton('Add Column', () {
-                  // TODO: Add column logic
+                  _showAddColumnDialog(tab);
                 }, isSmall: true),
               ],
             ),
@@ -65,6 +65,7 @@ class _StructureEditorState extends State<StructureEditor> {
   }
 
   Widget _buildColumnRow(TabConfig tab, ColumnConfig col) {
+    final isHidden = col.hidden == true;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
@@ -72,8 +73,24 @@ class _StructureEditorState extends State<StructureEditor> {
           Icon(_getIconForType(col.type), size: 16, color: AppTheme.secondaryTextColor),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(col.label, style: GoogleFonts.inter(color: AppTheme.textColor)),
+            child: Text(
+              col.label, 
+              style: GoogleFonts.inter(
+                color: isHidden ? AppTheme.secondaryTextColor : AppTheme.textColor,
+                decoration: isHidden ? TextDecoration.lineThrough : null,
+              ),
+            ),
           ),
+          if (isHidden)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text('HIDDEN', style: GoogleFonts.sourceCodePro(fontSize: 9, color: Colors.orange)),
+            ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
@@ -89,6 +106,13 @@ class _StructureEditorState extends State<StructureEditor> {
             color: AppTheme.primaryColor,
             onPressed: () {
               _showEditColumnDialog(tab, col);
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded, size: 16),
+            color: Colors.red,
+            onPressed: () {
+              _confirmDeleteColumn(tab, col);
             },
           ),
         ],
@@ -111,10 +135,103 @@ class _StructureEditorState extends State<StructureEditor> {
     }
   }
 
+  void _confirmDeleteColumn(TabConfig tab, ColumnConfig col) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.surfaceColor,
+        title: Text('Delete Column', style: TextStyle(color: AppTheme.textColor)),
+        content: Text('Are you sure you want to delete "${col.label}"? This cannot be undone.', style: TextStyle(color: AppTheme.secondaryTextColor)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              final newTabs = List<TabConfig>.from(widget.tabs);
+              final tabIndex = newTabs.indexOf(tab);
+              newTabs[tabIndex].columns.remove(col);
+              widget.onTabsChanged(newTabs);
+              Navigator.pop(context);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddColumnDialog(TabConfig tab) {
+    final labelController = TextEditingController();
+    String currentType = 'text';
+    
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            backgroundColor: AppTheme.surfaceColor,
+            title: Text('Add Column', style: GoogleFonts.inter(color: AppTheme.textColor)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: labelController,
+                    style: TextStyle(color: AppTheme.textColor),
+                    decoration: const InputDecoration(labelText: 'Column Name'),
+                  ),
+                  const SizedBox(height: 16),
+                  DropdownButtonFormField<String>(
+                    value: currentType,
+                    dropdownColor: AppTheme.surfaceColor,
+                    style: TextStyle(color: AppTheme.textColor),
+                    items: {
+                      'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table'
+                    }
+                        .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
+                        .toList(),
+                    onChanged: (val) {
+                      setState(() => currentType = val!);
+                    },
+                    decoration: const InputDecoration(labelText: 'Data Type'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () {
+                  if (labelController.text.isEmpty) return;
+                  
+                  final key = labelController.text.toLowerCase().replaceAll(' ', '_');
+                  final newCol = ColumnConfig(
+                    key: key,
+                    label: labelController.text,
+                    type: currentType,
+                  );
+                  
+                  final newTabs = List<TabConfig>.from(widget.tabs);
+                  final tabIndex = newTabs.indexOf(tab);
+                  newTabs[tabIndex].columns.add(newCol);
+                  
+                  widget.onTabsChanged(newTabs);
+                  Navigator.pop(context);
+                }, 
+                child: const Text('Add')
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
   void _showEditColumnDialog(TabConfig tab, ColumnConfig col) {
     final labelController = TextEditingController(text: col.label);
     String currentType = col.type;
     String? currentDependsOn = col.dependsOn;
+    bool isHidden = col.hidden ?? false;
     
     // Handle options
     bool isDynamicOptions = false;
@@ -151,7 +268,7 @@ class _StructureEditorState extends State<StructureEditor> {
                     dropdownColor: AppTheme.surfaceColor,
                     style: TextStyle(color: AppTheme.textColor),
                     items: {
-                      'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula',
+                      'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table',
                       currentType // Ensure current value is always in the list
                     }
                         .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
@@ -160,6 +277,14 @@ class _StructureEditorState extends State<StructureEditor> {
                       setState(() => currentType = val!);
                     },
                     decoration: const InputDecoration(labelText: 'Data Type'),
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    title: Text('Hidden (Don\'t show on form)', style: TextStyle(color: AppTheme.textColor)),
+                    value: isHidden,
+                    onChanged: (val) => setState(() => isHidden = val),
+                    activeColor: AppTheme.primaryColor,
+                    contentPadding: EdgeInsets.zero,
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
@@ -257,6 +382,7 @@ class _StructureEditorState extends State<StructureEditor> {
                     label: labelController.text,
                     type: currentType,
                     dependsOn: currentDependsOn,
+                    hidden: isHidden,
                     options: currentType == 'select' 
                         ? (isDynamicOptions ? dynamicOptionPath : staticOptions)
                         : null,
