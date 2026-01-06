@@ -69,10 +69,8 @@ class SyncProvider extends ChangeNotifier {
           item.data,
         );
         _queue.remove(item);
-        debugPrint('Synced item: ${item.tabId}');
       } catch (e) {
         item.retryCount++;
-        debugPrint('Failed to sync item ${item.tabId}: $e');
         // If it failed many times, we might keep it or handle it differently
         if (item.retryCount > 5) {
           // For now just keep trying later
