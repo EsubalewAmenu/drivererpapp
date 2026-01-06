@@ -61,21 +61,26 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           widget.isNewSetup ? 'COMPLETE SETUP' : 'BLUEPRINT EDITOR', 
-          style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)
+          style: AppTheme.inter(
+            fontWeight: FontWeight.w900, 
+            letterSpacing: 1.0,
+            color: theme.appBarTheme.titleTextStyle?.color,
+          ),
         ),
         centerTitle: true,
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.appBarTheme.backgroundColor ?? theme.scaffoldBackgroundColor,
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.primaryColor,
           labelColor: AppTheme.primaryColor,
-          unselectedLabelColor: AppTheme.secondaryTextColor,
+          unselectedLabelColor: theme.disabledColor,
           labelStyle: AppTheme.inter(fontWeight: FontWeight.w700),
           tabs: const [
             Tab(text: 'STRUCTURE'),

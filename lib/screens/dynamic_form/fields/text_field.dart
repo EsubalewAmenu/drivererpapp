@@ -82,9 +82,14 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final isNumeric = widget.column.type == 'number' || widget.column.type == 'currency';
     final isCurrency = widget.column.type == 'currency';
     final maxLines = widget.column.type == 'longtext' ? 4 : 1;
+
+    final textColor = theme.textTheme.bodyMedium?.color ?? AppTheme.textColor;
+    final hintColor = theme.disabledColor;
+    final fillColor = theme.cardTheme.color ?? theme.cardColor;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,7 +99,7 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
           style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodySmall?.color,
             letterSpacing: 1.0,
           ),
         ),
@@ -103,14 +108,14 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
           controller: _controller,
           keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
           maxLines: maxLines,
-          style: AppTheme.inter(color: AppTheme.textColor),
+          style: AppTheme.inter(color: textColor),
           decoration: InputDecoration(
             filled: true,
-            fillColor: AppTheme.surfaceColor,
+            fillColor: fillColor,
             hintText: 'Enter ${widget.column.label.toLowerCase()}',
-            hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5)),
+            hintStyle: TextStyle(color: hintColor),
             prefixText: isCurrency ? '\$ ' : null,
-            prefixStyle: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold),
+            prefixStyle: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,

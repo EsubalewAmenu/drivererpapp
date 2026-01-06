@@ -113,8 +113,9 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -155,7 +156,7 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
               Text(
                 'SYSTEM INITIALIZATION',
                 style: AppTheme.inter(
-                  color: AppTheme.secondaryTextColor,
+                  color: theme.textTheme.bodyMedium?.color,
                   fontSize: 12,
                   letterSpacing: 2.0,
                   fontWeight: FontWeight.w600,
@@ -170,7 +171,7 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
                   _statusMessage,
                   key: ValueKey<String>(_statusMessage),
                   style: AppTheme.sourceCodePro( // Monospace for technical feel
-                    color: AppTheme.textColor,
+                    color: theme.textTheme.bodyLarge?.color,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
@@ -184,7 +185,7 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: _progress,
-                  backgroundColor: AppTheme.surfaceColor,
+                  backgroundColor: theme.cardTheme.color,
                   color: AppTheme.primaryColor,
                   minHeight: 4,
                 ),
@@ -197,7 +198,7 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
                 child: Text(
                   'ID: 84-F9-22-01', // Mock Session ID
                   style: AppTheme.inter(
-                    color: AppTheme.surfaceColor,
+                    color: theme.disabledColor,
                     fontSize: 12,
                     letterSpacing: 1.0,
                   ),

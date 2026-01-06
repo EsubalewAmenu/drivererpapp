@@ -257,6 +257,10 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
   Widget build(BuildContext context) {
     if (!_isVisible) return const SizedBox.shrink();
 
+    final theme = Theme.of(context);
+    final textColor = theme.textTheme.bodyMedium?.color ?? AppTheme.textColor;
+    final fillColor = theme.cardTheme.color ?? theme.cardColor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -265,7 +269,7 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
           style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodySmall?.color,
             letterSpacing: 1.0,
           ),
         ),
@@ -274,11 +278,11 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
           ? const LinearProgressIndicator()
           : DropdownButtonFormField<String>(
           initialValue: _options.contains(widget.value) ? widget.value : null,
-          dropdownColor: AppTheme.surfaceColor,
-          style: const TextStyle(color: AppTheme.textColor),
+          dropdownColor: fillColor,
+          style: TextStyle(color: textColor),
           decoration: InputDecoration(
             filled: true,
-            fillColor: AppTheme.surfaceColor,
+            fillColor: fillColor,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,

@@ -12,13 +12,14 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Drawer(
-      backgroundColor: AppTheme.surfaceColor,
+      backgroundColor: theme.cardTheme.color,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(),
+            _buildHeader(context),
             const SizedBox(height: 24),
             _buildWorkspaceSwitcher(context),
             const SizedBox(height: 32),
@@ -31,7 +32,8 @@ class AppDrawer extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
       child: Row(
@@ -51,7 +53,7 @@ class AppDrawer extends StatelessWidget {
               fontSize: 20,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.0,
-              color: AppTheme.textColor,
+              color: theme.textTheme.titleLarge?.color,
             ),
           ),
         ],
@@ -63,15 +65,16 @@ class AppDrawer extends StatelessWidget {
     final workspace = Provider.of<WorkspaceProvider>(context).currentWorkspace;
     final workspaceName = workspace?.name ?? 'Select Workspace';
     final initial = workspaceName.isNotEmpty ? workspaceName[0].toUpperCase() : '?';
+    final theme = Theme.of(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: AppTheme.backgroundColor,
+          color: theme.scaffoldBackgroundColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2)),
+          border: Border.all(color: theme.textTheme.bodyMedium!.color!.withValues(alpha: 0.2)),
         ),
         child: InkWell(
           onTap: () {
@@ -93,12 +96,12 @@ class AppDrawer extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(workspaceName, style: AppTheme.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
-                    Text('Switch Workspace', style: AppTheme.inter(fontSize: 10, color: AppTheme.secondaryTextColor)),
+                    Text(workspaceName, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
+                    Text('Switch Workspace', style: AppTheme.inter(fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
                   ],
                 ),
               ),
-              const Icon(Icons.swap_horiz_rounded, color: AppTheme.secondaryTextColor, size: 20),
+              Icon(Icons.swap_horiz_rounded, color: theme.textTheme.bodyMedium?.color, size: 20),
             ],
           ),
         ),
@@ -124,13 +127,14 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildNavItem(BuildContext context, IconData icon, String label, {required VoidCallback onTap}) {
+    final theme = Theme.of(context);
     return ListTile(
-      leading: Icon(icon, color: AppTheme.secondaryTextColor),
+      leading: Icon(icon, color: theme.textTheme.bodyMedium?.color),
       title: Text(
         label,
         style: AppTheme.inter(
           fontWeight: FontWeight.w600,
-          color: AppTheme.textColor,
+          color: theme.textTheme.bodyLarge?.color,
         ),
       ),
       onTap: onTap,
@@ -140,11 +144,12 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildFooter(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.all(24.0),
       child: Column(
         children: [
-          const Divider(color: Colors.white10),
+          Divider(color: theme.dividerColor.withValues(alpha: 0.1)),
           ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.logout_rounded, color: Color(0xFFF43F5E)), // Rose color

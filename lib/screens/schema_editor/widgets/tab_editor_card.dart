@@ -25,15 +25,16 @@ class TabEditorCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Card(
-      color: AppTheme.surfaceColor,
+      color: theme.cardTheme.color ?? theme.cardColor,
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ExpansionTile(
         title: Row(
           children: [
             Expanded(
-              child: Text(tab.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+              child: Text(tab.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
             ),
             IconButton(
               icon: const Icon(Icons.edit_rounded, size: 20),
@@ -47,9 +48,9 @@ class TabEditorCard extends StatelessWidget {
             ),
           ],
         ),
-        subtitle: Text('${tab.columns.length} Columns', style: AppTheme.inter(color: AppTheme.secondaryTextColor)),
+        subtitle: Text('${tab.columns.length} Columns', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color)),
         iconColor: AppTheme.primaryColor,
-        collapsedIconColor: AppTheme.secondaryTextColor,
+        collapsedIconColor: theme.iconTheme.color,
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
@@ -74,7 +75,7 @@ class TabEditorCard extends StatelessWidget {
                   );
                 }),
                 const SizedBox(height: 16),
-                _buildAddButton('Add Column', () {
+                _buildAddButton(context, 'Add Column', () {
                   _showAddColumnDialog(context);
                 }, isSmall: true),
               ],
@@ -85,23 +86,26 @@ class TabEditorCard extends StatelessWidget {
     );
   }
 
-  Widget _buildAddButton(String label, VoidCallback onTap, {bool isSmall = false}) {
+  Widget _buildAddButton(BuildContext context, String label, VoidCallback onTap, {bool isSmall = false}) {
+    final theme = Theme.of(context);
+    final color = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
+
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: EdgeInsets.symmetric(vertical: isSmall ? 12 : 16),
         decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3), style: BorderStyle.solid),
+          border: Border.all(color: color.withValues(alpha: 0.3), style: BorderStyle.solid),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Center(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.add, color: AppTheme.secondaryTextColor, size: isSmall ? 16 : 24),
+              Icon(Icons.add, color: color, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: AppTheme.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
+              Text(label, style: AppTheme.inter(color: color, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

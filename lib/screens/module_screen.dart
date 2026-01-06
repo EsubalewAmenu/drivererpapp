@@ -163,26 +163,28 @@ class _ModuleScreenState extends State<ModuleScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoadingSchema) {
-      return const Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
     final module = _fullModule ?? widget.module;
     final primaryColor = Color(int.parse(module.primaryColor.replaceAll('#', '0xFF')));
+    final theme = Theme.of(context);
 
     return DefaultTabController(
       length: module.tabs.length + 1, // +1 for Dashboard
       child: Scaffold(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           title: Text(
             module.name.toUpperCase(),
-            style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0),
+            style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, color: theme.textTheme.titleLarge?.color),
           ),
           centerTitle: true,
-          backgroundColor: AppTheme.backgroundColor,
+          backgroundColor: theme.appBarTheme.backgroundColor,
+          iconTheme: theme.iconTheme,
           actions: [
             Builder(
               builder: (context) => IconButton(
@@ -216,7 +218,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             isScrollable: true,
             indicatorColor: primaryColor,
             labelColor: primaryColor,
-            unselectedLabelColor: AppTheme.secondaryTextColor,
+            unselectedLabelColor: theme.textTheme.bodyMedium?.color,
             labelStyle: AppTheme.inter(fontWeight: FontWeight.w700),
             tabs: [
               const Tab(text: 'DASHBOARD'),
