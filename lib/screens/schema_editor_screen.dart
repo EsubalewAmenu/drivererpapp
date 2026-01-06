@@ -35,7 +35,6 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
   late Map<String, dynamic> _settingsValues;
   
   Map<String, dynamic>? _rawSettings;
-  bool _isLoadingSettings = false;
   bool _isSaving = false;
 
   @override
@@ -167,8 +166,6 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
         },
         'tabs': _tabs.map((t) => t.toJson()).toList(),
       };
-
-      final jsonString = const JsonEncoder.withIndent('  ').convert(jsonMap);
 
       // 2. Save to Drive
       final authService = Provider.of<AuthService>(context, listen: false);

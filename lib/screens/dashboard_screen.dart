@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import '../models/schema_models.dart';
-import '../services/schema_service.dart';
 import '../services/auth_service.dart';
 import '../services/drive_service.dart';
 import '../providers/workspace_provider.dart';

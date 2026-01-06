@@ -28,7 +28,6 @@ class ModuleTabScreen extends StatefulWidget {
 
 class _ModuleTabScreenState extends State<ModuleTabScreen> {
   late final DriveService _driveService;
-  final String _currentWorkspace = 'Default Workspace'; // TODO: Get from global state
   
   List<Map<String, dynamic>> _allData = [];
   List<Map<String, dynamic>> _filteredData = [];
