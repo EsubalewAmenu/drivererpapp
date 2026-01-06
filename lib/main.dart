@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'services/auth_service.dart';
 import 'providers/workspace_provider.dart';
 import 'providers/drive_provider.dart';
+import 'providers/sync_provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
 
@@ -25,6 +26,14 @@ class MainApp extends StatelessWidget {
             final d = drive ?? DriveProvider();
             d.updateClient(auth.authClient);
             return d;
+          },
+        ),
+        ChangeNotifierProxyProvider<DriveProvider, SyncProvider>(
+          create: (_) => SyncProvider(),
+          update: (_, drive, sync) {
+            final s = sync ?? SyncProvider();
+            s.updateDriveProvider(drive);
+            return s;
           },
         ),
       ],

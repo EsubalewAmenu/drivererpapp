@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
+import '../providers/sync_provider.dart';
 import '../theme/app_theme.dart';
 import 'dynamic_form/dynamic_form_renderer.dart';
 
@@ -115,32 +116,54 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _formKey.currentState!.save();
       
       try {
-        final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
-        if (driveService == null) throw Exception("Not authenticated");
+        final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+        final syncProvider = Provider.of<SyncProvider>(context, listen: false);
         
         if (widget.module == null) throw Exception("Module context missing");
-        
-        // Show loading indicator
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Saving to Drive...'), duration: Duration(seconds: 1)),
-          );
+
+        // Try direct save if online
+        if (driveProvider.driveService != null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Saving to Drive...'), duration: Duration(seconds: 1)),
+            );
+          }
+
+          try {
+            await driveProvider.driveService!.saveRecord(
+              widget.module!.id,
+              widget.module!.name,
+              widget.tab.id,
+              _formData,
+            );
+            
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record saved successfully')));
+              Navigator.pop(context);
+            }
+            return;
+          } catch (e) {
+            // Direct save failed, fallback to queue
+          }
         }
 
-        await driveService.saveRecord(
-          widget.module!.id, // Module Folder ID
-          widget.module!.name, // Spreadsheet Name (e.g. Inventory)
-          widget.tab.id, // Sheet Name (e.g. items)
+        // Fallback to queue if offline or direct save failed
+        syncProvider.addToQueue(
+          widget.module!.id,
+          widget.module!.name,
+          widget.tab.id,
           _formData,
         );
-        
+
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record saved successfully')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Offline: Record added to sync queue')),
+          );
           Navigator.pop(context);
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
         }
       }
     }
