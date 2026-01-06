@@ -30,9 +30,9 @@ Map<String, dynamic> _$ModuleSchemaToJson(ModuleSchema instance) =>
       'icon': instance.icon,
       'primaryColor': instance.primaryColor,
       'version': instance.version,
-      'settings': instance.settings,
-      'dashboard': instance.dashboard,
-      'tabs': instance.tabs,
+      'settings': instance.settings.map((k, e) => MapEntry(k, e.toJson())),
+      'dashboard': instance.dashboard.toJson(),
+      'tabs': instance.tabs.map((e) => e.toJson()).toList(),
     };
 
 SettingItem _$SettingItemFromJson(Map<String, dynamic> json) => SettingItem(
@@ -62,7 +62,9 @@ DashboardConfig _$DashboardConfigFromJson(Map<String, dynamic> json) =>
     );
 
 Map<String, dynamic> _$DashboardConfigToJson(DashboardConfig instance) =>
-    <String, dynamic>{'kpiCards': instance.kpiCards};
+    <String, dynamic>{
+      'kpiCards': instance.kpiCards.map((e) => e.toJson()).toList(),
+    };
 
 KpiCard _$KpiCardFromJson(Map<String, dynamic> json) => KpiCard(
   label: json['label'] as String,
@@ -90,8 +92,8 @@ TabConfig _$TabConfigFromJson(Map<String, dynamic> json) => TabConfig(
 Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
   'id': instance.id,
   'label': instance.label,
-  'columns': instance.columns,
-  'quick_filters': instance.quickFilters,
+  'columns': instance.columns.map((e) => e.toJson()).toList(),
+  'quick_filters': instance.quickFilters?.map((e) => e.toJson()).toList(),
 };
 
 QuickFilter _$QuickFilterFromJson(Map<String, dynamic> json) => QuickFilter(
@@ -135,7 +137,7 @@ Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
       'formula': instance.formula,
       'dependsOn': instance.dependsOn,
       'default': instance.defaultValue,
-      'columns': instance.columns,
+      'columns': instance.columns?.map((e) => e.toJson()).toList(),
       'hidden': instance.hidden,
       'dynamicLabel': instance.dynamicLabel,
     };

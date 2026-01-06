@@ -2,7 +2,7 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'schema_models.g.dart';
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class ModuleSchema {
   final String id;
   final String name;
@@ -28,7 +28,7 @@ class ModuleSchema {
   Map<String, dynamic> toJson() => _$ModuleSchemaToJson(this);
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class SettingItem {
   final String label;
   final String type;
@@ -51,7 +51,7 @@ class SettingItem {
   Map<String, dynamic> toJson() => _$SettingItemToJson(this);
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class DashboardConfig {
   final List<KpiCard> kpiCards;
 
@@ -63,7 +63,7 @@ class DashboardConfig {
   Map<String, dynamic> toJson() => _$DashboardConfigToJson(this);
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class KpiCard {
   final String label;
   final String calculation;
@@ -79,7 +79,7 @@ class KpiCard {
   Map<String, dynamic> toJson() => _$KpiCardToJson(this);
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class TabConfig {
   final String id;
   final String label;
@@ -98,7 +98,7 @@ class TabConfig {
   Map<String, dynamic> toJson() => _$TabConfigToJson(this);
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class QuickFilter {
   final String label;
   final String key;
@@ -118,7 +118,7 @@ class QuickFilter {
   Map<String, dynamic> toJson() => _$QuickFilterToJson(this);
 }
 
-@JsonSerializable()
+@JsonSerializable(explicitToJson: true)
 class ColumnConfig {
   final String key;
   final String label;
