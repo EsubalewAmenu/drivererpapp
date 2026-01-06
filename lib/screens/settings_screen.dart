@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/theme_provider.dart';
+import '../services/auth_service.dart';
+import '../providers/workspace_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -12,8 +14,36 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final TextEditingController _displayNameController = TextEditingController(text: "Alex Chen");
-  final TextEditingController _companyNameController = TextEditingController(text: "Acme Corp");
+  final TextEditingController _displayNameController = TextEditingController();
+  final TextEditingController _companyNameController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+    _loadWorkspaceData();
+  }
+
+  void _loadUserData() {
+    final auth = Provider.of<AuthService>(context, listen: false);
+    if (auth.currentUser != null) {
+      _displayNameController.text = auth.currentUser!.displayName ?? '';
+    }
+  }
+
+  void _loadWorkspaceData() {
+    final workspace = Provider.of<WorkspaceProvider>(context, listen: false);
+    if (workspace.currentWorkspace != null) {
+      _companyNameController.text = workspace.currentWorkspace!.name ?? '';
+    }
+  }
+
+  @override
+  void dispose() {
+    _displayNameController.dispose();
+    _companyNameController.dispose();
+    super.dispose();
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -68,6 +98,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildProfileCard() {
     final theme = Theme.of(context);
+    final auth = Provider.of<AuthService>(context);
+    final user = auth.currentUser;
+    final initials = user?.displayName != null && user!.displayName!.isNotEmpty
+        ? user.displayName!.substring(0, 1).toUpperCase()
+        : 'U';
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -81,15 +117,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
               CircleAvatar(
                 radius: 32,
                 backgroundColor: theme.primaryColor,
-                child: Text('AC', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white)),
+                backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
+                child: user?.photoUrl == null
+                    ? Text(initials, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white))
+                    : null,
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Alex Chen', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
-                    Text('Administrator', style: GoogleFonts.inter(fontSize: 14, color: theme.primaryColor)),
+                    Text(user?.displayName ?? 'Guest User', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
+                    Text(user?.email ?? 'No Email', style: GoogleFonts.inter(fontSize: 14, color: theme.primaryColor)),
                   ],
                 ),
               ),
@@ -98,24 +137,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
           TextField(
             controller: _displayNameController,
+            enabled: false, // Google Profile is read-only for now
             style: GoogleFonts.inter(color: theme.textTheme.bodyLarge?.color),
-            decoration: _inputDecoration('Display Name'),
+            decoration: _inputDecoration('Display Name (Google Account)'),
           ),
           const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated')));
-              },
-              style: FilledButton.styleFrom(
-                backgroundColor: theme.primaryColor,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              child: Text('SAVE CHANGES', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
-            ),
-          ),
+          // Removed Save Button for Profile as it is read-only from Google
         ],
       ),
     );
@@ -172,10 +199,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           TextField(
             controller: _companyNameController,
+            enabled: false, // Workspace renaming logic pending
             style: GoogleFonts.inter(color: theme.textTheme.bodyLarge?.color),
-            decoration: _inputDecoration('Company Name'),
+            decoration: _inputDecoration('Company Name (Workspace)'),
           ),
           const SizedBox(height: 16),
+          // Upload Logo is just a placeholder for now
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
@@ -187,7 +216,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Icon(Icons.upload_rounded, color: theme.textTheme.bodyMedium?.color),
                 const SizedBox(width: 8),
-                Text('Upload Logo', style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600)),
+                Text('Upload Logo (Coming Soon)', style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
