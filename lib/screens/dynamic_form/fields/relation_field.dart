@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../models/schema_models.dart';
 import '../../../providers/drive_provider.dart';
@@ -28,15 +27,16 @@ class DynamicRelationField extends StatefulWidget {
 class _DynamicRelationFieldState extends State<DynamicRelationField> {
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           widget.column.label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodyMedium?.color,
             letterSpacing: 1.0,
           ),
         ),
@@ -132,22 +132,22 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
+              color: theme.cardTheme.color,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.transparent),
             ),
             child: Row(
               children: [
-                const Icon(Icons.link_rounded, color: AppTheme.secondaryTextColor, size: 20),
+                Icon(Icons.link_rounded, color: theme.textTheme.bodyMedium?.color, size: 20),
                 const SizedBox(width: 12),
                 Text(
                   widget.value?.toString() ?? 'Select ${widget.column.label}',
-                  style: GoogleFonts.inter(
-                    color: widget.value != null ? AppTheme.textColor : AppTheme.secondaryTextColor.withValues(alpha: 0.5),
+                  style: AppTheme.inter(
+                    color: widget.value != null ? theme.textTheme.bodyLarge?.color : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
                   ),
                 ),
                 const Spacer(),
-                const Icon(Icons.arrow_drop_down_rounded, color: AppTheme.secondaryTextColor),
+                Icon(Icons.arrow_drop_down_rounded, color: theme.textTheme.bodyMedium?.color),
               ],
             ),
           ),

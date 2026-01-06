@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
@@ -60,18 +59,19 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final color = Color(int.parse(widget.moduleInfo['color']!.replaceAll('#', '0xFF')));
     final name = widget.moduleInfo['name']!;
     final desc = widget.moduleInfo['desc']!;
     final iconName = widget.moduleInfo['icon']!;
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.appBarTheme.backgroundColor ?? theme.scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.textColor),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -101,11 +101,11 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               Center(
                 child: Text(
                   name.toUpperCase(),
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.0,
-                    color: AppTheme.textColor,
+                    color: theme.textTheme.titleLarge?.color,
                   ),
                 ),
               ),
@@ -114,9 +114,9 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                 child: Text(
                   desc,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 16,
-                    color: AppTheme.secondaryTextColor,
+                    color: theme.textTheme.bodyMedium?.color,
                   ),
                 ),
               ),
@@ -125,15 +125,15 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               // Features / Pros
               Text(
                 'KEY BENEFITS',
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.secondaryTextColor,
+                  color: theme.textTheme.bodySmall?.color,
                   letterSpacing: 1.5,
                 ),
               ),
               const SizedBox(height: 16),
-              ..._getPros(name).map((pro) => _buildFeatureItem(pro['title']!, pro['subtitle']!)),
+              ..._getPros(name).map((pro) => _buildFeatureItem(context, pro['title']!, pro['subtitle']!)),
               
               const Spacer(),
 
@@ -150,7 +150,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                       ),
                       child: Text(
                         'BACK',
-                        style: GoogleFonts.inter(
+                        style: AppTheme.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: color,
@@ -176,7 +176,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                           )
                         : Text(
                             'ACTIVATE',
-                            style: GoogleFonts.inter(
+                            style: AppTheme.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1.0,
@@ -193,7 +193,8 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
     );
   }
 
-  Widget _buildFeatureItem(String title, String subtitle) {
+  Widget _buildFeatureItem(BuildContext context, String title, String subtitle) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: Row(
@@ -206,16 +207,16 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontWeight: FontWeight.w600,
-                    color: AppTheme.textColor,
+                    color: theme.textTheme.bodyLarge?.color,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 12,
-                    color: AppTheme.secondaryTextColor,
+                    color: theme.textTheme.bodyMedium?.color,
                   ),
                 ),
               ],

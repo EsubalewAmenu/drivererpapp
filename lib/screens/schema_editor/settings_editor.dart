@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../theme/app_theme.dart';
 import 'dialogs/edit_setting_dialog.dart';
 
 class SettingsEditor extends StatefulWidget {
@@ -25,6 +24,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
   @override
   Widget build(BuildContext context) {
     final settings = widget.rawSettings ?? {};
+    final theme = Theme.of(context);
 
     return ListView(
       padding: const EdgeInsets.all(24.0),
@@ -35,7 +35,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
               padding: const EdgeInsets.only(bottom: 24.0),
               child: Text(
                 'No settings defined.',
-                style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+                style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color),
               ),
             ),
           ),
@@ -44,18 +44,19 @@ class _SettingsEditorState extends State<SettingsEditor> {
           final key = entry.key;
           final item = entry.value as Map<String, dynamic>;
           
-          return _buildSettingRow(key, item);
+          return _buildSettingRow(context, key, item);
         }),
 
         const SizedBox(height: 24),
-        _buildAddButton(),
+        _buildAddButton(context),
       ],
     );
   }
 
-  Widget _buildSettingRow(String key, Map<String, dynamic> item) {
+  Widget _buildSettingRow(BuildContext context, String key, Map<String, dynamic> item) {
+    final theme = Theme.of(context);
     return Card(
-      color: AppTheme.surfaceColor,
+      color: theme.cardTheme.color ?? theme.cardColor,
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -71,11 +72,11 @@ class _SettingsEditorState extends State<SettingsEditor> {
                     children: [
                       Text(
                         item['label'] ?? key,
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppTheme.textColor),
+                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: theme.textTheme.titleMedium?.color),
                       ),
                       Text(
                         'Key: $key | Type: ${item['type']}',
-                        style: GoogleFonts.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor),
+                        style: GoogleFonts.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color),
                       ),
                       if (item['dependsOn'] != null)
                         Text(
@@ -87,7 +88,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit_rounded, size: 20),
-                  color: AppTheme.primaryColor,
+                  color: theme.primaryColor,
                   onPressed: () => _showEditSettingDialog(key, item),
                 ),
                 IconButton(
@@ -98,22 +99,25 @@ class _SettingsEditorState extends State<SettingsEditor> {
               ],
             ),
             const Divider(height: 24),
-            _buildValueInput(key, item),
+            _buildValueInput(context, key, item),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildValueInput(String key, Map<String, dynamic> item) {
+  Widget _buildValueInput(BuildContext context, String key, Map<String, dynamic> item) {
+    final theme = Theme.of(context);
     final type = item['type'] as String? ?? 'text';
+    final textColor = theme.textTheme.bodyMedium?.color ?? theme.textTheme.bodyLarge?.color ?? Colors.black;
+    final hintColor = theme.disabledColor;
     
     if (item['dependsOn'] != null) {
        final dependencyValue = widget.settingsValues[item['dependsOn']];
        if (dependencyValue != true) {
          return Text(
            'Disabled (Dependency not met)', 
-           style: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5), fontStyle: FontStyle.italic)
+           style: TextStyle(color: hintColor, fontStyle: FontStyle.italic)
          );
        }
     }
@@ -121,21 +125,21 @@ class _SettingsEditorState extends State<SettingsEditor> {
     switch (type) {
       case 'boolean':
         return SwitchListTile(
-          title: const Text('Value', style: TextStyle(color: AppTheme.secondaryTextColor)),
+          title: Text('Value', style: TextStyle(color: textColor)),
           value: widget.settingsValues[key] == true,
           onChanged: (val) => widget.onSettingChanged(key, val),
-          activeThumbColor: AppTheme.primaryColor,
+          activeThumbColor: theme.primaryColor,
           contentPadding: EdgeInsets.zero,
           dense: true,
         );
       case 'text':
         return TextFormField(
           initialValue: widget.settingsValues[key]?.toString(),
-          style: GoogleFonts.inter(color: AppTheme.textColor),
+          style: GoogleFonts.inter(color: textColor),
           decoration: InputDecoration(
             isDense: true,
             hintText: 'Enter value',
-            hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5)),
+            hintStyle: TextStyle(color: hintColor),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           onChanged: (val) => widget.onSettingChanged(key, val),
@@ -163,23 +167,26 @@ class _SettingsEditorState extends State<SettingsEditor> {
     }
   }
 
-  Widget _buildAddButton() {
+  Widget _buildAddButton(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.textTheme.bodyMedium?.color ?? Colors.grey;
+    
     return InkWell(
       onTap: _showAddSettingDialog,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3), style: BorderStyle.solid),
+          border: Border.all(color: color.withValues(alpha: 0.3), style: BorderStyle.solid),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Center(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.add, color: AppTheme.secondaryTextColor, size: 24),
+              Icon(Icons.add, color: color, size: 24),
               const SizedBox(width: 8),
-              Text('Add New Setting', style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
+              Text('Add New Setting', style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -234,12 +241,13 @@ class _SettingsEditorState extends State<SettingsEditor> {
   }
 
   void _confirmDeleteSetting(String key) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
-        title: const Text('Delete Setting', style: TextStyle(color: AppTheme.textColor)),
-        content: Text('Are you sure you want to delete "$key"?', style: const TextStyle(color: AppTheme.secondaryTextColor)),
+        backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+        title: Text('Delete Setting', style: TextStyle(color: theme.textTheme.titleLarge?.color)),
+        content: Text('Are you sure you want to delete "$key"?', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(

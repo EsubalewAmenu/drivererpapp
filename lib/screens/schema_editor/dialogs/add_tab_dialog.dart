@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
@@ -21,12 +20,13 @@ class _AddTabDialogState extends State<AddTabDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return AlertDialog(
-      backgroundColor: AppTheme.surfaceColor,
-      title: Text('Add New Tab', style: GoogleFonts.inter(color: AppTheme.textColor)),
+      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+      title: Text('Add New Tab', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
       content: TextField(
         controller: _labelController,
-        style: const TextStyle(color: AppTheme.textColor),
+        style: TextStyle(color: theme.textTheme.bodyLarge?.color),
         decoration: const InputDecoration(labelText: 'Tab Name'),
         autofocus: true,
       ),

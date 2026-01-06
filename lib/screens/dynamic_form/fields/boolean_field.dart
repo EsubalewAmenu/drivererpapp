@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
@@ -19,10 +18,11 @@ class DynamicBooleanField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.transparent),
       ),
@@ -31,10 +31,10 @@ class DynamicBooleanField extends StatelessWidget {
           Expanded(
             child: Text(
               column.label,
-              style: GoogleFonts.inter(
+              style: AppTheme.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: AppTheme.textColor,
+                color: theme.textTheme.bodyLarge?.color,
               ),
             ),
           ),

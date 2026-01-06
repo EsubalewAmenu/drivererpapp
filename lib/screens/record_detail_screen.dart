@@ -21,18 +21,25 @@ class RecordDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.appBarTheme.backgroundColor ?? theme.scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: Icon(Icons.arrow_back_rounded, color: theme.iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'DETAILS',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, fontSize: 16),
+          style: AppTheme.inter(
+            fontWeight: FontWeight.w900, 
+            letterSpacing: 1.0, 
+            fontSize: 16,
+            color: theme.textTheme.titleMedium?.color
+          ),
         ),
         centerTitle: true,
       ),
@@ -42,7 +49,7 @@ class RecordDetailScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(),
+              _buildHeader(context),
               const SizedBox(height: 32),
               _buildFieldsList(context),
             ],
@@ -52,11 +59,14 @@ class RecordDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context) {
+    final theme = Theme.of(context);
+    final cardColor = theme.cardTheme.color ?? theme.cardColor;
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: cardColor,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
       ),
@@ -77,20 +87,20 @@ class RecordDetailScreen extends StatelessWidget {
               children: [
                 Text(
                   'RECORD ENTRY',
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.secondaryTextColor,
+                    color: theme.textTheme.bodyMedium?.color,
                     letterSpacing: 1.0,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   title,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
-                    color: AppTheme.textColor,
+                    color: theme.textTheme.titleLarge?.color,
                   ),
                 ),
               ],
@@ -148,23 +158,24 @@ class RecordDetailScreen extends StatelessWidget {
         final displayValue = value?.toString() ?? 'N/A';
 
         if (col.type == 'image' || col.key.toLowerCase().contains('image') || col.key.toLowerCase().contains('photo')) {
-           return _buildImageField(col.label, displayValue);
+           return _buildImageField(context, col.label, displayValue);
         }
         
         if (col.key.toLowerCase() == 'status') {
-           return _buildStatusField(col.label, displayValue);
+           return _buildStatusField(context, col.label, displayValue);
         }
 
         if (col.type == 'formula') {
-           return _buildFormulaField(col.label, displayValue);
+           return _buildFormulaField(context, col.label, displayValue);
         }
 
-        return _buildTextField(col.label, displayValue);
+        return _buildTextField(context, col.label, displayValue);
       },
     );
   }
 
-  Widget _buildTextField(String label, String value) {
+  Widget _buildTextField(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -173,7 +184,7 @@ class RecordDetailScreen extends StatelessWidget {
           style: GoogleFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodyMedium?.color,
             letterSpacing: 0.5,
           ),
         ),
@@ -182,14 +193,14 @@ class RecordDetailScreen extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
+            color: theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Text(
             value,
             style: GoogleFonts.inter(
               fontSize: 16,
-              color: AppTheme.textColor,
+              color: theme.textTheme.bodyLarge?.color,
             ),
           ),
         ),
@@ -197,13 +208,14 @@ class RecordDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildStatusField(String label, String value) {
+  Widget _buildStatusField(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
     Color statusColor;
     switch (value.toLowerCase()) {
       case 'active':
       case 'completed':
       case 'paid':
-        statusColor = AppTheme.primaryColor;
+        statusColor = theme.primaryColor;
         break;
       case 'inactive':
       case 'pending':
@@ -222,7 +234,7 @@ class RecordDetailScreen extends StatelessWidget {
           style: GoogleFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodyMedium?.color,
             letterSpacing: 0.5,
           ),
         ),
@@ -236,7 +248,7 @@ class RecordDetailScreen extends StatelessWidget {
           ),
           child: Text(
             value.toUpperCase(),
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 14,
               fontWeight: FontWeight.w700,
               color: statusColor,
@@ -247,16 +259,19 @@ class RecordDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildImageField(String label, String url) {
+  Widget _buildImageField(BuildContext context, String label, String url) {
+    final theme = Theme.of(context);
+    final borderColor = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodyMedium?.color,
             letterSpacing: 0.5,
           ),
         ),
@@ -265,26 +280,26 @@ class RecordDetailScreen extends StatelessWidget {
           height: 200,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
+            color: theme.cardTheme.color,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2)),
+            border: Border.all(color: borderColor.withValues(alpha: 0.2)),
           ),
           clipBehavior: Clip.antiAlias,
           child: url.startsWith('http') 
             ? Image.network(
                 url, 
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => const Center(
-                  child: Icon(Icons.broken_image_rounded, color: AppTheme.secondaryTextColor, size: 48),
+                errorBuilder: (context, error, stackTrace) => Center(
+                  child: Icon(Icons.broken_image_rounded, color: borderColor, size: 48),
                 ),
               )
-            : const Center(
+            : Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.image_not_supported_rounded, color: AppTheme.secondaryTextColor, size: 48),
-                    SizedBox(height: 8),
-                    Text('No Image Available', style: TextStyle(color: AppTheme.secondaryTextColor)),
+                    Icon(Icons.image_not_supported_rounded, color: borderColor, size: 48),
+                    const SizedBox(height: 8),
+                    Text('No Image Available', style: TextStyle(color: borderColor)),
                   ],
                 ),
               ),
@@ -293,16 +308,19 @@ class RecordDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFormulaField(String label, String value) {
+  Widget _buildFormulaField(BuildContext context, String label, String value) {
+    final theme = Theme.of(context);
+    final borderColor = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodyMedium?.color,
             letterSpacing: 0.5,
           ),
         ),
@@ -311,20 +329,20 @@ class RecordDetailScreen extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor.withValues(alpha: 0.5),
+            color: theme.cardTheme.color!.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.1)),
+            border: Border.all(color: borderColor.withValues(alpha: 0.1)),
           ),
           child: Row(
             children: [
-              const Icon(Icons.functions_rounded, size: 16, color: AppTheme.secondaryTextColor),
+              Icon(Icons.functions_rounded, size: 16, color: borderColor),
               const SizedBox(width: 8),
               Text(
                 value,
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.textColor,
+                  color: theme.textTheme.bodyLarge?.color,
                 ),
               ),
             ],
@@ -335,86 +353,95 @@ class RecordDetailScreen extends StatelessWidget {
   }
 
   Widget _buildTableField(ColumnConfig col, List<Map<String, dynamic>> items) {
-    final tableCols = col.columns ?? [];
-    if (items.isEmpty) return _buildTextField(col.label, 'No items');
+    // Need BuildContext but no clean way to get it inside map or without refactoring big chunks
+    // But this widget is called from _buildFieldsList(context), so we can pass context.
+    // However, _buildTableField signature in old code didn't have context.
+    // Actually, I can just use a Builder or pass context.
+    // Wait, I am editing the file, I can change the signature or rely on caller passing it.
+    // Let's rely on caller.
+    return Builder(builder: (context) {
+        final theme = Theme.of(context);
+        final tableCols = col.columns ?? [];
+        if (items.isEmpty) return _buildTextField(context, col.label, 'No items');
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              col.label.toUpperCase(),
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppTheme.secondaryTextColor,
-                letterSpacing: 0.5,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  col.label.toUpperCase(),
+                  style: AppTheme.inter(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: theme.textTheme.bodyMedium?.color,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: theme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${items.length} items',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: theme.primaryColor,
+                    ),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              width: double.infinity,
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
+                color: theme.cardTheme.color,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
               ),
-              child: Text(
-                '${items.length} items',
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: AppTheme.primaryColor,
+              clipBehavior: Clip.antiAlias,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  headingRowColor: WidgetStateProperty.all(theme.primaryColor.withValues(alpha: 0.05)),
+                  columnSpacing: 24,
+                  horizontalMargin: 16,
+                  columns: tableCols.map((c) => DataColumn(
+                    label: Text(
+                      c.label.toUpperCase(),
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        color: theme.textTheme.bodyMedium?.color,
+                      ),
+                    ),
+                  )).toList(),
+                  rows: items.map((item) {
+                    return DataRow(
+                      cells: tableCols.map((c) {
+                        final val = item[c.key]?.toString() ?? '-';
+                        return DataCell(
+                          Text(
+                            val,
+                            style: AppTheme.inter(
+                              fontSize: 14,
+                              color: theme.textTheme.bodyLarge?.color,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  }).toList(),
                 ),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 12),
-        Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.1)),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: WidgetStateProperty.all(AppTheme.primaryColor.withValues(alpha: 0.05)),
-              columnSpacing: 24,
-              horizontalMargin: 16,
-              columns: tableCols.map((c) => DataColumn(
-                label: Text(
-                  c.label.toUpperCase(),
-                  style: GoogleFonts.inter(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.secondaryTextColor,
-                  ),
-                ),
-              )).toList(),
-              rows: items.map((item) {
-                return DataRow(
-                  cells: tableCols.map((c) {
-                    final val = item[c.key]?.toString() ?? '-';
-                    return DataCell(
-                      Text(
-                        val,
-                        style: GoogleFonts.inter(
-                          fontSize: 14,
-                          color: AppTheme.textColor,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                );
-              }).toList(),
-            ),
-          ),
-        ),
-      ],
-    );
+        );
+    });
   }
 }

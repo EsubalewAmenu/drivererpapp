@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
@@ -19,12 +18,20 @@ class WorkspaceSelectorScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('SELECT WORKSPACE', style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+        title: Text(
+          'SELECT WORKSPACE', 
+          style: AppTheme.inter(
+            fontWeight: FontWeight.w900, 
+            letterSpacing: 1.0, 
+            color: theme.textTheme.titleLarge?.color
+          )
+        ),
         centerTitle: true,
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.appBarTheme.backgroundColor ?? theme.scaffoldBackgroundColor,
         elevation: 0,
       ),
       body: SafeArea(
@@ -35,8 +42,8 @@ class WorkspaceSelectorScreen extends StatelessWidget {
             children: [
               Text(
                 'AVAILABLE ENVIRONMENTS',
-                style: GoogleFonts.inter(
-                  color: AppTheme.secondaryTextColor,
+                style: AppTheme.inter(
+                  color: theme.textTheme.bodySmall?.color,
                   fontSize: 12,
                   letterSpacing: 1.5,
                   fontWeight: FontWeight.w600,
@@ -49,7 +56,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                     child: Text(
                       'No workspaces found.\nCreate one to get started.',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+                      style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
                     ),
                   )
                 : ListView.separated(
@@ -70,10 +77,10 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.add_rounded),
-                label: Text('CREATE OR JOIN NEW WORKSPACE', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                label: Text('CREATE OR JOIN NEW WORKSPACE', style: AppTheme.inter(fontWeight: FontWeight.w700)),
                 style: FilledButton.styleFrom(
-                  backgroundColor: AppTheme.surfaceColor,
-                  foregroundColor: AppTheme.textColor,
+                  backgroundColor: theme.cardTheme.color,
+                  foregroundColor: theme.textTheme.bodyLarge?.color,
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -89,8 +96,9 @@ class WorkspaceSelectorScreen extends StatelessWidget {
   }
 
   Widget _buildWorkspaceCard(BuildContext context, drive.File workspace) {
+    final theme = Theme.of(context);
     return Card(
-      color: AppTheme.surfaceColor,
+      color: theme.cardTheme.color,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: InkWell(
         onTap: () {
@@ -118,7 +126,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                 child: Center(
                   child: Text(
                     (workspace.name ?? 'U')[0].toUpperCase(),
-                    style: GoogleFonts.inter(
+                    style: AppTheme.inter(
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
                       color: AppTheme.primaryColor,
@@ -133,19 +141,19 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                   children: [
                     Text(
                       workspace.name ?? 'Unnamed Workspace',
-                      style: GoogleFonts.inter(
+                      style: AppTheme.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textColor,
+                        color: theme.textTheme.titleMedium?.color,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'ID: ${workspace.id}',
-                      style: GoogleFonts.inter(
+                      style: AppTheme.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: AppTheme.secondaryTextColor,
+                        color: theme.textTheme.bodySmall?.color,
                         letterSpacing: 1.0,
                       ),
                     ),

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 import '../dynamic_form_renderer.dart';
@@ -78,6 +77,9 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final borderColor = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -86,10 +88,10 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
           children: [
             Text(
               widget.column.label.toUpperCase(),
-              style: GoogleFonts.inter(
+              style: AppTheme.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: AppTheme.secondaryTextColor,
+                color: theme.textTheme.bodySmall?.color,
                 letterSpacing: 1.0,
               ),
             ),
@@ -109,23 +111,23 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
             width: double.infinity,
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
+              color: theme.cardTheme.color,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+              border: Border.all(color: borderColor.withValues(alpha: 0.2)),
             ),
-            child: const Center(
+            child: Center(
               child: Text(
                 'No items added yet',
-                style: TextStyle(color: AppTheme.secondaryTextColor),
+                style: TextStyle(color: borderColor),
               ),
             ),
           )
         else
           Container(
             decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
+              color: theme.cardTheme.color,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+              border: Border.all(color: borderColor.withValues(alpha: 0.2)),
             ),
             child: ListView.separated(
               shrinkWrap: true,
@@ -149,13 +151,14 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
                 }
 
                 return ListTile(
-                  title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-                  subtitle: subtitle.isNotEmpty ? Text(subtitle) : null,
+                  title: Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: theme.textTheme.bodyLarge?.color)),
+                  subtitle: subtitle.isNotEmpty ? Text(subtitle, style: TextStyle(color: theme.textTheme.bodyMedium?.color)) : null,
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit, size: 20),
+                        color: widget.primaryColor,
                         onPressed: () => _editRow(index),
                       ),
                       IconButton(
@@ -232,11 +235,12 @@ class _RowEditorState extends State<_RowEditor> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
         decoration: BoxDecoration(
-          color: AppTheme.backgroundColor,
+          color: theme.scaffoldBackgroundColor,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
@@ -246,7 +250,11 @@ class _RowEditorState extends State<_RowEditor> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(widget.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text(widget.title, style: TextStyle(
+                    fontSize: 18, 
+                    fontWeight: FontWeight.bold,
+                    color: theme.textTheme.titleLarge?.color,
+                  )),
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),

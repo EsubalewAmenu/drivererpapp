@@ -4,6 +4,7 @@ import 'services/auth_service.dart';
 import 'providers/workspace_provider.dart';
 import 'providers/drive_provider.dart';
 import 'providers/sync_provider.dart';
+import 'providers/theme_provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
 
@@ -20,6 +21,7 @@ class MainApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
         ChangeNotifierProvider(create: (_) => WorkspaceProvider()),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()), // Added ThemeProvider
         ChangeNotifierProxyProvider<AuthService, DriveProvider>(
           create: (_) => DriveProvider(),
           update: (_, auth, drive) {
@@ -37,11 +39,17 @@ class MainApp extends StatelessWidget {
           },
         ),
       ],
-      child: MaterialApp(
-        title: 'DriveERP',
-        theme: AppTheme.darkTheme,
-        home: const LandingScreen(),
-        debugShowCheckedModeBanner: false,
+      child: Consumer<ThemeProvider>(
+        builder: (context, themeProvider, child) {
+          return MaterialApp(
+            title: 'DriveERP',
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeProvider.themeMode,
+            home: const LandingScreen(),
+            debugShowCheckedModeBanner: false,
+          );
+        },
       ),
     );
   }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
@@ -61,22 +60,27 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           widget.isNewSetup ? 'COMPLETE SETUP' : 'BLUEPRINT EDITOR', 
-          style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)
+          style: AppTheme.inter(
+            fontWeight: FontWeight.w900, 
+            letterSpacing: 1.0,
+            color: theme.appBarTheme.titleTextStyle?.color,
+          ),
         ),
         centerTitle: true,
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.appBarTheme.backgroundColor ?? theme.scaffoldBackgroundColor,
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.primaryColor,
           labelColor: AppTheme.primaryColor,
-          unselectedLabelColor: AppTheme.secondaryTextColor,
-          labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700),
+          unselectedLabelColor: theme.disabledColor,
+          labelStyle: AppTheme.inter(fontWeight: FontWeight.w700),
           tabs: const [
             Tab(text: 'STRUCTURE'),
             Tab(text: 'DASHBOARD'),
@@ -94,7 +98,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
               onPressed: _saveChanges,
               child: Text(
                 widget.isNewSetup ? 'ACTIVATE' : 'SAVE', 
-                style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.primaryColor)
+                style: AppTheme.inter(fontWeight: FontWeight.w700, color: AppTheme.primaryColor)
               ),
             ),
         ],

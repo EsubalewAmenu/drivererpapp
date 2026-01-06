@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
@@ -113,8 +112,9 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(32.0),
@@ -154,8 +154,8 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
               // Terminal-style output
               Text(
                 'SYSTEM INITIALIZATION',
-                style: GoogleFonts.inter(
-                  color: AppTheme.secondaryTextColor,
+                style: AppTheme.inter(
+                  color: theme.textTheme.bodyMedium?.color,
                   fontSize: 12,
                   letterSpacing: 2.0,
                   fontWeight: FontWeight.w600,
@@ -169,8 +169,8 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
                 child: Text(
                   _statusMessage,
                   key: ValueKey<String>(_statusMessage),
-                  style: GoogleFonts.sourceCodePro( // Monospace for technical feel
-                    color: AppTheme.textColor,
+                  style: AppTheme.sourceCodePro( // Monospace for technical feel
+                    color: theme.textTheme.bodyLarge?.color,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
@@ -184,7 +184,7 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: _progress,
-                  backgroundColor: AppTheme.surfaceColor,
+                  backgroundColor: theme.cardTheme.color,
                   color: AppTheme.primaryColor,
                   minHeight: 4,
                 ),
@@ -196,8 +196,8 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
               Center(
                 child: Text(
                   'ID: 84-F9-22-01', // Mock Session ID
-                  style: GoogleFonts.inter(
-                    color: AppTheme.surfaceColor,
+                  style: AppTheme.inter(
+                    color: theme.disabledColor,
                     fontSize: 12,
                     letterSpacing: 1.0,
                   ),

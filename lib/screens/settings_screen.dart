@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
+import '../providers/theme_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,13 +17,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text('SETTINGS', style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+        title: Text('SETTINGS', style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, color: theme.textTheme.titleLarge?.color)),
         centerTitle: true,
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0,
+        iconTheme: theme.iconTheme,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
@@ -36,6 +41,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 16),
             _buildCompanyCard(),
             const SizedBox(height: 32),
+            _buildSectionHeader('APPEARANCE'),
+            const SizedBox(height: 16),
+            _buildAppearanceCard(),
+            const SizedBox(height: 32),
             _buildSectionHeader('SESSION INFO'),
             const SizedBox(height: 16),
             _buildSessionInfo(),
@@ -48,20 +57,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: GoogleFonts.inter(
+      style: AppTheme.inter(
         fontSize: 12,
         fontWeight: FontWeight.w700,
-        color: AppTheme.secondaryTextColor,
+        color: Theme.of(context).textTheme.bodyMedium?.color, 
         letterSpacing: 1.5,
       ),
     );
   }
 
   Widget _buildProfileCard() {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
@@ -70,7 +80,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               CircleAvatar(
                 radius: 32,
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: theme.primaryColor,
                 child: Text('AC', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white)),
               ),
               const SizedBox(width: 16),
@@ -78,8 +88,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Alex Chen', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
-                    Text('Administrator', style: GoogleFonts.inter(fontSize: 14, color: AppTheme.primaryColor)),
+                    Text('Alex Chen', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
+                    Text('Administrator', style: GoogleFonts.inter(fontSize: 14, color: theme.primaryColor)),
                   ],
                 ),
               ),
@@ -88,7 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
           TextField(
             controller: _displayNameController,
-            style: GoogleFonts.inter(color: AppTheme.textColor),
+            style: GoogleFonts.inter(color: theme.textTheme.bodyLarge?.color),
             decoration: _inputDecoration('Display Name'),
           ),
           const SizedBox(height: 16),
@@ -99,7 +109,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated')));
               },
               style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: theme.primaryColor,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -110,34 +120,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
-  Widget _buildCompanyCard() {
+  
+  Widget _buildAppearanceCard() {
+    final theme = Theme.of(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    themeProvider.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                    color: theme.primaryColor
+                  ),
+                  const SizedBox(width: 16),
+                  Text('Dark Mode', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: theme.textTheme.bodyLarge?.color)),
+                ],
+              ),
+              Switch(
+                value: themeProvider.isDarkMode,
+                activeThumbColor: theme.primaryColor,
+                onChanged: (value) {
+                  themeProvider.toggleTheme();
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompanyCard() {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(24),
       ),
       child: Column(
         children: [
           TextField(
             controller: _companyNameController,
-            style: GoogleFonts.inter(color: AppTheme.textColor),
+            style: GoogleFonts.inter(color: theme.textTheme.bodyLarge?.color),
             decoration: _inputDecoration('Company Name'),
           ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3), style: BorderStyle.solid),
+              border: Border.all(color: theme.textTheme.bodyMedium!.color!.withValues(alpha: 0.3), style: BorderStyle.solid),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.upload_rounded, color: AppTheme.secondaryTextColor),
+                Icon(Icons.upload_rounded, color: theme.textTheme.bodyMedium?.color),
                 const SizedBox(width: 8),
-                Text('Upload Logo', style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
+                Text('Upload Logo', style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -147,19 +197,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildSessionInfo() {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor.withValues(alpha: 0.5),
+        color: theme.cardTheme.color?.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.1)),
+        border: Border.all(color: theme.textTheme.bodyMedium!.color!.withValues(alpha: 0.1)),
       ),
       child: Column(
         children: [
           _buildInfoRow('Role', 'Owner / Admin'),
-          const Divider(color: Colors.white10),
+          Divider(color: theme.dividerColor.withValues(alpha: 0.1)),
           _buildInfoRow('Session ID', 'sess_8f92k...'),
-          const Divider(color: Colors.white10),
+          Divider(color: theme.dividerColor.withValues(alpha: 0.1)),
           _buildInfoRow('Last Login', 'Today, 09:41 AM'),
         ],
       ),
@@ -167,32 +218,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Widget _buildInfoRow(String label, String value) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: GoogleFonts.inter(color: AppTheme.secondaryTextColor)),
-          Text(value, style: GoogleFonts.sourceCodePro(color: AppTheme.textColor, fontWeight: FontWeight.w600)),
+          Text(label, style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color)),
+          Text(value, style: GoogleFonts.sourceCodePro(color: theme.textTheme.bodyLarge?.color, fontWeight: FontWeight.w600)),
         ],
       ),
     );
   }
 
   InputDecoration _inputDecoration(String label) {
+    final theme = Theme.of(context);
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: AppTheme.secondaryTextColor),
+      labelStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3)),
+        borderSide: BorderSide(color: theme.textTheme.bodyMedium!.color!.withValues(alpha: 0.3)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppTheme.primaryColor),
+        borderSide: BorderSide(color: theme.primaryColor),
       ),
       filled: true,
-      fillColor: AppTheme.backgroundColor,
+      fillColor: theme.scaffoldBackgroundColor,
     );
   }
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
@@ -19,15 +18,18 @@ class DynamicDateField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final borderColor = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           column.label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodySmall?.color,
             letterSpacing: 1.0,
           ),
         ),
@@ -41,12 +43,9 @@ class DynamicDateField extends StatelessWidget {
               lastDate: DateTime(2100),
               builder: (context, child) {
                 return Theme(
-                  data: Theme.of(context).copyWith(
-                    colorScheme: ColorScheme.dark(
+                  data: theme.copyWith(
+                    colorScheme: theme.colorScheme.copyWith(
                       primary: primaryColor,
-                      onPrimary: AppTheme.backgroundColor,
-                      surface: AppTheme.surfaceColor,
-                      onSurface: AppTheme.textColor,
                     ),
                   ),
                   child: child!,
@@ -61,18 +60,18 @@ class DynamicDateField extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
+              color: theme.cardTheme.color,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.transparent),
             ),
             child: Row(
               children: [
-                const Icon(Icons.calendar_today_rounded, color: AppTheme.secondaryTextColor, size: 20),
+                Icon(Icons.calendar_today_rounded, color: borderColor, size: 20),
                 const SizedBox(width: 12),
                 Text(
                   value ?? 'Select Date',
-                  style: GoogleFonts.inter(
-                    color: value != null ? AppTheme.textColor : AppTheme.secondaryTextColor.withValues(alpha: 0.5),
+                  style: AppTheme.inter(
+                    color: value != null ? theme.textTheme.titleMedium?.color : borderColor.withValues(alpha: 0.5),
                   ),
                 ),
               ],

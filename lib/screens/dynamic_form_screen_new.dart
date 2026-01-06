@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
 import '../services/auth_service.dart';
@@ -109,23 +108,28 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.initialData != null;
+    final theme = Theme.of(context);
     
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           isEditing ? 'EDIT ${widget.tab.label.toUpperCase()}' : 'NEW ${widget.tab.label.toUpperCase()}',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0),
+          style: AppTheme.inter(
+            fontWeight: FontWeight.w900, 
+            letterSpacing: 1.0,
+            color: theme.appBarTheme.titleTextStyle?.color,
+          ),
         ),
         centerTitle: true,
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.appBarTheme.backgroundColor ?? theme.scaffoldBackgroundColor,
         elevation: 0,
         actions: [
           TextButton(
             onPressed: _saveForm,
             child: Text(
               'SAVE',
-              style: GoogleFonts.inter(
+              style: AppTheme.inter(
                 fontWeight: FontWeight.w700,
                 color: widget.primaryColor,
               ),

@@ -65,23 +65,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final expenses = _kpiData[_selectedPeriod]!['expenses']!;
     final profit = sales - expenses;
     final isProfitable = profit >= 0;
-    final kpiColor = isProfitable ? AppTheme.primaryColor : const Color(0xFFF43F5E); // Emerald or Rose
+    final theme = Theme.of(context);
+    final kpiColor = isProfitable ? theme.primaryColor : const Color(0xFFF43F5E); // Emerald or Rose
 
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       drawer: const AppDrawer(),
       appBar: AppBar(
         title: Consumer<WorkspaceProvider>(
           builder: (context, provider, child) {
             return Text(
               (provider.currentWorkspace?.name ?? 'DRIVE ERP').toUpperCase(),
-              style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0),
+              style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, color: theme.textTheme.titleLarge?.color),
             );
           },
         ),
         centerTitle: true,
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0,
+        iconTheme: theme.iconTheme,
         actions: [
           IconButton(
             icon: const Icon(Icons.settings_rounded),
@@ -134,10 +136,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildDateFilter() {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
+        color: theme.cardTheme.color,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -149,7 +152,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppTheme.backgroundColor : Colors.transparent,
+                  color: isSelected ? theme.scaffoldBackgroundColor : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: isSelected ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)] : null,
                 ),
@@ -159,7 +162,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   style: GoogleFonts.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: isSelected ? AppTheme.textColor : AppTheme.secondaryTextColor,
+                    color: isSelected ? theme.textTheme.bodyLarge?.color : theme.textTheme.bodyMedium?.color,
                   ),
                 ),
               ),
@@ -171,12 +174,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildKPIEngine(double sales, double expenses, double profit, Color color) {
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [color.withValues(alpha: 0.2), AppTheme.surfaceColor],
+          colors: [color.withValues(alpha: 0.2), theme.cardTheme.color ?? theme.cardColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -189,7 +193,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('NET PROFIT ENGINE', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.secondaryTextColor, letterSpacing: 1.0)),
+              Text('NET PROFIT ENGINE', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: theme.textTheme.bodyMedium?.color, letterSpacing: 1.0)),
               Icon(profit >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded, color: color),
             ],
           ),
@@ -205,9 +209,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 24),
           Row(
             children: [
-              _buildKPIStat('SALES', sales, AppTheme.textColor),
+              _buildKPIStat('SALES', sales, theme.textTheme.bodyLarge!.color!),
               const SizedBox(width: 24),
-              _buildKPIStat('EXPENSES', expenses, AppTheme.secondaryTextColor),
+              _buildKPIStat('EXPENSES', expenses, theme.textTheme.bodyMedium!.color!),
             ],
           ),
         ],
@@ -216,10 +220,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildKPIStat(String label, double value, Color color) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.secondaryTextColor)),
+        Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: theme.textTheme.bodyMedium?.color)),
         const SizedBox(height: 4),
         Text('\$${value.toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: color)),
       ],
@@ -227,24 +232,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildSectionHeader(String title) {
+    final theme = Theme.of(context);
     return Text(
       title,
       style: GoogleFonts.inter(
         fontSize: 12,
         fontWeight: FontWeight.w700,
-        color: AppTheme.secondaryTextColor,
+        color: theme.textTheme.bodyMedium?.color,
         letterSpacing: 1.5,
       ),
     );
   }
 
   Widget _buildCoreModulesGrid(List<Map<String, String>> activeModules, List<drive.File> driveFiles) {
+    final theme = Theme.of(context);
     if (activeModules.isEmpty) {
       return Center(
         child: Text(
           'No modules installed.\nVisit the Marketplace to expand.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+          style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color),
         ),
       );
     }
@@ -298,8 +305,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildModuleCard(ModuleSchema module, {required bool isActive}) {
+    final theme = Theme.of(context);
     return Card(
-      color: AppTheme.surfaceColor,
+      color: theme.cardTheme.color,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: InkWell(
         onTap: () {
@@ -318,7 +326,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor,
+                  color: theme.scaffoldBackgroundColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -332,12 +340,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Text(
                     module.name,
-                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textColor),
+                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Active',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.primaryColor),
+                    style: GoogleFonts.inter(fontSize: 12, color: theme.primaryColor),
                   ),
                 ],
               ),
@@ -349,12 +357,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildMarketplaceCard(String name, String iconName, String desc, String colorHex) {
+    final theme = Theme.of(context);
     final color = Color(int.parse(colorHex.replaceAll('#', '0xFF')));
     return Card(
-      color: AppTheme.surfaceColor.withValues(alpha: 0.5),
+      color: theme.cardTheme.color?.withValues(alpha: 0.5),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2), width: 1, style: BorderStyle.solid), // Dashed border simulation? No, just solid for now.
+        side: BorderSide(color: theme.textTheme.bodyMedium!.color!.withValues(alpha: 0.2), width: 1, style: BorderStyle.solid), // Dashed border simulation? No, just solid for now.
       ),
       child: InkWell(
         onTap: () {
@@ -382,7 +391,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor.withValues(alpha: 0.5),
+                  color: theme.scaffoldBackgroundColor.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -396,12 +405,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Text(
                     name,
-                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.secondaryTextColor),
+                    style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w700, color: theme.textTheme.bodyMedium?.color),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Install',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600),
+                    style: AppTheme.inter(fontSize: 12, color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),

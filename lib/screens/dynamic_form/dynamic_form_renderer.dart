@@ -77,6 +77,7 @@ class DynamicFormRenderer extends StatelessWidget {
           value: value?.toString() ?? '',
           primaryColor: primaryColor,
           onChanged: (val) => onFieldChanged(col.key, val),
+          controller: controllers[col.key],
         );
 
       case 'date':

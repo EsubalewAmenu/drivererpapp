@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
@@ -94,9 +93,10 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return AlertDialog(
-      backgroundColor: AppTheme.surfaceColor,
-      title: Text('Edit Column', style: GoogleFonts.inter(color: AppTheme.textColor)),
+      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+      title: Text('Edit Column', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -104,14 +104,14 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
           children: [
             TextField(
               controller: _labelController,
-              style: const TextStyle(color: AppTheme.textColor),
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(labelText: 'Column Name'),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _currentType,
-              dropdownColor: AppTheme.surfaceColor,
-              style: const TextStyle(color: AppTheme.textColor),
+              dropdownColor: theme.cardTheme.color,
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               items: {
                 'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table',
                 _currentType
@@ -125,17 +125,17 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
             ),
             const SizedBox(height: 16),
             SwitchListTile(
-              title: const Text('Hidden (Don\'t show on form)', style: TextStyle(color: AppTheme.textColor)),
+              title: Text('Hidden (Don\'t show on form)', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
               value: _isHidden,
               onChanged: (val) => setState(() => _isHidden = val),
-              activeThumbColor: AppTheme.primaryColor,
+              activeThumbColor: theme.primaryColor,
               contentPadding: EdgeInsets.zero,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _currentDependsOn,
-              dropdownColor: AppTheme.surfaceColor,
-              style: const TextStyle(color: AppTheme.textColor),
+              dropdownColor: theme.cardTheme.color,
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(labelText: 'Depends On (Optional)'),
               items: [
                 const DropdownMenuItem(value: null, child: Text('None')),
@@ -157,45 +157,45 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
             
             if (_currentType == 'table') ...[
               const SizedBox(height: 24),
-              Text('Table Structure', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+              Text('Table Structure', style: AppTheme.inter(fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color)),
               const SizedBox(height: 8),
               if ((widget.column.columns ?? []).isEmpty)
-                 const Text('No columns defined. Save this dialog and use the "Add Sub-Column" button in the list view to add columns.', style: TextStyle(color: AppTheme.secondaryTextColor, fontSize: 13))
+                  Text('No columns defined. Save this dialog and use the "Add Sub-Column" button in the list view to add columns.', style: TextStyle(color: theme.textTheme.bodyMedium?.color, fontSize: 13))
               else
                  Wrap(
                     spacing: 8,
                     children: (widget.column.columns!).map((c) => Chip(
                       label: Text(c.label),
-                      backgroundColor: AppTheme.backgroundColor,
-                      labelStyle: const TextStyle(color: AppTheme.textColor),
+                      backgroundColor: theme.scaffoldBackgroundColor,
+                      labelStyle: TextStyle(color: theme.textTheme.bodyLarge?.color),
                     )).toList(),
                  ),
                const SizedBox(height: 8),
-               const Text('NOTE: Use the arrow in the main list to expand this table and edit its columns.', style: TextStyle(color: AppTheme.secondaryTextColor, fontSize: 11, fontStyle: FontStyle.italic)),
+                Text('NOTE: Use the arrow in the main list to expand this table and edit its columns.', style: TextStyle(color: theme.textTheme.bodyMedium?.color, fontSize: 11, fontStyle: FontStyle.italic)),
             ],
 
             if (_currentType == 'select') ...[
               const SizedBox(height: 24),
-              Text('Options Source', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
-              RadioGroup<bool>(
-                groupValue: _isDynamicOptions,
-                onChanged: (v) => setState(() => _isDynamicOptions = v!),
-                child: const Row(
-                  children: [
-                    Expanded(child: RadioListTile<bool>(
-                      title: Text('Static', style: TextStyle(color: AppTheme.textColor)),
-                      value: false,
-                      activeColor: AppTheme.primaryColor,
-                      contentPadding: EdgeInsets.zero,
-                    )),
-                    Expanded(child: RadioListTile<bool>(
-                      title: Text('Dynamic', style: TextStyle(color: AppTheme.textColor)),
-                      value: true,
-                      activeColor: AppTheme.primaryColor,
-                      contentPadding: EdgeInsets.zero,
-                    )),
-                  ],
-                ),
+              Text('Options Source', style: AppTheme.inter(fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color)),
+              Row(
+                children: [
+                  Expanded(child: RadioListTile<bool>(
+                    title: Text('Static', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
+                    value: false,
+                    groupValue: _isDynamicOptions,
+                    onChanged: (v) => setState(() => _isDynamicOptions = v!),
+                    activeColor: theme.primaryColor,
+                    contentPadding: EdgeInsets.zero,
+                  )),
+                  Expanded(child: RadioListTile<bool>(
+                    title: Text('Dynamic', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
+                    value: true,
+                    groupValue: _isDynamicOptions,
+                    onChanged: (v) => setState(() => _isDynamicOptions = v!),
+                    activeColor: theme.primaryColor,
+                    contentPadding: EdgeInsets.zero,
+                  )),
+                ],
               ),
               
               if (_isDynamicOptions)
@@ -203,8 +203,8 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
                   initialValue: _getAvailableListSettings().contains(_dynamicOptionPath.replaceFirst('settings.', '')) 
                       ? _dynamicOptionPath.replaceFirst('settings.', '') 
                       : null,
-                  dropdownColor: AppTheme.surfaceColor,
-                  style: const TextStyle(color: AppTheme.textColor),
+                  dropdownColor: theme.cardTheme.color,
+                  style: TextStyle(color: theme.textTheme.bodyLarge?.color),
                   items: _getAvailableListSettings().map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
                   onChanged: (val) => setState(() => _dynamicOptionPath = val != null ? 'settings.$val' : ''),
                   decoration: const InputDecoration(labelText: 'Select Setting List'),
@@ -218,8 +218,8 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
                       children: [
                         ..._staticOptions.map((opt) => Chip(
                           label: Text(opt),
-                          backgroundColor: AppTheme.backgroundColor,
-                          labelStyle: const TextStyle(color: AppTheme.textColor),
+                          backgroundColor: theme.scaffoldBackgroundColor,
+                          labelStyle: TextStyle(color: theme.textTheme.bodyLarge?.color),
                           onDeleted: () => setState(() => _staticOptions.remove(opt)),
                         )),
                         ActionChip(

@@ -13,6 +13,63 @@ class AppTheme {
   static const Color lightTextColor = Color(0xFF0F172A); // Slate 900
   static const Color lightSecondaryTextColor = Color(0xFF64748B); // Slate 500
 
+  static bool useGoogleFonts = true;
+
+  static TextStyle inter({
+    double? fontSize,
+    FontWeight? fontWeight,
+    double? letterSpacing,
+    Color? color,
+    TextDecoration? decoration,
+  }) {
+    if (useGoogleFonts) {
+      return GoogleFonts.inter(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        letterSpacing: letterSpacing,
+        color: color,
+        decoration: decoration,
+      );
+    }
+    return TextStyle(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      letterSpacing: letterSpacing,
+      color: color,
+      decoration: decoration,
+    );
+  }
+
+  static TextStyle sourceCodePro({
+    double? fontSize,
+    FontWeight? fontWeight,
+    double? letterSpacing,
+    Color? color,
+  }) {
+     if (useGoogleFonts) {
+      return GoogleFonts.sourceCodePro(
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        letterSpacing: letterSpacing,
+        color: color,
+      );
+    }
+    return TextStyle(
+      fontSize: fontSize,
+      fontWeight: fontWeight,
+      letterSpacing: letterSpacing,
+      color: color,
+      fontFamily: 'Monospace',
+    );
+  }
+
+  static TextTheme interTextTheme(TextTheme textTheme) {
+    if (useGoogleFonts) {
+      return GoogleFonts.interTextTheme(textTheme);
+    }
+    return textTheme;
+  }
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -24,31 +81,31 @@ class AppTheme {
         surface: lightSurfaceColor,
         onSurface: lightTextColor,
       ),
-      textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme).copyWith(
-        displayLarge: GoogleFonts.inter(
+      textTheme: interTextTheme(ThemeData.light().textTheme).copyWith(
+        displayLarge: inter(
           fontSize: 32,
           fontWeight: FontWeight.w900,
           letterSpacing: 1.5,
           color: lightTextColor,
         ),
-        displayMedium: GoogleFonts.inter(
+        displayMedium: inter(
           fontSize: 24,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.2,
           color: lightTextColor,
         ),
-        titleLarge: GoogleFonts.inter(
+        titleLarge: inter(
           fontSize: 20,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
           color: lightTextColor,
         ),
-        bodyLarge: GoogleFonts.inter(
+        bodyLarge: inter(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: lightTextColor,
         ),
-        bodyMedium: GoogleFonts.inter(
+        bodyMedium: inter(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: lightSecondaryTextColor,
@@ -64,7 +121,7 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         backgroundColor: lightBackgroundColor,
         elevation: 0,
-        titleTextStyle: GoogleFonts.inter(
+        titleTextStyle: inter(
           fontSize: 20,
           fontWeight: FontWeight.w900,
           letterSpacing: 1.5,
@@ -86,31 +143,31 @@ class AppTheme {
         surface: surfaceColor,
         onSurface: textColor,
       ),
-      textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
-        displayLarge: GoogleFonts.inter(
+      textTheme: interTextTheme(ThemeData.dark().textTheme).copyWith(
+        displayLarge: inter(
           fontSize: 32,
           fontWeight: FontWeight.w900,
           letterSpacing: 1.5,
           color: textColor,
         ),
-        displayMedium: GoogleFonts.inter(
+        displayMedium: inter(
           fontSize: 24,
           fontWeight: FontWeight.w800,
           letterSpacing: 1.2,
           color: textColor,
         ),
-        titleLarge: GoogleFonts.inter(
+        titleLarge: inter(
           fontSize: 20,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.5,
           color: textColor,
         ),
-        bodyLarge: GoogleFonts.inter(
+        bodyLarge: inter(
           fontSize: 16,
           fontWeight: FontWeight.w400,
           color: textColor,
         ),
-        bodyMedium: GoogleFonts.inter(
+        bodyMedium: inter(
           fontSize: 14,
           fontWeight: FontWeight.w400,
           color: secondaryTextColor,
@@ -126,7 +183,7 @@ class AppTheme {
       appBarTheme: AppBarTheme(
         backgroundColor: backgroundColor,
         elevation: 0,
-        titleTextStyle: GoogleFonts.inter(
+        titleTextStyle: inter(
           fontSize: 20,
           fontWeight: FontWeight.w900,
           letterSpacing: 1.5,

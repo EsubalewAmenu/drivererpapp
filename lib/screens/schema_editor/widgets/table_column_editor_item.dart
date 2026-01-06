@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
-import '../../../theme/app_theme.dart';
 import 'column_list_item.dart';
 import '../dialogs/add_column_dialog.dart';
 import '../dialogs/edit_column_dialog.dart';
@@ -25,35 +24,36 @@ class TableColumnEditorItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subColumns = column.columns ?? [];
+    final theme = Theme.of(context);
     
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor,
-        border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2)),
+        color: theme.cardTheme.color,
+        border: Border.all(color: (theme.textTheme.bodyMedium?.color ?? Colors.grey).withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(12),
       ),
       child: ExpansionTile(
         title: Row(
           children: [
-            const Icon(Icons.table_chart_outlined, size: 20, color: AppTheme.secondaryTextColor),
+            Icon(Icons.table_chart_outlined, size: 20, color: theme.textTheme.bodyMedium?.color),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(column.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+              child: Text(column.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: AppTheme.backgroundColor,
+                color: theme.scaffoldBackgroundColor,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3)),
+                border: Border.all(color: (theme.textTheme.bodyMedium?.color ?? Colors.grey).withValues(alpha: 0.3)),
               ),
-              child: Text('TABLE', style: GoogleFonts.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor)),
+              child: Text('TABLE', style: GoogleFonts.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
             ),
             const SizedBox(width: 8),
             IconButton(
               icon: const Icon(Icons.edit_rounded, size: 20),
-              color: AppTheme.primaryColor,
+              color: theme.primaryColor,
               onPressed: onEdit,
             ),
             IconButton(
@@ -63,20 +63,20 @@ class TableColumnEditorItem extends StatelessWidget {
             ),
           ],
         ),
-        subtitle: Text('${subColumns.length} Sub-columns', style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontSize: 12)),
+        subtitle: Text('${subColumns.length} Sub-columns', style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color, fontSize: 12)),
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppTheme.backgroundColor.withValues(alpha: 0.3),
+            color: theme.scaffoldBackgroundColor.withValues(alpha: 0.3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('TABLE COLUMNS', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 10, color: AppTheme.secondaryTextColor)),
+                Text('TABLE COLUMNS', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
                 const SizedBox(height: 12),
                 if (subColumns.isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text('No columns defined for this table.', style: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.7), fontSize: 12)),
+                    child: Text('No columns defined for this table.', style: TextStyle(color: (theme.textTheme.bodyMedium?.color ?? Colors.grey).withValues(alpha: 0.7), fontSize: 12)),
                   ),
                 ...subColumns.map((subCol) => ColumnListItem(
                   column: subCol,
@@ -84,7 +84,7 @@ class TableColumnEditorItem extends StatelessWidget {
                   onDelete: () => _confirmDeleteSubColumn(context, subCol),
                 )),
                 const SizedBox(height: 8),
-                _buildAddButton('Add Sub-Column', () => _addSubColumn(context)),
+                _buildAddButton(context, 'Add Sub-Column', () => _addSubColumn(context)),
               ],
             ),
           ),
@@ -93,23 +93,24 @@ class TableColumnEditorItem extends StatelessWidget {
     );
   }
 
-  Widget _buildAddButton(String label, VoidCallback onTap) {
+  Widget _buildAddButton(BuildContext context, String label, VoidCallback onTap) {
+    final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3), style: BorderStyle.solid),
+          border: Border.all(color: (theme.textTheme.bodyMedium?.color ?? Colors.grey).withValues(alpha: 0.3), style: BorderStyle.solid),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.add, color: AppTheme.secondaryTextColor, size: 16),
+              Icon(Icons.add, color: theme.textTheme.bodyMedium?.color, size: 16),
               const SizedBox(width: 6),
-              Text(label, style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600, fontSize: 12)),
+              Text(label, style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600, fontSize: 12)),
             ],
           ),
         ),
@@ -179,12 +180,13 @@ class TableColumnEditorItem extends StatelessWidget {
   }
 
   void _confirmDeleteSubColumn(BuildContext context, ColumnConfig subCol) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
-        title: const Text('Delete Sub-Column', style: TextStyle(color: AppTheme.textColor)),
-        content: Text('Are you sure you want to delete "${subCol.label}"?', style: const TextStyle(color: AppTheme.secondaryTextColor)),
+        backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+        title: Text('Delete Sub-Column', style: TextStyle(color: theme.textTheme.titleLarge?.color)),
+        content: Text('Are you sure you want to delete "${subCol.label}"?', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(

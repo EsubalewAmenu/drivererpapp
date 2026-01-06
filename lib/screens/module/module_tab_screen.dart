@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
 import '../../providers/drive_provider.dart';
 import '../../services/drive_service.dart';
-import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
 import '../record_detail_screen.dart';
 
@@ -147,17 +146,18 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   Widget _buildSearchBar() {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: TextField(
         controller: _searchController,
-        style: GoogleFonts.inter(color: AppTheme.textColor),
+        style: GoogleFonts.inter(color: theme.textTheme.bodyLarge?.color),
         decoration: InputDecoration(
           hintText: 'Search ${widget.tab.label.toLowerCase()}...',
-          hintStyle: const TextStyle(color: AppTheme.secondaryTextColor),
-          prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.secondaryTextColor),
+          hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
+          prefixIcon: Icon(Icons.search_rounded, color: theme.textTheme.bodyMedium?.color),
           filled: true,
-          fillColor: AppTheme.surfaceColor,
+          fillColor: theme.cardTheme.color,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -172,6 +172,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     if (widget.tab.quickFilters == null || widget.tab.quickFilters!.isEmpty) {
       return const SizedBox.shrink();
     }
+    
+    final theme = Theme.of(context);
 
     return SizedBox(
       height: 40,
@@ -197,10 +199,10 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 _applyFilters();
               });
             },
-            backgroundColor: AppTheme.surfaceColor,
+            backgroundColor: theme.cardTheme.color,
             selectedColor: widget.primaryColor.withValues(alpha: 0.2),
             labelStyle: GoogleFonts.inter(
-              color: isSelected ? widget.primaryColor : AppTheme.secondaryTextColor,
+              color: isSelected ? widget.primaryColor : theme.textTheme.bodyMedium?.color,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             ),
             shape: RoundedRectangleBorder(
@@ -217,11 +219,12 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   Widget _buildListView() {
+    final theme = Theme.of(context);
     if (_filteredData.isEmpty) {
       return Center(
         child: Text(
           'No items found',
-          style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+          style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color),
         ),
       );
     }
@@ -238,12 +241,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   Widget _buildHighDensityCard(Map<String, dynamic> item) {
+    final theme = Theme.of(context);
     // Use the first column as title, second as subtitle
     final titleKey = widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '';
     final subtitleKey = widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '';
 
     return Card(
-      color: AppTheme.surfaceColor,
+      color: theme.cardTheme.color,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
@@ -284,7 +288,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                         style: GoogleFonts.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: AppTheme.textColor,
+                          color: theme.textTheme.bodyLarge?.color,
                         ),
                       ),
                     if (subtitleKey.isNotEmpty)
@@ -292,13 +296,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                         item[subtitleKey]?.toString() ?? '',
                         style: GoogleFonts.inter(
                           fontSize: 14,
-                          color: AppTheme.secondaryTextColor,
+                          color: theme.textTheme.bodyMedium?.color,
                         ),
                       ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded, color: AppTheme.secondaryTextColor),
+              Icon(Icons.chevron_right_rounded, color: theme.textTheme.bodyMedium?.color),
             ],
           ),
         ),

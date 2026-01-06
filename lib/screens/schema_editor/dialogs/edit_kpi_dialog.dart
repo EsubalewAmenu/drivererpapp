@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
@@ -34,11 +33,12 @@ class _EditKpiDialogState extends State<EditKpiDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final isEditing = widget.kpi != null;
 
     return AlertDialog(
-      backgroundColor: AppTheme.surfaceColor,
-      title: Text(isEditing ? 'Edit KPI Card' : 'Add KPI Card', style: GoogleFonts.inter(color: AppTheme.textColor)),
+      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+      title: Text(isEditing ? 'Edit KPI Card' : 'Add KPI Card', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -46,7 +46,7 @@ class _EditKpiDialogState extends State<EditKpiDialog> {
           children: [
             TextField(
               controller: _labelController,
-              style: const TextStyle(color: AppTheme.textColor),
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(
                 labelText: 'Label',
                 helperText: 'Display name (e.g. Total Revenue)',
@@ -57,7 +57,7 @@ class _EditKpiDialogState extends State<EditKpiDialog> {
             
             TextField(
               controller: _calculationController,
-              style: const TextStyle(color: AppTheme.textColor),
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(
                 labelText: 'Calculation Formula',
                 helperText: 'e.g. SUM(amount) or COUNT(id)',
@@ -67,8 +67,8 @@ class _EditKpiDialogState extends State<EditKpiDialog> {
             
             DropdownButtonFormField<String>(
               initialValue: _format,
-              dropdownColor: AppTheme.surfaceColor,
-              style: const TextStyle(color: AppTheme.textColor),
+              dropdownColor: theme.cardTheme.color,
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               items: ['number', 'currency', 'percent']
                   .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
                   .toList(),
