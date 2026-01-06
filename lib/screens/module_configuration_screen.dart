@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
@@ -65,21 +64,22 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final color = Color(int.parse(widget.moduleInfo['color']!.replaceAll('#', '0xFF')));
     
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: AppTheme.textColor),
+          icon: Icon(Icons.arrow_back_ios_new_rounded, color: theme.iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'CONFIGURE ${widget.moduleInfo['name']!.toUpperCase()}',
           style: AppTheme.inter(
-            color: AppTheme.textColor,
+            color: theme.textTheme.titleLarge?.color,
             fontWeight: FontWeight.w700,
             fontSize: 16,
             letterSpacing: 1.0,
@@ -99,7 +99,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                       style: AppTheme.inter(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.textColor,
+                        color: theme.textTheme.bodyLarge?.color,
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -107,7 +107,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                       'Adjust the settings below to fit your business needs.',
                       style: AppTheme.inter(
                         fontSize: 16,
-                        color: AppTheme.secondaryTextColor,
+                        color: theme.textTheme.bodyMedium?.color,
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -115,7 +115,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                     Expanded(
                       child: SingleChildScrollView(
                         child: Column(
-                          children: _buildFormFields(color),
+                          children: _buildFormFields(color, theme),
                         ),
                       ),
                     ),
@@ -158,10 +158,10 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
     );
   }
 
-  List<Widget> _buildFormFields(Color color) {
+  List<Widget> _buildFormFields(Color color, ThemeData theme) {
     if (_moduleJson == null || _moduleJson!['settings'] == null) {
       return [
-        _buildTextField('Module Name', 'name', color),
+        _buildTextField('Module Name', 'name', color, theme),
       ];
     }
 
@@ -183,19 +183,19 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
       }
 
       if (type == 'text') {
-        return _buildTextField(label, key, color);
+        return _buildTextField(label, key, color, theme);
       } else if (type == 'select') {
-        return _buildDropdownField(label, key, field['options'] ?? [], color);
+        return _buildDropdownField(label, key, field['options'] ?? [], color, theme);
       } else if (type == 'boolean') {
-        return _buildSwitchField(label, key, color);
+        return _buildSwitchField(label, key, color, theme);
       } else if (type == 'list') {
-        return _buildListField(label, key, color);
+        return _buildListField(label, key, color, theme);
       }
       return const SizedBox.shrink();
     }).toList();
   }
 
-  Widget _buildListField(String label, String key, Color color) {
+  Widget _buildListField(String label, String key, Color color, ThemeData theme) {
     List<String> items = [];
     if (_formValues[key] is List) {
       items = List<String>.from(_formValues[key]);
@@ -216,7 +216,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                 style: AppTheme.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: AppTheme.secondaryTextColor,
+                  color: theme.textTheme.bodyMedium?.color,
                   letterSpacing: 1.0,
                 ),
               ),
@@ -248,7 +248,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                       },
                       decoration: InputDecoration(
                         filled: true,
-                        fillColor: AppTheme.surfaceColor,
+                        fillColor: theme.cardTheme.color,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                           borderSide: BorderSide.none,
@@ -259,7 +259,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                         ),
                         contentPadding: const EdgeInsets.all(16),
                       ),
-                      style: AppTheme.inter(fontSize: 16, color: AppTheme.textColor),
+                      style: AppTheme.inter(fontSize: 16, color: theme.textTheme.bodyLarge?.color),
                     ),
                   ),
                   IconButton(
@@ -280,7 +280,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
     );
   }
 
-  Widget _buildTextField(String label, String key, Color color) {
+  Widget _buildTextField(String label, String key, Color color, ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 24.0),
       child: Column(
@@ -291,7 +291,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
             style: AppTheme.inter(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: AppTheme.secondaryTextColor,
+              color: theme.textTheme.bodyMedium?.color,
               letterSpacing: 1.0,
             ),
           ),
@@ -301,7 +301,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
             onChanged: (value) => _formValues[key] = value,
             decoration: InputDecoration(
               filled: true,
-              fillColor: AppTheme.surfaceColor,
+              fillColor: theme.cardTheme.color,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -314,7 +314,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
             ),
             style: AppTheme.inter(
               fontSize: 16,
-              color: AppTheme.textColor,
+              color: theme.textTheme.bodyLarge?.color,
             ),
           ),
         ],
@@ -322,7 +322,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
     );
   }
 
-  Widget _buildDropdownField(String label, String key, List<dynamic> options, Color color) {
+  Widget _buildDropdownField(String label, String key, List<dynamic> options, Color color, ThemeData theme) {
      final List<String> strOptions = options.map((e) => e.toString()).toList();
      
      return Padding(
@@ -335,7 +335,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
             style: AppTheme.inter(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: AppTheme.secondaryTextColor,
+              color: theme.textTheme.bodyMedium?.color,
               letterSpacing: 1.0,
             ),
           ),
@@ -343,7 +343,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
+              color: theme.cardTheme.color,
               borderRadius: BorderRadius.circular(12),
             ),
             child: DropdownButtonHideUnderline(
@@ -366,9 +366,9 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                 },
                 style: AppTheme.inter(
                   fontSize: 16,
-                  color: AppTheme.textColor,
+                  color: theme.textTheme.bodyLarge?.color,
                 ),
-                dropdownColor: AppTheme.surfaceColor,
+                dropdownColor: theme.cardTheme.color,
               ),
             ),
           ),
@@ -377,7 +377,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
     );
   }
 
-  Widget _buildSwitchField(String label, String key, Color color) {
+  Widget _buildSwitchField(String label, String key, Color color, ThemeData theme) {
     final value = _formValues[key] == true;
     return Padding(
       padding: const EdgeInsets.only(bottom: 24.0),
@@ -389,7 +389,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
             style: AppTheme.inter(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: AppTheme.secondaryTextColor,
+              color: theme.textTheme.bodyMedium?.color,
               letterSpacing: 1.0,
             ),
           ),

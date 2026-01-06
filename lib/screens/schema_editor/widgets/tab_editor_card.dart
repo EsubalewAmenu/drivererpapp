@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
-import '../../../theme/app_theme.dart';
 import 'column_list_item.dart';
 import 'table_column_editor_item.dart';
 import '../dialogs/add_column_dialog.dart';
@@ -34,11 +33,11 @@ class TabEditorCard extends StatelessWidget {
         title: Row(
           children: [
             Expanded(
-              child: Text(tab.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
+              child: Text(tab.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
             ),
             IconButton(
               icon: const Icon(Icons.edit_rounded, size: 20),
-              color: AppTheme.primaryColor,
+              color: theme.primaryColor,
               onPressed: onEdit,
             ),
             IconButton(
@@ -48,8 +47,8 @@ class TabEditorCard extends StatelessWidget {
             ),
           ],
         ),
-        subtitle: Text('${tab.columns.length} Columns', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color)),
-        iconColor: AppTheme.primaryColor,
+        subtitle: Text('${tab.columns.length} Columns', style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color)),
+        iconColor: theme.primaryColor,
         collapsedIconColor: theme.iconTheme.color,
         children: [
           Padding(
@@ -88,7 +87,7 @@ class TabEditorCard extends StatelessWidget {
 
   Widget _buildAddButton(BuildContext context, String label, VoidCallback onTap, {bool isSmall = false}) {
     final theme = Theme.of(context);
-    final color = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
+    final color = theme.textTheme.bodyMedium?.color ?? Colors.grey;
 
     return InkWell(
       onTap: onTap,
@@ -105,7 +104,7 @@ class TabEditorCard extends StatelessWidget {
             children: [
               Icon(Icons.add, color: color, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: AppTheme.inter(color: color, fontWeight: FontWeight.w600)),
+              Text(label, style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w600)),
             ],
           ),
         ),
@@ -160,12 +159,13 @@ class TabEditorCard extends StatelessWidget {
   }
 
   void _confirmDeleteColumn(BuildContext context, ColumnConfig col) {
+    final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.surfaceColor,
-        title: const Text('Delete Column', style: TextStyle(color: AppTheme.textColor)),
-        content: Text('Are you sure you want to delete "${col.label}"? This cannot be undone.', style: const TextStyle(color: AppTheme.secondaryTextColor)),
+        backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+        title: Text('Delete Column', style: TextStyle(color: theme.textTheme.titleLarge?.color)),
+        content: Text('Are you sure you want to delete "${col.label}"? This cannot be undone.', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(

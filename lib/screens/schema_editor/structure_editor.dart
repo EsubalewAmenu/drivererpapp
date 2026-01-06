@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/schema_models.dart';
-import '../../theme/app_theme.dart';
 import 'widgets/tab_editor_card.dart';
 import 'dialogs/add_tab_dialog.dart';
 import 'dialogs/edit_tab_dialog.dart';
@@ -105,7 +104,7 @@ class _StructureEditorState extends State<StructureEditor> {
 
   Widget _buildAddButton(String label, VoidCallback onTap, {bool isSmall = false}) {
     final theme = Theme.of(context);
-    final color = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
+    final color = theme.textTheme.bodyMedium?.color ?? Colors.grey;
 
     return InkWell(
       onTap: onTap,
@@ -125,7 +124,7 @@ class _StructureEditorState extends State<StructureEditor> {
             children: [
               Icon(Icons.add, color: color, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: AppTheme.inter(color: color, fontWeight: FontWeight.w600)),
+              Text(label, style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

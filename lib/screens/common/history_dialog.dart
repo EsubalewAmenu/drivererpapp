@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:intl/intl.dart';
 import '../../services/drive_service.dart';
-import '../../theme/app_theme.dart';
 
 class HistoryDialog extends StatefulWidget {
   final String moduleId;
@@ -99,22 +98,23 @@ class _HistoryDialogState extends State<HistoryDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return AlertDialog(
-      backgroundColor: AppTheme.surfaceColor,
+      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.history, color: AppTheme.primaryColor),
+              Icon(Icons.history, color: theme.primaryColor),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   widget.fileName != null ? 'File History' : 'Module History',
-                  style: AppTheme.inter(
+                  style: GoogleFonts.inter(
                     fontWeight: FontWeight.w700, 
-                    color: AppTheme.textColor,
+                    color: theme.textTheme.bodyLarge?.color,
                   ),
                 ),
               ),
@@ -125,9 +125,9 @@ class _HistoryDialogState extends State<HistoryDialog> {
             widget.fileName == 'config' 
                 ? 'Module Schema & Settings' 
                 : 'Tracking: ${widget.fileName ?? widget.moduleName}',
-            style: AppTheme.inter(
+            style: GoogleFonts.inter(
               fontSize: 12,
-              color: AppTheme.secondaryTextColor,
+              color: theme.textTheme.bodyMedium?.color,
               fontWeight: FontWeight.w400,
             ),
           ),
@@ -141,13 +141,14 @@ class _HistoryDialogState extends State<HistoryDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Close', style: AppTheme.inter(fontWeight: FontWeight.w600)),
+          child: Text('Close', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
         ),
       ],
     );
   }
 
   Widget _buildBody() {
+    final theme = Theme.of(context);
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -163,10 +164,10 @@ class _HistoryDialogState extends State<HistoryDialog> {
     }
 
     if (_revisions.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No revision history available.',
-          style: TextStyle(color: AppTheme.secondaryTextColor),
+          style: TextStyle(color: theme.textTheme.bodyMedium?.color),
         ),
       );
     }
@@ -184,10 +185,10 @@ class _HistoryDialogState extends State<HistoryDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
                 key.toUpperCase(),
-                style: AppTheme.inter(
+                style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.secondaryTextColor,
+                  color: theme.textTheme.bodyMedium?.color,
                 ),
               ),
             ),
@@ -202,6 +203,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
   }
 
   Widget _buildSessionTile(RevisionSession session) {
+    final theme = Theme.of(context);
     final DateTime modTime = session.main.modifiedTime?.toLocal() ?? DateTime.now();
     final String user = session.main.lastModifyingUser?.displayName ?? 'Unknown User';
     final String time = DateFormat.jm().format(modTime);
@@ -210,17 +212,17 @@ class _HistoryDialogState extends State<HistoryDialog> {
     if (session.subs.isEmpty) {
       return ListTile(
         leading: _buildVersionBadge(versionLabel),
-        title: Text(time, style: AppTheme.inter(fontWeight: FontWeight.w600, fontSize: 14)),
-        subtitle: Text('Modified by $user', style: AppTheme.inter(fontSize: 12, color: AppTheme.secondaryTextColor)),
+        title: Text(time, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: theme.textTheme.bodyLarge?.color)),
+        subtitle: Text('Modified by $user', style: GoogleFonts.inter(fontSize: 12, color: theme.textTheme.bodyMedium?.color)),
         dense: true,
       );
     }
 
     return ExpansionTile(
       leading: _buildVersionBadge(versionLabel),
-      title: Text(time, style: AppTheme.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+      title: Text(time, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: theme.textTheme.bodyLarge?.color)),
       subtitle: Text('Modified by $user • ${session.subs.length + 1} versions', 
-          style: AppTheme.inter(fontSize: 12, color: AppTheme.secondaryTextColor)),
+          style: GoogleFonts.inter(fontSize: 12, color: theme.textTheme.bodyMedium?.color)),
       children: session.subs.map((sub) {
         final subTime = DateFormat.jm().format(sub.modifiedTime?.toLocal() ?? DateTime.now());
         final subVersion = 'V${_revisions.length - _revisions.indexOf(sub)}';
@@ -229,10 +231,10 @@ class _HistoryDialogState extends State<HistoryDialog> {
           contentPadding: const EdgeInsets.only(left: 32, right: 16),
           leading: Container(
              width: 8, height: 8, 
-             decoration: const BoxDecoration(color: AppTheme.secondaryTextColor, shape: BoxShape.circle)
+             decoration: BoxDecoration(color: theme.textTheme.bodyMedium?.color, shape: BoxShape.circle)
           ),
-          title: Text(subTime, style: AppTheme.inter(fontSize: 13)),
-          trailing: Text(subVersion, style: AppTheme.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor)),
+          title: Text(subTime, style: GoogleFonts.inter(fontSize: 13, color: theme.textTheme.bodyLarge?.color)),
+          trailing: Text(subVersion, style: GoogleFonts.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
           dense: true,
         );
       }).toList(),
@@ -240,12 +242,13 @@ class _HistoryDialogState extends State<HistoryDialog> {
   }
 
   Widget _buildVersionBadge(String label) {
+    final theme = Theme.of(context);
     return CircleAvatar(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       radius: 16,
       child: Text(
         label, 
-        style: const TextStyle(fontSize: 10, color: AppTheme.secondaryTextColor),
+        style: TextStyle(fontSize: 10, color: theme.textTheme.bodyMedium?.color),
       ),
     );
   }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../providers/drive_provider.dart';
 import '../../providers/workspace_provider.dart';
@@ -26,11 +25,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
+          icon: Icon(Icons.arrow_back_rounded, color: theme.iconTheme.color),
           onPressed: () {
             if (_currentStep > 0) {
               setState(() => _currentStep--);
@@ -41,10 +41,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         title: Text(
           _getTitleForStep(),
-          style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, fontSize: 16),
+          style: AppTheme.inter(
+            fontWeight: FontWeight.w900, 
+            letterSpacing: 1.0, 
+            fontSize: 16,
+            color: theme.textTheme.titleLarge?.color
+          ),
         ),
         centerTitle: true,
-        backgroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
       ),
       body: SafeArea(
@@ -52,9 +57,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           padding: const EdgeInsets.all(24.0),
           child: Column(
             children: [
-              Expanded(child: _buildStepContent()),
+              Expanded(child: _buildStepContent(theme)),
               const SizedBox(height: 24),
-              _buildFooter(),
+              _buildFooter(theme),
             ],
           ),
         ),
@@ -73,19 +78,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  Widget _buildStepContent() {
-    if (_currentStep == 0) return _buildChoiceStep();
-    if (_choice == 'join') return _buildJoinStep();
+  Widget _buildStepContent(ThemeData theme) {
+    if (_currentStep == 0) return _buildChoiceStep(theme);
+    if (_choice == 'join') return _buildJoinStep(theme);
     
     switch (_currentStep) {
-      case 1: return _buildIdentityStep();
-      case 2: return _buildIndustryStep();
-      case 3: return _buildToolkitStep();
+      case 1: return _buildIdentityStep(theme);
+      case 2: return _buildIndustryStep(theme);
+      case 3: return _buildToolkitStep(theme);
       default: return const SizedBox.shrink();
     }
   }
 
-  Widget _buildChoiceStep() {
+  Widget _buildChoiceStep(ThemeData theme) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -94,6 +99,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           title: 'Create New Company',
           subtitle: 'Start a fresh workspace with your own data.',
           onTap: () => setState(() { _choice = 'new'; _currentStep = 1; }),
+          theme: theme,
         ),
         const SizedBox(height: 24),
         _buildChoiceCard(
@@ -101,14 +107,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           title: 'Join Network',
           subtitle: 'Enter an invite code to join an existing team.',
           onTap: () => setState(() { _choice = 'join'; _currentStep = 1; }),
+          theme: theme,
         ),
       ],
     );
   }
 
-  Widget _buildChoiceCard({required IconData icon, required String title, required String subtitle, required VoidCallback onTap}) {
+  Widget _buildChoiceCard({required IconData icon, required String title, required String subtitle, required VoidCallback onTap, required ThemeData theme}) {
     return Card(
-      color: AppTheme.surfaceColor,
+      color: theme.cardTheme.color,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: InkWell(
         onTap: onTap,
@@ -117,11 +124,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           padding: const EdgeInsets.all(32.0),
           child: Column(
             children: [
-              Icon(icon, size: 48, color: AppTheme.primaryColor),
+              Icon(icon, size: 48, color: theme.primaryColor),
               const SizedBox(height: 16),
-              Text(title, style: AppTheme.inter(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+              Text(title, style: AppTheme.inter(fontSize: 20, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
               const SizedBox(height: 8),
-              Text(subtitle, textAlign: TextAlign.center, style: AppTheme.inter(fontSize: 14, color: AppTheme.secondaryTextColor)),
+              Text(subtitle, textAlign: TextAlign.center, style: AppTheme.inter(fontSize: 14, color: theme.textTheme.bodyMedium?.color)),
             ],
           ),
         ),
@@ -129,40 +136,40 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildIdentityStep() {
+  Widget _buildIdentityStep(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('What is your business called?', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+        Text('What is your business called?', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
         const SizedBox(height: 32),
         TextField(
           controller: _nameController,
-          style: AppTheme.inter(color: AppTheme.textColor, fontSize: 18),
+          style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color, fontSize: 18),
           decoration: InputDecoration(
             labelText: 'Business Name',
-            labelStyle: const TextStyle(color: AppTheme.secondaryTextColor),
+            labelStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppTheme.surfaceColor),
+              borderSide: BorderSide(color: theme.dividerColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppTheme.primaryColor),
+              borderSide: BorderSide(color: theme.primaryColor),
             ),
             filled: true,
-            fillColor: AppTheme.surfaceColor,
+            fillColor: theme.cardTheme.color,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildIndustryStep() {
+  Widget _buildIndustryStep(ThemeData theme) {
     final industries = ['Retail', 'F&B', 'Logistics', 'Services', 'Manufacturing'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Select your industry focus', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+        Text('Select your industry focus', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
         const SizedBox(height: 32),
         Expanded(
           child: ListView.separated(
@@ -176,15 +183,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.2) : AppTheme.surfaceColor,
+                    color: isSelected ? theme.primaryColor.withValues(alpha: 0.2) : theme.cardTheme.color,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
+                    border: Border.all(color: isSelected ? theme.primaryColor : Colors.transparent),
                   ),
                   child: Row(
                     children: [
-                      Text(industry, style: AppTheme.inter(fontSize: 18, fontWeight: FontWeight.w600, color: isSelected ? AppTheme.primaryColor : AppTheme.textColor)),
+                      Text(industry, style: AppTheme.inter(fontSize: 18, fontWeight: FontWeight.w600, color: isSelected ? theme.primaryColor : theme.textTheme.bodyLarge?.color)),
                       const Spacer(),
-                      if (isSelected) const Icon(Icons.check_circle_rounded, color: AppTheme.primaryColor),
+                      if (isSelected) Icon(Icons.check_circle_rounded, color: theme.primaryColor),
                     ],
                   ),
                 ),
@@ -196,12 +203,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildToolkitStep() {
+  Widget _buildToolkitStep(ThemeData theme) {
     final modules = ['Inventory', 'CRM', 'HR', 'Accounting', 'Sales'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Choose your initial toolkit', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+        Text('Choose your initial toolkit', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
         const SizedBox(height: 32),
         Expanded(
           child: ListView.separated(
@@ -221,16 +228,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.2) : AppTheme.surfaceColor,
+                    color: isSelected ? theme.primaryColor.withValues(alpha: 0.2) : theme.cardTheme.color,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
+                    border: Border.all(color: isSelected ? theme.primaryColor : Colors.transparent),
                   ),
                   child: Row(
                     children: [
-                      Text(module, style: AppTheme.inter(fontSize: 18, fontWeight: FontWeight.w600, color: isSelected ? AppTheme.primaryColor : AppTheme.textColor)),
+                      Text(module, style: AppTheme.inter(fontSize: 18, fontWeight: FontWeight.w600, color: isSelected ? theme.primaryColor : theme.textTheme.bodyLarge?.color)),
                       const Spacer(),
-                      if (isSelected) const Icon(Icons.check_box_rounded, color: AppTheme.primaryColor)
-                      else const Icon(Icons.check_box_outline_blank_rounded, color: AppTheme.secondaryTextColor),
+                      if (isSelected) Icon(Icons.check_box_rounded, color: theme.primaryColor)
+                      else Icon(Icons.check_box_outline_blank_rounded, color: theme.textTheme.bodyMedium?.color),
                     ],
                   ),
                 ),
@@ -242,35 +249,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildJoinStep() {
+  Widget _buildJoinStep(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Enter Invitation Code', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+        Text('Enter Invitation Code', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
         const SizedBox(height: 32),
         TextField(
-          style: AppTheme.sourceCodePro(color: AppTheme.textColor, fontSize: 24, letterSpacing: 4),
+          style: AppTheme.sourceCodePro(color: theme.textTheme.bodyLarge?.color, fontSize: 24, letterSpacing: 4),
           textAlign: TextAlign.center,
           decoration: InputDecoration(
             hintText: 'XXXX-XXXX',
-            hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5)),
+            hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppTheme.surfaceColor),
+              borderSide: BorderSide(color: theme.dividerColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: const BorderSide(color: AppTheme.primaryColor),
+              borderSide: BorderSide(color: theme.primaryColor),
             ),
             filled: true,
-            fillColor: AppTheme.surfaceColor,
+            fillColor: theme.cardTheme.color,
           ),
         ),
       ],
     );
   }
 
-  Widget _buildFooter() {
+  Widget _buildFooter(ThemeData theme) {
     if (_currentStep == 0) return const SizedBox.shrink();
 
     return FilledButton(
@@ -298,17 +305,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         }
       },
       style: FilledButton.styleFrom(
-        backgroundColor: AppTheme.primaryColor,
-        foregroundColor: AppTheme.backgroundColor,
+        backgroundColor: theme.primaryColor,
+        foregroundColor: theme.colorScheme.onPrimary,
         padding: const EdgeInsets.symmetric(vertical: 20),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         minimumSize: const Size(double.infinity, 60),
       ),
       child: _isCreating 
-        ? const SizedBox(
+        ? SizedBox(
             height: 24, 
             width: 24, 
-            child: CircularProgressIndicator(color: AppTheme.backgroundColor, strokeWidth: 2)
+            child: CircularProgressIndicator(color: theme.colorScheme.onPrimary, strokeWidth: 2)
           )
         : Text(
             _currentStep == 3 || _choice == 'join' ? 'LAUNCH WORKSPACE' : 'CONTINUE',

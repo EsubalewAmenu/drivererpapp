@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../providers/workspace_provider.dart';
 import '../screens/settings_screen.dart';
@@ -41,15 +41,15 @@ class AppDrawer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withValues(alpha: 0.2),
+              color: theme.primaryColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.grid_view_rounded, color: AppTheme.primaryColor),
+            child: Icon(Icons.grid_view_rounded, color: theme.primaryColor),
           ),
           const SizedBox(width: 12),
           Text(
             'DRIVE ERP',
-            style: AppTheme.inter(
+            style: GoogleFonts.inter(
               fontSize: 20,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.0,
@@ -89,15 +89,15 @@ class AppDrawer extends StatelessWidget {
               CircleAvatar(
                 radius: 16,
                 backgroundColor: Colors.blueGrey,
-                child: Text(initial, style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.white, fontSize: 12)),
+                child: Text(initial, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: Colors.white, fontSize: 12)),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(workspaceName, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
-                    Text('Switch Workspace', style: AppTheme.inter(fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
+                    Text(workspaceName, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
+                    Text('Switch Workspace', style: GoogleFonts.inter(fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
                   ],
                 ),
               ),
@@ -132,7 +132,7 @@ class AppDrawer extends StatelessWidget {
       leading: Icon(icon, color: theme.textTheme.bodyMedium?.color),
       title: Text(
         label,
-        style: AppTheme.inter(
+        style: GoogleFonts.inter(
           fontWeight: FontWeight.w600,
           color: theme.textTheme.bodyLarge?.color,
         ),
@@ -155,7 +155,7 @@ class AppDrawer extends StatelessWidget {
             leading: const Icon(Icons.logout_rounded, color: Color(0xFFF43F5E)), // Rose color
             title: Text(
               'Log Out',
-              style: AppTheme.inter(
+              style: GoogleFonts.inter(
                 fontWeight: FontWeight.w600,
                 color: const Color(0xFFF43F5E),
               ),

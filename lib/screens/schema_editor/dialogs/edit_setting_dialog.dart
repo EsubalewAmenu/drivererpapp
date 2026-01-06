@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../theme/app_theme.dart';
 
 class EditSettingDialog extends StatefulWidget {
@@ -49,11 +48,12 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final isEditing = widget.settingKey != null;
 
     return AlertDialog(
-      backgroundColor: AppTheme.surfaceColor,
-      title: Text(isEditing ? 'Edit Setting' : 'Add Setting', style: AppTheme.inter(color: AppTheme.textColor)),
+      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+      title: Text(isEditing ? 'Edit Setting' : 'Add Setting', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -61,7 +61,7 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
           children: [
             TextField(
               controller: _keyController,
-              style: const TextStyle(color: AppTheme.textColor),
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(
                 labelText: 'Setting Key (ID)',
                 helperText: 'Unique identifier (e.g. tax_rate)',
@@ -71,15 +71,15 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
             
             TextField(
               controller: _labelController,
-              style: const TextStyle(color: AppTheme.textColor),
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(labelText: 'Label'),
             ),
             const SizedBox(height: 16),
             
             DropdownButtonFormField<String>(
               initialValue: _type,
-              dropdownColor: AppTheme.surfaceColor,
-              style: const TextStyle(color: AppTheme.textColor),
+              dropdownColor: theme.cardTheme.color,
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               items: ['text', 'boolean', 'list', 'number']
                   .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
                   .toList(),
@@ -93,7 +93,7 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
             TextField(
               onChanged: (val) => _dependsOn = val.isEmpty ? null : val,
               controller: TextEditingController(text: _dependsOn),
-              style: const TextStyle(color: AppTheme.textColor),
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(
                 labelText: 'Depends On (Key)',
                 helperText: 'Optional: Show only if this setting is true',
@@ -102,7 +102,7 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
 
             if (_type == 'list') ...[
               const SizedBox(height: 24),
-              Text('Options', style: AppTheme.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+              Text('Options', style: AppTheme.inter(fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,

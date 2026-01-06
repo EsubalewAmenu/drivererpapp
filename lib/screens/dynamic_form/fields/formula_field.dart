@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
@@ -45,7 +44,7 @@ class DynamicFormulaField extends StatelessWidget {
           style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: Theme.of(context).textTheme.bodyMedium?.color,
             letterSpacing: 1.0,
           ),
         ),
@@ -54,16 +53,16 @@ class DynamicFormulaField extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor.withValues(alpha: 0.5),
+            color: Theme.of(context).cardTheme.color?.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.1)),
+            border: Border.all(color: Theme.of(context).dividerColor),
           ),
           child: Text(
             value,
             style: AppTheme.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppTheme.textColor,
+              color: Theme.of(context).textTheme.bodyLarge?.color,
             ),
           ),
         ),

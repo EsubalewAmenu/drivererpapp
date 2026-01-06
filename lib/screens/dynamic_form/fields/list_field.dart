@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
@@ -24,6 +23,7 @@ class DynamicListField extends StatefulWidget {
 class _DynamicListFieldState extends State<DynamicListField> {
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -32,7 +32,7 @@ class _DynamicListFieldState extends State<DynamicListField> {
           style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodyMedium?.color,
             letterSpacing: 1.0,
           ),
         ),
@@ -41,7 +41,7 @@ class _DynamicListFieldState extends State<DynamicListField> {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
+            color: theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.transparent),
           ),

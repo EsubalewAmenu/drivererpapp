@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/theme_provider.dart';
@@ -79,16 +80,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               CircleAvatar(
                 radius: 32,
-                backgroundColor: AppTheme.primaryColor,
-                child: Text('AC', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white)),
+                backgroundColor: theme.primaryColor,
+                child: Text('AC', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white)),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Alex Chen', style: AppTheme.inter(fontSize: 20, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
-                    Text('Administrator', style: AppTheme.inter(fontSize: 14, color: AppTheme.primaryColor)),
+                    Text('Alex Chen', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
+                    Text('Administrator', style: GoogleFonts.inter(fontSize: 14, color: theme.primaryColor)),
                   ],
                 ),
               ),
@@ -97,7 +98,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
           TextField(
             controller: _displayNameController,
-            style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
+            style: GoogleFonts.inter(color: theme.textTheme.bodyLarge?.color),
             decoration: _inputDecoration('Display Name'),
           ),
           const SizedBox(height: 16),
@@ -108,11 +109,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Profile updated')));
               },
               style: FilledButton.styleFrom(
-                backgroundColor: AppTheme.primaryColor,
+                backgroundColor: theme.primaryColor,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text('SAVE CHANGES', style: AppTheme.inter(fontWeight: FontWeight.w700)),
+              child: Text('SAVE CHANGES', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -139,15 +140,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 children: [
                   Icon(
                     themeProvider.isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-                    color: AppTheme.primaryColor
+                    color: theme.primaryColor
                   ),
                   const SizedBox(width: 16),
-                  Text('Dark Mode', style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w600, color: theme.textTheme.bodyLarge?.color)),
+                  Text('Dark Mode', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: theme.textTheme.bodyLarge?.color)),
                 ],
               ),
               Switch(
                 value: themeProvider.isDarkMode,
-                activeColor: AppTheme.primaryColor,
+                activeThumbColor: theme.primaryColor,
                 onChanged: (value) {
                   themeProvider.toggleTheme();
                 },
@@ -171,7 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           TextField(
             controller: _companyNameController,
-            style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
+            style: GoogleFonts.inter(color: theme.textTheme.bodyLarge?.color),
             decoration: _inputDecoration('Company Name'),
           ),
           const SizedBox(height: 16),
@@ -186,7 +187,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Icon(Icons.upload_rounded, color: theme.textTheme.bodyMedium?.color),
                 const SizedBox(width: 8),
-                Text('Upload Logo', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600)),
+                Text('Upload Logo', style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -223,8 +224,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color)),
-          Text(value, style: AppTheme.sourceCodePro(color: theme.textTheme.bodyLarge?.color, fontWeight: FontWeight.w600)),
+          Text(label, style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color)),
+          Text(value, style: GoogleFonts.sourceCodePro(color: theme.textTheme.bodyLarge?.color, fontWeight: FontWeight.w600)),
         ],
       ),
     );
@@ -241,7 +242,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppTheme.primaryColor),
+        borderSide: BorderSide(color: theme.primaryColor),
       ),
       filled: true,
       fillColor: theme.scaffoldBackgroundColor,

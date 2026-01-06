@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
@@ -22,9 +21,10 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return AlertDialog(
-      backgroundColor: AppTheme.surfaceColor,
-      title: Text('Add Column', style: AppTheme.inter(color: AppTheme.textColor)),
+      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+      title: Text('Add Column', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -32,15 +32,15 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
           children: [
             TextField(
               controller: _labelController,
-              style: const TextStyle(color: AppTheme.textColor),
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(labelText: 'Column Name'),
               autofocus: true,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               initialValue: _currentType,
-              dropdownColor: AppTheme.surfaceColor,
-              style: const TextStyle(color: AppTheme.textColor),
+              dropdownColor: theme.cardTheme.color,
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               items: {
                 'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table'
               }

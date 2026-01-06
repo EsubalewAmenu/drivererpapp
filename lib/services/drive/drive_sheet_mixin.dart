@@ -203,7 +203,7 @@ mixin DriveSheetMixin {
       }
 
       // 4. Save Main Record
-      await _appendDataToSheet(spreadsheetId!, sheetTitle, finalData);
+      await _appendDataToSheet(spreadsheetId, sheetTitle, finalData);
 
       // 5. Save Nested Tables
       for (var entry in nestedTables.entries) {

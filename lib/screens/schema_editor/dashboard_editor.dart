@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/schema_models.dart';
-import '../../theme/app_theme.dart';
 
 class DashboardEditor extends StatelessWidget {
   final List<KpiCard> kpis;
@@ -46,13 +45,13 @@ class DashboardEditor extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(kpi.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
+                  child: Text(kpi.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
                 ),
                 Row(
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit_rounded, size: 20),
-                      color: AppTheme.primaryColor,
+                      color: theme.primaryColor,
                       onPressed: () => onEditKpi(index, kpi),
                     ),
                     IconButton(
@@ -72,12 +71,12 @@ class DashboardEditor extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.functions, size: 16, color: AppTheme.primaryColor),
+                  Icon(Icons.functions, size: 16, color: theme.primaryColor),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       kpi.calculation,
-                      style: AppTheme.sourceCodePro(color: theme.textTheme.bodyMedium?.color),
+                      style: GoogleFonts.sourceCodePro(color: theme.textTheme.bodyMedium?.color),
                     ),
                   ),
                 ],
@@ -91,7 +90,7 @@ class DashboardEditor extends StatelessWidget {
 
   Widget _buildAddButton(BuildContext context, String label, VoidCallback onTap, {bool isSmall = false}) {
     final theme = Theme.of(context);
-    final color = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
+    final color = theme.textTheme.bodyMedium?.color ?? Colors.grey;
 
     return InkWell(
       onTap: onTap,
@@ -108,7 +107,7 @@ class DashboardEditor extends StatelessWidget {
             children: [
               Icon(Icons.add, color: color, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: AppTheme.inter(color: color, fontWeight: FontWeight.w600)),
+              Text(label, style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

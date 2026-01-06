@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
-import '../../../theme/app_theme.dart';
 
 class ColumnListItem extends StatelessWidget {
   final ColumnConfig column;
@@ -17,18 +16,19 @@ class ColumnListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final isHidden = column.hidden == true;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
         children: [
-          Icon(_getIconForType(column.type), size: 16, color: AppTheme.secondaryTextColor),
+          Icon(_getIconForType(column.type), size: 16, color: theme.textTheme.bodyMedium?.color ?? Colors.grey),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               column.label, 
-              style: AppTheme.inter(
-                color: isHidden ? AppTheme.secondaryTextColor : AppTheme.textColor,
+              style: GoogleFonts.inter(
+                color: isHidden ? (theme.textTheme.bodyMedium?.color ?? Colors.grey) : (theme.textTheme.bodyLarge?.color),
                 decoration: isHidden ? TextDecoration.lineThrough : null,
               ),
             ),
@@ -41,21 +41,21 @@ class ColumnListItem extends StatelessWidget {
                 color: Colors.orange.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text('HIDDEN', style: AppTheme.sourceCodePro(fontSize: 9, color: Colors.orange)),
+              child: Text('HIDDEN', style: GoogleFonts.sourceCodePro(fontSize: 9, color: Colors.orange)),
             ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: AppTheme.backgroundColor,
+              color: theme.scaffoldBackgroundColor,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3)),
+              border: Border.all(color: (theme.textTheme.bodyMedium?.color ?? Colors.grey).withValues(alpha: 0.3)),
             ),
-            child: Text(column.type.toUpperCase(), style: AppTheme.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor)),
+            child: Text(column.type.toUpperCase(), style: GoogleFonts.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color ?? Colors.grey)),
           ),
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(Icons.edit_rounded, size: 16),
-            color: AppTheme.primaryColor,
+            color: theme.primaryColor,
             onPressed: onEdit,
           ),
           IconButton(

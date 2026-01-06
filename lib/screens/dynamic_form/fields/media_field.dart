@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
@@ -34,6 +33,7 @@ class DynamicMediaField extends StatelessWidget {
   }
 
   Widget _buildImagePicker(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -42,7 +42,7 @@ class DynamicMediaField extends StatelessWidget {
           style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodyMedium?.color,
             letterSpacing: 1.0,
           ),
         ),
@@ -51,9 +51,9 @@ class DynamicMediaField extends StatelessWidget {
           height: 120,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
+            color: theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2), style: BorderStyle.solid),
+            border: Border.all(color: theme.dividerColor, style: BorderStyle.solid),
           ),
           child: InkWell(
             onTap: () {
@@ -63,11 +63,11 @@ class DynamicMediaField extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.camera_alt_rounded, size: 32, color: AppTheme.secondaryTextColor),
+                Icon(Icons.camera_alt_rounded, size: 32, color: theme.textTheme.bodyMedium?.color),
                 const SizedBox(height: 8),
                 Text(
                   'Tap to capture',
-                  style: AppTheme.inter(color: AppTheme.secondaryTextColor),
+                  style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
                 ),
               ],
             ),
@@ -78,6 +78,7 @@ class DynamicMediaField extends StatelessWidget {
   }
 
   Widget _buildScanner(BuildContext context) {
+    final theme = Theme.of(context);
     // We need a controller to show the value in the text field part of the scanner
     final controller = TextEditingController(text: value);
     
@@ -89,7 +90,7 @@ class DynamicMediaField extends StatelessWidget {
           style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodyMedium?.color,
             letterSpacing: 1.0,
           ),
         ),
@@ -99,17 +100,17 @@ class DynamicMediaField extends StatelessWidget {
             Expanded(
               child: TextFormField(
                 controller: controller,
-                style: AppTheme.inter(color: AppTheme.textColor),
+                style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: AppTheme.surfaceColor,
+                  fillColor: theme.cardTheme.color,
                   hintText: 'Scan or enter code',
-                  hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5)),
+                  hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  prefixIcon: const Icon(Icons.qr_code, color: AppTheme.secondaryTextColor),
+                  prefixIcon: Icon(Icons.qr_code, color: theme.textTheme.bodyMedium?.color),
                 ),
                 onChanged: onChanged,
               ),
@@ -141,6 +142,7 @@ class DynamicMediaField extends StatelessWidget {
   }
 
   Widget _buildSignaturePad(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -149,7 +151,7 @@ class DynamicMediaField extends StatelessWidget {
           style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodyMedium?.color,
             letterSpacing: 1.0,
           ),
         ),
@@ -158,9 +160,9 @@ class DynamicMediaField extends StatelessWidget {
           height: 150,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor,
+            color: theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2)),
+            border: Border.all(color: theme.dividerColor),
           ),
           child: InkWell(
             onTap: () {
@@ -170,7 +172,7 @@ class DynamicMediaField extends StatelessWidget {
             child: Center(
               child: Text(
                 'Tap to sign',
-                style: AppTheme.inter(color: AppTheme.secondaryTextColor),
+                style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
               ),
             ),
           ),
