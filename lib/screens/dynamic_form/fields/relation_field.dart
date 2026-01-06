@@ -74,6 +74,8 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                 
                 var items = await driveService.fetchRecords(widget.module!.id, widget.module!.name, relatedTabId);
                 
+                if (!mounted) return;
+
                 // Filter items if dependency exists
                 if (widget.column.dependsOn != null && !widget.column.dependsOn!.startsWith('settings.')) {
                    final parentKey = widget.column.dependsOn!;

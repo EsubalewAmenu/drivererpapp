@@ -177,25 +177,25 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
             if (_currentType == 'select') ...[
               const SizedBox(height: 24),
               Text('Options Source', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
-              Row(
-                children: [
-                  Expanded(child: RadioListTile<bool>(
-                    title: const Text('Static', style: TextStyle(color: AppTheme.textColor)),
-                    value: false,
-                    groupValue: _isDynamicOptions,
-                    onChanged: (v) => setState(() => _isDynamicOptions = v!),
-                    activeColor: AppTheme.primaryColor,
-                    contentPadding: EdgeInsets.zero,
-                  )),
-                  Expanded(child: RadioListTile<bool>(
-                    title: const Text('Dynamic', style: TextStyle(color: AppTheme.textColor)),
-                    value: true,
-                    groupValue: _isDynamicOptions,
-                    onChanged: (v) => setState(() => _isDynamicOptions = v!),
-                    activeColor: AppTheme.primaryColor,
-                    contentPadding: EdgeInsets.zero,
-                  )),
-                ],
+              RadioGroup<bool>(
+                groupValue: _isDynamicOptions,
+                onChanged: (v) => setState(() => _isDynamicOptions = v!),
+                child: Row(
+                  children: [
+                    Expanded(child: RadioListTile<bool>(
+                      title: const Text('Static', style: TextStyle(color: AppTheme.textColor)),
+                      value: false,
+                      activeColor: AppTheme.primaryColor,
+                      contentPadding: EdgeInsets.zero,
+                    )),
+                    Expanded(child: RadioListTile<bool>(
+                      title: const Text('Dynamic', style: TextStyle(color: AppTheme.textColor)),
+                      value: true,
+                      activeColor: AppTheme.primaryColor,
+                      contentPadding: EdgeInsets.zero,
+                    )),
+                  ],
+                ),
               ),
               
               if (_isDynamicOptions)

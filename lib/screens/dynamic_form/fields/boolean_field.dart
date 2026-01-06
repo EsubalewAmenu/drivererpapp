@@ -40,7 +40,7 @@ class DynamicBooleanField extends StatelessWidget {
           ),
           Switch(
             value: value,
-            activeColor: primaryColor,
+            activeThumbColor: primaryColor,
             onChanged: onChanged,
           ),
         ],
