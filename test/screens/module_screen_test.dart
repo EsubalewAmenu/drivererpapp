@@ -70,7 +70,9 @@ void main() {
     // Stub getFileId to return a fake ID (avoids asset fallback)
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'config123');
     when(() => mockDriveService.readModuleConfig(any())).thenAnswer((_) async => {
-      'settings': {'name': {'value': 'Inventory'}},
+      'settings': {
+        'name': {'label': 'Module Name', 'type': 'text', 'value': 'Inventory'}
+      },
       'dashboard': {'kpiCards': []},
       'tabs': [
         {'id': 'items', 'label': 'Items', 'columns': []}

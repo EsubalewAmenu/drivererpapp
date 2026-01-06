@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
+import 'package:drivererpapp/providers/sync_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
@@ -93,12 +94,16 @@ void main() {
     when(() => mockDriveService.fetchRecords(any(), any(), any())).thenAnswer((_) async => []);
     when(() => mockDriveService.saveRecord(any(), any(), any(), any())).thenAnswer((_) async => {});
 
+    final driveProvider = TestDriveProvider(mockDriveService);
+    final syncProvider = SyncProvider()..updateDriveProvider(driveProvider);
+
     await tester.pumpWidget(
       MultiProvider(
         providers: [
           ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
           ChangeNotifierProvider<WorkspaceProvider>(create: (_) => WorkspaceProvider()),
-          ChangeNotifierProvider<DriveProvider>(create: (_) => TestDriveProvider(mockDriveService)),
+          ChangeNotifierProvider<DriveProvider>.value(value: driveProvider),
+          ChangeNotifierProvider<SyncProvider>.value(value: syncProvider),
         ],
         child: const MaterialApp(
           home: LandingScreen(),

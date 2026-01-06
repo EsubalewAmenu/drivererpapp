@@ -5,20 +5,24 @@ import 'package:provider/provider.dart';
 import 'package:drivererpapp/screens/dynamic_form_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
+import 'package:drivererpapp/providers/sync_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSyncProvider extends Mock implements SyncProvider {}
 
 void main() {
   late MockDriveProvider mockDriveProvider;
   late MockDriveService mockDriveService;
+  late MockSyncProvider mockSyncProvider;
   late TabConfig testTab;
   late ModuleSchema testModule;
 
   setUp(() {
     mockDriveProvider = MockDriveProvider();
     mockDriveService = MockDriveService();
+    mockSyncProvider = MockSyncProvider();
 
     testTab = TabConfig(
       id: 'items',
@@ -47,6 +51,7 @@ void main() {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+        ChangeNotifierProvider<SyncProvider>.value(value: mockSyncProvider),
       ],
       child: MaterialApp(
         home: DynamicFormScreen(
