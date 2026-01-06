@@ -115,7 +115,7 @@ class _StructureEditorState extends State<StructureEditor> {
             children: [
               Icon(Icons.add, color: AppTheme.secondaryTextColor, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
+              Text(label, style: AppTheme.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

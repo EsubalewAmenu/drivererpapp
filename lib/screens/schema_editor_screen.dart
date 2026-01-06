@@ -66,7 +66,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
       appBar: AppBar(
         title: Text(
           widget.isNewSetup ? 'COMPLETE SETUP' : 'BLUEPRINT EDITOR', 
-          style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)
+          style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)
         ),
         centerTitle: true,
         backgroundColor: AppTheme.backgroundColor,
@@ -76,7 +76,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
           indicatorColor: AppTheme.primaryColor,
           labelColor: AppTheme.primaryColor,
           unselectedLabelColor: AppTheme.secondaryTextColor,
-          labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700),
+          labelStyle: AppTheme.inter(fontWeight: FontWeight.w700),
           tabs: const [
             Tab(text: 'STRUCTURE'),
             Tab(text: 'DASHBOARD'),
@@ -94,7 +94,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
               onPressed: _saveChanges,
               child: Text(
                 widget.isNewSetup ? 'ACTIVATE' : 'SAVE', 
-                style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.primaryColor)
+                style: AppTheme.inter(fontWeight: FontWeight.w700, color: AppTheme.primaryColor)
               ),
             ),
         ],

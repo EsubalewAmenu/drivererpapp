@@ -35,7 +35,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
               padding: const EdgeInsets.only(bottom: 24.0),
               child: Text(
                 'No settings defined.',
-                style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+                style: AppTheme.inter(color: AppTheme.secondaryTextColor),
               ),
             ),
           ),
@@ -71,16 +71,16 @@ class _SettingsEditorState extends State<SettingsEditor> {
                     children: [
                       Text(
                         item['label'] ?? key,
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: AppTheme.textColor),
+                        style: AppTheme.inter(fontWeight: FontWeight.w600, color: AppTheme.textColor),
                       ),
                       Text(
                         'Key: $key | Type: ${item['type']}',
-                        style: GoogleFonts.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor),
+                        style: AppTheme.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor),
                       ),
                       if (item['dependsOn'] != null)
                         Text(
                           'Depends on: ${item['dependsOn']}',
-                          style: GoogleFonts.inter(fontSize: 10, color: Colors.orange),
+                          style: AppTheme.inter(fontSize: 10, color: Colors.orange),
                         ),
                     ],
                   ),
@@ -131,7 +131,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
       case 'text':
         return TextFormField(
           initialValue: widget.settingsValues[key]?.toString(),
-          style: GoogleFonts.inter(color: AppTheme.textColor),
+          style: AppTheme.inter(color: AppTheme.textColor),
           decoration: InputDecoration(
             isDense: true,
             hintText: 'Enter value',
@@ -179,7 +179,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
             children: [
               const Icon(Icons.add, color: AppTheme.secondaryTextColor, size: 24),
               const SizedBox(width: 8),
-              Text('Add New Setting', style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
+              Text('Add New Setting', style: AppTheme.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

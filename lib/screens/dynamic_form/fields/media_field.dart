@@ -39,7 +39,7 @@ class DynamicMediaField extends StatelessWidget {
       children: [
         Text(
           column.label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,
@@ -67,7 +67,7 @@ class DynamicMediaField extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   'Tap to capture',
-                  style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+                  style: AppTheme.inter(color: AppTheme.secondaryTextColor),
                 ),
               ],
             ),
@@ -86,7 +86,7 @@ class DynamicMediaField extends StatelessWidget {
       children: [
         Text(
           column.label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,
@@ -99,7 +99,7 @@ class DynamicMediaField extends StatelessWidget {
             Expanded(
               child: TextFormField(
                 controller: controller,
-                style: GoogleFonts.inter(color: AppTheme.textColor),
+                style: AppTheme.inter(color: AppTheme.textColor),
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: AppTheme.surfaceColor,
@@ -146,7 +146,7 @@ class DynamicMediaField extends StatelessWidget {
       children: [
         Text(
           column.label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,
@@ -170,7 +170,7 @@ class DynamicMediaField extends StatelessWidget {
             child: Center(
               child: Text(
                 'Tap to sign',
-                style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+                style: AppTheme.inter(color: AppTheme.secondaryTextColor),
               ),
             ),
           ),

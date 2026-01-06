@@ -33,7 +33,7 @@ class TabEditorCard extends StatelessWidget {
         title: Row(
           children: [
             Expanded(
-              child: Text(tab.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+              child: Text(tab.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
             ),
             IconButton(
               icon: const Icon(Icons.edit_rounded, size: 20),
@@ -47,7 +47,7 @@ class TabEditorCard extends StatelessWidget {
             ),
           ],
         ),
-        subtitle: Text('${tab.columns.length} Columns', style: GoogleFonts.inter(color: AppTheme.secondaryTextColor)),
+        subtitle: Text('${tab.columns.length} Columns', style: AppTheme.inter(color: AppTheme.secondaryTextColor)),
         iconColor: AppTheme.primaryColor,
         collapsedIconColor: AppTheme.secondaryTextColor,
         children: [
@@ -101,7 +101,7 @@ class TabEditorCard extends StatelessWidget {
             children: [
               Icon(Icons.add, color: AppTheme.secondaryTextColor, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
+              Text(label, style: AppTheme.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

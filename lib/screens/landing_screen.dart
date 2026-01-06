@@ -66,7 +66,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 Text(
                   'DRIVE ERP',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 32,
                     fontWeight: FontWeight.w900,
                     letterSpacing: -1.0,
@@ -77,7 +77,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 Text(
                   'Your Business. Your Drive. Your Data.',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                     color: AppTheme.lightSecondaryTextColor,
@@ -119,7 +119,7 @@ class _LandingScreenState extends State<LandingScreen> {
                   icon: const Icon(Icons.login_rounded), // Placeholder for Google Icon
                   label: Text(
                     'Continue with Google',
-                    style: GoogleFonts.inter(
+                    style: AppTheme.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -138,7 +138,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 Text(
                   'By continuing, you agree to our Terms & Privacy Policy',
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 12,
                     color: AppTheme.lightSecondaryTextColor,
                   ),
@@ -163,7 +163,7 @@ class _LandingScreenState extends State<LandingScreen> {
             children: [
               Text(
                 title,
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
                   color: AppTheme.lightTextColor,
@@ -171,7 +171,7 @@ class _LandingScreenState extends State<LandingScreen> {
               ),
               Text(
                 subtitle,
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontWeight: FontWeight.w400,
                   fontSize: 12,
                   color: AppTheme.lightSecondaryTextColor,

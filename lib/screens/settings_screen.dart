@@ -18,7 +18,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text('SETTINGS', style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+        title: Text('SETTINGS', style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
         centerTitle: true,
         backgroundColor: AppTheme.backgroundColor,
         elevation: 0,
@@ -48,7 +48,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: GoogleFonts.inter(
+      style: AppTheme.inter(
         fontSize: 12,
         fontWeight: FontWeight.w700,
         color: AppTheme.secondaryTextColor,
@@ -71,15 +71,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
               CircleAvatar(
                 radius: 32,
                 backgroundColor: AppTheme.primaryColor,
-                child: Text('AC', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white)),
+                child: Text('AC', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white)),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Alex Chen', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
-                    Text('Administrator', style: GoogleFonts.inter(fontSize: 14, color: AppTheme.primaryColor)),
+                    Text('Alex Chen', style: AppTheme.inter(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+                    Text('Administrator', style: AppTheme.inter(fontSize: 14, color: AppTheme.primaryColor)),
                   ],
                 ),
               ),
@@ -88,7 +88,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 24),
           TextField(
             controller: _displayNameController,
-            style: GoogleFonts.inter(color: AppTheme.textColor),
+            style: AppTheme.inter(color: AppTheme.textColor),
             decoration: _inputDecoration('Display Name'),
           ),
           const SizedBox(height: 16),
@@ -103,7 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text('SAVE CHANGES', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+              child: Text('SAVE CHANGES', style: AppTheme.inter(fontWeight: FontWeight.w700)),
             ),
           ),
         ],
@@ -122,7 +122,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           TextField(
             controller: _companyNameController,
-            style: GoogleFonts.inter(color: AppTheme.textColor),
+            style: AppTheme.inter(color: AppTheme.textColor),
             decoration: _inputDecoration('Company Name'),
           ),
           const SizedBox(height: 16),
@@ -137,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 const Icon(Icons.upload_rounded, color: AppTheme.secondaryTextColor),
                 const SizedBox(width: 8),
-                Text('Upload Logo', style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
+                Text('Upload Logo', style: AppTheme.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -172,8 +172,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: GoogleFonts.inter(color: AppTheme.secondaryTextColor)),
-          Text(value, style: GoogleFonts.sourceCodePro(color: AppTheme.textColor, fontWeight: FontWeight.w600)),
+          Text(label, style: AppTheme.inter(color: AppTheme.secondaryTextColor)),
+          Text(value, style: AppTheme.sourceCodePro(color: AppTheme.textColor, fontWeight: FontWeight.w600)),
         ],
       ),
     );

@@ -22,7 +22,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppTheme.backgroundColor,
       appBar: AppBar(
-        title: Text('SELECT WORKSPACE', style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
+        title: Text('SELECT WORKSPACE', style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0)),
         centerTitle: true,
         backgroundColor: AppTheme.backgroundColor,
         elevation: 0,
@@ -35,7 +35,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
             children: [
               Text(
                 'AVAILABLE ENVIRONMENTS',
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   color: AppTheme.secondaryTextColor,
                   fontSize: 12,
                   letterSpacing: 1.5,
@@ -49,7 +49,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                     child: Text(
                       'No workspaces found.\nCreate one to get started.',
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+                      style: AppTheme.inter(color: AppTheme.secondaryTextColor),
                     ),
                   )
                 : ListView.separated(
@@ -70,7 +70,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                   );
                 },
                 icon: const Icon(Icons.add_rounded),
-                label: Text('CREATE OR JOIN NEW WORKSPACE', style: GoogleFonts.inter(fontWeight: FontWeight.w700)),
+                label: Text('CREATE OR JOIN NEW WORKSPACE', style: AppTheme.inter(fontWeight: FontWeight.w700)),
                 style: FilledButton.styleFrom(
                   backgroundColor: AppTheme.surfaceColor,
                   foregroundColor: AppTheme.textColor,
@@ -118,7 +118,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                 child: Center(
                   child: Text(
                     (workspace.name ?? 'U')[0].toUpperCase(),
-                    style: GoogleFonts.inter(
+                    style: AppTheme.inter(
                       fontSize: 24,
                       fontWeight: FontWeight.w900,
                       color: AppTheme.primaryColor,
@@ -133,7 +133,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                   children: [
                     Text(
                       workspace.name ?? 'Unnamed Workspace',
-                      style: GoogleFonts.inter(
+                      style: AppTheme.inter(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.textColor,
@@ -142,7 +142,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       'ID: ${workspace.id}',
-                      style: GoogleFonts.inter(
+                      style: AppTheme.inter(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                         color: AppTheme.secondaryTextColor,

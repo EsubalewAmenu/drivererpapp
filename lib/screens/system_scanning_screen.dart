@@ -154,7 +154,7 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
               // Terminal-style output
               Text(
                 'SYSTEM INITIALIZATION',
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   color: AppTheme.secondaryTextColor,
                   fontSize: 12,
                   letterSpacing: 2.0,
@@ -169,7 +169,7 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
                 child: Text(
                   _statusMessage,
                   key: ValueKey<String>(_statusMessage),
-                  style: GoogleFonts.sourceCodePro( // Monospace for technical feel
+                  style: AppTheme.sourceCodePro( // Monospace for technical feel
                     color: AppTheme.textColor,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
@@ -196,7 +196,7 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
               Center(
                 child: Text(
                   'ID: 84-F9-22-01', // Mock Session ID
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     color: AppTheme.surfaceColor,
                     fontSize: 12,
                     letterSpacing: 1.0,

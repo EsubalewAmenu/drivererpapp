@@ -31,7 +31,7 @@ class _EditTabDialogState extends State<EditTabDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AppTheme.surfaceColor,
-      title: Text('Edit Tab', style: GoogleFonts.inter(color: AppTheme.textColor)),
+      title: Text('Edit Tab', style: AppTheme.inter(color: AppTheme.textColor)),
       content: TextField(
         controller: _labelController,
         style: const TextStyle(color: AppTheme.textColor),

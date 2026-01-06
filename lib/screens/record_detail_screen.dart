@@ -32,7 +32,7 @@ class RecordDetailScreen extends StatelessWidget {
         ),
         title: Text(
           'DETAILS',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, fontSize: 16),
+          style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, fontSize: 16),
         ),
         centerTitle: true,
       ),
@@ -77,7 +77,7 @@ class RecordDetailScreen extends StatelessWidget {
               children: [
                 Text(
                   'RECORD ENTRY',
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.secondaryTextColor,
@@ -87,7 +87,7 @@ class RecordDetailScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Text(
                   title,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                     color: AppTheme.textColor,
@@ -170,7 +170,7 @@ class RecordDetailScreen extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,
@@ -187,7 +187,7 @@ class RecordDetailScreen extends StatelessWidget {
           ),
           child: Text(
             value,
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 16,
               color: AppTheme.textColor,
             ),
@@ -219,7 +219,7 @@ class RecordDetailScreen extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,
@@ -236,7 +236,7 @@ class RecordDetailScreen extends StatelessWidget {
           ),
           child: Text(
             value.toUpperCase(),
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 14,
               fontWeight: FontWeight.w700,
               color: statusColor,
@@ -253,7 +253,7 @@ class RecordDetailScreen extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,
@@ -299,7 +299,7 @@ class RecordDetailScreen extends StatelessWidget {
       children: [
         Text(
           label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,
@@ -321,7 +321,7 @@ class RecordDetailScreen extends StatelessWidget {
               const SizedBox(width: 8),
               Text(
                 value,
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.textColor,
@@ -346,7 +346,7 @@ class RecordDetailScreen extends StatelessWidget {
           children: [
             Text(
               col.label.toUpperCase(),
-              style: GoogleFonts.inter(
+              style: AppTheme.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.secondaryTextColor,
@@ -361,7 +361,7 @@ class RecordDetailScreen extends StatelessWidget {
               ),
               child: Text(
                 '${items.length} items',
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.primaryColor,
@@ -388,7 +388,7 @@ class RecordDetailScreen extends StatelessWidget {
               columns: tableCols.map((c) => DataColumn(
                 label: Text(
                   c.label.toUpperCase(),
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                     color: AppTheme.secondaryTextColor,
@@ -402,7 +402,7 @@ class RecordDetailScreen extends StatelessWidget {
                     return DataCell(
                       Text(
                         val,
-                        style: GoogleFonts.inter(
+                        style: AppTheme.inter(
                           fontSize: 14,
                           color: AppTheme.textColor,
                         ),

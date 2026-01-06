@@ -24,7 +24,7 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AppTheme.surfaceColor,
-      title: Text('Add Column', style: GoogleFonts.inter(color: AppTheme.textColor)),
+      title: Text('Add Column', style: AppTheme.inter(color: AppTheme.textColor)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

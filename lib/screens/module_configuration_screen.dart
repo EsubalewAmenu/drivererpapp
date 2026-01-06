@@ -78,7 +78,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         ),
         title: Text(
           'CONFIGURE ${widget.moduleInfo['name']!.toUpperCase()}',
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             color: AppTheme.textColor,
             fontWeight: FontWeight.w700,
             fontSize: 16,
@@ -96,7 +96,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                   children: [
                     Text(
                       'Customize your module',
-                      style: GoogleFonts.inter(
+                      style: AppTheme.inter(
                         fontSize: 24,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.textColor,
@@ -105,7 +105,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Adjust the settings below to fit your business needs.',
-                      style: GoogleFonts.inter(
+                      style: AppTheme.inter(
                         fontSize: 16,
                         color: AppTheme.secondaryTextColor,
                       ),
@@ -143,7 +143,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                               )
                             : Text(
                                 'COMPLETE SETUP',
-                                style: GoogleFonts.inter(
+                                style: AppTheme.inter(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 1.0,
@@ -213,7 +213,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
             children: [
               Text(
                 label.toUpperCase(),
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.secondaryTextColor,
@@ -259,7 +259,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                         ),
                         contentPadding: const EdgeInsets.all(16),
                       ),
-                      style: GoogleFonts.inter(fontSize: 16, color: AppTheme.textColor),
+                      style: AppTheme.inter(fontSize: 16, color: AppTheme.textColor),
                     ),
                   ),
                   IconButton(
@@ -288,7 +288,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         children: [
           Text(
             label.toUpperCase(),
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: AppTheme.secondaryTextColor,
@@ -312,7 +312,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
               ),
               contentPadding: const EdgeInsets.all(16),
             ),
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 16,
               color: AppTheme.textColor,
             ),
@@ -332,7 +332,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         children: [
           Text(
             label.toUpperCase(),
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: AppTheme.secondaryTextColor,
@@ -364,7 +364,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                     _formValues[key] = newValue;
                   });
                 },
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontSize: 16,
                   color: AppTheme.textColor,
                 ),
@@ -386,7 +386,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         children: [
           Text(
             label.toUpperCase(),
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 12,
               fontWeight: FontWeight.w700,
               color: AppTheme.secondaryTextColor,

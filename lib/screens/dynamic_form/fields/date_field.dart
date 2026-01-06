@@ -24,7 +24,7 @@ class DynamicDateField extends StatelessWidget {
       children: [
         Text(
           column.label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,
@@ -71,7 +71,7 @@ class DynamicDateField extends StatelessWidget {
                 const SizedBox(width: 12),
                 Text(
                   value ?? 'Select Date',
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     color: value != null ? AppTheme.textColor : AppTheme.secondaryTextColor.withValues(alpha: 0.5),
                   ),
                 ),

@@ -112,7 +112,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
               Expanded(
                 child: Text(
                   widget.fileName != null ? 'File History' : 'Module History',
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontWeight: FontWeight.w700, 
                     color: AppTheme.textColor,
                   ),
@@ -125,7 +125,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
             widget.fileName == 'config' 
                 ? 'Module Schema & Settings' 
                 : 'Tracking: ${widget.fileName ?? widget.moduleName}',
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 12,
               color: AppTheme.secondaryTextColor,
               fontWeight: FontWeight.w400,
@@ -141,7 +141,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Close', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          child: Text('Close', style: AppTheme.inter(fontWeight: FontWeight.w600)),
         ),
       ],
     );
@@ -184,7 +184,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
                 key.toUpperCase(),
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.secondaryTextColor,
@@ -210,17 +210,17 @@ class _HistoryDialogState extends State<HistoryDialog> {
     if (session.subs.isEmpty) {
       return ListTile(
         leading: _buildVersionBadge(versionLabel),
-        title: Text(time, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
-        subtitle: Text('Modified by $user', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.secondaryTextColor)),
+        title: Text(time, style: AppTheme.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+        subtitle: Text('Modified by $user', style: AppTheme.inter(fontSize: 12, color: AppTheme.secondaryTextColor)),
         dense: true,
       );
     }
 
     return ExpansionTile(
       leading: _buildVersionBadge(versionLabel),
-      title: Text(time, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+      title: Text(time, style: AppTheme.inter(fontWeight: FontWeight.w600, fontSize: 14)),
       subtitle: Text('Modified by $user • ${session.subs.length + 1} versions', 
-          style: GoogleFonts.inter(fontSize: 12, color: AppTheme.secondaryTextColor)),
+          style: AppTheme.inter(fontSize: 12, color: AppTheme.secondaryTextColor)),
       children: session.subs.map((sub) {
         final subTime = DateFormat.jm().format(sub.modifiedTime?.toLocal() ?? DateTime.now());
         final subVersion = 'V${_revisions.length - _revisions.indexOf(sub)}';
@@ -231,8 +231,8 @@ class _HistoryDialogState extends State<HistoryDialog> {
              width: 8, height: 8, 
              decoration: const BoxDecoration(color: AppTheme.secondaryTextColor, shape: BoxShape.circle)
           ),
-          title: Text(subTime, style: GoogleFonts.inter(fontSize: 13)),
-          trailing: Text(subVersion, style: GoogleFonts.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor)),
+          title: Text(subTime, style: AppTheme.inter(fontSize: 13)),
+          trailing: Text(subVersion, style: AppTheme.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor)),
           dense: true,
         );
       }).toList(),

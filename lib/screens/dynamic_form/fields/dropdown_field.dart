@@ -262,7 +262,7 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
       children: [
         Text(
           _label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,

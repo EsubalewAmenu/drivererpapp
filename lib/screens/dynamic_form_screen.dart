@@ -69,7 +69,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       appBar: AppBar(
         title: Text(
           isEditing ? 'EDIT ${widget.tab.label.toUpperCase()}' : 'NEW ${widget.tab.label.toUpperCase()}',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0),
+          style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0),
         ),
         centerTitle: true,
         backgroundColor: AppTheme.backgroundColor,
@@ -79,7 +79,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             onPressed: _saveForm,
             child: Text(
               'SAVE',
-              style: GoogleFonts.inter(
+              style: AppTheme.inter(
                 fontWeight: FontWeight.w700,
                 color: widget.primaryColor,
               ),

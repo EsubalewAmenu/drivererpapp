@@ -42,7 +42,7 @@ class DynamicFormulaField extends StatelessWidget {
       children: [
         Text(
           column.label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,
@@ -60,7 +60,7 @@ class DynamicFormulaField extends StatelessWidget {
           ),
           child: Text(
             value,
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 16,
               fontWeight: FontWeight.w600,
               color: AppTheme.textColor,

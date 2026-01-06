@@ -33,7 +33,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
       children: [
         Text(
           widget.column.label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,
@@ -142,7 +142,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                 const SizedBox(width: 12),
                 Text(
                   widget.value?.toString() ?? 'Select ${widget.column.label}',
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     color: widget.value != null ? AppTheme.textColor : AppTheme.secondaryTextColor.withValues(alpha: 0.5),
                   ),
                 ),

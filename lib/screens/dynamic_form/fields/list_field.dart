@@ -29,7 +29,7 @@ class _DynamicListFieldState extends State<DynamicListField> {
       children: [
         Text(
           widget.column.label.toUpperCase(),
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,

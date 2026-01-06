@@ -27,7 +27,7 @@ class ColumnListItem extends StatelessWidget {
           Expanded(
             child: Text(
               column.label, 
-              style: GoogleFonts.inter(
+              style: AppTheme.inter(
                 color: isHidden ? AppTheme.secondaryTextColor : AppTheme.textColor,
                 decoration: isHidden ? TextDecoration.lineThrough : null,
               ),
@@ -41,7 +41,7 @@ class ColumnListItem extends StatelessWidget {
                 color: Colors.orange.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text('HIDDEN', style: GoogleFonts.sourceCodePro(fontSize: 9, color: Colors.orange)),
+              child: Text('HIDDEN', style: AppTheme.sourceCodePro(fontSize: 9, color: Colors.orange)),
             ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -50,7 +50,7 @@ class ColumnListItem extends StatelessWidget {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3)),
             ),
-            child: Text(column.type.toUpperCase(), style: GoogleFonts.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor)),
+            child: Text(column.type.toUpperCase(), style: AppTheme.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor)),
           ),
           const SizedBox(width: 8),
           IconButton(

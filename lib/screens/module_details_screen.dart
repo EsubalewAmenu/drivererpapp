@@ -101,7 +101,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               Center(
                 child: Text(
                   name.toUpperCase(),
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 24,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 1.0,
@@ -114,7 +114,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                 child: Text(
                   desc,
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 16,
                     color: AppTheme.secondaryTextColor,
                   ),
@@ -125,7 +125,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               // Features / Pros
               Text(
                 'KEY BENEFITS',
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: AppTheme.secondaryTextColor,
@@ -150,7 +150,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                       ),
                       child: Text(
                         'BACK',
-                        style: GoogleFonts.inter(
+                        style: AppTheme.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
                           color: color,
@@ -176,7 +176,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                           )
                         : Text(
                             'ACTIVATE',
-                            style: GoogleFonts.inter(
+                            style: AppTheme.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 1.0,
@@ -206,14 +206,14 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontWeight: FontWeight.w600,
                     color: AppTheme.textColor,
                   ),
                 ),
                 Text(
                   subtitle,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 12,
                     color: AppTheme.secondaryTextColor,
                   ),

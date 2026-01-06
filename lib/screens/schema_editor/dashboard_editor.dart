@@ -45,7 +45,7 @@ class DashboardEditor extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(kpi.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+                  child: Text(kpi.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
                 ),
                 Row(
                   children: [
@@ -76,7 +76,7 @@ class DashboardEditor extends StatelessWidget {
                   Expanded(
                     child: Text(
                       kpi.calculation,
-                      style: GoogleFonts.sourceCodePro(color: AppTheme.textColor),
+                      style: AppTheme.sourceCodePro(color: AppTheme.textColor),
                     ),
                   ),
                 ],
@@ -104,7 +104,7 @@ class DashboardEditor extends StatelessWidget {
             children: [
               Icon(Icons.add, color: AppTheme.secondaryTextColor, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
+              Text(label, style: AppTheme.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

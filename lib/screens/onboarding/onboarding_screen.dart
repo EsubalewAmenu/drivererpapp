@@ -41,7 +41,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         ),
         title: Text(
           _getTitleForStep(),
-          style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, fontSize: 16),
+          style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, fontSize: 16),
         ),
         centerTitle: true,
         backgroundColor: AppTheme.backgroundColor,
@@ -119,9 +119,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             children: [
               Icon(icon, size: 48, color: AppTheme.primaryColor),
               const SizedBox(height: 16),
-              Text(title, style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+              Text(title, style: AppTheme.inter(fontSize: 20, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
               const SizedBox(height: 8),
-              Text(subtitle, textAlign: TextAlign.center, style: GoogleFonts.inter(fontSize: 14, color: AppTheme.secondaryTextColor)),
+              Text(subtitle, textAlign: TextAlign.center, style: AppTheme.inter(fontSize: 14, color: AppTheme.secondaryTextColor)),
             ],
           ),
         ),
@@ -133,11 +133,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('What is your business called?', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+        Text('What is your business called?', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
         const SizedBox(height: 32),
         TextField(
           controller: _nameController,
-          style: GoogleFonts.inter(color: AppTheme.textColor, fontSize: 18),
+          style: AppTheme.inter(color: AppTheme.textColor, fontSize: 18),
           decoration: InputDecoration(
             labelText: 'Business Name',
             labelStyle: const TextStyle(color: AppTheme.secondaryTextColor),
@@ -162,7 +162,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Select your industry focus', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+        Text('Select your industry focus', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
         const SizedBox(height: 32),
         Expanded(
           child: ListView.separated(
@@ -182,7 +182,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   child: Row(
                     children: [
-                      Text(industry, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: isSelected ? AppTheme.primaryColor : AppTheme.textColor)),
+                      Text(industry, style: AppTheme.inter(fontSize: 18, fontWeight: FontWeight.w600, color: isSelected ? AppTheme.primaryColor : AppTheme.textColor)),
                       const Spacer(),
                       if (isSelected) const Icon(Icons.check_circle_rounded, color: AppTheme.primaryColor),
                     ],
@@ -201,7 +201,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Choose your initial toolkit', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+        Text('Choose your initial toolkit', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
         const SizedBox(height: 32),
         Expanded(
           child: ListView.separated(
@@ -227,7 +227,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   ),
                   child: Row(
                     children: [
-                      Text(module, style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: isSelected ? AppTheme.primaryColor : AppTheme.textColor)),
+                      Text(module, style: AppTheme.inter(fontSize: 18, fontWeight: FontWeight.w600, color: isSelected ? AppTheme.primaryColor : AppTheme.textColor)),
                       const Spacer(),
                       if (isSelected) const Icon(Icons.check_box_rounded, color: AppTheme.primaryColor)
                       else const Icon(Icons.check_box_outline_blank_rounded, color: AppTheme.secondaryTextColor),
@@ -246,10 +246,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Enter Invitation Code', style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
+        Text('Enter Invitation Code', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: AppTheme.textColor)),
         const SizedBox(height: 32),
         TextField(
-          style: GoogleFonts.sourceCodePro(color: AppTheme.textColor, fontSize: 24, letterSpacing: 4),
+          style: AppTheme.sourceCodePro(color: AppTheme.textColor, fontSize: 24, letterSpacing: 4),
           textAlign: TextAlign.center,
           decoration: InputDecoration(
             hintText: 'XXXX-XXXX',
@@ -312,7 +312,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           )
         : Text(
             _currentStep == 3 || _choice == 'join' ? 'LAUNCH WORKSPACE' : 'CONTINUE',
-            style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5),
+            style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5),
           ),
     );
   }

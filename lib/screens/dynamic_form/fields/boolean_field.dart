@@ -31,7 +31,7 @@ class DynamicBooleanField extends StatelessWidget {
           Expanded(
             child: Text(
               column.label,
-              style: GoogleFonts.inter(
+              style: AppTheme.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
                 color: AppTheme.textColor,

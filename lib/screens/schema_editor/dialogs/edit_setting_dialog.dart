@@ -53,7 +53,7 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
 
     return AlertDialog(
       backgroundColor: AppTheme.surfaceColor,
-      title: Text(isEditing ? 'Edit Setting' : 'Add Setting', style: GoogleFonts.inter(color: AppTheme.textColor)),
+      title: Text(isEditing ? 'Edit Setting' : 'Add Setting', style: AppTheme.inter(color: AppTheme.textColor)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -102,7 +102,7 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
 
             if (_type == 'list') ...[
               const SizedBox(height: 24),
-              Text('Options', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+              Text('Options', style: AppTheme.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,

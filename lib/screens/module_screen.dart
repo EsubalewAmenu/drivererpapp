@@ -179,7 +179,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
         appBar: AppBar(
           title: Text(
             module.name.toUpperCase(),
-            style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0),
+            style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0),
           ),
           centerTitle: true,
           backgroundColor: AppTheme.backgroundColor,
@@ -217,7 +217,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             indicatorColor: primaryColor,
             labelColor: primaryColor,
             unselectedLabelColor: AppTheme.secondaryTextColor,
-            labelStyle: GoogleFonts.inter(fontWeight: FontWeight.w700),
+            labelStyle: AppTheme.inter(fontWeight: FontWeight.w700),
             tabs: [
               const Tab(text: 'DASHBOARD'),
               ...module.tabs.map((t) => Tab(text: t.label.toUpperCase())),

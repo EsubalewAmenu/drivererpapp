@@ -23,7 +23,7 @@ class _AddTabDialogState extends State<AddTabDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AppTheme.surfaceColor,
-      title: Text('Add New Tab', style: GoogleFonts.inter(color: AppTheme.textColor)),
+      title: Text('Add New Tab', style: AppTheme.inter(color: AppTheme.textColor)),
       content: TextField(
         controller: _labelController,
         style: const TextStyle(color: AppTheme.textColor),

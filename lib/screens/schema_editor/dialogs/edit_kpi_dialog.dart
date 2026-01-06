@@ -38,7 +38,7 @@ class _EditKpiDialogState extends State<EditKpiDialog> {
 
     return AlertDialog(
       backgroundColor: AppTheme.surfaceColor,
-      title: Text(isEditing ? 'Edit KPI Card' : 'Add KPI Card', style: GoogleFonts.inter(color: AppTheme.textColor)),
+      title: Text(isEditing ? 'Edit KPI Card' : 'Add KPI Card', style: AppTheme.inter(color: AppTheme.textColor)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

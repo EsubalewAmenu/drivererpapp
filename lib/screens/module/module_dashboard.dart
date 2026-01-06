@@ -124,7 +124,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
       children: [
         Text(
           'PERFORMANCE OVERVIEW',
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: AppTheme.secondaryTextColor,
@@ -162,7 +162,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
             children: [
               Text(
                 card.label.toUpperCase(),
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: isAlert ? cardColor : AppTheme.secondaryTextColor,
@@ -178,7 +178,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
           const SizedBox(height: 16),
           Text(
             value,
-            style: GoogleFonts.sourceCodePro(
+            style: AppTheme.sourceCodePro(
               fontSize: 32,
               fontWeight: FontWeight.w700,
               color: isAlert ? cardColor : AppTheme.textColor,
@@ -187,7 +187,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
           const SizedBox(height: 8),
           Text(
             "Formula: ${card.calculation}",
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 12,
               color: isAlert ? cardColor.withValues(alpha: 0.8) : AppTheme.secondaryTextColor,
             ),

@@ -151,7 +151,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       padding: const EdgeInsets.all(16.0),
       child: TextField(
         controller: _searchController,
-        style: GoogleFonts.inter(color: AppTheme.textColor),
+        style: AppTheme.inter(color: AppTheme.textColor),
         decoration: InputDecoration(
           hintText: 'Search ${widget.tab.label.toLowerCase()}...',
           hintStyle: const TextStyle(color: AppTheme.secondaryTextColor),
@@ -199,7 +199,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             },
             backgroundColor: AppTheme.surfaceColor,
             selectedColor: widget.primaryColor.withValues(alpha: 0.2),
-            labelStyle: GoogleFonts.inter(
+            labelStyle: AppTheme.inter(
               color: isSelected ? widget.primaryColor : AppTheme.secondaryTextColor,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             ),
@@ -221,7 +221,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       return Center(
         child: Text(
           'No items found',
-          style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+          style: AppTheme.inter(color: AppTheme.secondaryTextColor),
         ),
       );
     }
@@ -281,7 +281,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                     if (titleKey.isNotEmpty)
                       Text(
                         item[titleKey]?.toString() ?? '',
-                        style: GoogleFonts.inter(
+                        style: AppTheme.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: AppTheme.textColor,
@@ -290,7 +290,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                     if (subtitleKey.isNotEmpty)
                       Text(
                         item[subtitleKey]?.toString() ?? '',
-                        style: GoogleFonts.inter(
+                        style: AppTheme.inter(
                           fontSize: 14,
                           color: AppTheme.secondaryTextColor,
                         ),

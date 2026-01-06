@@ -86,7 +86,7 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
           children: [
             Text(
               widget.column.label.toUpperCase(),
-              style: GoogleFonts.inter(
+              style: AppTheme.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
                 color: AppTheme.secondaryTextColor,

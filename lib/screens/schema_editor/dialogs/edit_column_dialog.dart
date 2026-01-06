@@ -96,7 +96,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AppTheme.surfaceColor,
-      title: Text('Edit Column', style: GoogleFonts.inter(color: AppTheme.textColor)),
+      title: Text('Edit Column', style: AppTheme.inter(color: AppTheme.textColor)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -157,7 +157,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
             
             if (_currentType == 'table') ...[
               const SizedBox(height: 24),
-              Text('Table Structure', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+              Text('Table Structure', style: AppTheme.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
               const SizedBox(height: 8),
               if ((widget.column.columns ?? []).isEmpty)
                  const Text('No columns defined. Save this dialog and use the "Add Sub-Column" button in the list view to add columns.', style: TextStyle(color: AppTheme.secondaryTextColor, fontSize: 13))
@@ -176,7 +176,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
 
             if (_currentType == 'select') ...[
               const SizedBox(height: 24),
-              Text('Options Source', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+              Text('Options Source', style: AppTheme.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
               RadioGroup<bool>(
                 groupValue: _isDynamicOptions,
                 onChanged: (v) => setState(() => _isDynamicOptions = v!),

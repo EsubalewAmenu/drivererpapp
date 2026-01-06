@@ -75,7 +75,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           builder: (context, provider, child) {
             return Text(
               (provider.currentWorkspace?.name ?? 'DRIVE ERP').toUpperCase(),
-              style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0),
+              style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0),
             );
           },
         ),
@@ -156,7 +156,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Text(
                   period.toUpperCase(),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: isSelected ? AppTheme.textColor : AppTheme.secondaryTextColor,
@@ -189,14 +189,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('NET PROFIT ENGINE', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.secondaryTextColor, letterSpacing: 1.0)),
+              Text('NET PROFIT ENGINE', style: AppTheme.inter(fontSize: 12, fontWeight: FontWeight.w700, color: AppTheme.secondaryTextColor, letterSpacing: 1.0)),
               Icon(profit >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded, color: color),
             ],
           ),
           const SizedBox(height: 16),
           Text(
             '\$${profit.abs().toStringAsFixed(2)}',
-            style: GoogleFonts.sourceCodePro(
+            style: AppTheme.sourceCodePro(
               fontSize: 36,
               fontWeight: FontWeight.w700,
               color: color,
@@ -219,9 +219,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.secondaryTextColor)),
+        Text(label, style: AppTheme.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AppTheme.secondaryTextColor)),
         const SizedBox(height: 4),
-        Text('\$${value.toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: color)),
+        Text('\$${value.toStringAsFixed(2)}', style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w600, color: color)),
       ],
     );
   }
@@ -229,7 +229,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildSectionHeader(String title) {
     return Text(
       title,
-      style: GoogleFonts.inter(
+      style: AppTheme.inter(
         fontSize: 12,
         fontWeight: FontWeight.w700,
         color: AppTheme.secondaryTextColor,
@@ -244,7 +244,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Text(
           'No modules installed.\nVisit the Marketplace to expand.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(color: AppTheme.secondaryTextColor),
+          style: AppTheme.inter(color: AppTheme.secondaryTextColor),
         ),
       );
     }
@@ -332,12 +332,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Text(
                     module.name,
-                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textColor),
+                    style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.textColor),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Active',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.primaryColor),
+                    style: AppTheme.inter(fontSize: 12, color: AppTheme.primaryColor),
                   ),
                 ],
               ),
@@ -396,12 +396,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Text(
                     name,
-                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.secondaryTextColor),
+                    style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w700, color: AppTheme.secondaryTextColor),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Install',
-                    style: GoogleFonts.inter(fontSize: 12, color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600),
+                    style: AppTheme.inter(fontSize: 12, color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600),
                   ),
                 ],
               ),
