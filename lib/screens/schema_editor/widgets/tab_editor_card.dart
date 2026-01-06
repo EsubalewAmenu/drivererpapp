@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 import 'column_list_item.dart';
+import 'table_column_editor_item.dart';
 import '../dialogs/add_column_dialog.dart';
 import '../dialogs/edit_column_dialog.dart';
 
@@ -54,11 +55,24 @@ class TabEditorCard extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                ...tab.columns.map((col) => ColumnListItem(
-                  column: col,
-                  onEdit: () => _showEditColumnDialog(context, col),
-                  onDelete: () => _confirmDeleteColumn(context, col),
-                )),
+                ...tab.columns.map((col) {
+                  if (col.type.toLowerCase() == 'table') {
+                    return TableColumnEditorItem(
+                      key: ValueKey(col.key),
+                      column: col,
+                      onEdit: () => _showEditColumnDialog(context, col),
+                      onDelete: () => _confirmDeleteColumn(context, col),
+                      onUpdate: (updatedCol) => _updateColumn(col, updatedCol),
+                      rawSettings: rawSettings,
+                    );
+                  }
+                  return ColumnListItem(
+                    key: ValueKey(col.key),
+                    column: col,
+                    onEdit: () => _showEditColumnDialog(context, col),
+                    onDelete: () => _confirmDeleteColumn(context, col),
+                  );
+                }),
                 const SizedBox(height: 16),
                 _buildAddButton('Add Column', () {
                   _showAddColumnDialog(context);
@@ -123,10 +137,15 @@ class TabEditorCard extends StatelessWidget {
     );
 
     if (updatedCol != null) {
+      _updateColumn(col, updatedCol);
+    }
+  }
+
+  void _updateColumn(ColumnConfig oldColumn, ColumnConfig newColumn) {
       final newColumns = List<ColumnConfig>.from(tab.columns);
-      final index = newColumns.indexOf(col);
+      final index = newColumns.indexOf(oldColumn);
       if (index != -1) {
-        newColumns[index] = updatedCol;
+        newColumns[index] = newColumn;
         final newTab = TabConfig(
           id: tab.id,
           label: tab.label,
@@ -134,7 +153,6 @@ class TabEditorCard extends StatelessWidget {
         );
         onTabChanged(newTab);
       }
-    }
   }
 
   void _confirmDeleteColumn(BuildContext context, ColumnConfig col) {

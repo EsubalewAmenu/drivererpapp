@@ -5,15 +5,17 @@ import '../../../theme/app_theme.dart';
 
 class EditColumnDialog extends StatefulWidget {
   final ColumnConfig column;
-  final TabConfig tab;
+  final TabConfig? tab;
+  final List<ColumnConfig>? siblingColumns;
   final Map<String, dynamic>? rawSettings;
 
   const EditColumnDialog({
     super.key,
     required this.column,
-    required this.tab,
+    this.tab,
+    this.siblingColumns,
     this.rawSettings,
-  });
+  }) : assert(tab != null || siblingColumns != null, 'Either tab or siblingColumns must be provided');
 
   @override
   State<EditColumnDialog> createState() => _EditColumnDialogState();
@@ -65,6 +67,10 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
         .where((e) => (e.value as Map)['type'] == 'boolean')
         .map((e) => 'settings.${e.key}')
         .toList();
+  }
+  
+  List<ColumnConfig> _getSiblingColumns() {
+    return widget.siblingColumns ?? widget.tab?.columns ?? [];
   }
 
   void _showAddOptionDialog(BuildContext context, Function(String) onAdd) {
@@ -133,7 +139,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               decoration: const InputDecoration(labelText: 'Depends On (Optional)'),
               items: [
                 const DropdownMenuItem(value: null, child: Text('None')),
-                ...widget.tab.columns
+                ..._getSiblingColumns()
                     .where((c) => c.key != widget.column.key)
                     .map((c) => DropdownMenuItem(value: c.key, child: Text(c.label))),
                 if (_getAvailableBooleanSettings().isNotEmpty) ...[
@@ -142,13 +148,32 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
                    ..._getAvailableBooleanSettings().map((s) => DropdownMenuItem(value: s, child: Text(s))),
                 ],
                 if (_currentDependsOn != null && 
-                    !widget.tab.columns.any((c) => c.key == _currentDependsOn) &&
+                    !_getSiblingColumns().any((c) => c.key == _currentDependsOn) &&
                     !_getAvailableBooleanSettings().contains(_currentDependsOn))
                   DropdownMenuItem(value: _currentDependsOn, child: Text('$_currentDependsOn (Missing)')),
               ],
               onChanged: (val) => setState(() => _currentDependsOn = val),
             ),
             
+            if (_currentType == 'table') ...[
+              const SizedBox(height: 24),
+              Text('Table Structure', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
+              const SizedBox(height: 8),
+              if ((widget.column.columns ?? []).isEmpty)
+                 Text('No columns defined. Save this dialog and use the "Add Sub-Column" button in the list view to add columns.', style: TextStyle(color: AppTheme.secondaryTextColor, fontSize: 13))
+              else
+                 Wrap(
+                    spacing: 8,
+                    children: (widget.column.columns!).map((c) => Chip(
+                      label: Text(c.label),
+                      backgroundColor: AppTheme.backgroundColor,
+                      labelStyle: TextStyle(color: AppTheme.textColor),
+                    )).toList(),
+                 ),
+               const SizedBox(height: 8),
+               Text('NOTE: Use the arrow in the main list to expand this table and edit its columns.', style: TextStyle(color: AppTheme.secondaryTextColor, fontSize: 11, fontStyle: FontStyle.italic)),
+            ],
+
             if (_currentType == 'select') ...[
               const SizedBox(height: 24),
               Text('Options Source', style: GoogleFonts.inter(fontWeight: FontWeight.bold, color: AppTheme.textColor)),
@@ -224,6 +249,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               options: _currentType == 'select' 
                   ? (_isDynamicOptions ? _dynamicOptionPath : _staticOptions)
                   : null,
+              columns: widget.column.columns,
             );
             
             Navigator.pop(context, newCol);
