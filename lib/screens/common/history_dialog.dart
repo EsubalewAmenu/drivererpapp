@@ -6,14 +6,14 @@ import '../../services/drive_service.dart';
 import '../../theme/app_theme.dart';
 
 class HistoryDialog extends StatefulWidget {
-  final String fileId;
-  final String fileName;
+  final String moduleId;
+  final String moduleName;
   final DriveService driveService;
 
   const HistoryDialog({
     super.key,
-    required this.fileId,
-    required this.fileName,
+    required this.moduleId,
+    required this.moduleName,
     required this.driveService,
   });
 
@@ -21,9 +21,16 @@ class HistoryDialog extends StatefulWidget {
   State<HistoryDialog> createState() => _HistoryDialogState();
 }
 
+class RevisionSession {
+  final drive.Revision main;
+  final List<drive.Revision> subs;
+  RevisionSession(this.main, this.subs);
+}
+
 class _HistoryDialogState extends State<HistoryDialog> {
   bool _isLoading = true;
   List<drive.Revision> _revisions = [];
+  Map<String, List<RevisionSession>> _groupedSessions = {}; // Changed to hold sessions
   String? _error;
 
   @override
@@ -34,18 +41,53 @@ class _HistoryDialogState extends State<HistoryDialog> {
 
   Future<void> _loadHistory() async {
     try {
-      final revisions = await widget.driveService.getFileRevisions(widget.fileId);
+      // 1. Find the data spreadsheet first
+      final fileId = await widget.driveService.getFileId(widget.moduleId, widget.moduleName);
+      
+      if (fileId == null) {
+        throw Exception('Data spreadsheet not found');
+      }
+
+      // 2. Load history
+      final revisions = await widget.driveService.getFileRevisions(fileId);
+      final sortedRevisions = revisions.reversed.toList(); // Newest first
+
+      // 3. Flatten revisions (No grouping)
+      // User requested to see every individual revision without clustering/grouping.
+      final sessions = sortedRevisions.map((rev) => RevisionSession(rev, [])).toList();
+
+      // 4. Group Sessions by Day
+      final grouped = <String, List<RevisionSession>>{};
+      for (var session in sessions) {
+        final date = session.main.modifiedTime?.toLocal() ?? DateTime.now();
+        final now = DateTime.now();
+        
+        String key;
+        if (date.year == now.year && date.month == now.month && date.day == now.day) {
+          key = 'Today';
+        } else if (date.year == now.year && date.month == now.month && date.day == now.day - 1) {
+          key = 'Yesterday';
+        } else {
+          key = DateFormat.yMMMd().format(date);
+        }
+        
+        if (!grouped.containsKey(key)) {
+          grouped[key] = [];
+        }
+        grouped[key]!.add(session);
+      }
+
       if (mounted) {
         setState(() {
-          // Revisions come oldest to newest, standard practice is showing newest first
-          _revisions = revisions.reversed.toList();
+          _revisions = sortedRevisions;
+          _groupedSessions = grouped;
           _isLoading = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
-          _error = 'Failed to load history: $e';
+          _error = 'Failed to load sheet history: $e';
           _isLoading = false;
         });
       }
@@ -66,7 +108,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Version History',
+                  'Spreadsheet Version History',
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w700, 
                     color: AppTheme.textColor,
@@ -77,7 +119,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
           ),
           const SizedBox(height: 4),
           Text(
-            widget.fileName,
+            '${widget.moduleName} (Includes all tabs)',
             style: GoogleFonts.inter(
               fontSize: 12,
               color: AppTheme.secondaryTextColor,
@@ -125,32 +167,81 @@ class _HistoryDialogState extends State<HistoryDialog> {
     }
 
     return ListView.builder(
-      itemCount: _revisions.length,
+      itemCount: _groupedSessions.keys.length,
       itemBuilder: (context, index) {
-        final rev = _revisions[index];
-        final DateTime modTime = rev.modifiedTime ?? DateTime.now();
-        final String user = rev.lastModifyingUser?.displayName ?? 'Unknown User';
-        final String formattedDate = DateFormat.yMMMd().add_jm().format(modTime);
+        final key = _groupedSessions.keys.elementAt(index);
+        final dateSessions = _groupedSessions[key]!;
         
-        return ListTile(
-          leading: CircleAvatar(
-            backgroundColor: AppTheme.backgroundColor,
-            child: Text(
-              '#${_revisions.length - index}',
-              style: const TextStyle(fontSize: 12, color: AppTheme.secondaryTextColor),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                key.toUpperCase(),
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.secondaryTextColor,
+                ),
+              ),
             ),
-          ),
-          title: Text(
-            formattedDate,
-            style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14),
-          ),
-          subtitle: Text(
-            'Modified by $user',
-            style: GoogleFonts.inter(fontSize: 12, color: AppTheme.secondaryTextColor),
-          ),
-          trailing: const Icon(Icons.description_outlined, size: 16, color: Colors.grey),
+            ...dateSessions.map((session) {
+              return _buildSessionTile(session);
+            }),
+            const Divider(),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildSessionTile(RevisionSession session) {
+    final DateTime modTime = session.main.modifiedTime?.toLocal() ?? DateTime.now();
+    final String user = session.main.lastModifyingUser?.displayName ?? 'Unknown User';
+    final String time = DateFormat.jm().format(modTime);
+    final String versionLabel = 'V${_revisions.length - _revisions.indexOf(session.main)}';
+
+    if (session.subs.isEmpty) {
+      return ListTile(
+        leading: _buildVersionBadge(versionLabel),
+        title: Text(time, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+        subtitle: Text('Modified by $user', style: GoogleFonts.inter(fontSize: 12, color: AppTheme.secondaryTextColor)),
+        dense: true,
+      );
+    }
+
+    return ExpansionTile(
+      leading: _buildVersionBadge(versionLabel),
+      title: Text(time, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14)),
+      subtitle: Text('Modified by $user • ${session.subs.length + 1} versions', 
+          style: GoogleFonts.inter(fontSize: 12, color: AppTheme.secondaryTextColor)),
+      children: session.subs.map((sub) {
+        final subTime = DateFormat.jm().format(sub.modifiedTime?.toLocal() ?? DateTime.now());
+        final subVersion = 'V${_revisions.length - _revisions.indexOf(sub)}';
+        
+        return ListTile(
+          contentPadding: const EdgeInsets.only(left: 32, right: 16),
+          leading: Container(
+             width: 8, height: 8, 
+             decoration: const BoxDecoration(color: AppTheme.secondaryTextColor, shape: BoxShape.circle)
+          ),
+          title: Text(subTime, style: GoogleFonts.inter(fontSize: 13)),
+          trailing: Text(subVersion, style: GoogleFonts.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor)),
+          dense: true,
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildVersionBadge(String label) {
+    return CircleAvatar(
+      backgroundColor: AppTheme.backgroundColor,
+      radius: 16,
+      child: Text(
+        label, 
+        style: const TextStyle(fontSize: 10, color: AppTheme.secondaryTextColor),
+      ),
     );
   }
 }

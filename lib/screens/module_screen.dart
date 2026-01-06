@@ -148,45 +148,17 @@ class _ModuleScreenState extends State<ModuleScreen> {
   }
 
   Future<void> _showHistory(BuildContext context, ModuleSchema module) async {
-    // Show dialog to let start loading history
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final driveService = DriveService(authService.authClient!);
+    
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
+      builder: (context) => HistoryDialog(
+        moduleId: module.id,
+        moduleName: module.name,
+        driveService: driveService,
+      ),
     );
-
-    try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final driveService = DriveService(authService.authClient!);
-      
-      // Get the ID of the data spreadsheet (named same as module)
-      final fileId = await driveService.getFileId(module.id, module.name); // Data sheet
-      
-      if (mounted) {
-        Navigator.pop(context); // Close loading
-        if (fileId != null) {
-          showDialog(
-            context: context,
-            builder: (context) => HistoryDialog(
-              fileId: fileId,
-              fileName: module.name,
-              driveService: driveService,
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-             const SnackBar(content: Text('Data file not found on Drive.')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-         Navigator.pop(context); // Close loading
-         ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text('Error loading history: $e')),
-          );
-      }
-    }
   }
 
   @override
