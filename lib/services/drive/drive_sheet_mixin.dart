@@ -177,70 +177,47 @@ mixin DriveSheetMixin {
         debugPrint('Created data spreadsheet: $targetSpreadsheetName ($spreadsheetId)');
       }
 
-      // 2. Check/Create Sheet (Tab)
-      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId!));
-      bool sheetExists = spreadsheet.sheets?.any((s) => s.properties?.title == sheetTitle) ?? false;
-      
-      if (!sheetExists) {
-        await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
-          sheets.BatchUpdateSpreadsheetRequest(
-            requests: [
-              sheets.Request(
-                addSheet: sheets.AddSheetRequest(
-                  properties: sheets.SheetProperties(title: sheetTitle),
-                ),
-              ),
-            ],
-          ),
-          spreadsheetId!,
-        ));
-        debugPrint('Created sheet: $sheetTitle');
+      // 2. Prepare Data with Technical Fields
+      final recordId = data['record_id'] ?? DateTime.now().microsecondsSinceEpoch.toString();
+      final finalData = Map<String, dynamic>.from(data);
+      finalData['record_id'] = recordId;
+      if (finalData['created_at'] == null) {
+        finalData['created_at'] = DateTime.now().toIso8601String();
       }
 
-      // 3. Handle Headers and Append
-      // Read the first row to check headers
-      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId!, '$sheetTitle!1:1'));
-      List<String> headers = [];
+      // 3. Extract Nested Lists (Tables)
+      final nestedTables = <String, List<dynamic>>{};
+      final keysToRemove = <String>[];
       
-      if (headerResponse.values != null && headerResponse.values!.isNotEmpty) {
-        headers = headerResponse.values!.first.map((e) => e.toString()).toList();
+      finalData.forEach((key, value) {
+        if (value is List) {
+          nestedTables[key] = value;
+          keysToRemove.add(key);
+        }
+      });
+
+      // Remove nested lists from the main record to normalize
+      // We keep a reference or just remove them as they will be in separate sheets
+      for (var key in keysToRemove) {
+        finalData.remove(key);
       }
 
-      // If no headers, write them from data keys
-      if (headers.isEmpty) {
-        headers = data.keys.toList();
-        await retryOp(() => sheetsApi.spreadsheets.values.append(
-          sheets.ValueRange(values: [headers]),
-          spreadsheetId!,
-          '$sheetTitle!A1',
-          valueInputOption: 'RAW',
-        ));
-      } else {
-        // Check if we have new keys in data that are not in headers
-        final newKeys = data.keys.where((k) => !headers.contains(k)).toList();
-        if (newKeys.isNotEmpty) {
-          headers.addAll(newKeys);
-          final valueRange = sheets.ValueRange(values: [headers]);
-          await retryOp(() => sheetsApi.spreadsheets.values.update(
-            valueRange,
-            spreadsheetId!,
-            '$sheetTitle!1:1',
-            valueInputOption: 'RAW',
-          ));
+      // 4. Save Main Record
+      await _appendDataToSheet(spreadsheetId!, sheetTitle, finalData);
+
+      // 5. Save Nested Tables
+      for (var entry in nestedTables.entries) {
+        final subSheetTitle = '$sheetTitle.${entry.key}';
+        for (var item in entry.value) {
+          if (item is Map) {
+            final itemData = Map<String, dynamic>.from(item);
+            itemData['parent_record_id'] = recordId;
+            // Also add a unique ID for the sub-item
+            itemData['sub_record_id'] = DateTime.now().microsecondsSinceEpoch.toString();
+            await _appendDataToSheet(spreadsheetId, subSheetTitle, itemData);
+          }
         }
       }
-
-      // 4. Prepare Row Data
-      final row = headers.map((h) => data[h]?.toString() ?? '').toList();
-      
-      // 5. Append Row
-      await retryOp(() => sheetsApi.spreadsheets.values.append(
-        sheets.ValueRange(values: [row]),
-        spreadsheetId!,
-        '$sheetTitle!A1',
-        valueInputOption: 'RAW',
-      ));
-      debugPrint('Appended record to $sheetTitle');
       
     } catch (e) {
       debugPrint('Error saving record: $e');
@@ -248,10 +225,72 @@ mixin DriveSheetMixin {
     }
   }
 
+  Future<void> _appendDataToSheet(String spreadsheetId, String sheetTitle, Map<String, dynamic> data) async {
+    // 1. Check/Create Sheet
+    final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+    bool sheetExists = spreadsheet.sheets?.any((s) => s.properties?.title == sheetTitle) ?? false;
+    
+    if (!sheetExists) {
+      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
+        sheets.BatchUpdateSpreadsheetRequest(
+          requests: [
+            sheets.Request(
+              addSheet: sheets.AddSheetRequest(
+                properties: sheets.SheetProperties(title: sheetTitle),
+              ),
+            ),
+          ],
+        ),
+        spreadsheetId,
+      ));
+      debugPrint('Created sheet: $sheetTitle');
+    }
+
+    // 2. Handle Headers and Append
+    final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
+    List<String> headers = [];
+    
+    if (headerResponse.values != null && headerResponse.values!.isNotEmpty) {
+      headers = headerResponse.values!.first.map((e) => e.toString()).toList();
+    }
+
+    // If no headers, write them from data keys
+    if (headers.isEmpty) {
+      headers = data.keys.toList();
+      await retryOp(() => sheetsApi.spreadsheets.values.append(
+        sheets.ValueRange(values: [headers]),
+        spreadsheetId,
+        '$sheetTitle!A1',
+        valueInputOption: 'RAW',
+      ));
+    } else {
+      // Check for new columns
+      final newKeys = data.keys.where((k) => !headers.contains(k)).toList();
+      if (newKeys.isNotEmpty) {
+        headers.addAll(newKeys);
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+          sheets.ValueRange(values: [headers]),
+          spreadsheetId,
+          '$sheetTitle!1:1',
+          valueInputOption: 'RAW',
+        ));
+      }
+    }
+
+    // 3. Prepare and Append Row
+    final row = headers.map((h) => data[h]?.toString() ?? '').toList();
+    await retryOp(() => sheetsApi.spreadsheets.values.append(
+      sheets.ValueRange(values: [row]),
+      spreadsheetId,
+      '$sheetTitle!A1',
+      valueInputOption: 'RAW',
+    ));
+    debugPrint('Appended data to $sheetTitle');
+  }
+
   Future<List<Map<String, dynamic>>> fetchRecords(String moduleFolderId, String spreadsheetName, String sheetTitle) async {
     try {
       // 1. Find Spreadsheet
-      // Use sheetTitle as the spreadsheet name
       String targetSpreadsheetName = sheetTitle;
       String? spreadsheetId = await getFileId(moduleFolderId, targetSpreadsheetName);
       
@@ -259,36 +298,67 @@ mixin DriveSheetMixin {
         return [];
       }
 
-      // 2. Read Data
+      // 2. Read All Sheets to Find Sub-tables
+      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+      final allSheetTitles = spreadsheet.sheets?.map((s) => s.properties?.title ?? '').toList() ?? [];
+      
+      final subTableSheets = allSheetTitles.where((t) => t.startsWith('$sheetTitle.')).toList();
+
+      // 3. Fetch Main Records
+      final mainRecords = await _fetchSheetData(spreadsheetId, sheetTitle);
+      if (mainRecords.isEmpty) return [];
+
+      // 4. Fetch and Join Sub-tables
+      for (var subSheet in subTableSheets) {
+        final fieldName = subSheet.substring(sheetTitle.length + 1); // e.g., "items"
+        final subRecords = await _fetchSheetData(spreadsheetId, subSheet);
+        
+        // Group sub-records by parent_record_id
+        final groupedSubs = <String, List<Map<String, dynamic>>>{};
+        for (var sub in subRecords) {
+          final parentId = sub['parent_record_id']?.toString();
+          if (parentId != null) {
+            groupedSubs.putIfAbsent(parentId, () => []).add(sub);
+          }
+        }
+
+        // Join to main records
+        for (var main in mainRecords) {
+          final recordId = main['record_id']?.toString();
+          if (recordId != null) {
+            main[fieldName] = groupedSubs[recordId] ?? [];
+          }
+        }
+      }
+
+      return mainRecords;
+    } catch (e) {
+      debugPrint('Error fetching records: $e');
+      return [];
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchSheetData(String spreadsheetId, String sheetTitle) async {
+    try {
       final response = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!A:ZZ'));
       final values = response.values;
 
-      if (values == null || values.isEmpty) {
-        return [];
-      }
+      if (values == null || values.isEmpty) return [];
 
-      // 3. Parse Headers
       final headers = values.first.map((e) => e.toString()).toList();
       final records = <Map<String, dynamic>>[];
 
-      // 4. Parse Rows
       for (var i = 1; i < values.length; i++) {
         final row = values[i];
         final record = <String, dynamic>{};
-        
         for (var j = 0; j < headers.length; j++) {
-          if (j < row.length) {
-            record[headers[j]] = row[j];
-          } else {
-            record[headers[j]] = null;
-          }
+          record[headers[j]] = (j < row.length) ? row[j] : null;
         }
         records.add(record);
       }
-
       return records;
     } catch (e) {
-      debugPrint('Error fetching records: $e');
+      debugPrint('Error reading sheet $sheetTitle: $e');
       return [];
     }
   }
