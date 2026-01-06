@@ -8,12 +8,14 @@ import '../../theme/app_theme.dart';
 class HistoryDialog extends StatefulWidget {
   final String moduleId;
   final String moduleName;
+  final String? fileName; // Explicit file name to track history for
   final DriveService driveService;
 
   const HistoryDialog({
     super.key,
     required this.moduleId,
     required this.moduleName,
+    this.fileName,
     required this.driveService,
   });
 
@@ -41,11 +43,12 @@ class _HistoryDialogState extends State<HistoryDialog> {
 
   Future<void> _loadHistory() async {
     try {
-      // 1. Find the data spreadsheet first
-      final fileId = await widget.driveService.getFileId(widget.moduleId, widget.moduleName);
+      // 1. Find the target file first
+      final targetFileName = widget.fileName ?? widget.moduleName;
+      final fileId = await widget.driveService.getFileId(widget.moduleId, targetFileName);
       
       if (fileId == null) {
-        throw Exception('Data spreadsheet not found');
+        throw Exception('File "$targetFileName" not found');
       }
 
       // 2. Load history
@@ -108,7 +111,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Spreadsheet Version History',
+                  widget.fileName != null ? 'File History' : 'Module History',
                   style: GoogleFonts.inter(
                     fontWeight: FontWeight.w700, 
                     color: AppTheme.textColor,
@@ -119,7 +122,9 @@ class _HistoryDialogState extends State<HistoryDialog> {
           ),
           const SizedBox(height: 4),
           Text(
-            '${widget.moduleName} (Includes all tabs)',
+            widget.fileName == 'config' 
+                ? 'Module Schema & Settings' 
+                : 'Tracking: ${widget.fileName ?? widget.moduleName}',
             style: GoogleFonts.inter(
               fontSize: 12,
               color: AppTheme.secondaryTextColor,

@@ -145,7 +145,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
     }
   }
 
-  Future<void> _showHistory(BuildContext context, ModuleSchema module) async {
+  Future<void> _showHistory(BuildContext context, ModuleSchema module, String? fileName) async {
     final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
     if (driveService == null) return;
     
@@ -154,6 +154,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
       builder: (context) => HistoryDialog(
         moduleId: module.id,
         moduleName: module.name,
+        fileName: fileName,
         driveService: driveService,
       ),
     );
@@ -183,10 +184,21 @@ class _ModuleScreenState extends State<ModuleScreen> {
           centerTitle: true,
           backgroundColor: AppTheme.backgroundColor,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.history_rounded),
-              tooltip: 'Version History',
-              onPressed: () => _showHistory(context, module),
+            Builder(
+              builder: (context) => IconButton(
+                icon: const Icon(Icons.history_rounded),
+                tooltip: 'Version History',
+                onPressed: () {
+                  final index = DefaultTabController.of(context).index;
+                  String fileName;
+                  if (index == 0) {
+                    fileName = 'config';
+                  } else {
+                    fileName = module.tabs[index - 1].id;
+                  }
+                  _showHistory(context, module, fileName);
+                },
+              ),
             ),
             IconButton(
               icon: const Icon(Icons.edit_note_rounded),
