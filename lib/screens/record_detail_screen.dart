@@ -109,8 +109,10 @@ class RecordDetailScreen extends StatelessWidget {
         final col = columns[index];
         final value = data[col.key];
         
-        // Skip if value is null or empty string to keep UI clean? 
-        // Or show placeholder. Let's show placeholder if null.
+        if (col.type == 'table' && value is List) {
+           return _buildTableField(col, value as List<Map<String, dynamic>>);
+        }
+
         final displayValue = value?.toString() ?? 'N/A';
 
         if (col.type == 'image' || col.key.toLowerCase().contains('image') || col.key.toLowerCase().contains('photo')) {
@@ -294,6 +296,90 @@ class RecordDetailScreen extends StatelessWidget {
                 ),
               ),
             ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTableField(ColumnConfig col, List<Map<String, dynamic>> items) {
+    final tableCols = col.columns ?? [];
+    if (items.isEmpty) return _buildTextField(col.label, 'No items');
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              col.label.toUpperCase(),
+              style: GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppTheme.secondaryTextColor,
+                letterSpacing: 0.5,
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${items.length} items',
+                style: GoogleFonts.inter(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  color: AppTheme.primaryColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: AppTheme.surfaceColor,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.1)),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(AppTheme.primaryColor.withValues(alpha: 0.05)),
+              columnSpacing: 24,
+              horizontalMargin: 16,
+              columns: tableCols.map((c) => DataColumn(
+                label: Text(
+                  c.label.toUpperCase(),
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.secondaryTextColor,
+                  ),
+                ),
+              )).toList(),
+              rows: items.map((item) {
+                return DataRow(
+                  cells: tableCols.map((c) {
+                    final val = item[c.key]?.toString() ?? '-';
+                    return DataCell(
+                      Text(
+                        val,
+                        style: GoogleFonts.inter(
+                          fontSize: 14,
+                          color: AppTheme.textColor,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                );
+              }).toList(),
+            ),
           ),
         ),
       ],
