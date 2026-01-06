@@ -45,8 +45,18 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
 
       _formData[col.key] = initialValue;
       
-      if (col.type != 'image' && col.type != 'date' && col.type != 'list') {
-        _controllers[col.key] = TextEditingController(text: initialValue?.toString() ?? '');
+      // Update: Don't exclude 'list' (and potentially other types like 'table') if they need text controllers
+      // But typically, 'list' handles its own state. 
+      // The issue is likely that fields backed by controllers update the controller but NOT the _formData
+      // unless onFieldChanged is explicitly called.
+      // For TextFields, we usually listen to controller changes or use onChanged.
+      
+      if (col.type != 'image' && col.type != 'date' && col.type != 'list' && col.type != 'boolean' && col.type != 'table') {
+        final ctrl = TextEditingController(text: initialValue?.toString() ?? '');
+        ctrl.addListener(() {
+          _formData[col.key] = ctrl.text;
+        });
+        _controllers[col.key] = ctrl;
       }
     }
   }

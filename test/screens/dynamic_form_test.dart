@@ -101,4 +101,37 @@ void main() {
       any()
     )).called(1);
   });
+
+  testWidgets('DynamicFormScreen loads list field from JSON string', (WidgetTester tester) async {
+    final listTab = TabConfig(
+      id: 'list_tab',
+      label: 'List Tab',
+      columns: [
+        ColumnConfig(key: 'options', label: 'Options', type: 'list'),
+      ],
+    );
+
+    // Simulate data coming from Sheet as JSON string
+    final encodedList = '["OptionA","OptionB"]';
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+          ChangeNotifierProvider<SyncProvider>.value(value: mockSyncProvider),
+        ],
+        child: MaterialApp(
+          home: DynamicFormScreen(
+            tab: listTab,
+            primaryColor: Colors.blue,
+            module: testModule,
+            initialData: {'options': encodedList},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('OptionA'), findsOneWidget);
+    expect(find.text('OptionB'), findsOneWidget);
+  });
 }

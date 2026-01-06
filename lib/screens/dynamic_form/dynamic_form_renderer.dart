@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../models/schema_models.dart';
 import 'fields/text_field.dart';
@@ -133,9 +134,21 @@ class DynamicFormRenderer extends StatelessWidget {
         );
 
       case 'list':
+        List<String> listValue = [];
+        if (value is List) {
+          listValue = value.map((e) => e.toString()).toList();
+        } else if (value is String && value.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(value);
+            if (decoded is List) {
+              listValue = decoded.map((e) => e.toString()).toList();
+            }
+          } catch (_) {}
+        }
+
         return DynamicListField(
           column: col,
-          value: (value as List?)?.map((e) => e.toString()).toList() ?? [],
+          value: listValue,
           primaryColor: primaryColor,
           onChanged: (val) => onFieldChanged(col.key, val),
         );
