@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../models/schema_models.dart';
-import '../../../services/auth_service.dart';
-import '../../../services/drive_service.dart';
+import '../../../providers/drive_provider.dart';
 import '../../../theme/app_theme.dart';
 
 class DynamicDropdownField extends StatefulWidget {
@@ -128,9 +127,8 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
           if (relatedTabId != null) {
             setState(() => _isLoading = true);
             try {
-              final authService = Provider.of<AuthService>(context, listen: false);
-              if (authService.authClient != null) {
-                final driveService = DriveService(authService.authClient!);
+              final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+              if (driveService != null) {
                 final records = await driveService.fetchRecords(widget.module!.id, widget.module!.name, relatedTabId);
                 
                 // Find the record where the first value (or name) matches targetValue

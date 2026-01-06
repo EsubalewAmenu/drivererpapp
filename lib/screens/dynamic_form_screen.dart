@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
-import '../services/auth_service.dart';
-import '../services/drive_service.dart';
+import '../providers/drive_provider.dart';
 import '../theme/app_theme.dart';
 import 'dynamic_form/dynamic_form_renderer.dart';
 
@@ -116,12 +115,10 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _formKey.currentState!.save();
       
       try {
-        final authService = Provider.of<AuthService>(context, listen: false);
-        if (authService.authClient == null) throw Exception("Not authenticated");
+        final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+        if (driveService == null) throw Exception("Not authenticated");
         
         if (widget.module == null) throw Exception("Module context missing");
-
-        final driveService = DriveService(authService.authClient!);
         
         // Show loading indicator
         if (mounted) {

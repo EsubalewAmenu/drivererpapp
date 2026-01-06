@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
-import '../../services/auth_service.dart';
-import '../../services/drive_service.dart';
+import '../../providers/drive_provider.dart';
 import '../../theme/app_theme.dart';
 
 class ModuleDashboard extends StatefulWidget {
@@ -27,9 +26,8 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
   }
 
   Future<void> _calculateKpis() async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    if (authService.authClient == null) return;
-    final driveService = DriveService(authService.authClient!);
+    final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+    if (driveService == null) return;
     final Map<String, String> results = {};
 
     // Assuming the first tab is the primary data source for now

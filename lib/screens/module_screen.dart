@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
-import '../services/auth_service.dart';
+import '../providers/drive_provider.dart';
 import '../services/drive_service.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import 'schema_editor_screen.dart';
 import 'module/module_dashboard.dart';
@@ -35,8 +36,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
   Future<void> _loadSchema() async {
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final driveService = DriveService(authService.authClient!);
+      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService!;
       
       // 1. Check for config (Sheet) in the module folder
       String? configFileId = await driveService.getFileId(widget.module.id, 'config');
@@ -148,8 +148,8 @@ class _ModuleScreenState extends State<ModuleScreen> {
   }
 
   Future<void> _showHistory(BuildContext context, ModuleSchema module) async {
-    final authService = Provider.of<AuthService>(context, listen: false);
-    final driveService = DriveService(authService.authClient!);
+    final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+    if (driveService == null) return;
     
     showDialog(
       context: context,

@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
-import '../services/auth_service.dart';
-import '../services/drive_service.dart';
+import '../providers/drive_provider.dart';
 import '../providers/workspace_provider.dart';
 import 'dashboard_screen.dart';
 
@@ -23,14 +22,14 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
     setState(() => _isActivating = true);
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
       final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
       
-      if (authService.authClient == null || workspaceProvider.currentWorkspace == null) {
+      if (driveProvider.driveService == null || workspaceProvider.currentWorkspace == null) {
         throw Exception("Authentication or Workspace missing");
       }
 
-      final driveService = DriveService(authService.authClient!);
+      final driveService = driveProvider.driveService!;
       final workspaceId = workspaceProvider.currentWorkspace!.id!;
       
       final moduleName = widget.moduleInfo['name']!;

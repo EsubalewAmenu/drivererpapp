@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
-import '../../services/auth_service.dart';
+import '../../providers/drive_provider.dart';
 import '../../services/drive_service.dart';
 import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
@@ -40,8 +40,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   @override
   void initState() {
     super.initState();
-    final authService = Provider.of<AuthService>(context, listen: false);
-    _driveService = DriveService(authService.authClient!);
+    _driveService = Provider.of<DriveProvider>(context, listen: false).driveService!;
     _loadData();
     _searchController.addListener(() {
       setState(() {

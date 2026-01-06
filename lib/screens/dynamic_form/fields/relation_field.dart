@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../models/schema_models.dart';
-import '../../../services/auth_service.dart';
-import '../../../services/drive_service.dart';
+import '../../../providers/drive_provider.dart';
 import '../../../theme/app_theme.dart';
 
 class DynamicRelationField extends StatefulWidget {
@@ -66,9 +65,8 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
               );
               
               // Fetch data for the related tab
-              final authService = Provider.of<AuthService>(context, listen: false);
-              if (authService.authClient != null) {
-                final driveService = DriveService(authService.authClient!);
+              final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+              if (driveService != null) {
                 // Show loading
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading items...'), duration: Duration(milliseconds: 500)));
                 

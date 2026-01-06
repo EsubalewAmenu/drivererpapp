@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../../services/auth_service.dart';
-import '../../services/drive_service.dart';
+import '../../providers/drive_provider.dart';
 import '../../providers/workspace_provider.dart';
 import '../../theme/app_theme.dart';
 import '../dashboard_screen.dart';
@@ -321,10 +320,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _createWorkspaceAndModules() async {
     setState(() => _isCreating = true);
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
-      if (authService.authClient == null) throw Exception("Not authenticated");
-      
-      final driveService = DriveService(authService.authClient!);
+      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+      if (driveService == null) throw Exception("Not authenticated");
       
       // 1. Create Workspace Folder
       final workspaceName = _nameController.text.trim();

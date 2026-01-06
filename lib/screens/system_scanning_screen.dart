@@ -4,7 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
-import '../services/drive_service.dart';
+import '../providers/drive_provider.dart';
 import 'workspace_selector_screen.dart';
 
 class SystemScanningScreen extends StatefulWidget {
@@ -29,22 +29,22 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
 
   Future<void> _startScanningSequence() async {
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
       
-      // Wait for auth client if not ready (though it should be if we are here)
-      if (authService.authClient == null) {
+      // Wait for drive service if not ready
+      if (driveProvider.driveService == null) {
         setState(() => _statusMessage = "Waiting for authentication...");
         // In a real app, you might want to retry or redirect to login
         await Future.delayed(const Duration(seconds: 1));
         if (!mounted) return;
-        if (authService.authClient == null) {
+        if (driveProvider.driveService == null) {
            // Fallback or error
            setState(() => _statusMessage = "Authentication failed.");
            return;
         }
       }
 
-      final driveService = DriveService(authService.authClient!);
+      final driveService = driveProvider.driveService!;
 
       // Step 1: Check Root Folder
       setState(() {

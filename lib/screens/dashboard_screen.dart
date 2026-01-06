@@ -3,8 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import '../models/schema_models.dart';
-import '../services/auth_service.dart';
-import '../services/drive_service.dart';
+import '../providers/drive_provider.dart';
 import '../providers/workspace_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_drawer.dart';
@@ -51,10 +50,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _loadModules() {
     final workspace = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace;
-    final authService = Provider.of<AuthService>(context, listen: false);
+    final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
     
-    if (workspace != null && authService.authClient != null) {
-      final driveService = DriveService(authService.authClient!);
+    if (workspace != null && driveService != null) {
       _modulesFuture = driveService.listModules(workspace.id!);
     } else {
       _modulesFuture = Future.value([]);
