@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
@@ -25,7 +26,7 @@ class DriveService with DriveFolderMixin, DriveFileMixin, DriveSheetMixin {
       } catch (e) {
         if (i == retries - 1) rethrow;
         await Future.delayed(Duration(seconds: 1 * (i + 1)));
-        print('Retrying operation due to error: $e');
+        debugPrint('Retrying operation due to error: $e');
       }
     }
     throw Exception('Unreachable');

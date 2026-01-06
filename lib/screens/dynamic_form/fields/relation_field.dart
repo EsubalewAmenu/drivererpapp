@@ -85,46 +85,45 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                    items = items.where((item) => item[parentKey]?.toString() == parentValue?.toString()).toList();
                 }
 
-                if (mounted) {
-                  // Show selection dialog
-                  final selected = await showDialog<String>(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: Text('Select ${relatedTab.label}'),
-                      content: SizedBox(
-                        width: double.maxFinite,
-                        child: items.isEmpty 
-                          ? const Padding(
-                              padding: EdgeInsets.all(16.0),
-                              child: Text('No items found matching selection'),
-                            )
-                          : ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            final item = items[index];
-                            // Try to find a meaningful label (first text column)
-                            String label = item.values.first.toString();
-                            // Or look for specific keys like 'name', 'item_name'
-                            if (item.containsKey('item_name')) {
-                              label = item['item_name'];
-                            } else if (item.containsKey('name')) {
-                              label = item['name'];
-                            }
-                            
-                            return ListTile(
-                              title: Text(label),
-                              onTap: () => Navigator.pop(context, label),
-                            );
-                          },
-                        ),
+                // Show selection dialog
+                if (!mounted) return;
+                final selected = await showDialog<String>(
+                  context: this.context,
+                  builder: (context) => AlertDialog(
+                    title: Text('Select ${relatedTab.label}'),
+                    content: SizedBox(
+                      width: double.maxFinite,
+                      child: items.isEmpty 
+                        ? const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text('No items found matching selection'),
+                          )
+                        : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: items.length,
+                        itemBuilder: (context, index) {
+                          final item = items[index];
+                          // Try to find a meaningful label (first text column)
+                          String label = item.values.first.toString();
+                          // Or look for specific keys like 'name', 'item_name'
+                          if (item.containsKey('item_name')) {
+                            label = item['item_name'];
+                          } else if (item.containsKey('name')) {
+                            label = item['name'];
+                          }
+                          
+                          return ListTile(
+                            title: Text(label),
+                            onTap: () => Navigator.pop(context, label),
+                          );
+                        },
                       ),
                     ),
-                  );
-                  
-                  if (selected != null) {
-                    widget.onChanged(selected);
-                  }
+                  ),
+                );
+                
+                if (selected != null && mounted) {
+                  widget.onChanged(selected);
                 }
               }
             } else {

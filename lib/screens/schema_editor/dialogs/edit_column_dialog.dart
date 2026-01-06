@@ -180,16 +180,16 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               RadioGroup<bool>(
                 groupValue: _isDynamicOptions,
                 onChanged: (v) => setState(() => _isDynamicOptions = v!),
-                child: Row(
+                child: const Row(
                   children: [
                     Expanded(child: RadioListTile<bool>(
-                      title: const Text('Static', style: TextStyle(color: AppTheme.textColor)),
+                      title: Text('Static', style: TextStyle(color: AppTheme.textColor)),
                       value: false,
                       activeColor: AppTheme.primaryColor,
                       contentPadding: EdgeInsets.zero,
                     )),
                     Expanded(child: RadioListTile<bool>(
-                      title: const Text('Dynamic', style: TextStyle(color: AppTheme.textColor)),
+                      title: Text('Dynamic', style: TextStyle(color: AppTheme.textColor)),
                       value: true,
                       activeColor: AppTheme.primaryColor,
                       contentPadding: EdgeInsets.zero,

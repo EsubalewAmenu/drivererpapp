@@ -22,8 +22,6 @@ class AppTheme {
       colorScheme: const ColorScheme.light(
         primary: primaryColor,
         surface: lightSurfaceColor,
-        background: lightBackgroundColor,
-        onBackground: lightTextColor,
         onSurface: lightTextColor,
       ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme).copyWith(
@@ -86,8 +84,6 @@ class AppTheme {
       colorScheme: const ColorScheme.dark(
         primary: primaryColor,
         surface: surfaceColor,
-        background: backgroundColor,
-        onBackground: textColor,
         onSurface: textColor,
       ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).copyWith(
