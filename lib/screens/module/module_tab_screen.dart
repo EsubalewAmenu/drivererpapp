@@ -255,6 +255,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 columns: widget.tab.columns,
                 primaryColor: widget.primaryColor,
                 title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
+                settings: widget.settings,
               ),
             ),
           );

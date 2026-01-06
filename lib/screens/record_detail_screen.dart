@@ -8,6 +8,7 @@ class RecordDetailScreen extends StatelessWidget {
   final List<ColumnConfig> columns;
   final Color primaryColor;
   final String title;
+  final Map<String, SettingItem> settings;
 
   const RecordDetailScreen({
     super.key,
@@ -15,6 +16,7 @@ class RecordDetailScreen extends StatelessWidget {
     required this.columns,
     required this.primaryColor,
     required this.title,
+    this.settings = const {},
   });
 
   @override
@@ -100,13 +102,43 @@ class RecordDetailScreen extends StatelessWidget {
   }
 
   Widget _buildFieldsList(BuildContext context) {
+    // Filter columns based on dependencies and visibility
+    final visibleColumns = columns.where((col) {
+      // 1. Check hidden
+      if (col.hidden == true) return false;
+
+      // 2. Check dependencies
+      if (col.dependsOn != null && col.dependsOn!.isNotEmpty) {
+        final dep = col.dependsOn!;
+        
+        if (dep.startsWith('settings.')) {
+          final settingKey = dep.replaceFirst('settings.', '');
+          final setting = settings[settingKey];
+          if (setting == null) return true; // Show if setting not found (safe fallback)
+          
+          final val = setting.value;
+          if (val == null || val == false || (val is String && val.isEmpty) || (val is List && val.isEmpty)) {
+            return false;
+          }
+        } else {
+          // Local data dependency
+          final val = data[dep];
+          // Truthy check for booleans, strings, lists
+          if (val == null || val == false || (val is String && val.isEmpty) || (val is List && val.isEmpty)) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }).toList();
+
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: columns.length,
+      itemCount: visibleColumns.length,
       separatorBuilder: (context, index) => const SizedBox(height: 24),
       itemBuilder: (context, index) {
-        final col = columns[index];
+        final col = visibleColumns[index];
         final value = data[col.key];
         
         if (col.type == 'table' && value is List) {
