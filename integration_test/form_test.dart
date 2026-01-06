@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
@@ -347,6 +346,7 @@ void main() {
         .having((m) => m['active'], 'active', true)
         .having((m) => m['category'], 'category', 'Electronics')
         .having((m) => m['qty'], 'qty', '10')
+        .having((m) => m['tags'], 'tags', contains('New')) // Verify tags are saved
         .having((m) => m['cost'], 'cost', '2500')
         // Formula fields are typically not saved to payload if they are calc-only, 
         // OR they are computed and saved. 
