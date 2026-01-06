@@ -180,7 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [color.withValues(alpha: 0.2), theme.cardTheme.color!],
+          colors: [color.withValues(alpha: 0.2), theme.cardTheme.color ?? theme.cardColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
