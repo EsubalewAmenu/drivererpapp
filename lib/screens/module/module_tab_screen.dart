@@ -155,8 +155,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         style: GoogleFonts.inter(color: AppTheme.textColor),
         decoration: InputDecoration(
           hintText: 'Search ${widget.tab.label.toLowerCase()}...',
-          hintStyle: TextStyle(color: AppTheme.secondaryTextColor),
-          prefixIcon: Icon(Icons.search_rounded, color: AppTheme.secondaryTextColor),
+          hintStyle: const TextStyle(color: AppTheme.secondaryTextColor),
+          prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.secondaryTextColor),
           filled: true,
           fillColor: AppTheme.surfaceColor,
           border: OutlineInputBorder(
@@ -199,7 +199,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               });
             },
             backgroundColor: AppTheme.surfaceColor,
-            selectedColor: widget.primaryColor.withOpacity(0.2),
+            selectedColor: widget.primaryColor.withValues(alpha: 0.2),
             labelStyle: GoogleFonts.inter(
               color: isSelected ? widget.primaryColor : AppTheme.secondaryTextColor,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
@@ -298,7 +298,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded, color: AppTheme.secondaryTextColor),
+              const Icon(Icons.chevron_right_rounded, color: AppTheme.secondaryTextColor),
             ],
           ),
         ),

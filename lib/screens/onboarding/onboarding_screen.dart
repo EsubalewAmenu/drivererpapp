@@ -141,14 +141,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           style: GoogleFonts.inter(color: AppTheme.textColor, fontSize: 18),
           decoration: InputDecoration(
             labelText: 'Business Name',
-            labelStyle: TextStyle(color: AppTheme.secondaryTextColor),
+            labelStyle: const TextStyle(color: AppTheme.secondaryTextColor),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: AppTheme.surfaceColor),
+              borderSide: const BorderSide(color: AppTheme.surfaceColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: AppTheme.primaryColor),
+              borderSide: const BorderSide(color: AppTheme.primaryColor),
             ),
             filled: true,
             fillColor: AppTheme.surfaceColor,
@@ -177,7 +177,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.primaryColor.withOpacity(0.2) : AppTheme.surfaceColor,
+                    color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.2) : AppTheme.surfaceColor,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
                   ),
@@ -222,7 +222,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.primaryColor.withOpacity(0.2) : AppTheme.surfaceColor,
+                    color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.2) : AppTheme.surfaceColor,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: isSelected ? AppTheme.primaryColor : Colors.transparent),
                   ),
@@ -254,14 +254,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           textAlign: TextAlign.center,
           decoration: InputDecoration(
             hintText: 'XXXX-XXXX',
-            hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withOpacity(0.5)),
+            hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5)),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: AppTheme.surfaceColor),
+              borderSide: const BorderSide(color: AppTheme.surfaceColor),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(16),
-              borderSide: BorderSide(color: AppTheme.primaryColor),
+              borderSide: const BorderSide(color: AppTheme.primaryColor),
             ),
             filled: true,
             fillColor: AppTheme.surfaceColor,

@@ -38,7 +38,7 @@ class ColumnListItem extends StatelessWidget {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.2),
+                color: Colors.orange.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text('HIDDEN', style: GoogleFonts.sourceCodePro(fontSize: 9, color: Colors.orange)),
@@ -48,7 +48,7 @@ class ColumnListItem extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppTheme.backgroundColor,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.3)),
+              border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3)),
             ),
             child: Text(column.type.toUpperCase(), style: GoogleFonts.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor)),
           ),

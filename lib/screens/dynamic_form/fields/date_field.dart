@@ -67,12 +67,12 @@ class DynamicDateField extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Icon(Icons.calendar_today_rounded, color: AppTheme.secondaryTextColor, size: 20),
+                const Icon(Icons.calendar_today_rounded, color: AppTheme.secondaryTextColor, size: 20),
                 const SizedBox(width: 12),
                 Text(
                   value ?? 'Select Date',
                   style: GoogleFonts.inter(
-                    color: value != null ? AppTheme.textColor : AppTheme.secondaryTextColor.withOpacity(0.5),
+                    color: value != null ? AppTheme.textColor : AppTheme.secondaryTextColor.withValues(alpha: 0.5),
                   ),
                 ),
               ],

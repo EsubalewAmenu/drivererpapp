@@ -51,7 +51,7 @@ class _DynamicListFieldState extends State<DynamicListField> {
             children: [
               ...widget.value.map((e) => Chip(
                 label: Text(e),
-                backgroundColor: widget.primaryColor.withOpacity(0.1),
+                backgroundColor: widget.primaryColor.withValues(alpha: 0.1),
                 labelStyle: TextStyle(color: widget.primaryColor),
                 deleteIcon: Icon(Icons.close, size: 16, color: widget.primaryColor),
                 onDeleted: () {

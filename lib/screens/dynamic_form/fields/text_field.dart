@@ -73,9 +73,9 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
             filled: true,
             fillColor: AppTheme.surfaceColor,
             hintText: 'Enter ${widget.column.label.toLowerCase()}',
-            hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withOpacity(0.5)),
+            hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5)),
             prefixText: isCurrency ? '\$ ' : null,
-            prefixStyle: TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold),
+            prefixStyle: const TextStyle(color: AppTheme.textColor, fontWeight: FontWeight.bold),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,

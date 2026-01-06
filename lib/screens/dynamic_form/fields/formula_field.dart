@@ -54,9 +54,9 @@ class DynamicFormulaField extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor.withOpacity(0.5),
+            color: AppTheme.surfaceColor.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.1)),
+            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.1)),
           ),
           child: Text(
             value,

@@ -56,14 +56,14 @@ class RecordDetailScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppTheme.surfaceColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: primaryColor.withOpacity(0.3)),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: primaryColor.withOpacity(0.1),
+              color: primaryColor.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.description_rounded, color: primaryColor, size: 32),
@@ -196,9 +196,9 @@ class RecordDetailScreen extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: statusColor.withOpacity(0.2),
+            color: statusColor.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: statusColor.withOpacity(0.5)),
+            border: Border.all(color: statusColor.withValues(alpha: 0.5)),
           ),
           child: Text(
             value.toUpperCase(),
@@ -233,24 +233,24 @@ class RecordDetailScreen extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.surfaceColor,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.2)),
+            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2)),
           ),
           clipBehavior: Clip.antiAlias,
           child: url.startsWith('http') 
             ? Image.network(
                 url, 
                 fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Center(
+                errorBuilder: (context, error, stackTrace) => const Center(
                   child: Icon(Icons.broken_image_rounded, color: AppTheme.secondaryTextColor, size: 48),
                 ),
               )
-            : Center(
+            : const Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.image_not_supported_rounded, color: AppTheme.secondaryTextColor, size: 48),
-                    const SizedBox(height: 8),
-                    Text('No Image Available', style: GoogleFonts.inter(color: AppTheme.secondaryTextColor)),
+                    SizedBox(height: 8),
+                    Text('No Image Available', style: TextStyle(color: AppTheme.secondaryTextColor)),
                   ],
                 ),
               ),
@@ -277,13 +277,13 @@ class RecordDetailScreen extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppTheme.surfaceColor.withOpacity(0.5),
+            color: AppTheme.surfaceColor.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.1)),
+            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.1)),
           ),
           child: Row(
             children: [
-              Icon(Icons.functions_rounded, size: 16, color: AppTheme.secondaryTextColor),
+              const Icon(Icons.functions_rounded, size: 16, color: AppTheme.secondaryTextColor),
               const SizedBox(width: 8),
               Text(
                 value,

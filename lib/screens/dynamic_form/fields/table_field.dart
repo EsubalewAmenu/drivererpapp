@@ -61,8 +61,8 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
       builder: (context) => Dialog(
         insetPadding: const EdgeInsets.all(16),
         child: _RowEditor(
-          columns: widget.column.columns ?? [],
-          initialData: {},
+          columns: widget.column.columns ?? const [],
+          initialData: const {},
           primaryColor: widget.primaryColor,
           title: 'Add ${widget.column.label} Item',
           module: widget.module,
@@ -111,9 +111,9 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
             decoration: BoxDecoration(
               color: AppTheme.surfaceColor,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.withOpacity(0.2)),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
             ),
-            child: Center(
+            child: const Center(
               child: Text(
                 'No items added yet',
                 style: TextStyle(color: AppTheme.secondaryTextColor),
@@ -125,7 +125,7 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
             decoration: BoxDecoration(
               color: AppTheme.surfaceColor,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.withOpacity(0.2)),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
             ),
             child: ListView.separated(
               shrinkWrap: true,

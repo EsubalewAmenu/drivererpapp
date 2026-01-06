@@ -30,7 +30,7 @@ class TableColumnEditorItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: AppTheme.surfaceColor,
-        border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.2)),
+        border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2)),
         borderRadius: BorderRadius.circular(12),
       ),
       child: ExpansionTile(
@@ -46,7 +46,7 @@ class TableColumnEditorItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppTheme.backgroundColor,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.3)),
+                border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3)),
               ),
               child: Text('TABLE', style: GoogleFonts.sourceCodePro(fontSize: 10, color: AppTheme.secondaryTextColor)),
             ),
@@ -67,7 +67,7 @@ class TableColumnEditorItem extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppTheme.backgroundColor.withOpacity(0.3),
+            color: AppTheme.backgroundColor.withValues(alpha: 0.3),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -76,7 +76,7 @@ class TableColumnEditorItem extends StatelessWidget {
                 if (subColumns.isEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text('No columns defined for this table.', style: TextStyle(color: AppTheme.secondaryTextColor.withOpacity(0.7), fontSize: 12)),
+                    child: Text('No columns defined for this table.', style: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.7), fontSize: 12)),
                   ),
                 ...subColumns.map((subCol) => ColumnListItem(
                   column: subCol,
@@ -100,14 +100,14 @@ class TableColumnEditorItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.3), style: BorderStyle.solid),
+          border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3), style: BorderStyle.solid),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.add, color: AppTheme.secondaryTextColor, size: 16),
+              const Icon(Icons.add, color: AppTheme.secondaryTextColor, size: 16),
               const SizedBox(width: 6),
               Text(label, style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600, fontSize: 12)),
             ],

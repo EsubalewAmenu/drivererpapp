@@ -92,7 +92,7 @@ class TabEditorCard extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(vertical: isSmall ? 12 : 16),
         decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.3), style: BorderStyle.solid),
+          border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3), style: BorderStyle.solid),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Center(

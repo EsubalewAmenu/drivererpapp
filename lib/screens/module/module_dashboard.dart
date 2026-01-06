@@ -145,8 +145,8 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
     // Alert Logic: If label is "Shortages" and count > 0, use danger color
     final isAlert = card.label == 'Shortages' && (int.tryParse(value) ?? 0) > 0;
     final cardColor = isAlert ? const Color(0xFFF43F5E) : widget.primaryColor;
-    final bgColor = isAlert ? const Color(0xFFF43F5E).withOpacity(0.1) : AppTheme.surfaceColor;
-    final borderColor = isAlert ? const Color(0xFFF43F5E) : widget.primaryColor.withOpacity(0.3);
+    final bgColor = isAlert ? const Color(0xFFF43F5E).withValues(alpha: 0.1) : AppTheme.surfaceColor;
+    final borderColor = isAlert ? const Color(0xFFF43F5E) : widget.primaryColor.withValues(alpha: 0.3);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -191,7 +191,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
             "Formula: ${card.calculation}",
             style: GoogleFonts.inter(
               fontSize: 12,
-              color: isAlert ? cardColor.withOpacity(0.8) : AppTheme.secondaryTextColor,
+              color: isAlert ? cardColor.withValues(alpha: 0.8) : AppTheme.secondaryTextColor,
             ),
           ),
         ],

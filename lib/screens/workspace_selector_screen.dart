@@ -77,7 +77,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
-                    side: BorderSide(color: AppTheme.primaryColor.withOpacity(0.3)),
+                    side: BorderSide(color: AppTheme.primaryColor.withValues(alpha: 0.3)),
                   ),
                 ),
               ),
@@ -112,7 +112,7 @@ class WorkspaceSelectorScreen extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  color: AppTheme.primaryColor.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Center(

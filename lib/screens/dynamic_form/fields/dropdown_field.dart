@@ -234,7 +234,7 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
                 }
               }
             } catch (e) {
-              print('Error loading dynamic options: $e');
+              debugPrint('Error loading dynamic options: $e');
             } finally {
               if (mounted) setState(() => _isLoading = false);
             }
@@ -275,9 +275,9 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
         _isLoading 
           ? const LinearProgressIndicator()
           : DropdownButtonFormField<String>(
-          value: _options.contains(widget.value) ? widget.value : null,
+          initialValue: _options.contains(widget.value) ? widget.value : null,
           dropdownColor: AppTheme.surfaceColor,
-          style: TextStyle(color: AppTheme.textColor),
+          style: const TextStyle(color: AppTheme.textColor),
           decoration: InputDecoration(
             filled: true,
             fillColor: AppTheme.surfaceColor,

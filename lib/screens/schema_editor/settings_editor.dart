@@ -113,7 +113,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
        if (dependencyValue != true) {
          return Text(
            'Disabled (Dependency not met)', 
-           style: TextStyle(color: AppTheme.secondaryTextColor.withOpacity(0.5), fontStyle: FontStyle.italic)
+           style: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5), fontStyle: FontStyle.italic)
          );
        }
     }
@@ -135,7 +135,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
           decoration: InputDecoration(
             isDense: true,
             hintText: 'Enter value',
-            hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withOpacity(0.5)),
+            hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5)),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           onChanged: (val) => widget.onSettingChanged(key, val),
@@ -170,14 +170,14 @@ class _SettingsEditorState extends State<SettingsEditor> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.3), style: BorderStyle.solid),
+          border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3), style: BorderStyle.solid),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Center(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.add, color: AppTheme.secondaryTextColor, size: 24),
+              const Icon(Icons.add, color: AppTheme.secondaryTextColor, size: 24),
               const SizedBox(width: 8),
               Text('Add New Setting', style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
             ],

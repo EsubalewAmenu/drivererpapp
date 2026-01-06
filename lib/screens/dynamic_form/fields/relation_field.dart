@@ -104,8 +104,11 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                             // Try to find a meaningful label (first text column)
                             String label = item.values.first.toString();
                             // Or look for specific keys like 'name', 'item_name'
-                            if (item.containsKey('item_name')) label = item['item_name'];
-                            else if (item.containsKey('name')) label = item['name'];
+                            if (item.containsKey('item_name')) {
+                              label = item['item_name'];
+                            } else if (item.containsKey('name')) {
+                              label = item['name'];
+                            }
                             
                             return ListTile(
                               title: Text(label),
@@ -136,16 +139,16 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
             ),
             child: Row(
               children: [
-                Icon(Icons.link_rounded, color: AppTheme.secondaryTextColor, size: 20),
+                const Icon(Icons.link_rounded, color: AppTheme.secondaryTextColor, size: 20),
                 const SizedBox(width: 12),
                 Text(
                   widget.value?.toString() ?? 'Select ${widget.column.label}',
                   style: GoogleFonts.inter(
-                    color: widget.value != null ? AppTheme.textColor : AppTheme.secondaryTextColor.withOpacity(0.5),
+                    color: widget.value != null ? AppTheme.textColor : AppTheme.secondaryTextColor.withValues(alpha: 0.5),
                   ),
                 ),
                 const Spacer(),
-                Icon(Icons.arrow_drop_down_rounded, color: AppTheme.secondaryTextColor),
+                const Icon(Icons.arrow_drop_down_rounded, color: AppTheme.secondaryTextColor),
               ],
             ),
           ),

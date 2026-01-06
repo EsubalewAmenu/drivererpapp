@@ -40,7 +40,7 @@ class AppDrawer extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppTheme.primaryColor.withOpacity(0.2),
+              color: AppTheme.primaryColor.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.grid_view_rounded, color: AppTheme.primaryColor),
@@ -72,7 +72,7 @@ class AppDrawer extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.backgroundColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.2)),
+          border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2)),
         ),
         child: InkWell(
           onTap: () {

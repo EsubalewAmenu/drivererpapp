@@ -129,13 +129,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.3), style: BorderStyle.solid),
+              border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3), style: BorderStyle.solid),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.upload_rounded, color: AppTheme.secondaryTextColor),
+                const Icon(Icons.upload_rounded, color: AppTheme.secondaryTextColor),
                 const SizedBox(width: 8),
                 Text('Upload Logo', style: GoogleFonts.inter(color: AppTheme.secondaryTextColor, fontWeight: FontWeight.w600)),
               ],
@@ -150,9 +150,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.surfaceColor.withOpacity(0.5),
+        color: AppTheme.surfaceColor.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.1)),
+        border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.1)),
       ),
       child: Column(
         children: [
@@ -182,14 +182,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: AppTheme.secondaryTextColor),
+      labelStyle: const TextStyle(color: AppTheme.secondaryTextColor),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: AppTheme.secondaryTextColor.withOpacity(0.3)),
+        borderSide: BorderSide(color: AppTheme.secondaryTextColor.withValues(alpha: 0.3)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: AppTheme.primaryColor),
+        borderSide: const BorderSide(color: AppTheme.primaryColor),
       ),
       filled: true,
       fillColor: AppTheme.backgroundColor,

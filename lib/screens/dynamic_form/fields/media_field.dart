@@ -53,7 +53,7 @@ class DynamicMediaField extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.surfaceColor,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.2), style: BorderStyle.solid),
+            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2), style: BorderStyle.solid),
           ),
           child: InkWell(
             onTap: () {
@@ -63,7 +63,7 @@ class DynamicMediaField extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.camera_alt_rounded, size: 32, color: AppTheme.secondaryTextColor),
+                const Icon(Icons.camera_alt_rounded, size: 32, color: AppTheme.secondaryTextColor),
                 const SizedBox(height: 8),
                 Text(
                   'Tap to capture',
@@ -104,12 +104,12 @@ class DynamicMediaField extends StatelessWidget {
                   filled: true,
                   fillColor: AppTheme.surfaceColor,
                   hintText: 'Scan or enter code',
-                  hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withOpacity(0.5)),
+                  hintStyle: TextStyle(color: AppTheme.secondaryTextColor.withValues(alpha: 0.5)),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
-                  prefixIcon: Icon(Icons.qr_code, color: AppTheme.secondaryTextColor),
+                  prefixIcon: const Icon(Icons.qr_code, color: AppTheme.secondaryTextColor),
                 ),
                 onChanged: onChanged,
               ),
@@ -127,7 +127,7 @@ class DynamicMediaField extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
+                  color: primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: primaryColor),
                 ),
@@ -160,7 +160,7 @@ class DynamicMediaField extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.surfaceColor,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.secondaryTextColor.withOpacity(0.2)),
+            border: Border.all(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2)),
           ),
           child: InkWell(
             onTap: () {

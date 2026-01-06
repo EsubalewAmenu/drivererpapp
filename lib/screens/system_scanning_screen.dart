@@ -133,7 +133,7 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: AppTheme.primaryColor.withOpacity(0.3),
+                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
                       width: 2,
                     ),
                   ),

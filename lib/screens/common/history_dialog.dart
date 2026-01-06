@@ -158,7 +158,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
     }
 
     if (_revisions.isEmpty) {
-      return Center(
+      return const Center(
         child: Text(
           'No revision history available.',
           style: TextStyle(color: AppTheme.secondaryTextColor),

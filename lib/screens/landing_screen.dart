@@ -51,7 +51,7 @@ class _LandingScreenState extends State<LandingScreen> {
                 Center(
                   child: Container(
                     padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: AppTheme.lightSurfaceColor,
                       shape: BoxShape.circle,
                     ),

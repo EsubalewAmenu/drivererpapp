@@ -153,7 +153,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 decoration: BoxDecoration(
                   color: isSelected ? AppTheme.backgroundColor : Colors.transparent,
                   borderRadius: BorderRadius.circular(8),
-                  boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4)] : null,
+                  boxShadow: isSelected ? [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 4)] : null,
                 ),
                 child: Text(
                   period.toUpperCase(),
@@ -178,12 +178,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [color.withOpacity(0.2), AppTheme.surfaceColor],
+          colors: [color.withValues(alpha: 0.2), AppTheme.surfaceColor],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -353,10 +353,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildMarketplaceCard(String name, String iconName, String desc, String colorHex) {
     final color = Color(int.parse(colorHex.replaceAll('#', '0xFF')));
     return Card(
-      color: AppTheme.surfaceColor.withOpacity(0.5),
+      color: AppTheme.surfaceColor.withValues(alpha: 0.5),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: AppTheme.secondaryTextColor.withOpacity(0.2), width: 1, style: BorderStyle.solid), // Dashed border simulation? No, just solid for now.
+        side: BorderSide(color: AppTheme.secondaryTextColor.withValues(alpha: 0.2), width: 1, style: BorderStyle.solid), // Dashed border simulation? No, just solid for now.
       ),
       child: InkWell(
         onTap: () {
@@ -384,12 +384,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: AppTheme.backgroundColor.withOpacity(0.5),
+                  color: AppTheme.backgroundColor.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   _getIconData(iconName),
-                  color: color.withOpacity(0.7),
+                  color: color.withValues(alpha: 0.7),
                   size: 24,
                 ),
               ),
