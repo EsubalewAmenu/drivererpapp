@@ -90,4 +90,18 @@ mixin DriveFileMixin {
       rethrow;
     }
   }
+
+  /// Fetches the revision history of a file.
+  Future<List<drive.Revision>> getFileRevisions(String fileId) async {
+    try {
+       final revisionList = await driveApi.revisions.list(
+          fileId,
+          $fields: 'revisions(id, modifiedTime, lastModifyingUser, originalFilename, mimeType)'
+       );
+       return revisionList.revisions ?? [];
+    } catch (e) {
+      print('Error fetching revision history: $e');
+      return [];
+    }
+  }
 }

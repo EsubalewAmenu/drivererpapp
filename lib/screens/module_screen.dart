@@ -10,6 +10,7 @@ import '../theme/app_theme.dart';
 import 'schema_editor_screen.dart';
 import 'module/module_dashboard.dart';
 import 'module/module_tab_screen.dart';
+import 'common/history_dialog.dart';
 
 class ModuleScreen extends StatefulWidget {
   final ModuleSchema module;
@@ -146,6 +147,48 @@ class _ModuleScreenState extends State<ModuleScreen> {
     }
   }
 
+  Future<void> _showHistory(BuildContext context, ModuleSchema module) async {
+    // Show dialog to let start loading history
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final driveService = DriveService(authService.authClient!);
+      
+      // Get the ID of the data spreadsheet (named same as module)
+      final fileId = await driveService.getFileId(module.id, module.name); // Data sheet
+      
+      if (mounted) {
+        Navigator.pop(context); // Close loading
+        if (fileId != null) {
+          showDialog(
+            context: context,
+            builder: (context) => HistoryDialog(
+              fileId: fileId,
+              fileName: module.name,
+              driveService: driveService,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text('Data file not found on Drive.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+         Navigator.pop(context); // Close loading
+         ScaffoldMessenger.of(context).showSnackBar(
+             SnackBar(content: Text('Error loading history: $e')),
+          );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoadingSchema) {
@@ -170,6 +213,11 @@ class _ModuleScreenState extends State<ModuleScreen> {
           centerTitle: true,
           backgroundColor: AppTheme.backgroundColor,
           actions: [
+            IconButton(
+              icon: const Icon(Icons.history_rounded),
+              tooltip: 'Version History',
+              onPressed: () => _showHistory(context, module),
+            ),
             IconButton(
               icon: const Icon(Icons.edit_note_rounded),
               tooltip: 'Edit Blueprint',
