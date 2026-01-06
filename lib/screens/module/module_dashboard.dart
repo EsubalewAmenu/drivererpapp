@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
 import '../../providers/drive_provider.dart';
-import '../../theme/app_theme.dart';
 
 class ModuleDashboard extends StatefulWidget {
   final ModuleSchema module;
@@ -118,15 +118,17 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
       return const Center(child: CircularProgressIndicator());
     }
 
+    final theme = Theme.of(context);
+
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
         Text(
           'PERFORMANCE OVERVIEW',
-          style: AppTheme.inter(
+          style: GoogleFonts.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
-            color: AppTheme.secondaryTextColor,
+            color: theme.textTheme.bodyMedium?.color,
             letterSpacing: 1.5,
           ),
         ),
@@ -137,12 +139,13 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
   }
 
   Widget _buildKpiCard(BuildContext context, KpiCard card) {
+    final theme = Theme.of(context);
     final value = _kpiValues[card.label] ?? '0';
     
     // Alert Logic: If label is "Shortages" and count > 0, use danger color
     final isAlert = card.label == 'Shortages' && (int.tryParse(value) ?? 0) > 0;
     final cardColor = isAlert ? const Color(0xFFF43F5E) : widget.primaryColor;
-    final bgColor = isAlert ? const Color(0xFFF43F5E).withValues(alpha: 0.1) : AppTheme.surfaceColor;
+    final bgColor = isAlert ? const Color(0xFFF43F5E).withValues(alpha: 0.1) : theme.cardTheme.color;
     final borderColor = isAlert ? const Color(0xFFF43F5E) : widget.primaryColor.withValues(alpha: 0.3);
 
     return Container(
@@ -161,10 +164,10 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
             children: [
               Text(
                 card.label.toUpperCase(),
-                style: AppTheme.inter(
+                style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: isAlert ? cardColor : AppTheme.secondaryTextColor,
+                  color: isAlert ? cardColor : theme.textTheme.bodyMedium?.color,
                   letterSpacing: 1.0,
                 ),
               ),
@@ -177,18 +180,18 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
           const SizedBox(height: 16),
           Text(
             value,
-            style: AppTheme.sourceCodePro(
+            style: GoogleFonts.sourceCodePro(
               fontSize: 32,
               fontWeight: FontWeight.w700,
-              color: isAlert ? cardColor : AppTheme.textColor,
+              color: isAlert ? cardColor : theme.textTheme.bodyLarge?.color,
             ),
           ),
           const SizedBox(height: 8),
           Text(
             "Formula: ${card.calculation}",
-            style: AppTheme.inter(
+            style: GoogleFonts.inter(
               fontSize: 12,
-              color: isAlert ? cardColor.withValues(alpha: 0.8) : AppTheme.secondaryTextColor,
+              color: isAlert ? cardColor.withValues(alpha: 0.8) : theme.textTheme.bodyMedium?.color,
             ),
           ),
         ],
