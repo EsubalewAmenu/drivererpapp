@@ -188,13 +188,27 @@ mixin DriveSheetMixin {
       // 3. Extract Nested Lists (Tables)
       final nestedTables = <String, List<dynamic>>{};
       final keysToRemove = <String>[];
+      final keysToEncode = <String>[];
       
       finalData.forEach((key, value) {
         if (value is List) {
-          nestedTables[key] = value;
-          keysToRemove.add(key);
+          // Check if list contains Maps (nested table) or primitives (list field)
+          final isNestedTable = value.isNotEmpty && value.first is Map;
+          
+          if (isNestedTable) {
+            nestedTables[key] = value;
+            keysToRemove.add(key);
+          } else {
+            // Simple list (e.g. variants, tags) - keep in main record as JSON string
+            keysToEncode.add(key);
+          }
         }
       });
+
+      // Encode simple lists directly in the data
+      for (var key in keysToEncode) {
+        finalData[key] = jsonEncode(finalData[key]);
+      }
 
       // Remove nested lists from the main record to normalize
       // We keep a reference or just remove them as they will be in separate sheets
