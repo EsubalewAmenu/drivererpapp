@@ -3,27 +3,70 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
+import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
-import 'package:drivererpapp/screens/module_screen.dart';
+import 'package:drivererpapp/services/auth_service.dart';
+import 'package:drivererpapp/screens/landing_screen.dart';
 
-class MockDriveProvider extends Mock implements DriveProvider {}
+class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
+class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
+
+class TestDriveProvider extends DriveProvider {
+  final DriveService? mockService;
+  TestDriveProvider(this.mockService);
+  
+  @override
+  DriveService? get driveService => mockService;
+  @override
+  void updateClient(http.Client? client) {}
+}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  late MockDriveProvider mockDriveProvider;
+  late MockAuthService mockAuthService;
   late MockDriveService mockDriveService;
-  late ModuleSchema testModule;
+  late MockGoogleSignInAccount mockUser;
+
+  setUpAll(() {
+    registerFallbackValue(drive.File());
+    registerFallbackValue(ModuleSchema(
+      id: '', name: '', icon: '', primaryColor: '', version: '',
+      settings: {}, dashboard: DashboardConfig(kpiCards: []), tabs: []
+    ));
+  });
 
   setUp(() {
-    mockDriveProvider = MockDriveProvider();
+    mockAuthService = MockAuthService();
     mockDriveService = MockDriveService();
+    mockUser = MockGoogleSignInAccount();
 
-    testModule = ModuleSchema(
-      id: 'module123',
+    when(() => mockUser.displayName).thenReturn('Test User');
+    when(() => mockUser.email).thenReturn('test@example.com');
+    when(() => mockAuthService.currentUser).thenReturn(mockUser);
+    when(() => mockAuthService.isAuthenticated).thenReturn(false);
+    when(() => mockAuthService.signInSilently()).thenAnswer((_) async {});
+    
+    when(() => mockAuthService.signIn()).thenAnswer((_) async {
+      when(() => mockAuthService.isAuthenticated).thenReturn(true);
+    });
+
+    when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
+    when(() => mockDriveService.listWorkspaces(any())).thenAnswer((_) async => []);
+  });
+
+  testWidgets('End-to-End Form Submission Flow', (tester) async {
+    final workspace = drive.File()..id = 'ws1'..name = 'ERP Workspace';
+    final moduleFolder = drive.File()..id = 'mod1'..name = 'Inventory';
+    
+    final moduleSchema = ModuleSchema(
+      id: 'mod1',
       name: 'Inventory',
       icon: 'inventory',
       primaryColor: '#F59E0B',
@@ -31,10 +74,10 @@ void main() {
       settings: {},
       tabs: [
         TabConfig(
-          id: 'items',
-          label: 'Items',
+          id: 'stocks',
+          label: 'Stocks',
           columns: [
-            ColumnConfig(key: 'name', label: 'Item Name', type: 'text', isRequired: true),
+            ColumnConfig(key: 'item', label: 'Item Name', type: 'text', isRequired: true),
             ColumnConfig(key: 'qty', label: 'Quantity', type: 'number'),
           ],
         ),
@@ -42,54 +85,74 @@ void main() {
       dashboard: DashboardConfig(kpiCards: []),
     );
 
-    when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
-    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
+    when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => [workspace]);
+    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFolder]);
+    when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_file');
+    when(() => mockDriveService.readModuleConfig('config_file')).thenAnswer((_) async => moduleSchema.toJson());
+    when(() => mockDriveService.getFileId('mod1', 'stocks')).thenAnswer((_) async => 'stocks_sheet');
     when(() => mockDriveService.fetchRecords(any(), any(), any())).thenAnswer((_) async => []);
-  });
+    when(() => mockDriveService.saveRecord(any(), any(), any(), any())).thenAnswer((_) async => {});
 
-  Widget createTestApp() {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
-      ],
-      child: MaterialApp(
-        home: ModuleScreen(module: testModule),
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
+          ChangeNotifierProvider<WorkspaceProvider>(create: (_) => WorkspaceProvider()),
+          ChangeNotifierProvider<DriveProvider>(create: (_) => TestDriveProvider(mockDriveService)),
+        ],
+        child: const MaterialApp(
+          home: LandingScreen(),
+          debugShowCheckedModeBanner: false,
+        ),
       ),
     );
-  }
-
-  testWidgets('Form Submission Flow: Module -> New Record -> Save', (tester) async {
-    await tester.pumpWidget(createTestApp());
     await tester.pumpAndSettle();
 
-    // 1. Go to Items Tab
-    await tester.tap(find.text('ITEMS'));
+    await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();
 
-    // 2. Tap Add FAB
-    await tester.tap(find.byIcon(Icons.add_rounded));
+    // Scanning screen delay - Wait for scanning to finish and transition to selector
+    // SystemScanningScreen has a delay of 500ms + network mocks
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    
+    expect(find.text('ERP Workspace'), findsOneWidget);
+    await tester.tap(find.text('ERP Workspace'));
     await tester.pumpAndSettle();
 
-    // 3. Fill Form
-    await tester.enterText(find.byType(TextFormField).first, 'Samosa');
-    await tester.enterText(find.byType(TextFormField).last, '50');
+    // Dashboard load delay
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    
+    // Tap the Inventory card
+    final inventoryCard = find.descendant(
+      of: find.byType(GridView),
+      matching: find.text('Inventory'),
+    );
+    await tester.tap(inventoryCard.first);
+    await tester.pumpAndSettle();
 
-    // 4. Save
-    when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
-        .thenAnswer((_) async => {});
+    await tester.tap(find.text('STOCKS'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+
+    final textFields = find.byType(TextField);
+    await tester.enterText(textFields.first, 'MacBook Pro M3');
+    await tester.enterText(textFields.last, '10');
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('SAVE'));
     await tester.pumpAndSettle();
 
-    // 5. Verify saveRecord called
     verify(() => mockDriveService.saveRecord(
-      'module123',
+      'mod1',
       'Inventory',
-      'items',
-      any(that: containsPair('name', 'Samosa')),
+      'stocks',
+      any(that: containsPair('item', 'MacBook Pro M3')),
     )).called(1);
 
-    // 6. Verify back on list screen
-    expect(find.text('INVENTORY'), findsOneWidget);
+    expect(find.text('STOCKS'), findsOneWidget);
   });
 }
