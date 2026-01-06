@@ -32,15 +32,15 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
           children: [
             TextField(
               controller: _labelController,
-              style: TextStyle(color: AppTheme.textColor),
+              style: const TextStyle(color: AppTheme.textColor),
               decoration: const InputDecoration(labelText: 'Column Name'),
               autofocus: true,
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _currentType,
+              initialValue: _currentType,
               dropdownColor: AppTheme.surfaceColor,
-              style: TextStyle(color: AppTheme.textColor),
+              style: const TextStyle(color: AppTheme.textColor),
               items: {
                 'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table'
               }

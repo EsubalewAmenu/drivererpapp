@@ -36,7 +36,7 @@ class TableColumnEditorItem extends StatelessWidget {
       child: ExpansionTile(
         title: Row(
           children: [
-            Icon(Icons.table_chart_outlined, size: 20, color: AppTheme.secondaryTextColor),
+            const Icon(Icons.table_chart_outlined, size: 20, color: AppTheme.secondaryTextColor),
             const SizedBox(width: 12),
             Expanded(
               child: Text(column.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: AppTheme.textColor)),
@@ -183,8 +183,8 @@ class TableColumnEditorItem extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.surfaceColor,
-        title: Text('Delete Sub-Column', style: TextStyle(color: AppTheme.textColor)),
-        content: Text('Are you sure you want to delete "${subCol.label}"?', style: TextStyle(color: AppTheme.secondaryTextColor)),
+        title: const Text('Delete Sub-Column', style: TextStyle(color: AppTheme.textColor)),
+        content: Text('Are you sure you want to delete "${subCol.label}"?', style: const TextStyle(color: AppTheme.secondaryTextColor)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(

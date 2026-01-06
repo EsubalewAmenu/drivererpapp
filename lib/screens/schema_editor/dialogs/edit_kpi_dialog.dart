@@ -46,7 +46,7 @@ class _EditKpiDialogState extends State<EditKpiDialog> {
           children: [
             TextField(
               controller: _labelController,
-              style: TextStyle(color: AppTheme.textColor),
+              style: const TextStyle(color: AppTheme.textColor),
               decoration: const InputDecoration(
                 labelText: 'Label',
                 helperText: 'Display name (e.g. Total Revenue)',
@@ -57,7 +57,7 @@ class _EditKpiDialogState extends State<EditKpiDialog> {
             
             TextField(
               controller: _calculationController,
-              style: TextStyle(color: AppTheme.textColor),
+              style: const TextStyle(color: AppTheme.textColor),
               decoration: const InputDecoration(
                 labelText: 'Calculation Formula',
                 helperText: 'e.g. SUM(amount) or COUNT(id)',
@@ -66,9 +66,9 @@ class _EditKpiDialogState extends State<EditKpiDialog> {
             const SizedBox(height: 16),
             
             DropdownButtonFormField<String>(
-              value: _format,
+              initialValue: _format,
               dropdownColor: AppTheme.surfaceColor,
-              style: TextStyle(color: AppTheme.textColor),
+              style: const TextStyle(color: AppTheme.textColor),
               items: ['number', 'currency', 'percent']
                   .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
                   .toList(),

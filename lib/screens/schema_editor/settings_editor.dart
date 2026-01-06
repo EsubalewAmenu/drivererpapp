@@ -121,10 +121,10 @@ class _SettingsEditorState extends State<SettingsEditor> {
     switch (type) {
       case 'boolean':
         return SwitchListTile(
-          title: Text('Value', style: TextStyle(color: AppTheme.secondaryTextColor)),
+          title: const Text('Value', style: TextStyle(color: AppTheme.secondaryTextColor)),
           value: widget.settingsValues[key] == true,
           onChanged: (val) => widget.onSettingChanged(key, val),
-          activeColor: AppTheme.primaryColor,
+          activeThumbColor: AppTheme.primaryColor,
           contentPadding: EdgeInsets.zero,
           dense: true,
         );
@@ -238,8 +238,8 @@ class _SettingsEditorState extends State<SettingsEditor> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.surfaceColor,
-        title: Text('Delete Setting', style: TextStyle(color: AppTheme.textColor)),
-        content: Text('Are you sure you want to delete "$key"?', style: TextStyle(color: AppTheme.secondaryTextColor)),
+        title: const Text('Delete Setting', style: TextStyle(color: AppTheme.textColor)),
+        content: Text('Are you sure you want to delete "$key"?', style: const TextStyle(color: AppTheme.secondaryTextColor)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(

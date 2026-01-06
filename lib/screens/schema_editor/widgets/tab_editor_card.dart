@@ -160,8 +160,8 @@ class TabEditorCard extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppTheme.surfaceColor,
-        title: Text('Delete Column', style: TextStyle(color: AppTheme.textColor)),
-        content: Text('Are you sure you want to delete "${col.label}"? This cannot be undone.', style: TextStyle(color: AppTheme.secondaryTextColor)),
+        title: const Text('Delete Column', style: TextStyle(color: AppTheme.textColor)),
+        content: Text('Are you sure you want to delete "${col.label}"? This cannot be undone.', style: const TextStyle(color: AppTheme.secondaryTextColor)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(

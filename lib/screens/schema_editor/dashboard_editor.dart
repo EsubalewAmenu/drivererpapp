@@ -71,7 +71,7 @@ class DashboardEditor extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.functions, size: 16, color: AppTheme.primaryColor),
+                  const Icon(Icons.functions, size: 16, color: AppTheme.primaryColor),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(

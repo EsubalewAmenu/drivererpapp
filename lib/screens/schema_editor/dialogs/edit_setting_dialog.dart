@@ -61,7 +61,7 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
           children: [
             TextField(
               controller: _keyController,
-              style: TextStyle(color: AppTheme.textColor),
+              style: const TextStyle(color: AppTheme.textColor),
               decoration: const InputDecoration(
                 labelText: 'Setting Key (ID)',
                 helperText: 'Unique identifier (e.g. tax_rate)',
@@ -71,15 +71,15 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
             
             TextField(
               controller: _labelController,
-              style: TextStyle(color: AppTheme.textColor),
+              style: const TextStyle(color: AppTheme.textColor),
               decoration: const InputDecoration(labelText: 'Label'),
             ),
             const SizedBox(height: 16),
             
             DropdownButtonFormField<String>(
-              value: _type,
+              initialValue: _type,
               dropdownColor: AppTheme.surfaceColor,
-              style: TextStyle(color: AppTheme.textColor),
+              style: const TextStyle(color: AppTheme.textColor),
               items: ['text', 'boolean', 'list', 'number']
                   .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
                   .toList(),
@@ -93,7 +93,7 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
             TextField(
               onChanged: (val) => _dependsOn = val.isEmpty ? null : val,
               controller: TextEditingController(text: _dependsOn),
-              style: TextStyle(color: AppTheme.textColor),
+              style: const TextStyle(color: AppTheme.textColor),
               decoration: const InputDecoration(
                 labelText: 'Depends On (Key)',
                 helperText: 'Optional: Show only if this setting is true',

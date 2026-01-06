@@ -34,7 +34,7 @@ class _EditTabDialogState extends State<EditTabDialog> {
       title: Text('Edit Tab', style: GoogleFonts.inter(color: AppTheme.textColor)),
       content: TextField(
         controller: _labelController,
-        style: TextStyle(color: AppTheme.textColor),
+        style: const TextStyle(color: AppTheme.textColor),
         decoration: const InputDecoration(labelText: 'Tab Name'),
         autofocus: true,
       ),
