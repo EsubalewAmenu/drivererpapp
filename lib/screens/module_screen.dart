@@ -56,7 +56,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
           final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
           jsonMap = jsonDecode(jsonString);
         } catch (e) {
-          print('Asset not found for $fileName, using default empty schema');
+          debugPrint('Asset not found for $fileName, using default empty schema');
           jsonMap = {
             'settings': {'name': {'value': widget.module.name}},
             'dashboard': {'kpiCards': []},
@@ -137,7 +137,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
       }
 
     } catch (e) {
-      print('Error loading module schema: $e');
+      debugPrint('Error loading module schema: $e');
       if (mounted) {
         setState(() {
           _fullModule = widget.module;

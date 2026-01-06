@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
 mixin DriveFileMixin {
@@ -19,7 +20,7 @@ mixin DriveFileMixin {
         }
         return null;
       } catch (e) {
-        print('Error checking file: $e');
+        debugPrint('Error checking file: $e');
         rethrow;
       }
     });
@@ -37,7 +38,7 @@ mixin DriveFileMixin {
       final content = await stream.transform(utf8.decoder).join();
       return content;
     } catch (e) {
-      print('Error reading file content: $e');
+      debugPrint('Error reading file content: $e');
       rethrow;
     }
   }
@@ -60,10 +61,10 @@ mixin DriveFileMixin {
         file,
         uploadMedia: media,
       );
-      print('Created file: ${createdFile.name} (${createdFile.id})');
+      debugPrint('Created file: ${createdFile.name} (${createdFile.id})');
       return createdFile.id!;
     } catch (e) {
-      print('Error creating file: $e');
+      debugPrint('Error creating file: $e');
       rethrow;
     }
   }
@@ -84,9 +85,9 @@ mixin DriveFileMixin {
         fileId,
         uploadMedia: media,
       );
-      print('Updated file: $fileId');
+      debugPrint('Updated file: $fileId');
     } catch (e) {
-      print('Error updating file: $e');
+      debugPrint('Error updating file: $e');
       rethrow;
     }
   }
@@ -100,7 +101,7 @@ mixin DriveFileMixin {
        );
        return revisionList.revisions ?? [];
     } catch (e) {
-      print('Error fetching revision history: $e');
+      debugPrint('Error fetching revision history: $e');
       return [];
     }
   }

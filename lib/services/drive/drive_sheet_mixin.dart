@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
 
@@ -23,7 +24,7 @@ mixin DriveSheetMixin {
       
       final created = await sheetsApi.spreadsheets.create(spreadsheet);
       final fileId = created.spreadsheetId!;
-      print('Created spreadsheet: $fileName ($fileId)');
+      debugPrint('Created spreadsheet: $fileName ($fileId)');
 
       // 2. Move to folder
       final file = await driveApi.files.get(fileId, $fields: 'parents') as drive.File;
@@ -36,14 +37,14 @@ mixin DriveSheetMixin {
         removeParents: previousParents,
         $fields: 'id, parents',
       );
-      print('Moved spreadsheet to folder: $folderId');
+      debugPrint('Moved spreadsheet to folder: $folderId');
 
       // 3. Write data
       await updateModuleConfig(fileId, config);
       
       return fileId;
     } catch (e) {
-      print('Error creating module config: $e');
+      debugPrint('Error creating module config: $e');
       rethrow;
     }
   }
@@ -88,7 +89,7 @@ mixin DriveSheetMixin {
       
       return config;
     } catch (e) {
-      print('Error reading module config: $e');
+      debugPrint('Error reading module config: $e');
       return {};
     }
   }
@@ -108,7 +109,7 @@ mixin DriveSheetMixin {
         valueInputOption: 'RAW',
       );
     } catch (e) {
-      print('Error writing to sheet $sheetTitle: $e');
+      debugPrint('Error writing to sheet $sheetTitle: $e');
       // Don't rethrow, try to continue
     }
   }
@@ -126,7 +127,7 @@ mixin DriveSheetMixin {
       }
       return map;
     } catch (e) {
-      print('Error reading sheet $sheetTitle: $e');
+      debugPrint('Error reading sheet $sheetTitle: $e');
       return {};
     }
   }
@@ -171,7 +172,7 @@ mixin DriveSheetMixin {
             );
            });
         }
-        print('Created data spreadsheet: $spreadsheetName ($spreadsheetId)');
+        debugPrint('Created data spreadsheet: $spreadsheetName ($spreadsheetId)');
       }
 
       // 2. Check/Create Sheet (Tab)
@@ -191,7 +192,7 @@ mixin DriveSheetMixin {
           ),
           spreadsheetId!,
         ));
-        print('Created sheet: $sheetTitle');
+        debugPrint('Created sheet: $sheetTitle');
       }
 
       // 3. Handle Headers and Append
@@ -237,10 +238,10 @@ mixin DriveSheetMixin {
         '$sheetTitle!A1',
         valueInputOption: 'RAW',
       ));
-      print('Appended record to $sheetTitle');
+      debugPrint('Appended record to $sheetTitle');
       
     } catch (e) {
-      print('Error saving record: $e');
+      debugPrint('Error saving record: $e');
       rethrow;
     }
   }
@@ -283,7 +284,7 @@ mixin DriveSheetMixin {
 
       return records;
     } catch (e) {
-      print('Error fetching records: $e');
+      debugPrint('Error fetching records: $e');
       return [];
     }
   }

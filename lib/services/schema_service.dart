@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import '../models/schema_models.dart';
 
@@ -15,7 +16,7 @@ class SchemaService {
         final Map<String, dynamic> jsonMap = json.decode(jsonString);
         modules.add(ModuleSchema.fromJson(jsonMap));
       } catch (e) {
-        print('Error loading module $file: $e');
+        debugPrint('Error loading module $file: $e');
       }
     }
 

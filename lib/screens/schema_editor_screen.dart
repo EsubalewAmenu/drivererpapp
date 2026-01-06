@@ -1,5 +1,5 @@
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
@@ -174,10 +174,10 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
       final existingFileId = await driveService.getFileId(widget.module.id, 'config');
 
       if (existingFileId != null) {
-        print('Updating existing config sheet ($existingFileId)...');
+        debugPrint('Updating existing config sheet ($existingFileId)...');
         await driveService.updateModuleConfig(existingFileId, jsonMap);
       } else {
-        print('Creating new config sheet in ${widget.module.id}...');
+        debugPrint('Creating new config sheet in ${widget.module.id}...');
         await driveService.createModuleConfig(widget.module.id, 'config', jsonMap);
       }
 
@@ -188,7 +188,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
         Navigator.pop(context);
       }
     } catch (e) {
-      print('Error saving configuration: $e');
+      debugPrint('Error saving configuration: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error saving configuration: $e')),

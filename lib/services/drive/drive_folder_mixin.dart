@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
 mixin DriveFolderMixin {
@@ -18,7 +19,7 @@ mixin DriveFolderMixin {
       }
       return null;
     } catch (e) {
-      print('Error checking root folder: $e');
+      debugPrint('Error checking root folder: $e');
       rethrow;
     }
   }
@@ -33,7 +34,7 @@ mixin DriveFolderMixin {
       final createdFolder = await driveApi.files.create(folder);
       return createdFolder.id!;
     } catch (e) {
-      print('Error creating root folder: $e');
+      debugPrint('Error creating root folder: $e');
       rethrow;
     }
   }
@@ -47,7 +48,7 @@ mixin DriveFolderMixin {
       );
       return fileList.files ?? [];
     } catch (e) {
-      print('Error listing workspaces: $e');
+      debugPrint('Error listing workspaces: $e');
       rethrow;
     }
   }
@@ -62,7 +63,7 @@ mixin DriveFolderMixin {
 
       return await driveApi.files.create(folder);
     } catch (e) {
-      print('Error creating workspace: $e');
+      debugPrint('Error creating workspace: $e');
       rethrow;
     }
   }
@@ -76,7 +77,7 @@ mixin DriveFolderMixin {
       );
       return fileList.files ?? [];
     } catch (e) {
-      print('Error listing modules: $e');
+      debugPrint('Error listing modules: $e');
       rethrow;
     }
   }
