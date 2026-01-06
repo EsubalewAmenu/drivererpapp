@@ -87,8 +87,10 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
           ),
           onChanged: widget.onChanged,
           validator: (value) {
-            if (value == null || value.isEmpty) {
-              // return 'Please enter ${widget.column.label.toLowerCase()}';
+            if (widget.column.isRequired == true) {
+              if (value == null || value.isEmpty) {
+                return 'This field is required';
+              }
             }
             return null;
           },

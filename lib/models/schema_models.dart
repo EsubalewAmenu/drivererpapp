@@ -131,6 +131,8 @@ class ColumnConfig {
   final List<ColumnConfig>? columns;
   final bool? hidden;
   final String? dynamicLabel;
+  @JsonKey(name: 'required')
+  final bool? isRequired;
 
   ColumnConfig({
     required this.key,
@@ -143,6 +145,7 @@ class ColumnConfig {
     this.columns,
     this.hidden,
     this.dynamicLabel,
+    this.isRequired,
   });
 
   factory ColumnConfig.fromJson(Map<String, dynamic> json) => _$ColumnConfigFromJson(json);
