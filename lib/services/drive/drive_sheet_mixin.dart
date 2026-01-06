@@ -135,19 +135,21 @@ mixin DriveSheetMixin {
   Future<void> saveRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, Map<String, dynamic> data) async {
     try {
       // 1. Find or Create Spreadsheet
-      String? spreadsheetId = await getFileId(moduleFolderId, spreadsheetName);
+      // Use sheetTitle as the spreadsheet name to save each tab in a separate file
+      String targetSpreadsheetName = sheetTitle;
+      String? spreadsheetId = await getFileId(moduleFolderId, targetSpreadsheetName);
       
       if (spreadsheetId == null) {
         // Create new spreadsheet
         final spreadsheet = sheets.Spreadsheet(
-          properties: sheets.SpreadsheetProperties(title: spreadsheetName),
+          properties: sheets.SpreadsheetProperties(title: targetSpreadsheetName),
         );
         final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
         spreadsheetId = created.spreadsheetId!;
         
         // Move to folder
         final file = await retryOp(() async {
-           final result = await driveApi.files.get(spreadsheetId!, $fields: 'parents');
+           final result = await driveApi.files.get(spreadsheetId!, $fields: 'id, parents');
            return result as drive.File;
         });
         final previousParents = file.parents?.join(',') ?? '';
@@ -172,7 +174,7 @@ mixin DriveSheetMixin {
             );
            });
         }
-        debugPrint('Created data spreadsheet: $spreadsheetName ($spreadsheetId)');
+        debugPrint('Created data spreadsheet: $targetSpreadsheetName ($spreadsheetId)');
       }
 
       // 2. Check/Create Sheet (Tab)
@@ -249,7 +251,9 @@ mixin DriveSheetMixin {
   Future<List<Map<String, dynamic>>> fetchRecords(String moduleFolderId, String spreadsheetName, String sheetTitle) async {
     try {
       // 1. Find Spreadsheet
-      String? spreadsheetId = await getFileId(moduleFolderId, spreadsheetName);
+      // Use sheetTitle as the spreadsheet name
+      String targetSpreadsheetName = sheetTitle;
+      String? spreadsheetId = await getFileId(moduleFolderId, targetSpreadsheetName);
       
       if (spreadsheetId == null) {
         return [];
