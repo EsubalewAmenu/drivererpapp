@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../models/schema_models.dart';
@@ -169,8 +170,80 @@ class RecordDetailScreen extends StatelessWidget {
            return _buildFormulaField(context, col.label, displayValue);
         }
 
+        if (col.type == 'list') {
+           return _buildListField(context, col.label, value);
+        }
+
         return _buildTextField(context, col.label, displayValue);
       },
+    );
+  }
+
+  Widget _buildListField(BuildContext context, String label, dynamic value) {
+    if (value == null || (value is String && value.isEmpty)) {
+      return _buildTextField(context, label, 'N/A');
+    }
+
+    final theme = Theme.of(context);
+    List<String> items = [];
+
+    if (value is List) {
+      items = value.map((e) => e.toString()).toList();
+    } else if (value is String) {
+      try {
+        final decoded = jsonDecode(value);
+        if (decoded is List) {
+          items = decoded.map((e) => e.toString()).toList();
+        } else {
+          items = [value];
+        }
+      } catch (_) {
+        items = [value];
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label.toUpperCase(),
+          style: GoogleFonts.inter(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: theme.textTheme.bodyMedium?.color,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.cardTheme.color,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: items.map((item) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: primaryColor.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+              ),
+              child: Text(
+                item,
+                style: GoogleFonts.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: primaryColor,
+                ),
+              ),
+            )).toList(),
+          ),
+        ),
+      ],
     );
   }
 
