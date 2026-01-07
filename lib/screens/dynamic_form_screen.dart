@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../theme/app_theme.dart';
 import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
 import '../providers/sync_provider.dart';
@@ -79,7 +79,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       appBar: AppBar(
         title: Text(
           isEditing ? 'EDIT ${widget.tab.label.toUpperCase()}' : 'NEW ${widget.tab.label.toUpperCase()}',
-          style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, color: theme.textTheme.titleLarge?.color),
+          style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, color: theme.textTheme.titleLarge?.color),
         ),
         centerTitle: true,
         backgroundColor: theme.appBarTheme.backgroundColor,
@@ -90,7 +90,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             onPressed: _saveForm,
             child: Text(
               'SAVE',
-              style: GoogleFonts.inter(
+              style: AppTheme.inter(
                 fontWeight: FontWeight.w700,
                 color: widget.primaryColor,
               ),

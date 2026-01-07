@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:drivererpapp/theme/app_theme.dart';
 import '../../models/schema_models.dart';
 import 'widgets/tab_editor_card.dart';
 import 'dialogs/add_tab_dialog.dart';
@@ -124,7 +124,7 @@ class _StructureEditorState extends State<StructureEditor> {
             children: [
               Icon(Icons.add, color: color, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w600)),
+              Text(label, style: AppTheme.inter(color: color, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

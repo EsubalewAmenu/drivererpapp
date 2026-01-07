@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:drivererpapp/theme/app_theme.dart';
 import 'dialogs/edit_setting_dialog.dart';
 
 class SettingsEditor extends StatefulWidget {
@@ -35,7 +35,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
               padding: const EdgeInsets.only(bottom: 24.0),
               child: Text(
                 'No settings defined.',
-                style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color),
+                style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
               ),
             ),
           ),
@@ -72,16 +72,16 @@ class _SettingsEditorState extends State<SettingsEditor> {
                     children: [
                       Text(
                         item['label'] ?? key,
-                        style: GoogleFonts.inter(fontWeight: FontWeight.w600, color: theme.textTheme.titleMedium?.color),
+                        style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.textTheme.titleMedium?.color),
                       ),
                       Text(
                         'Key: $key | Type: ${item['type']}',
-                        style: GoogleFonts.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color),
+                        style: AppTheme.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color),
                       ),
                       if (item['dependsOn'] != null)
                         Text(
                           'Depends on: ${item['dependsOn']}',
-                          style: GoogleFonts.inter(fontSize: 10, color: Colors.orange),
+                          style: AppTheme.inter(fontSize: 10, color: Colors.orange),
                         ),
                     ],
                   ),
@@ -135,7 +135,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
       case 'text':
         return TextFormField(
           initialValue: widget.settingsValues[key]?.toString(),
-          style: GoogleFonts.inter(color: textColor),
+          style: AppTheme.inter(color: textColor),
           decoration: InputDecoration(
             isDense: true,
             hintText: 'Enter value',
@@ -186,7 +186,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
             children: [
               Icon(Icons.add, color: color, size: 24),
               const SizedBox(width: 8),
-              Text('Add New Setting', style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w600)),
+              Text('Add New Setting', style: AppTheme.inter(color: color, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

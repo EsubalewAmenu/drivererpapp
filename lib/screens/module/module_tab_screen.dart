@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
 import '../../providers/drive_provider.dart';
 import '../../services/drive_service.dart';
+import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
 import '../record_detail_screen.dart';
 
@@ -151,7 +151,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       padding: const EdgeInsets.all(16.0),
       child: TextField(
         controller: _searchController,
-        style: GoogleFonts.inter(color: theme.textTheme.bodyLarge?.color),
+        style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
         decoration: InputDecoration(
           hintText: 'Search ${widget.tab.label.toLowerCase()}...',
           hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
@@ -201,7 +201,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             },
             backgroundColor: theme.cardTheme.color,
             selectedColor: widget.primaryColor.withValues(alpha: 0.2),
-            labelStyle: GoogleFonts.inter(
+            labelStyle: AppTheme.inter(
               color: isSelected ? widget.primaryColor : theme.textTheme.bodyMedium?.color,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             ),
@@ -224,7 +224,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       return Center(
         child: Text(
           'No items found',
-          style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color),
+          style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
         ),
       );
     }
@@ -285,7 +285,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                     if (titleKey.isNotEmpty)
                       Text(
                         item[titleKey]?.toString() ?? '',
-                        style: GoogleFonts.inter(
+                        style: AppTheme.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: theme.textTheme.bodyLarge?.color,
@@ -294,7 +294,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                     if (subtitleKey.isNotEmpty)
                       Text(
                         item[subtitleKey]?.toString() ?? '',
-                        style: GoogleFonts.inter(
+                        style: AppTheme.inter(
                           fontSize: 14,
                           color: theme.textTheme.bodyMedium?.color,
                         ),
