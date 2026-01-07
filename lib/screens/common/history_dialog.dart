@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:intl/intl.dart';
 import '../../services/drive_service.dart';
@@ -112,7 +112,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
               Expanded(
                 child: Text(
                   widget.fileName != null ? 'File History' : 'Module History',
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontWeight: FontWeight.w700, 
                     color: theme.textTheme.bodyLarge?.color,
                   ),
@@ -125,7 +125,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
             widget.fileName == 'config' 
                 ? 'Module Schema & Settings' 
                 : 'Tracking: ${widget.fileName ?? widget.moduleName}',
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 12,
               color: theme.textTheme.bodyMedium?.color,
               fontWeight: FontWeight.w400,
@@ -141,7 +141,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: Text('Close', style: GoogleFonts.inter(fontWeight: FontWeight.w600)),
+          child: Text('Close', style: AppTheme.inter(fontWeight: FontWeight.w600)),
         ),
       ],
     );
@@ -185,7 +185,7 @@ class _HistoryDialogState extends State<HistoryDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
                 key.toUpperCase(),
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                   color: theme.textTheme.bodyMedium?.color,
@@ -212,17 +212,17 @@ class _HistoryDialogState extends State<HistoryDialog> {
     if (session.subs.isEmpty) {
       return ListTile(
         leading: _buildVersionBadge(versionLabel),
-        title: Text(time, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: theme.textTheme.bodyLarge?.color)),
-        subtitle: Text('Modified by $user', style: GoogleFonts.inter(fontSize: 12, color: theme.textTheme.bodyMedium?.color)),
+        title: Text(time, style: AppTheme.inter(fontWeight: FontWeight.w600, fontSize: 14, color: theme.textTheme.bodyLarge?.color)),
+        subtitle: Text('Modified by $user', style: AppTheme.inter(fontSize: 12, color: theme.textTheme.bodyMedium?.color)),
         dense: true,
       );
     }
 
     return ExpansionTile(
       leading: _buildVersionBadge(versionLabel),
-      title: Text(time, style: GoogleFonts.inter(fontWeight: FontWeight.w600, fontSize: 14, color: theme.textTheme.bodyLarge?.color)),
+      title: Text(time, style: AppTheme.inter(fontWeight: FontWeight.w600, fontSize: 14, color: theme.textTheme.bodyLarge?.color)),
       subtitle: Text('Modified by $user • ${session.subs.length + 1} versions', 
-          style: GoogleFonts.inter(fontSize: 12, color: theme.textTheme.bodyMedium?.color)),
+          style: AppTheme.inter(fontSize: 12, color: theme.textTheme.bodyMedium?.color)),
       children: session.subs.map((sub) {
         final subTime = DateFormat.jm().format(sub.modifiedTime?.toLocal() ?? DateTime.now());
         final subVersion = 'V${_revisions.length - _revisions.indexOf(sub)}';
@@ -233,8 +233,8 @@ class _HistoryDialogState extends State<HistoryDialog> {
              width: 8, height: 8, 
              decoration: BoxDecoration(color: theme.textTheme.bodyMedium?.color, shape: BoxShape.circle)
           ),
-          title: Text(subTime, style: GoogleFonts.inter(fontSize: 13, color: theme.textTheme.bodyLarge?.color)),
-          trailing: Text(subVersion, style: GoogleFonts.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
+          title: Text(subTime, style: AppTheme.inter(fontSize: 13, color: theme.textTheme.bodyLarge?.color)),
+          trailing: Text(subVersion, style: AppTheme.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
           dense: true,
         );
       }).toList(),

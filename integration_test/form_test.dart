@@ -31,7 +31,7 @@ class TestDriveProvider extends DriveProvider {
 }
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late MockAuthService mockAuthService;
   late MockDriveService mockDriveService;
@@ -66,6 +66,7 @@ void main() {
   });
 
   testWidgets('End-to-End Form Submission Flow', (tester) async {
+    debugPrint('TEST: Starting form_test flow');
     final workspace = drive.File()..id = 'ws1'..name = 'ERP Workspace';
     final moduleFolder = drive.File()..id = 'mod1'..name = 'Inventory';
     
@@ -192,18 +193,16 @@ void main() {
     await pumpFor(const Duration(seconds: 2));
     await safePumpAndSettle();
     
-    // Tap the Inventory card
-     debugPrint('TEST: Searching for Inventory card');
-    final inventoryCard = find.descendant(
-      of: find.byType(GridView),
-      matching: find.text('Inventory'),
-    );
-     // Wait for it
+    debugPrint('TEST: Searching for Inventory card');
+    final activeFinder = find.text('Active');
     for(int i=0; i<10; i++) {
-        if(inventoryCard.evaluate().isNotEmpty) break;
+        if(activeFinder.evaluate().isNotEmpty) break;
         await tester.pump(const Duration(milliseconds: 500));
     }
-    await tester.tap(inventoryCard.first);
+    
+    expect(activeFinder, findsOneWidget);
+    final activeModuleFinder = find.ancestor(of: activeFinder, matching: find.byType(Card));
+    await tester.tap(activeModuleFinder);
     await safePumpAndSettle();
 
     debugPrint('TEST: Tapped Inventory, waiting for Stocks tab...');

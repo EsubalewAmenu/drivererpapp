@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../../theme/app_theme.dart';
 import '../../models/schema_models.dart';
 import '../../providers/drive_provider.dart';
 
@@ -125,7 +125,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
       children: [
         Text(
           'PERFORMANCE OVERVIEW',
-          style: GoogleFonts.inter(
+          style: AppTheme.inter(
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: theme.textTheme.bodyMedium?.color,
@@ -164,7 +164,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
             children: [
               Text(
                 card.label.toUpperCase(),
-                style: GoogleFonts.inter(
+                style: AppTheme.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: isAlert ? cardColor : theme.textTheme.bodyMedium?.color,
@@ -180,7 +180,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
           const SizedBox(height: 16),
           Text(
             value,
-            style: GoogleFonts.sourceCodePro(
+            style: AppTheme.sourceCodePro(
               fontSize: 32,
               fontWeight: FontWeight.w700,
               color: isAlert ? cardColor : theme.textTheme.bodyLarge?.color,
@@ -189,7 +189,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
           const SizedBox(height: 8),
           Text(
             "Formula: ${card.calculation}",
-            style: GoogleFonts.inter(
+            style: AppTheme.inter(
               fontSize: 12,
               color: isAlert ? cardColor.withValues(alpha: 0.8) : theme.textTheme.bodyMedium?.color,
             ),

@@ -9,6 +9,7 @@ import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/sync_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
+import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
 class MockAuthService extends Mock implements AuthService {}
@@ -18,13 +19,18 @@ class MockSyncProvider extends Mock implements SyncProvider {}
 class MockDriveService extends Mock implements DriveService {}
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late MockAuthService mockAuthService;
   late MockWorkspaceProvider mockWorkspaceProvider;
   late MockDriveProvider mockDriveProvider;
   late MockSyncProvider mockSyncProvider;
   late MockDriveService mockDriveService;
+
+  setUpAll(() {
+    AppTheme.useGoogleFonts = false;
+    registerFallbackValue(drive.File());
+  });
 
   setUp(() {
     mockAuthService = MockAuthService();
@@ -54,6 +60,7 @@ void main() {
   }
 
   testWidgets('Full flow: Landing -> Sign In -> System Scanning -> Workspace Selection', (tester) async {
+    debugPrint('TEST: Starting app_test flow');
     // 1. Landing Screen
     await tester.pumpWidget(createTestApp());
     expect(find.text('DRIVE ERP'), findsOneWidget);

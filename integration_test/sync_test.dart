@@ -11,6 +11,7 @@ import 'package:drivererpapp/providers/sync_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dynamic_form_screen.dart';
+import 'package:drivererpapp/theme/app_theme.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
@@ -30,13 +31,14 @@ class TestDriveProvider extends DriveProvider {
 }
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late MockDriveService mockDriveService;
   late TabConfig testTab;
   late ModuleSchema testModule;
 
   setUpAll(() {
+    AppTheme.useGoogleFonts = false;
     registerFallbackValue(drive.File());
   });
 
@@ -64,6 +66,7 @@ void main() {
   });
 
   testWidgets('Offline Queue and Sync Verification', (tester) async {
+    debugPrint('TEST: Starting sync_test flow');
     final driveProvider = TestDriveProvider(mockDriveService);
     final syncProvider = SyncProvider()..updateDriveProvider(driveProvider);
 

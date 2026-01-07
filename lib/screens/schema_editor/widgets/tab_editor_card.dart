@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:drivererpapp/theme/app_theme.dart';
 import '../../../models/schema_models.dart';
 import 'column_list_item.dart';
 import 'table_column_editor_item.dart';
@@ -33,7 +33,7 @@ class TabEditorCard extends StatelessWidget {
         title: Row(
           children: [
             Expanded(
-              child: Text(tab.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
+              child: Text(tab.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
             ),
             IconButton(
               icon: const Icon(Icons.edit_rounded, size: 20),
@@ -47,7 +47,7 @@ class TabEditorCard extends StatelessWidget {
             ),
           ],
         ),
-        subtitle: Text('${tab.columns.length} Columns', style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color)),
+        subtitle: Text('${tab.columns.length} Columns', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color)),
         iconColor: theme.primaryColor,
         collapsedIconColor: theme.iconTheme.color,
         children: [
@@ -104,7 +104,7 @@ class TabEditorCard extends StatelessWidget {
             children: [
               Icon(Icons.add, color: color, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w600)),
+              Text(label, style: AppTheme.inter(color: color, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

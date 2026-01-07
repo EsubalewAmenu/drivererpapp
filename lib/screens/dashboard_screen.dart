@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import '../models/schema_models.dart';
@@ -76,7 +75,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           builder: (context, provider, child) {
             return Text(
               (provider.currentWorkspace?.name ?? 'DRIVE ERP').toUpperCase(),
-              style: GoogleFonts.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, color: theme.textTheme.titleLarge?.color),
+              style: AppTheme.inter(fontWeight: FontWeight.w900, letterSpacing: 1.0, color: theme.textTheme.titleLarge?.color),
             );
           },
         ),
@@ -159,7 +158,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Text(
                   period.toUpperCase(),
                   textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
+                  style: AppTheme.inter(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: isSelected ? theme.textTheme.bodyLarge?.color : theme.textTheme.bodyMedium?.color,
@@ -193,14 +192,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('NET PROFIT ENGINE', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w700, color: theme.textTheme.bodyMedium?.color, letterSpacing: 1.0)),
+              Text('NET PROFIT ENGINE', style: AppTheme.inter(fontSize: 12, fontWeight: FontWeight.w700, color: theme.textTheme.bodyMedium?.color, letterSpacing: 1.0)),
               Icon(profit >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded, color: color),
             ],
           ),
           const SizedBox(height: 16),
           Text(
             '\$${profit.abs().toStringAsFixed(2)}',
-            style: GoogleFonts.sourceCodePro(
+            style: AppTheme.sourceCodePro(
               fontSize: 36,
               fontWeight: FontWeight.w700,
               color: color,
@@ -224,9 +223,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: theme.textTheme.bodyMedium?.color)),
+        Text(label, style: AppTheme.inter(fontSize: 10, fontWeight: FontWeight.w600, color: theme.textTheme.bodyMedium?.color)),
         const SizedBox(height: 4),
-        Text('\$${value.toStringAsFixed(2)}', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: color)),
+        Text('\$${value.toStringAsFixed(2)}', style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w600, color: color)),
       ],
     );
   }
@@ -235,7 +234,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final theme = Theme.of(context);
     return Text(
       title,
-      style: GoogleFonts.inter(
+      style: AppTheme.inter(
         fontSize: 12,
         fontWeight: FontWeight.w700,
         color: theme.textTheme.bodyMedium?.color,
@@ -251,7 +250,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Text(
           'No modules installed.\nVisit the Marketplace to expand.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color),
+          style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
         ),
       );
     }
@@ -340,12 +339,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 children: [
                   Text(
                     module.name,
-                    style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color),
+                    style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Active',
-                    style: GoogleFonts.inter(fontSize: 12, color: theme.primaryColor),
+                    style: AppTheme.inter(fontSize: 12, color: theme.primaryColor),
                   ),
                 ],
               ),

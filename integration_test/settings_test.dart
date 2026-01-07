@@ -16,6 +16,7 @@ import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
 import 'package:drivererpapp/screens/settings_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
@@ -32,13 +33,14 @@ class TestDriveProvider extends DriveProvider {
 }
 
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late MockAuthService mockAuthService;
   late MockDriveService mockDriveService;
   late MockGoogleSignInAccount mockUser;
 
   setUpAll(() {
+    SharedPreferences.setMockInitialValues({});
     AppTheme.useGoogleFonts = false;
     registerFallbackValue(drive.File());
     registerFallbackValue(ModuleSchema(
@@ -68,6 +70,7 @@ void main() {
   });
 
   testWidgets('Settings Screen Flow', (tester) async {
+    debugPrint('TEST: Starting settings_test flow');
     final workspace = drive.File()..id = 'ws1'..name = 'Test Workspace';
     
     when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => [workspace]);

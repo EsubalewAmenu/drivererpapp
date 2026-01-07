@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:drivererpapp/theme/app_theme.dart';
 import '../../models/schema_models.dart';
 
 class DashboardEditor extends StatelessWidget {
@@ -45,7 +45,7 @@ class DashboardEditor extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(kpi.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
+                  child: Text(kpi.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
                 ),
                 Row(
                   children: [
@@ -76,7 +76,7 @@ class DashboardEditor extends StatelessWidget {
                   Expanded(
                     child: Text(
                       kpi.calculation,
-                      style: GoogleFonts.sourceCodePro(color: theme.textTheme.bodyMedium?.color),
+                      style: AppTheme.sourceCodePro(color: theme.textTheme.bodyMedium?.color),
                     ),
                   ),
                 ],
@@ -107,7 +107,7 @@ class DashboardEditor extends StatelessWidget {
             children: [
               Icon(Icons.add, color: color, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: GoogleFonts.inter(color: color, fontWeight: FontWeight.w600)),
+              Text(label, style: AppTheme.inter(color: color, fontWeight: FontWeight.w600)),
             ],
           ),
         ),

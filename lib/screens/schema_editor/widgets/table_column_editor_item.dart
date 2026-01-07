@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:drivererpapp/theme/app_theme.dart';
 import '../../../models/schema_models.dart';
 import 'column_list_item.dart';
 import '../dialogs/add_column_dialog.dart';
@@ -39,7 +39,7 @@ class TableColumnEditorItem extends StatelessWidget {
             Icon(Icons.table_chart_outlined, size: 20, color: theme.textTheme.bodyMedium?.color),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(column.label, style: GoogleFonts.inter(fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
+              child: Text(column.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -48,7 +48,7 @@ class TableColumnEditorItem extends StatelessWidget {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: (theme.textTheme.bodyMedium?.color ?? Colors.grey).withValues(alpha: 0.3)),
               ),
-              child: Text('TABLE', style: GoogleFonts.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
+              child: Text('TABLE', style: AppTheme.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
             ),
             const SizedBox(width: 8),
             IconButton(
@@ -63,7 +63,7 @@ class TableColumnEditorItem extends StatelessWidget {
             ),
           ],
         ),
-        subtitle: Text('${subColumns.length} Sub-columns', style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color, fontSize: 12)),
+        subtitle: Text('${subColumns.length} Sub-columns', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color, fontSize: 12)),
         children: [
           Container(
             padding: const EdgeInsets.all(16),
@@ -71,7 +71,7 @@ class TableColumnEditorItem extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('TABLE COLUMNS', style: GoogleFonts.inter(fontWeight: FontWeight.bold, fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
+                Text('TABLE COLUMNS', style: AppTheme.inter(fontWeight: FontWeight.bold, fontSize: 10, color: theme.textTheme.bodyMedium?.color)),
                 const SizedBox(height: 12),
                 if (subColumns.isEmpty)
                   Padding(
@@ -110,7 +110,7 @@ class TableColumnEditorItem extends StatelessWidget {
             children: [
               Icon(Icons.add, color: theme.textTheme.bodyMedium?.color, size: 16),
               const SizedBox(width: 6),
-              Text(label, style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600, fontSize: 12)),
+              Text(label, style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600, fontSize: 12)),
             ],
           ),
         ),

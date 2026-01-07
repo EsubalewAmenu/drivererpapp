@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/theme_provider.dart';
@@ -119,7 +118,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 backgroundColor: theme.primaryColor,
                 backgroundImage: user?.photoUrl != null ? NetworkImage(user!.photoUrl!) : null,
                 child: user?.photoUrl == null
-                    ? Text(initials, style: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white))
+                    ? Text(initials, style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: Colors.white))
                     : null,
               ),
               const SizedBox(width: 16),
@@ -127,8 +126,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(user?.displayName ?? 'Guest User', style: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
-                    Text(user?.email ?? 'No Email', style: GoogleFonts.inter(fontSize: 14, color: theme.primaryColor)),
+                    Text(user?.displayName ?? 'Guest User', style: AppTheme.inter(fontSize: 20, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
+                    Text(user?.email ?? 'No Email', style: AppTheme.inter(fontSize: 14, color: theme.primaryColor)),
                   ],
                 ),
               ),
@@ -138,7 +137,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextField(
             controller: _displayNameController,
             enabled: false, // Google Profile is read-only for now
-            style: GoogleFonts.inter(color: theme.textTheme.bodyLarge?.color),
+            style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
             decoration: _inputDecoration('Display Name (Google Account)'),
           ),
           const SizedBox(height: 16),
@@ -170,7 +169,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     color: theme.primaryColor
                   ),
                   const SizedBox(width: 16),
-                  Text('Dark Mode', style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: theme.textTheme.bodyLarge?.color)),
+                  Text('Dark Mode', style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w600, color: theme.textTheme.bodyLarge?.color)),
                 ],
               ),
               Switch(
@@ -200,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextField(
             controller: _companyNameController,
             enabled: false, // Workspace renaming logic pending
-            style: GoogleFonts.inter(color: theme.textTheme.bodyLarge?.color),
+            style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
             decoration: _inputDecoration('Company Name (Workspace)'),
           ),
           const SizedBox(height: 16),
@@ -216,7 +215,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Icon(Icons.upload_rounded, color: theme.textTheme.bodyMedium?.color),
                 const SizedBox(width: 8),
-                Text('Upload Logo (Coming Soon)', style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600)),
+                Text('Upload Logo (Coming Soon)', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
@@ -253,8 +252,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: GoogleFonts.inter(color: theme.textTheme.bodyMedium?.color)),
-          Text(value, style: GoogleFonts.sourceCodePro(color: theme.textTheme.bodyLarge?.color, fontWeight: FontWeight.w600)),
+          Text(label, style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color)),
+          Text(value, style: AppTheme.sourceCodePro(color: theme.textTheme.bodyLarge?.color, fontWeight: FontWeight.w600)),
         ],
       ),
     );
