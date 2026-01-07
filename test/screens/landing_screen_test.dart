@@ -38,6 +38,8 @@ void main() {
 
   testWidgets('LandingScreen should show branding and sign-in button', (WidgetTester tester) async {
     await tester.pumpWidget(createLandingScreen());
+    await tester.pump(); // Start PostFrameCallback
+    await tester.pump(); // Complete signInSilently
 
     // Check for branding text
     expect(find.text('DRIVE ERP'), findsOneWidget);
@@ -52,8 +54,12 @@ void main() {
     when(() => mockAuthService.signIn()).thenAnswer((_) async {});
 
     await tester.pumpWidget(createLandingScreen());
+    await tester.pump(); // Start PostFrameCallback
+    await tester.pump(); // Complete signInSilently
 
     final signInButton = find.text('Continue with Google');
+    expect(signInButton, findsOneWidget); // Verify visible
+
     await tester.tap(signInButton);
     await tester.pump();
 
@@ -62,6 +68,8 @@ void main() {
 
   testWidgets('LandingScreen should show trust indicators', (WidgetTester tester) async {
     await tester.pumpWidget(createLandingScreen());
+    await tester.pump(); 
+    await tester.pump(); 
 
     expect(find.text('No External Database'), findsOneWidget);
     expect(find.text('Sovereign Ownership'), findsOneWidget);
