@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
+import '../providers/workspace_provider.dart';
 import 'workspace_selector_screen.dart';
+import 'dashboard_screen.dart';
 
 class SystemScanningScreen extends StatefulWidget {
   const SystemScanningScreen({super.key});
@@ -53,6 +56,40 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
       }
 
       final driveService = driveProvider.driveService!;
+
+      // Step 0: Check for saved workspace ID before scanning everything
+      final lastWorkspaceId = await WorkspaceProvider.getLastWorkspaceId();
+      if (lastWorkspaceId != null) {
+        setState(() {
+          _statusMessage = "Restoring previous workspace...";
+        });
+        try {
+          final file = await driveService.driveApi.files.get(
+            lastWorkspaceId,
+            $fields: 'id, name, mimeType, parents, properties'
+          ) as drive.File;
+
+          if (mounted) {
+            Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(file);
+             
+             setState(() {
+              _statusMessage = "Welcome back, ${file.name}.";
+              _progress = 1.0;
+            });
+            await Future.delayed(const Duration(milliseconds: 500)); 
+
+            if (mounted) {
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const DashboardScreen()),
+              );
+              return;
+            }
+          }
+        } catch (e) {
+          debugPrint("Failed to restore workspace: $e. Proceeding with full scan.");
+          // Fallback to normal flow
+        }
+      }
 
       // Step 1: Check Root Folder
       setState(() {
