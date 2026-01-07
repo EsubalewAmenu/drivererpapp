@@ -16,6 +16,8 @@ class LandingScreen extends StatefulWidget {
 }
 
 class _LandingScreenState extends State<LandingScreen> {
+  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -65,7 +67,13 @@ class _LandingScreenState extends State<LandingScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const SystemScanningScreen()),
         );
+        return;
       }
+    }
+
+    // If not authenticated or checks failed, show the login UI
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -155,26 +163,37 @@ class _LandingScreenState extends State<LandingScreen> {
               const Spacer(flex: 2),
 
               // Google Sign In Button
-              FilledButton.icon(
-                onPressed: () => _handleGoogleSignIn(context),
-                icon: const Icon(Icons.login_rounded), // Placeholder for Google Icon
-                label: Text(
-                  'Continue with Google',
-                  style: AppTheme.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+              if (_isLoading)
+                 Container(
+                   height: 56, // Match button height roughly
+                   alignment: Alignment.center,
+                   child: const SizedBox(
+                     width: 24, 
+                     height: 24,
+                     child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 2.5),
+                   ),
+                 )
+              else
+                FilledButton.icon(
+                  onPressed: () => _handleGoogleSignIn(context),
+                  icon: const Icon(Icons.login_rounded), // Placeholder for Google Icon
+                  label: Text(
+                    'Continue with Google',
+                    style: AppTheme.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
                   ),
                 ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 0,
-                ),
-              ),
               const SizedBox(height: 16),
               Text(
                 'By continuing, you agree to our Terms & Privacy Policy',
