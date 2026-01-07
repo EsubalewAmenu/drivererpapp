@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
+import '../providers/drive_provider.dart';
 import '../services/auth_service.dart';
 import '../services/drive_service.dart';
 import '../theme/app_theme.dart';
@@ -72,12 +73,9 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       _formKey.currentState!.save();
       
       try {
-        final authService = Provider.of<AuthService>(context, listen: false);
-        if (authService.authClient == null) throw Exception("Not authenticated");
-        
-        if (widget.module == null) throw Exception("Module context missing");
-
-        final driveService = DriveService(authService.authClient!);
+        final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+        if (driveProvider.driveService == null) throw Exception("Drive Service Not available");
+        final driveService = driveProvider.driveService!;
         
         // Show loading indicator
         if (mounted) {
