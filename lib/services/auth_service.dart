@@ -14,8 +14,7 @@ class AuthService extends ChangeNotifier {
       : _googleSignIn = googleSignIn ?? GoogleSignIn(
           scopes: [
             'email',
-            'https://www.googleapis.com/auth/drive',
-            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive.file',
           ],
         );
 
