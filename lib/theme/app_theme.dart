@@ -45,6 +45,7 @@ class AppTheme {
     FontWeight? fontWeight,
     double? letterSpacing,
     Color? color,
+    double? height,
   }) {
      if (useGoogleFonts) {
       return GoogleFonts.sourceCodePro(
@@ -52,6 +53,7 @@ class AppTheme {
         fontWeight: fontWeight,
         letterSpacing: letterSpacing,
         color: color,
+        height: height,
       );
     }
     return TextStyle(
@@ -59,6 +61,7 @@ class AppTheme {
       fontWeight: fontWeight,
       letterSpacing: letterSpacing,
       color: color,
+      height: height,
       fontFamily: 'Monospace',
     );
   }
