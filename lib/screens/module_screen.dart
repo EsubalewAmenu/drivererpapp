@@ -23,14 +23,13 @@ class ModuleScreen extends StatefulWidget {
 
 class _ModuleScreenState extends State<ModuleScreen> {
   ModuleSchema? _fullModule;
-  late bool _isLoadingSchema;
+  bool _isLoadingSchema = false;
 
   @override
   void initState() {
     super.initState();
     final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
     _fullModule = schemaProvider.getFromMemory(widget.module.id);
-    _isLoadingSchema = _fullModule == null;
     
     _loadSchema();
   }
@@ -52,49 +51,50 @@ class _ModuleScreenState extends State<ModuleScreen> {
         return;
       }
 
-      // 2. Not in cache, sync from Drive immediately
-      final newJson = await _syncSchema(schemaService);
-      if (newJson != null) return; // _processJson was called in _syncSchema
-
-      // 3. Fallback to Assets if no remote config
-      debugPrint('No remote config found for ${widget.module.id}, checking assets...');
-      final fileName = widget.module.name.toLowerCase();
-      Map<String, dynamic> assetJson;
-      try {
-        final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
-        assetJson = jsonDecode(jsonString);
-      } catch (e) {
-        debugPrint('Asset not found for $fileName, using default empty schema');
-        assetJson = {
-          'settings': {'name': {'value': widget.module.name}},
-          'dashboard': {'kpiCards': []},
-          'tabs': []
-        };
-      }
-      
-      _processJson(assetJson, isAssetFallback: true);
+      // 2. Not in cache, start sync in background
+      _syncSchema(schemaService).then((newJson) async {
+        if (newJson == null && mounted) {
+          // 3. Fallback to Assets if no remote config
+          debugPrint('No remote config found for ${widget.module.id}, checking assets...');
+          final fileName = widget.module.name.toLowerCase();
+          Map<String, dynamic> assetJson;
+          try {
+            final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
+            assetJson = jsonDecode(jsonString);
+          } catch (e) {
+            debugPrint('Asset not found for $fileName');
+            assetJson = {
+              'settings': {'name': {'value': widget.module.name}},
+              'dashboard': {'kpiCards': []},
+              'tabs': []
+            };
+          }
+          _processJson(assetJson, isAssetFallback: true);
+        }
+      });
 
     } catch (e) {
-      debugPrint('Error loading module schema: $e');
-      if (mounted) {
-        setState(() {
-          _fullModule = widget.module;
-          _isLoadingSchema = false;
-        });
-      }
+      debugPrint('Error in _loadSchema sequence: $e');
     }
   }
 
   Future<Map<String, dynamic>?> _syncSchema(SchemaService schemaService) async {
-    final newJson = await schemaService.syncConfig(widget.module.id);
-    if (newJson != null && mounted) {
-      debugPrint('Module ${widget.module.id} schema updated from Drive.');
-      _processJson(newJson);
+    try {
+      final newJson = await schemaService.syncConfig(widget.module.id);
+      if (newJson != null && mounted) {
+        debugPrint('Module ${widget.module.id} schema updated from Drive.');
+        _processJson(newJson);
+      }
+      return newJson;
+    } catch (e) {
+      debugPrint('Sync error: $e');
+      return null;
     }
-    return newJson;
   }
 
   void _processJson(Map<String, dynamic> jsonMap, {bool isAssetFallback = false}) {
+    if (!mounted) return;
+    
     // Parse JSON to ModuleSchema
     final settingsMap = (jsonMap['settings'] as Map<String, dynamic>?) ?? {};
     final name = settingsMap['name']?['value'] ?? widget.module.name;
@@ -161,29 +161,25 @@ class _ModuleScreenState extends State<ModuleScreen> {
     );
 
     // Update memory cache for instant access next time
-    if (mounted) {
-      Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(widget.module.id, loadedModule);
-    }
+    Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(widget.module.id, loadedModule);
 
-    if (mounted) {
-      setState(() {
-        _fullModule = loadedModule;
-        _isLoadingSchema = false;
-      });
+    setState(() {
+      _fullModule = loadedModule;
+      _isLoadingSchema = false;
+    });
 
-      // If it was an asset fallback, navigate to Editor
-      if (isAssetFallback) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SchemaEditorScreen(
-              module: loadedModule,
-              isNewSetup: true,
-            ),
+    // If it was an asset fallback, navigate to Editor
+    if (isAssetFallback) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => SchemaEditorScreen(
+            module: loadedModule,
+            isNewSetup: true,
           ),
-        ).then((_) {
-          _loadSchema();
-        });
-      }
+        ),
+      ).then((_) {
+        _loadSchema();
+      });
     }
   }
 
@@ -204,19 +200,14 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoadingSchema) {
-      return Scaffold(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
+    // Basic module info is always available even if full schema is loading
     final module = _fullModule ?? widget.module;
     final primaryColor = Color(int.parse(module.primaryColor.replaceAll('#', '0xFF')));
     final theme = Theme.of(context);
 
     return DefaultTabController(
-      length: module.tabs.length + 1, // +1 for Dashboard
+      key: ValueKey('module_tabs_${module.id}_${module.tabs.length}'), 
+      length: (module.tabs.length) + 1, // +1 for Dashboard
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
@@ -268,20 +259,44 @@ class _ModuleScreenState extends State<ModuleScreen> {
             ],
           ),
         ),
-        body: TabBarView(
-          children: [
-            ModuleDashboard(
-              module: module, 
-              primaryColor: primaryColor
+        body: (module.tabs.isEmpty && _fullModule == null)
+            ? _buildInitialLoadingBody(theme)
+            : TabBarView(
+                children: [
+                  ModuleDashboard(module: module, primaryColor: primaryColor),
+                  ...module.tabs.map((t) => ModuleTabScreen(
+                    tab: t, 
+                    primaryColor: primaryColor,
+                    settings: module.settings,
+                    module: module,
+                  )),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _buildInitialLoadingBody(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'LOADING BLUEPRINT...',
+            style: AppTheme.inter(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: theme.textTheme.bodySmall?.color,
+              letterSpacing: 1.2,
             ),
-            ...module.tabs.map((t) => ModuleTabScreen(
-              tab: t, 
-              primaryColor: primaryColor,
-              settings: module.settings,
-              module: module,
-            )),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

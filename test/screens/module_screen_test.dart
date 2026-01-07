@@ -30,79 +30,74 @@ void main() {
       primaryColor: '#F59E0B',
       version: '1.0.0',
       settings: {},
-      tabs: [
-        TabConfig(id: 'items', label: 'Items', columns: []),
-      ],
+      tabs: [], // Initial empty tabs to trigger blueprint loading UI
       dashboard: DashboardConfig(kpiCards: []),
     );
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
-    // Common stubs to avoid Null subtype errors
     when(() => mockDriveService.fetchRecords(any(), any(), any())).thenAnswer((_) async => []);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'f123');
     when(() => mockDriveService.readModuleConfig(any())).thenAnswer((_) async => testModule.toJson());
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
   });
 
-  Widget createModuleScreen() {
+  Widget createModuleScreen({ModuleSchema? module}) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
       ],
       child: MaterialApp(
-        home: ModuleScreen(module: testModule),
+        home: ModuleScreen(module: module ?? testModule),
       ),
     );
   }
 
-  testWidgets('ModuleScreen should show loading state initially', (WidgetTester tester) async {
-    // Stub getFileId to return a long-running future
-    final completer = Completer<String?>();
-    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) => completer.future);
+  testWidgets('ModuleScreen should show blueprint loading state when tabs are empty', (WidgetTester tester) async {
+    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) => Completer<String?>().future);
 
     await tester.pumpWidget(createModuleScreen());
-    await tester.pump(); // Start the future
-    
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    
-    // Clean up
-    completer.complete(null);
     await tester.pump(); 
-    // Wait for the 300ms timer in ModuleDashboard if it was mounted
-    await tester.pump(const Duration(milliseconds: 500));
+    
+    expect(find.text('LOADING BLUEPRINT...'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 
-  testWidgets('ModuleScreen should show tabs after loading schema', (WidgetTester tester) async {
-    // Stub getFileId to return a fake ID (avoids asset fallback)
-    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'config123');
-    when(() => mockDriveService.readModuleConfig(any())).thenAnswer((_) async => {
-      'id': 'module123',
-      'name': 'Inventory',
-      'icon': 'inventory',
-      'primaryColor': '#F59E0B',
-      'version': '1.0.0',
-      'settings': {
-        'name': {'label': 'Module Name', 'type': 'text', 'value': 'Inventory'}
-      },
-      'dashboard': {'kpiCards': []},
-      'tabs': [
-        {'id': 'items', 'label': 'Items', 'columns': []}
-      ]
-    });
+  testWidgets('ModuleScreen should show dashboard cards in loading state', (WidgetTester tester) async {
+    final fullModule = ModuleSchema(
+      id: 'module123',
+      name: 'Inventory',
+      icon: 'inventory',
+      primaryColor: '#F59E0B',
+      version: '1.0.0',
+      settings: {},
+      tabs: [TabConfig(id: 'items', label: 'Items', columns: [])],
+      dashboard: DashboardConfig(kpiCards: [KpiCard(label: 'Stock', calculation: 'SUM(qty)', format: 'number')]),
+    );
+
+    when(() => mockDriveService.getFileId(any(), 'config')).thenAnswer((_) async => 'conf123');
+    when(() => mockDriveService.readModuleConfig('conf123')).thenAnswer((_) async => fullModule.toJson());
+    
+    // Make record fetching hang so cards stay in loading state
+    final labelsCompleter = Completer<List<Map<String, dynamic>>>();
+    when(() => mockDriveService.fetchRecords(any(), any(), any())).thenAnswer((_) => labelsCompleter.future);
 
     await tester.pumpWidget(createModuleScreen());
     
-    // Process frames
-    for (int i = 0; i < 15; i++) {
+    // Process Blueprint loading
+    for (int i = 0; i < 5; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
     expect(find.text('INVENTORY'), findsAtLeastNWidgets(1));
-    expect(find.text('DASHBOARD'), findsOneWidget);
-    expect(find.text('ITEMS'), findsOneWidget); 
+    expect(find.text('PERFORMANCE OVERVIEW'), findsOneWidget);
+    expect(find.text('STOCK'), findsOneWidget);
     
-    // Wait for internal timers
+    // Should show the loading placeholder
+    expect(find.text('---'), findsOneWidget);
+    
+    // Clean up
+    labelsCompleter.complete([]);
     await tester.pump(const Duration(milliseconds: 500));
   });
 }
