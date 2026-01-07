@@ -37,6 +37,9 @@ void main() {
       drive.File()..id = 'mod1'..name = 'CRM',
       drive.File()..id = 'mod2'..name = 'Inventory',
     ]);
+    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'f123');
+    when(() => mockDriveService.getFileContent(any())).thenAnswer((_) async => '{}');
+    when(() => mockDriveService.readModuleConfig(any())).thenAnswer((_) async => {});
   });
   
   Widget createDashboardScreen() {
@@ -80,5 +83,34 @@ void main() {
     
     // CRM should still be visible in Expansion Marketplace
     expect(find.text('CRM'), findsOneWidget); 
+  });
+
+  testWidgets('DashboardScreen navigates to module on tap', (WidgetTester tester) async {
+    await tester.pumpWidget(createDashboardScreen());
+    await tester.pumpAndSettle();
+
+    // Tap active module
+    final moduleFinder = find.text('CRM').first;
+    await tester.ensureVisible(moduleFinder);
+    await tester.tap(moduleFinder);
+    await tester.pumpAndSettle();
+
+    // CRM screen should show its name in the AppBar
+    expect(find.text('CRM'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('DashboardScreen navigates to marketplace module on tap', (WidgetTester tester) async {
+    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => []);
+
+    await tester.pumpWidget(createDashboardScreen());
+    await tester.pumpAndSettle();
+
+    // Tap marketplace module
+    final marketplaceFinder = find.text('CRM').first;
+    await tester.ensureVisible(marketplaceFinder);
+    await tester.tap(marketplaceFinder);
+    await tester.pumpAndSettle();
+
+    expect(find.text('KEY BENEFITS'), findsOneWidget); // Found in ModuleDetailsScreen
   });
 }
