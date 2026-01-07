@@ -113,12 +113,6 @@ void main() {
     // Find "COMPLETE SETUP" button.
     final button = find.text('COMPLETE SETUP');
     
-    // Debug output if not found
-    if (button.evaluate().isEmpty) {
-      debugPrint('Button not found. Trying to find any text...');
-      debugPrint(find.byType(Text).evaluate().map((e) => (e.widget as Text).data).join(', '));
-    }
-    
     // Ensure button is present
     expect(button, findsOneWidget);
     
