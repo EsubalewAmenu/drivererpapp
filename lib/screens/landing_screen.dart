@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import '../services/auth_service.dart';
+import '../providers/workspace_provider.dart';
+import '../providers/drive_provider.dart';
 import '../theme/app_theme.dart';
 import 'system_scanning_screen.dart';
+import 'dashboard_screen.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -24,10 +28,44 @@ class _LandingScreenState extends State<LandingScreen> {
   Future<void> _checkSilentSignIn() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     await authService.signInSilently();
+    
     if (authService.isAuthenticated && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const SystemScanningScreen()),
-      );
+      // Attempt to auto-restore workspace
+      final lastWorkspaceId = await WorkspaceProvider.getLastWorkspaceId();
+      if (lastWorkspaceId != null) {
+        try {
+          final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+          
+          // Ensure client is synced if proxy update hasn't propagated yet (edge case)
+          if (driveProvider.driveService == null && authService.authClient != null) {
+             driveProvider.updateClient(authService.authClient);
+          }
+
+          if (driveProvider.driveService != null) {
+            final file = await driveProvider.driveService!.driveApi.files.get(
+              lastWorkspaceId,
+              $fields: 'id, name, mimeType, parents, properties'
+            ) as drive.File;
+            
+            if (mounted) {
+              Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(file);
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const DashboardScreen()),
+              );
+              return;
+            }
+          }
+        } catch (e) {
+          debugPrint('Error restoring workspace: $e');
+          // If restore fails (e.g. 404), fall through to scanning
+        }
+      }
+
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const SystemScanningScreen()),
+        );
+      }
     }
   }
 
