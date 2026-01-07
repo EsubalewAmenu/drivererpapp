@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../services/drive_service.dart';
 import '../providers/workspace_provider.dart';
+import '../providers/drive_provider.dart';
 import 'dashboard_screen.dart';
 
 class ModuleConfigurationScreen extends StatefulWidget {
@@ -24,16 +25,18 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
   final Map<String, dynamic> _formValues = {};
 
   @override
-  void initState() {
-    super.initState();
-    _loadModuleConfig();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_moduleJson == null && _isLoading) {
+      _loadModuleConfig();
+    }
   }
 
   Future<void> _loadModuleConfig() async {
     try {
       final fileName = widget.moduleInfo['name']!.toLowerCase();
       // Try to load the specific JSON for the module
-      final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
+      final jsonString = await DefaultAssetBundle.of(context).loadString('assets/erp_modules/$fileName.json');
       final json = jsonDecode(jsonString);
       
       setState(() {
@@ -411,14 +414,14 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
     setState(() => _isActivating = true);
 
     try {
-      final authService = Provider.of<AuthService>(context, listen: false);
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
       final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
       
-      if (authService.authClient == null || workspaceProvider.currentWorkspace == null) {
-        throw Exception("Authentication or Workspace missing");
+      if (driveProvider.driveService == null || workspaceProvider.currentWorkspace == null) {
+        throw Exception("Drive Service or Workspace missing");
       }
 
-      final driveService = DriveService(authService.authClient!);
+      final driveService = driveProvider.driveService!;
       final workspaceId = workspaceProvider.currentWorkspace!.id!;
       
       final moduleName = _formValues['name'] ?? widget.moduleInfo['name']!;
