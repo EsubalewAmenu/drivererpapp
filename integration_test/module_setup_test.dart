@@ -102,6 +102,10 @@ void main() {
     
     await tester.tap(find.text('ACTIVATE'));
     await tester.pumpAndSettle();
+    
+    // Wait for SnackBar to disappear as it blocks taps in CI (800x600)
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pumpAndSettle();
 
     debugPrint('Navigated back to Dashboard. Checking for core module...');
     
