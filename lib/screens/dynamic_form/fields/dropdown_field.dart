@@ -279,6 +279,10 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
           initialValue: _options.contains(widget.value) ? widget.value : null,
           dropdownColor: fillColor,
           style: TextStyle(color: textColor),
+          hint: Text(
+            'Select ${widget.column.label}',
+            style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
+          ),
           decoration: InputDecoration(
             filled: true,
             fillColor: fillColor,

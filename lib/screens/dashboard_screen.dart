@@ -42,20 +42,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   };
 
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
     _loadModules();
   }
 
   void _loadModules() {
-    final workspace = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace;
-    final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+    final workspace = Provider.of<WorkspaceProvider>(context).currentWorkspace;
+    final driveService = Provider.of<DriveProvider>(context).driveService;
     
-    if (workspace != null && driveService != null) {
-      _modulesFuture = driveService.listModules(workspace.id!);
-    } else {
-      _modulesFuture = Future.value([]);
-    }
+    setState(() {
+      if (workspace != null && driveService != null) {
+        _modulesFuture = driveService.listModules(workspace.id!);
+      } else {
+        _modulesFuture = Future.value([]);
+      }
+    });
   }
 
   @override

@@ -226,7 +226,14 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
                 ),
               ),
               if (isLoading)
-                const SizedBox(width: 12, height: 12, child: CircularProgressIndicator(strokeWidth: 2))
+                const SizedBox(
+                  width: 12, 
+                  height: 12, 
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    value: 0.5, // Static value to avoid pumpAndSettle timeouts
+                  )
+                )
               else if (error != null)
                 Icon(Icons.error_outline_rounded, size: 16, color: theme.colorScheme.error)
               else

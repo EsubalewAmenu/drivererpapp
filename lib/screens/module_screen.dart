@@ -35,6 +35,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
   }
 
   Future<void> _loadSchema() async {
+    debugPrint('ModuleScreen: Starting _loadSchema for ${widget.module.id}');
     try {
       final schemaService = Provider.of<SchemaProvider>(context, listen: false).service;
       
@@ -51,8 +52,10 @@ class _ModuleScreenState extends State<ModuleScreen> {
         return;
       }
 
+      debugPrint('ModuleScreen: Not in cache, calling _syncSchema');
       // 2. Not in cache, start sync in background
       _syncSchema(schemaService).then((newJson) async {
+        debugPrint('ModuleScreen: _syncSchema finished with ${newJson != null}');
         if (newJson == null && mounted) {
           // 3. Fallback to Assets if no remote config
           debugPrint('No remote config found for ${widget.module.id}, checking assets...');
@@ -79,6 +82,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
   }
 
   Future<Map<String, dynamic>?> _syncSchema(SchemaService schemaService) async {
+    debugPrint('ModuleScreen: _syncSchema started');
     try {
       final newJson = await schemaService.syncConfig(widget.module.id);
       if (newJson != null && mounted) {
@@ -131,7 +135,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
     final tabs = (tabsList as List).map((t) {
       try {
-        return TabConfig.fromJson(t as Map<String, dynamic>);
+        final parsed = TabConfig.fromJson(t as Map<String, dynamic>);
+        debugPrint('Loaded tab: ${parsed.label}');
+        return parsed;
       } catch (e) {
         debugPrint('Error parsing tab: $e');
         return TabConfig(id: 'err', label: 'Error Tab', columns: []);
