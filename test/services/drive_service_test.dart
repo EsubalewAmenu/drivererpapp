@@ -50,6 +50,7 @@ void main() {
      registerFallbackValue(drive.File());
      registerFallbackValue(drive.Media(Stream.empty(), 0));
      registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
+     registerFallbackValue(sheets.ValueRange());
   });
 
   group('DriveFolderMixin', () {
@@ -193,6 +194,57 @@ void main() {
 
       expect(result.length, 1);
       expect(result.first.id, 'r1');
+    });
+  });
+
+  group('DriveSheetMixin', () {
+    test('saveRecord appends data to sheets', () async {
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
+      
+      when(() => mockSpreadsheetsResource.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1'))],
+      ));
+
+      when(() => mockValuesResource.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(values: [['key1', 'key2']]));
+      
+      when(() => mockValuesResource.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+          .thenAnswer((_) async => sheets.AppendValuesResponse());
+
+      when(() => mockValuesResource.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+          .thenAnswer((_) async => sheets.UpdateValuesResponse());
+
+      final data = {'key1': 'val1', 'key2': 'val2'};
+      await driveService.saveRecord('mod1', 'MyModule', 'tab1', data);
+
+      verify(() => mockValuesResource.append(
+        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'values', containsAll(['val1', 'val2']))),
+        'sheet123',
+        'tab1!A1',
+        valueInputOption: 'RAW',
+      )).called(1);
+    });
+
+    test('fetchRecords returns list of maps', () async {
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
+
+      when(() => mockSpreadsheetsResource.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1'))],
+      ));
+
+      when(() => mockValuesResource.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(
+        values: [
+          ['col1', 'col2'],
+          ['val1', 'val2'],
+        ],
+      ));
+
+      final results = await driveService.fetchRecords('mod1', 'MyModule', 'tab1');
+
+      expect(results.length, 1);
+      expect(results.first['col1'], 'val1');
+      expect(results.first['col2'], 'val2');
     });
   });
 }
