@@ -1,12 +1,16 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
+import '../providers/workspace_provider.dart';
 import 'workspace_selector_screen.dart';
+import 'dashboard_screen.dart';
 
 class SystemScanningScreen extends StatefulWidget {
-  const SystemScanningScreen({super.key});
+  final bool autoRestore;
+  const SystemScanningScreen({super.key, this.autoRestore = true});
 
   @override
   State<SystemScanningScreen> createState() => _SystemScanningScreenState();
@@ -15,6 +19,7 @@ class SystemScanningScreen extends StatefulWidget {
 class _SystemScanningScreenState extends State<SystemScanningScreen> {
   String _statusMessage = "Initializing system...";
   double _progress = 0.0;
+  bool _hasError = false;
 
   @override
   void initState() {
@@ -26,6 +31,15 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
   }
 
   Future<void> _startScanningSequence() async {
+    // Reset state before starting
+    if (_hasError) {
+      setState(() {
+        _hasError = false;
+        _progress = 0.0;
+        _statusMessage = "Retrying connection...";
+      });
+    }
+
     try {
       final driveProvider = Provider.of<DriveProvider>(context, listen: false);
       
@@ -43,6 +57,42 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
       }
 
       final driveService = driveProvider.driveService!;
+
+      // Step 0: Check for saved workspace ID before scanning everything
+      if (widget.autoRestore) {
+        final lastWorkspaceId = await WorkspaceProvider.getLastWorkspaceId();
+        if (lastWorkspaceId != null) {
+          setState(() {
+            _statusMessage = "Restoring previous workspace...";
+          });
+          try {
+            final file = await driveService.driveApi.files.get(
+              lastWorkspaceId,
+              $fields: 'id, name, mimeType, parents, properties'
+            ) as drive.File;
+
+            if (mounted) {
+              Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(file);
+               
+               setState(() {
+                _statusMessage = "Welcome back, ${file.name}.";
+                _progress = 1.0;
+              });
+              await Future.delayed(const Duration(milliseconds: 500)); 
+
+              if (mounted) {
+                Navigator.of(context).pushReplacement(
+                  MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                );
+                return;
+              }
+            }
+          } catch (e) {
+            debugPrint("Failed to restore workspace: $e. Proceeding with full scan.");
+            // Fallback to normal flow
+          }
+        }
+      }
 
       // Step 1: Check Root Folder
       setState(() {
@@ -97,13 +147,21 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
     } catch (e) {
       if (mounted) {
         String errorMessage = "System Error: $e";
-        if (e.toString().contains("disabled") || e.toString().contains("has not been used")) {
+        final errorString = e.toString().toLowerCase();
+        
+        if (errorString.contains("disabled") || errorString.contains("has not been used")) {
            errorMessage = "API Error: Google Drive API is not enabled.\nPlease enable it in Google Cloud Console.";
+        } else if (errorString.contains("socketexception") || 
+                   errorString.contains("clientexception") ||
+                   errorString.contains("failed host lookup") ||
+                   errorString.contains("connection refused")) {
+           errorMessage = "No Internet Connection.\nPlease check your network settings.";
         }
         
         setState(() {
           _statusMessage = errorMessage;
           _progress = 0.0;
+          _hasError = true;
         });
         debugPrint("Scanning Error: $e");
       }
@@ -132,18 +190,20 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                      color: _hasError ? theme.colorScheme.error : AppTheme.primaryColor.withValues(alpha: 0.3),
                       width: 2,
                     ),
                   ),
-                  child: const Center(
+                  child: Center(
                     child: SizedBox(
                       width: 40,
                       height: 40,
-                      child: CircularProgressIndicator(
-                        color: AppTheme.primaryColor,
-                        strokeWidth: 3,
-                      ),
+                      child: _hasError
+                        ? Icon(Icons.cloud_off_rounded, color: theme.colorScheme.error, size: 32)
+                        : const CircularProgressIndicator(
+                            color: AppTheme.primaryColor,
+                            strokeWidth: 3,
+                          ),
                     ),
                   ),
                 ),
@@ -170,25 +230,41 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
                   _statusMessage,
                   key: ValueKey<String>(_statusMessage),
                   style: AppTheme.sourceCodePro( // Monospace for technical feel
-                    color: theme.textTheme.bodyLarge?.color,
-                    fontSize: 16,
+                    color: _hasError ? theme.colorScheme.error : theme.textTheme.bodyLarge?.color,
+                    fontSize: 14,
                     fontWeight: FontWeight.w500,
+                    height: 1.5,
                   ),
                 ),
               ),
 
               const SizedBox(height: 32),
 
-              // Progress Bar
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: _progress,
-                  backgroundColor: theme.cardTheme.color,
-                  color: AppTheme.primaryColor,
-                  minHeight: 4,
+              // Progress Bar or Retry Action
+              if (_hasError)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    onPressed: _startScanningSequence,
+                    icon: const Icon(Icons.refresh_rounded),
+                    label: const Text('RETRY CONNECTION'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: theme.colorScheme.error,
+                      foregroundColor: theme.colorScheme.onError,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    ),
+                  ),
+                )
+              else
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: _progress,
+                    backgroundColor: theme.cardTheme.color,
+                    color: AppTheme.primaryColor,
+                    minHeight: 4,
+                  ),
                 ),
-              ),
 
               const Spacer(),
               

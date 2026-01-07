@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import '../services/auth_service.dart';
+import '../providers/workspace_provider.dart';
+import '../providers/drive_provider.dart';
 import '../theme/app_theme.dart';
 import 'system_scanning_screen.dart';
+import 'dashboard_screen.dart';
 
 class LandingScreen extends StatefulWidget {
   const LandingScreen({super.key});
@@ -12,6 +16,8 @@ class LandingScreen extends StatefulWidget {
 }
 
 class _LandingScreenState extends State<LandingScreen> {
+  bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -24,10 +30,50 @@ class _LandingScreenState extends State<LandingScreen> {
   Future<void> _checkSilentSignIn() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     await authService.signInSilently();
+    
     if (authService.isAuthenticated && mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const SystemScanningScreen()),
-      );
+      // Attempt to auto-restore workspace
+      final lastWorkspaceId = await WorkspaceProvider.getLastWorkspaceId();
+      if (lastWorkspaceId != null) {
+        try {
+          final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+          
+          // Ensure client is synced if proxy update hasn't propagated yet (edge case)
+          if (driveProvider.driveService == null && authService.authClient != null) {
+             driveProvider.updateClient(authService.authClient);
+          }
+
+          if (driveProvider.driveService != null) {
+            final file = await driveProvider.driveService!.driveApi.files.get(
+              lastWorkspaceId,
+              $fields: 'id, name, mimeType, parents, properties'
+            ) as drive.File;
+            
+            if (mounted) {
+              Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(file);
+              Navigator.of(context).pushReplacement(
+                MaterialPageRoute(builder: (_) => const DashboardScreen()),
+              );
+              return;
+            }
+          }
+        } catch (e) {
+          debugPrint('Error restoring workspace: $e');
+          // If restore fails (e.g. 404), fall through to scanning
+        }
+      }
+
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const SystemScanningScreen()),
+        );
+        return;
+      }
+    }
+
+    // If not authenticated or checks failed, show the login UI
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
 
@@ -117,26 +163,37 @@ class _LandingScreenState extends State<LandingScreen> {
               const Spacer(flex: 2),
 
               // Google Sign In Button
-              FilledButton.icon(
-                onPressed: () => _handleGoogleSignIn(context),
-                icon: const Icon(Icons.login_rounded), // Placeholder for Google Icon
-                label: Text(
-                  'Continue with Google',
-                  style: AppTheme.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+              if (_isLoading)
+                 Container(
+                   height: 56, // Match button height roughly
+                   alignment: Alignment.center,
+                   child: const SizedBox(
+                     width: 24, 
+                     height: 24,
+                     child: CircularProgressIndicator(color: AppTheme.primaryColor, strokeWidth: 2.5),
+                   ),
+                 )
+              else
+                FilledButton.icon(
+                  onPressed: () => _handleGoogleSignIn(context),
+                  icon: const Icon(Icons.login_rounded), // Placeholder for Google Icon
+                  label: Text(
+                    'Continue with Google',
+                    style: AppTheme.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: theme.colorScheme.primary,
+                    foregroundColor: theme.colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
                   ),
                 ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  elevation: 0,
-                ),
-              ),
               const SizedBox(height: 16),
               Text(
                 'By continuing, you agree to our Terms & Privacy Policy',

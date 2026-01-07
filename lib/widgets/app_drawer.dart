@@ -78,10 +78,10 @@ class AppDrawer extends StatelessWidget {
         ),
         child: InkWell(
           onTap: () {
-            // Navigate to system scanning to refresh workspaces
+            // Navigate to system scanning to refresh workspaces, skipping auto-restore
              Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const SystemScanningScreen()),
+              MaterialPageRoute(builder: (context) => const SystemScanningScreen(autoRestore: false)),
             );
           },
           child: Row(
