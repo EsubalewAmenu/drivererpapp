@@ -26,6 +26,15 @@ void main() {
   late MockSpreadsheetsResource mockSpreadsheetsResource;
   late MockSpreadsheetsValuesResource mockValuesResource;
 
+  setUpAll(() {
+    registerFallbackValue(drive.File());
+    registerFallbackValue(sheets.Spreadsheet());
+    registerFallbackValue(sheets.ValueRange());
+    registerFallbackValue(sheets.ClearValuesRequest());
+    registerFallbackValue(drive.Media(Stream.empty(), 0));
+    registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
+  });
+
   setUp(() {
     mockHttpClient = MockHttpClient();
     mockDriveApi = MockDriveApi();
@@ -47,10 +56,6 @@ void main() {
       driveApi: mockDriveApi,
       sheetsApi: mockSheetsApi,
     );
-     registerFallbackValue(drive.File());
-     registerFallbackValue(drive.Media(Stream.empty(), 0));
-     registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
-     registerFallbackValue(sheets.ValueRange());
   });
 
   group('DriveFolderMixin', () {
@@ -198,6 +203,69 @@ void main() {
   });
 
   group('DriveSheetMixin', () {
+
+    test('createModuleConfig creates spreadsheet and updates config', () async {
+      // 1. Create Spreadsheet
+      when(() => mockSpreadsheetsResource.create(any()))
+          .thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'new_sheet_id'));
+
+      // 2. Move file (get parents, update)
+      when(() => mockFilesResource.get('new_sheet_id', $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.File()..parents = ['old_parent']);
+      
+      when(() => mockFilesResource.update(any(), 'new_sheet_id', addParents: 'folder123', removeParents: 'old_parent', $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.File());
+
+      // 3. Write data (Values.clear, Values.update)
+      when(() => mockValuesResource.clear(any(), any(), any())).thenAnswer((_) async => sheets.ClearValuesResponse());
+      when(() => mockValuesResource.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+          .thenAnswer((_) async => sheets.UpdateValuesResponse());
+
+      final config = {
+        'settings': {'appName': 'Test'},
+        'tabs': [{'id': 'tab1', 'label': 'Tab 1'}] // List of maps, not TabConfig objects for this raw map
+      };
+
+      final result = await driveService.createModuleConfig('folder123', 'mod_config.xlsx', config);
+      expect(result, 'new_sheet_id');
+
+      // Verify creation
+      verify(() => mockSpreadsheetsResource.create(any())).called(1);
+      
+      // Verify updates for settings and tabs
+      verify(() => mockValuesResource.update(any(), 'new_sheet_id', 'settings!A1', valueInputOption: 'RAW')).called(1);
+      verify(() => mockValuesResource.update(any(), 'new_sheet_id', 'tabs!A1', valueInputOption: 'RAW')).called(1);
+    });
+
+    test('readModuleConfig reads and decodes config', () async {
+      // Setup mock responses for settings, dashboard, tabs
+      // settings
+      when(() => mockValuesResource.get('sheet123', 'settings!A:B'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['appName', '"Test App"'], // Values are JSON encoded
+            ['darkMode', 'true']
+          ]));
+      
+      // dashboard
+      when(() => mockValuesResource.get('sheet123', 'dashboard!A:B'))
+          .thenAnswer((_) async => sheets.ValueRange(values: []));
+
+      // tabs
+      when(() => mockValuesResource.get('sheet123', 'tabs!A:B'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['tab1', '{"id":"tab1", "label":"Tab 1"}']
+          ]));
+
+      final config = await driveService.readModuleConfig('sheet123');
+
+      expect(config['settings'], isMap);
+      expect(config['settings']['appName'], 'Test App');
+      expect(config['settings']['darkMode'], true);
+      
+      expect(config['tabs'], isList);
+      expect(config['tabs'].first['id'], 'tab1');
+    });
+
     test('saveRecord appends data to sheets', () async {
       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
