@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
@@ -14,6 +15,7 @@ void main() {
   late MockWorkspaceProvider mockWorkspaceProvider;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
     mockAuthService = MockAuthService();
     mockWorkspaceProvider = MockWorkspaceProvider();
 

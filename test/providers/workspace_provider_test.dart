@@ -1,8 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('WorkspaceProvider Tests', () {
     test('Initial state should be null', () {
       final provider = WorkspaceProvider();
