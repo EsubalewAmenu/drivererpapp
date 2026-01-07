@@ -6,28 +6,28 @@ import 'package:provider/provider.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
-import 'package:drivererpapp/providers/sync_provider.dart';
+import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveProvider extends Mock implements DriveProvider {}
-class MockSyncProvider extends Mock implements SyncProvider {}
 class MockDriveService extends Mock implements DriveService {}
 
 void main() {
-  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late MockAuthService mockAuthService;
   late MockWorkspaceProvider mockWorkspaceProvider;
   late MockDriveProvider mockDriveProvider;
-  late MockSyncProvider mockSyncProvider;
   late MockDriveService mockDriveService;
 
   setUpAll(() {
+    SharedPreferences.setMockInitialValues({});
     AppTheme.useGoogleFonts = false;
     registerFallbackValue(drive.File());
   });
@@ -36,12 +36,12 @@ void main() {
     mockAuthService = MockAuthService();
     mockWorkspaceProvider = MockWorkspaceProvider();
     mockDriveProvider = MockDriveProvider();
-    mockSyncProvider = MockSyncProvider();
     mockDriveService = MockDriveService();
 
     when(() => mockAuthService.isAuthenticated).thenReturn(false);
     when(() => mockAuthService.signInSilently()).thenAnswer((_) async {});
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
     when(() => mockWorkspaceProvider.hasWorkspace).thenReturn(false);
   });
 
@@ -51,7 +51,7 @@ void main() {
         ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
-        ChangeNotifierProvider<SyncProvider>.value(value: mockSyncProvider),
+        ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
       ],
       child: const MaterialApp(
         home: LandingScreen(),

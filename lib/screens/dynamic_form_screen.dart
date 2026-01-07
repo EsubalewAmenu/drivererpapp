@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
-import '../providers/sync_provider.dart';
 import 'dynamic_form/dynamic_form_renderer.dart';
 
 class DynamicFormScreen extends StatefulWidget {
@@ -128,53 +127,36 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
       
       try {
         final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-        final syncProvider = Provider.of<SyncProvider>(context, listen: false);
         
         if (widget.module == null) throw Exception("Module context missing");
 
-        // Try direct save if online
-        if (driveProvider.driveService != null) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Saving to Drive...'), duration: Duration(seconds: 1)),
-            );
-          }
-
-          try {
-            await driveProvider.driveService!.saveRecord(
-              widget.module!.id,
-              widget.module!.name,
-              widget.tab.id,
-              _formData,
-            );
-            
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record saved successfully')));
-              Navigator.pop(context);
-            }
-            return;
-          } catch (e) {
-            // Direct save failed, fallback to queue
-          }
+        if (driveProvider.driveService == null) {
+          throw Exception("No authenticated drive service. Check your connection.");
         }
 
-        // Fallback to queue if offline or direct save failed
-        syncProvider.addToQueue(
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Saving to Drive...'), duration: Duration(seconds: 1)),
+          );
+        }
+
+        await driveProvider.driveService!.saveRecord(
           widget.module!.id,
           widget.module!.name,
           widget.tab.id,
           _formData,
         );
-
+        
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Offline: Record added to sync queue')),
-          );
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record saved successfully')));
           Navigator.pop(context);
         }
       } catch (e) {
+        debugPrint('Error saving record: $e');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error saving record: ${e.toString().contains('Failed host lookup') ? 'Network connection error' : e.toString()}')),
+          );
         }
       }
     }

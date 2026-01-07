@@ -31,6 +31,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   List<Map<String, dynamic>> _allData = [];
   List<Map<String, dynamic>> _filteredData = [];
   bool _isLoading = true;
+  String? _errorMessage;
   String _searchQuery = '';
   String? _activeFilter;
 
@@ -40,36 +41,76 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   void initState() {
     super.initState();
     _driveService = Provider.of<DriveProvider>(context, listen: false).driveService!;
-    _loadData();
-    _searchController.addListener(() {
+    // Delay loading to keep navigation smooth
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) _loadData();
+    });
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void didUpdateWidget(ModuleTabScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the tab config or module schema changed, we might need to refresh
+    if (oldWidget.tab != widget.tab || oldWidget.module != widget.module) {
+      debugPrint('Tab or Module schema updated for ${widget.tab.id}, refreshing tab...');
+      _loadData();
+    }
+  }
+
+  void _onSearchChanged() {
+    if (mounted) {
       setState(() {
         _searchQuery = _searchController.text;
         _applyFilters();
       });
-    });
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
-    
     if (widget.module == null) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
-    // Load actual data from DriveService
-    final data = await _driveService.fetchRecords(
-      widget.module!.id, 
-      widget.module!.name, 
-      widget.tab.id
-    );
-    
     if (mounted) {
       setState(() {
-        _allData = data;
-        _filteredData = data;
-        _isLoading = false;
+        _isLoading = true;
+        _errorMessage = null;
       });
+    }
+
+    // Fetch fresh data from DriveService
+    try {
+      final data = await _driveService.fetchRecords(
+        widget.module!.id, 
+        widget.module!.name, 
+        widget.tab.id
+      );
+      
+      if (mounted) {
+        setState(() {
+          _allData = data;
+          _filteredData = data;
+          _isLoading = false;
+          _errorMessage = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error fetching data for ${widget.tab.id}: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Records unavailable (Offline)';
+        });
+      }
     }
   }
 
@@ -112,6 +153,34 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
+    }
+
+    final theme = Theme.of(context);
+
+    if (_errorMessage != null && _allData.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cloud_off_rounded, size: 48, color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _loadData, 
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: widget.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
     return Scaffold(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
 import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
@@ -73,6 +74,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             _buildSectionHeader('APPEARANCE'),
             const SizedBox(height: 16),
             _buildAppearanceCard(),
+            const SizedBox(height: 32),
+            _buildSectionHeader('STORAGE'),
+            const SizedBox(height: 16),
+            _buildStorageCard(),
             const SizedBox(height: 32),
             _buildSectionHeader('SESSION INFO'),
             const SizedBox(height: 16),
@@ -222,6 +227,75 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildStorageCard() {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.storage_rounded, color: theme.primaryColor),
+              const SizedBox(width: 12),
+              Text(
+                'MANAGE CACHE',
+                style: AppTheme.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: theme.textTheme.bodyLarge?.color,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Icon(Icons.cached_rounded, color: theme.textTheme.bodyMedium?.color),
+            title: Text('Clear Module Blueprints', style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w600, color: theme.textTheme.bodyLarge?.color)),
+            subtitle: Text('Force reload all tools from Drive', style: AppTheme.inter(fontSize: 12, color: theme.textTheme.bodyMedium?.color)),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+              onPressed: _clearCache,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _clearCache() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys().where((k) => k.startsWith('module_config_') || k.startsWith('module_meta_')).toList();
+    
+    if (!mounted) return;
+
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear Cache?'),
+        content: Text('This will clear the cached blueprints for ${keys.length ~/ 2} modules. They will be re-downloaded next time you open them.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('CLEAR')),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      for (final key in keys) {
+        await prefs.remove(key);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cache cleared successfully.')));
+      }
+    }
   }
 
   Widget _buildSessionInfo() {

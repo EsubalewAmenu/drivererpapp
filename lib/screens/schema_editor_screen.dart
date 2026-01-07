@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
+import '../providers/schema_provider.dart';
 import '../theme/app_theme.dart';
 import 'schema_editor/structure_editor.dart';
 import 'schema_editor/dashboard_editor.dart';
@@ -160,8 +161,12 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
     try {
       // 1. Construct the JSON object
       final Map<String, dynamic> jsonMap = {
-        // Core properties are now in settings
-        'settings': _rawSettings, // This now contains the updated values
+        'id': widget.module.id,
+        'name': _settingsValues['name'] ?? widget.module.name,
+        'icon': _settingsValues['icon'] ?? widget.module.icon,
+        'primaryColor': _settingsValues['primaryColor'] ?? widget.module.primaryColor,
+        'version': _settingsValues['version'] ?? widget.module.version,
+        'settings': _rawSettings,
         'dashboard': {
           'kpiCards': _kpis.map((k) => k.toJson()).toList(),
         },
@@ -175,13 +180,29 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
       // Check if config exists
       final existingFileId = await driveService.getFileId(widget.module.id, 'config');
 
+      String? fileId = existingFileId;
       if (existingFileId != null) {
         debugPrint('Updating existing config sheet ($existingFileId)...');
         await driveService.updateModuleConfig(existingFileId, jsonMap);
       } else {
         debugPrint('Creating new config sheet in ${widget.module.id}...');
-        await driveService.createModuleConfig(widget.module.id, 'config', jsonMap);
+        fileId = await driveService.createModuleConfig(widget.module.id, 'config', jsonMap);
       }
+
+      // 3. Update Local Cache
+      final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+      final schemaService = schemaProvider.service;
+      final remoteModifiedTime = await driveService.getFileModifiedTime(fileId!);
+      
+      await schemaService.cacheConfig(
+        widget.module.id, 
+        jsonMap, 
+        fileId: fileId, 
+        modifiedTime: remoteModifiedTime?.toIso8601String()
+      );
+
+      // Clear memory cache so it reloads from disk on next access
+      schemaProvider.updateMemoryCache(widget.module.id, null);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

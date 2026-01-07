@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'services/auth_service.dart';
 import 'providers/workspace_provider.dart';
 import 'providers/drive_provider.dart';
-import 'providers/sync_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/schema_provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/landing_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // Pre-initialize SharedPreferences for instant cache access
+  await SharedPreferences.getInstance();
   runApp(const MainApp());
 }
 
@@ -30,12 +34,10 @@ class MainApp extends StatelessWidget {
             return d;
           },
         ),
-        ChangeNotifierProxyProvider<DriveProvider, SyncProvider>(
-          create: (_) => SyncProvider(),
-          update: (_, drive, sync) {
-            final s = sync ?? SyncProvider();
-            s.updateDriveProvider(drive);
-            return s;
+        ChangeNotifierProxyProvider<DriveProvider, SchemaProvider>(
+          create: (_) => SchemaProvider(),
+          update: (_, drive, schema) {
+            return SchemaProvider(driveService: drive.driveService);
           },
         ),
       ],

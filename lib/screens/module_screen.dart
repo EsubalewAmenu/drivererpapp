@@ -5,6 +5,8 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
+import '../providers/schema_provider.dart';
+import '../services/schema_service.dart';
 import 'schema_editor_screen.dart';
 import 'module/module_dashboard.dart';
 import 'module/module_tab_screen.dart';
@@ -21,105 +23,156 @@ class ModuleScreen extends StatefulWidget {
 
 class _ModuleScreenState extends State<ModuleScreen> {
   ModuleSchema? _fullModule;
-  bool _isLoadingSchema = true;
+  late bool _isLoadingSchema;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadSchema();
-    });
+    final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+    _fullModule = schemaProvider.getFromMemory(widget.module.id);
+    _isLoadingSchema = _fullModule == null;
+    
+    _loadSchema();
   }
 
   Future<void> _loadSchema() async {
     try {
-      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService!;
+      final schemaService = Provider.of<SchemaProvider>(context, listen: false).service;
       
-      // 1. Check for config (Sheet) in the module folder
-      String? configFileId = await driveService.getFileId(widget.module.id, 'config');
-      
-      Map<String, dynamic> jsonMap;
-      bool isLocalConfig = false;
+      // 1. Try to load from cache
+      final cachedJson = await schemaService.getCachedConfig(widget.module.id);
+      if (cachedJson != null) {
+        debugPrint('Loading module ${widget.module.id} from cache...');
+        _processJson(cachedJson);
+        
+        // Background sync after UI settles
+        Future.delayed(const Duration(milliseconds: 1500), () {
+          if (mounted) _syncSchema(schemaService);
+        });
+        return;
+      }
 
-      if (configFileId != null) {
-        // 2. Load from Drive Sheet
-        jsonMap = await driveService.readModuleConfig(configFileId);
-      } else {
-        // 3. Load from Assets (Fallback)
-        isLocalConfig = true;
-        final fileName = widget.module.name.toLowerCase();
-        // Handle case where asset might not exist (though it should for known modules)
-        try {
-          final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
-          jsonMap = jsonDecode(jsonString);
-        } catch (e) {
-          debugPrint('Asset not found for $fileName, using default empty schema');
-          jsonMap = {
-            'settings': {'name': {'value': widget.module.name}},
-            'dashboard': {'kpiCards': []},
-            'tabs': []
-          };
-        }
+      // 2. Not in cache, sync from Drive immediately
+      final newJson = await _syncSchema(schemaService);
+      if (newJson != null) return; // _processJson was called in _syncSchema
+
+      // 3. Fallback to Assets if no remote config
+      debugPrint('No remote config found for ${widget.module.id}, checking assets...');
+      final fileName = widget.module.name.toLowerCase();
+      Map<String, dynamic> assetJson;
+      try {
+        final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
+        assetJson = jsonDecode(jsonString);
+      } catch (e) {
+        debugPrint('Asset not found for $fileName, using default empty schema');
+        assetJson = {
+          'settings': {'name': {'value': widget.module.name}},
+          'dashboard': {'kpiCards': []},
+          'tabs': []
+        };
       }
       
-      // Parse JSON to ModuleSchema
-      final settingsMap = (jsonMap['settings'] as Map<String, dynamic>?) ?? {};
-      final name = settingsMap['name']?['value'] ?? widget.module.name;
-      
-      // Extract core properties from settings if available, otherwise fallback to root or widget defaults
-      final icon = settingsMap['icon']?['value'] ?? jsonMap['icon'] ?? widget.module.icon;
-      final primaryColor = settingsMap['primaryColor']?['value'] ?? jsonMap['primaryColor'] ?? widget.module.primaryColor;
-      final version = settingsMap['version']?['value'] ?? jsonMap['version'] ?? widget.module.version;
-      
-      final dashboard = jsonMap['dashboard'] != null 
-          ? DashboardConfig.fromJson(jsonMap['dashboard'])
-          : DashboardConfig(kpiCards: []);
-      
-      final tabsList = (jsonMap['tabs'] as List?) ?? [];
-      
-      // Pre-process tabs (same logic as before)
-      for (var tab in tabsList) {
-        if (tab['columns'] != null) {
-          for (var col in tab['columns']) {
-            if (col['options'] is String && (col['options'] as String).startsWith('settings.')) {
-              final path = (col['options'] as String).split('.');
-              if (path.length == 2) {
-                final settingKey = path[1];
-                final settingValue = settingsMap[settingKey]?['value'];
-                if (settingValue is List) {
-                  col['options'] = settingValue;
-                } else {
-                  col['options'] = [];
-                }
+      _processJson(assetJson, isAssetFallback: true);
+
+    } catch (e) {
+      debugPrint('Error loading module schema: $e');
+      if (mounted) {
+        setState(() {
+          _fullModule = widget.module;
+          _isLoadingSchema = false;
+        });
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>?> _syncSchema(SchemaService schemaService) async {
+    final newJson = await schemaService.syncConfig(widget.module.id);
+    if (newJson != null && mounted) {
+      debugPrint('Module ${widget.module.id} schema updated from Drive.');
+      _processJson(newJson);
+    }
+    return newJson;
+  }
+
+  void _processJson(Map<String, dynamic> jsonMap, {bool isAssetFallback = false}) {
+    // Parse JSON to ModuleSchema
+    final settingsMap = (jsonMap['settings'] as Map<String, dynamic>?) ?? {};
+    final name = settingsMap['name']?['value'] ?? widget.module.name;
+    
+    final icon = settingsMap['icon']?['value'] ?? jsonMap['icon'] ?? widget.module.icon;
+    final primaryColor = settingsMap['primaryColor']?['value'] ?? jsonMap['primaryColor'] ?? widget.module.primaryColor;
+    final version = settingsMap['version']?['value'] ?? jsonMap['version'] ?? widget.module.version;
+    
+    final dashboard = jsonMap['dashboard'] != null 
+        ? DashboardConfig.fromJson(jsonMap['dashboard'])
+        : DashboardConfig(kpiCards: []);
+    
+    final tabsList = (jsonMap['tabs'] as List?) ?? [];
+    
+    // Pre-process tabs
+    for (var tab in tabsList) {
+      if (tab['columns'] != null) {
+        for (var col in tab['columns']) {
+          if (col['options'] is String && (col['options'] as String).startsWith('settings.')) {
+            final path = (col['options'] as String).split('.');
+            if (path.length == 2) {
+              final settingKey = path[1];
+              final settingValue = settingsMap[settingKey]?['value'];
+              if (settingValue is List) {
+                col['options'] = settingValue;
+              } else {
+                col['options'] = [];
               }
             }
           }
         }
       }
+    }
 
-      final tabs = tabsList.map((t) => TabConfig.fromJson(t)).toList();
-      final settingsItems = settingsMap.map((k, v) => MapEntry(k, SettingItem.fromJson(v)));
-
-      final loadedModule = ModuleSchema(
-        id: widget.module.id,
-        name: name,
-        icon: icon,
-        primaryColor: primaryColor,
-        version: version,
-        settings: settingsItems,
-        dashboard: dashboard,
-        tabs: tabs,
-      );
-
-      if (mounted) {
-        setState(() {
-          _fullModule = loadedModule;
-          _isLoadingSchema = false;
-        });
+    final tabs = (tabsList as List).map((t) {
+      try {
+        return TabConfig.fromJson(t as Map<String, dynamic>);
+      } catch (e) {
+        debugPrint('Error parsing tab: $e');
+        return TabConfig(id: 'err', label: 'Error Tab', columns: []);
       }
+    }).toList();
 
-      // 4. If local config, navigate to Editor to complete setup
-      if (isLocalConfig && mounted) {
+    final settingsItems = <String, SettingItem>{};
+    settingsMap.forEach((k, v) {
+      if (v != null) {
+        try {
+          settingsItems[k] = SettingItem.fromJson(v as Map<String, dynamic>);
+        } catch (e) {
+          debugPrint('Error parsing setting $k: $e');
+        }
+      }
+    });
+
+    final loadedModule = ModuleSchema(
+      id: widget.module.id,
+      name: name,
+      icon: icon,
+      primaryColor: primaryColor,
+      version: version,
+      settings: settingsItems,
+      dashboard: dashboard,
+      tabs: tabs,
+    );
+
+    // Update memory cache for instant access next time
+    if (mounted) {
+      Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(widget.module.id, loadedModule);
+    }
+
+    if (mounted) {
+      setState(() {
+        _fullModule = loadedModule;
+        _isLoadingSchema = false;
+      });
+
+      // If it was an asset fallback, navigate to Editor
+      if (isAssetFallback) {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => SchemaEditorScreen(
@@ -128,17 +181,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             ),
           ),
         ).then((_) {
-          // Reload schema after returning from editor (in case it was saved)
           _loadSchema();
-        });
-      }
-
-    } catch (e) {
-      debugPrint('Error loading module schema: $e');
-      if (mounted) {
-        setState(() {
-          _fullModule = widget.module;
-          _isLoadingSchema = false;
         });
       }
     }
@@ -228,7 +271,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
         body: TabBarView(
           children: [
             ModuleDashboard(
-              key: UniqueKey(), // Force rebuild when tab changes or parent rebuilds
               module: module, 
               primaryColor: primaryColor
             ),

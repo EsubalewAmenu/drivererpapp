@@ -7,11 +7,12 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
-import 'package:drivererpapp/providers/sync_provider.dart';
+import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dynamic_form_screen.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
@@ -31,19 +32,21 @@ class TestDriveProvider extends DriveProvider {
 }
 
 void main() {
-  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late MockDriveService mockDriveService;
   late TabConfig testTab;
   late ModuleSchema testModule;
 
   setUpAll(() {
+    SharedPreferences.setMockInitialValues({});
     AppTheme.useGoogleFonts = false;
     registerFallbackValue(drive.File());
   });
 
   setUp(() {
     mockDriveService = MockDriveService();
+    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
     
     testTab = TabConfig(
       id: 'stocks',
@@ -65,16 +68,15 @@ void main() {
     );
   });
 
-  testWidgets('Offline Queue and Sync Verification', (tester) async {
-    debugPrint('TEST: Starting sync_test flow');
+  testWidgets('Direct Save Error Reporting', (tester) async {
+    debugPrint('TEST: Starting sync_test (Direct Save Error reporting) flow');
     final driveProvider = TestDriveProvider(mockDriveService);
-    final syncProvider = SyncProvider()..updateDriveProvider(driveProvider);
 
     await tester.pumpWidget(
       MultiProvider(
         providers: [
           ChangeNotifierProvider<DriveProvider>.value(value: driveProvider),
-          ChangeNotifierProvider<SyncProvider>.value(value: syncProvider),
+          ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
         ],
         child: MaterialApp(
           home: DynamicFormScreen(
@@ -87,30 +89,45 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // 1. Simulate Offline: Make saveRecord throw
+    // 1. Simulate Offline: Make saveRecord throw SocketException (Fast Fail)
     when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
-        .thenThrow(Exception('No Connectivity'));
+        .thenThrow(Exception('Failed host lookup: www.googleapis.com'));
 
     // 2. Fill and Save
     await tester.enterText(find.byType(TextField).first, 'Offline Item');
     await tester.tap(find.text('SAVE'));
+    
+    // Progress Snackbars take time to appear and disappear
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1)); // Wait for "Saving to Drive..." to potentially start disappearing
+    await tester.pump(const Duration(seconds: 1)); // Wait for Error Snackbox
+
+    bool foundError = false;
+    for (int i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      final allText = tester.allWidgets.whereType<Text>().map((t) => t.data ?? '').join(' | ');
+      if (allText.contains('Network connection error')) {
+        foundError = true;
+        break;
+      }
+    }
+
+    // 3. Verify error message
+    expect(foundError, isTrue, reason: 'Network connection error snackbar should be visible');
+    
+    // 4. Cleanup snackbars manually to speed up test
+    ScaffoldMessenger.of(tester.element(find.byType(DynamicFormScreen))).clearSnackBars();
     await tester.pumpAndSettle();
-
-    // 3. Verify it's in the queue
-    expect(syncProvider.pendingCount, 1);
-    // expect(find.text('Offline: Record added to sync queue'), findsOneWidget);
-
-    // 4. Simulate Online: Make saveRecord succeed
+    
+    // 5. Simulate Online: Make saveRecord succeed
     when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
         .thenAnswer((_) async => {});
 
-    // 5. Trigger Sync
-    await syncProvider.sync();
+    // 6. Save again
+    await tester.tap(find.text('SAVE'));
     await tester.pumpAndSettle();
 
-    // 6. Verify queue is empty and saveRecord was called
-    expect(syncProvider.pendingCount, 0);
-    // 3 calls: 1 from _saveForm, 1 from addToQueue (automatic sync), 1 from manual sync
-    verify(() => mockDriveService.saveRecord('mod1', 'Inventory', 'stocks', any())).called(3);
+    // 7. Verify success via verify call (even if UI was popped)
+    verify(() => mockDriveService.saveRecord('mod1', 'Inventory', 'stocks', any())).called(2);
   });
 }

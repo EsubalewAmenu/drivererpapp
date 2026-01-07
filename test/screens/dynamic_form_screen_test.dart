@@ -5,22 +5,19 @@ import 'package:provider/provider.dart';
 import 'package:drivererpapp/screens/dynamic_form_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
-import 'package:drivererpapp/providers/sync_provider.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
+import 'package:drivererpapp/services/drive_service.dart';
 
 class MockDriveProvider extends Mock implements DriveProvider {}
-class MockSyncProvider extends Mock implements SyncProvider {}
 class MockThemeProvider extends Mock implements ThemeProvider {}
 
 void main() {
   late MockDriveProvider mockDriveProvider;
-  late MockSyncProvider mockSyncProvider;
   late MockThemeProvider mockThemeProvider;
   late TabConfig testTab;
 
   setUp(() {
     mockDriveProvider = MockDriveProvider();
-    mockSyncProvider = MockSyncProvider();
     mockThemeProvider = MockThemeProvider();
 
     testTab = TabConfig(id: 't1', label: 'Inventory', columns: [
@@ -35,7 +32,6 @@ void main() {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
-        ChangeNotifierProvider<SyncProvider>.value(value: mockSyncProvider),
         ChangeNotifierProvider<ThemeProvider>.value(value: mockThemeProvider),
       ],
       child: MaterialApp(
@@ -58,6 +54,10 @@ void main() {
   }
 
   testWidgets('DynamicFormScreen renders and saves', (WidgetTester tester) async {
+    final mockDriveService = MockDriveService();
+    when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    when(() => mockDriveService.saveRecord(any(), any(), any(), any())).thenAnswer((_) async => {});
+
     await tester.pumpWidget(createFormScreen());
 
     expect(find.text('NEW INVENTORY'), findsOneWidget);
@@ -73,6 +73,8 @@ void main() {
     await tester.tap(find.text('SAVE'));
     await tester.pumpAndSettle();
 
-    verify(() => mockSyncProvider.addToQueue('mod1', 'Inventory', 't1', any())).called(1);
+    verify(() => mockDriveService.saveRecord('mod1', 'Inventory', 't1', any())).called(1);
   });
 }
+
+class MockDriveService extends Mock implements DriveService {}

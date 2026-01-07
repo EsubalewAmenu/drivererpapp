@@ -5,14 +5,14 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:drivererpapp/theme/app_theme.dart';
-import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
-import 'package:drivererpapp/providers/sync_provider.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
+import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
@@ -31,6 +31,7 @@ void main() {
   late MockDriveService mockDriveService;
 
   setUpAll(() {
+    SharedPreferences.setMockInitialValues({});
     AppTheme.useGoogleFonts = false;
     registerFallbackValue(drive.File());
   });
@@ -44,6 +45,7 @@ void main() {
     
     // Default mocks for module loading and dashboard
     when(() => mockDriveService.fetchRecords(any(), any(), any())).thenAnswer((_) async => []);
+    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
   });
 
@@ -65,8 +67,8 @@ void main() {
           ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
           ChangeNotifierProvider<WorkspaceProvider>.value(value: workspaceProvider),
           ChangeNotifierProvider<DriveProvider>.value(value: driveProvider),
-          ChangeNotifierProvider<SyncProvider>(create: (_) => SyncProvider()),
           ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
+          ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
         ],
         child: const MaterialApp(
           home: DashboardScreen(),
@@ -140,6 +142,11 @@ void main() {
     // After activate in editor, it goes back to ModuleScreen which might load again.
     when(() => mockDriveService.getFileId('new_mod_id', 'config')).thenAnswer((_) async => 'config_id');
     when(() => mockDriveService.readModuleConfig('config_id')).thenAnswer((_) async => <String, dynamic>{
+      'id': 'new_mod_id',
+      'name': 'Inventory',
+      'icon': 'inventory',
+      'primaryColor': '#F59E0B',
+      'version': '1.0.0',
       'tabs': <dynamic>[
         <String, dynamic>{'id': 't1', 'label': 'Stocks', 'columns': <dynamic>[]}
       ],
@@ -150,7 +157,9 @@ void main() {
     await tester.tap(find.text('ACTIVATE'));
     await tester.pumpAndSettle();
 
-    // Should be back in ModuleScreen, showing the tabs
-    expect(find.text('STOCKS'), findsOneWidget);
+    // Should be back in ModuleScreen, showing the tabs.
+    // Inventory asset has "Stock Entries" tab.
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('STOCK ENTRIES'), findsOneWidget);
   });
 }

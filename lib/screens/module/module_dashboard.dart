@@ -17,27 +17,46 @@ class ModuleDashboard extends StatefulWidget {
 class _ModuleDashboardState extends State<ModuleDashboard> {
   Map<String, String> _kpiValues = {};
   bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _calculateKpis();
+    // Start calculating KPIs after a short delay to let animations finish
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _calculateKpis();
+    });
+  }
+
+  @override
+  void didUpdateWidget(ModuleDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.module != widget.module) {
+      debugPrint('Module schema updated, recalculating KPIs...');
+      _calculateKpis();
+    }
   }
 
   Future<void> _calculateKpis() async {
-    final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+    final driveService = driveProvider.driveService;
+    
     if (driveService == null) return;
-    final Map<String, String> results = {};
-
+    
+    if (mounted) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
+    
     // Assuming the first tab is the primary data source for now
-    // In a real app, we'd need to know which sheet/tab the KPI refers to.
-    // For Inventory, it's the 'stock' tab.
     if (widget.module.tabs.isEmpty) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
 
-    // Heuristic: Find the tab that contains 'qty' and 'cost_price' or default to the first one
+    // Heuristic: Find tab
     String tabId = widget.module.tabs.first.id;
     for (var tab in widget.module.tabs) {
       final hasQty = tab.columns.any((c) => c.key == 'qty');
@@ -48,18 +67,36 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
       }
     }
 
-    final data = await driveService.fetchRecords(widget.module.id, widget.module.name, tabId);
+    // Fetch fresh data
+    try {
+      final data = await driveService.fetchRecords(widget.module.id, widget.module.name, tabId);
+      
+      if (mounted) {
+        debugPrint('Updating Dashboard KPIs from fresh data for $tabId...');
+        _updateKpiState(data);
+      }
+    } catch (e) {
+      debugPrint('Error fetching records for dashboard: $e');
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Data unavailable (Offline)';
+        });
+      }
+    }
+  }
 
+  void _updateKpiState(List<Map<String, dynamic>> data) {
+    final Map<String, String> results = {};
     for (var card in widget.module.dashboard.kpiCards) {
       results[card.label] = _evaluateFormula(card.calculation, card.format, data);
     }
 
-    if (mounted) {
-      setState(() {
-        _kpiValues = results;
-        _isLoading = false;
-      });
-    }
+    setState(() {
+      _kpiValues = results;
+      _isLoading = false;
+      _errorMessage = null;
+    });
   }
 
   String _evaluateFormula(String formula, String format, List<Map<String, dynamic>> data) {
@@ -114,11 +151,37 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    final theme = Theme.of(context);
+    if (_errorMessage != null && _kpiValues.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cloud_off_rounded, size: 48, color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
+            const SizedBox(height: 16),
+            Text(
+              _errorMessage!,
+              style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: _calculateKpis, 
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: widget.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return ListView(
       padding: const EdgeInsets.all(24),
