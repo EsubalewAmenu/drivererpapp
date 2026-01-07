@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -11,6 +12,7 @@ class MockSheetsApi extends Mock implements sheets.SheetsApi {}
 
 // Mock Resources
 class MockDriveFilesResource extends Mock implements drive.FilesResource {}
+class MockDriveRevisionsResource extends Mock implements drive.RevisionsResource {}
 class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
 class MockSpreadsheetsValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 
@@ -20,6 +22,7 @@ void main() {
   late MockDriveApi mockDriveApi;
   late MockSheetsApi mockSheetsApi;
   late MockDriveFilesResource mockFilesResource;
+  late MockDriveRevisionsResource mockRevisionsResource;
   late MockSpreadsheetsResource mockSpreadsheetsResource;
   late MockSpreadsheetsValuesResource mockValuesResource;
 
@@ -29,11 +32,13 @@ void main() {
     mockSheetsApi = MockSheetsApi();
     
     mockFilesResource = MockDriveFilesResource();
+    mockRevisionsResource = MockDriveRevisionsResource();
     mockSpreadsheetsResource = MockSpreadsheetsResource();
     mockValuesResource = MockSpreadsheetsValuesResource();
 
     // Hook up resources
     when(() => mockDriveApi.files).thenReturn(mockFilesResource);
+    when(() => mockDriveApi.revisions).thenReturn(mockRevisionsResource);
     when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheetsResource);
     when(() => mockSpreadsheetsResource.values).thenReturn(mockValuesResource);
 
@@ -43,6 +48,7 @@ void main() {
       sheetsApi: mockSheetsApi,
     );
      registerFallbackValue(drive.File());
+     registerFallbackValue(drive.Media(Stream.empty(), 0));
      registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
   });
 
@@ -130,6 +136,63 @@ void main() {
 
       expect(result.length, 1);
       expect(result.first.id, 'mod1');
+    });
+  });
+
+  group('DriveFileMixin', () {
+    test('getFileId returns id if file exists', () async {
+      final fileList = drive.FileList(files: [
+        drive.File()..id = 'f1'..name = 'config'
+      ]);
+
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => fileList);
+
+      final result = await driveService.getFileId('mod1', 'config');
+
+      expect(result, 'f1');
+    });
+
+    test('createFile creates file with media', () async {
+      when(() => mockFilesResource.create(any(), $fields: any(named: '\$fields'), uploadMedia: any(named: 'uploadMedia')))
+          .thenAnswer((_) async => drive.File()..id = 'new_file'..name = 'data.json');
+
+      final result = await driveService.createFile('mod1', 'data.json', '{"test": "data"}');
+
+      expect(result, 'new_file');
+      verify(() => mockFilesResource.create(
+        any(that: isA<drive.File>().having((f) => f.name, 'name', 'data.json')),
+        uploadMedia: any(named: 'uploadMedia'),
+        $fields: any(named: '\$fields'),
+      )).called(1);
+    });
+
+    test('getFileContent downloads and decodes string', () async {
+      final content = 'hello world';
+      final List<int> bytes = utf8.encode(content);
+      final stream = Stream<List<int>>.value(bytes);
+      final media = drive.Media(stream, bytes.length);
+
+      when(() => mockFilesResource.get(any(), downloadOptions: drive.DownloadOptions.fullMedia))
+          .thenAnswer((_) async => media);
+
+      final result = await driveService.getFileContent('f123');
+
+      expect(result, content);
+    });
+
+    test('getFileRevisions returns list', () async {
+      final revisions = drive.RevisionList(revisions: [
+        drive.Revision()..id = 'r1'
+      ]);
+
+      when(() => mockRevisionsResource.list(any(), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => revisions);
+
+      final result = await driveService.getFileRevisions('f123');
+
+      expect(result.length, 1);
+      expect(result.first.id, 'r1');
     });
   });
 }
