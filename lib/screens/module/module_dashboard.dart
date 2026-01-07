@@ -15,98 +15,144 @@ class ModuleDashboard extends StatefulWidget {
 }
 
 class _ModuleDashboardState extends State<ModuleDashboard> {
-  Map<String, String> _kpiValues = {};
-  bool _isLoading = true;
+  final Map<String, String> _kpiValues = {};
+  final Map<String, bool> _loadingMap = {};
+  final Map<String, String?> _errorMap = {};
+  final Map<String, Future<List<Map<String, dynamic>>>> _fetchFutures = {};
 
   @override
   void initState() {
     super.initState();
-    _calculateKpis();
+    _initializeStatus();
+    // Start calculating KPIs after a short delay to let animations finish
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) _calculateAllKpis();
+    });
   }
 
-  Future<void> _calculateKpis() async {
-    final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
-    if (driveService == null) return;
-    final Map<String, String> results = {};
+  void _initializeStatus() {
+    for (var card in widget.module.dashboard.kpiCards) {
+      _loadingMap[card.label] = true;
+      _errorMap[card.label] = null;
+      _kpiValues.remove(card.label); // Clear old value if any
+    }
+  }
 
-    // Assuming the first tab is the primary data source for now
-    // In a real app, we'd need to know which sheet/tab the KPI refers to.
-    // For Inventory, it's the 'stock' tab.
-    if (widget.module.tabs.isEmpty) {
-      setState(() => _isLoading = false);
+  @override
+  void didUpdateWidget(ModuleDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.module != widget.module) {
+      debugPrint('Module schema updated, recalculating KPIs...');
+      _fetchFutures.clear();
+      _initializeStatus();
+      _calculateAllKpis();
+    }
+  }
+
+  Future<void> _calculateAllKpis() async {
+    for (var card in widget.module.dashboard.kpiCards) {
+      _calculateSingleKpi(card);
+    }
+  }
+
+  Future<void> _calculateSingleKpi(KpiCard card) async {
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+    final driveService = driveProvider.driveService;
+    
+    if (driveService == null) {
+      _setCardError(card, 'Not authenticated');
       return;
     }
 
-    // Heuristic: Find the tab that contains 'qty' and 'cost_price' or default to the first one
-    String tabId = widget.module.tabs.first.id;
-    for (var tab in widget.module.tabs) {
-      final hasQty = tab.columns.any((c) => c.key == 'qty');
-      final hasCost = tab.columns.any((c) => c.key == 'cost_price');
-      if (hasQty && hasCost) {
-        tabId = tab.id;
-        break;
+    if (widget.module.tabs.isEmpty) {
+      _setCardError(card, 'No data sources');
+      return;
+    }
+
+    try {
+      // Heuristic: Identify which tab this formula likely refers to
+      String tabId = widget.module.tabs.first.id;
+      for (var tab in widget.module.tabs) {
+        final formula = card.calculation.toLowerCase();
+        bool matches = false;
+        for (var col in tab.columns) {
+          if (formula.contains(col.key.toLowerCase())) {
+            matches = true;
+            break;
+          }
+        }
+        if (matches) {
+          tabId = tab.id;
+          break;
+        }
       }
+
+      // Use shared future to avoid redundant requests
+      if (!_fetchFutures.containsKey(tabId)) {
+        _fetchFutures[tabId] = driveService.fetchRecords(widget.module.id, widget.module.name, tabId);
+      }
+      
+      final data = await _fetchFutures[tabId]!;
+
+      if (mounted) {
+        final result = _evaluateFormula(card.calculation, card.format, data);
+        setState(() {
+          _kpiValues[card.label] = result;
+          _loadingMap[card.label] = false;
+          _errorMap[card.label] = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error calculating KPI ${card.label}: $e');
+      _setCardError(card, 'Error');
     }
+  }
 
-    final data = await driveService.fetchRecords(widget.module.id, widget.module.name, tabId);
-
-    for (var card in widget.module.dashboard.kpiCards) {
-      results[card.label] = _evaluateFormula(card.calculation, card.format, data);
-    }
-
+  void _setCardError(KpiCard card, String message) {
     if (mounted) {
       setState(() {
-        _kpiValues = results;
-        _isLoading = false;
+        _loadingMap[card.label] = false;
+        _errorMap[card.label] = message;
       });
     }
   }
 
   String _evaluateFormula(String formula, String format, List<Map<String, dynamic>> data) {
+    if (data.isEmpty) return format == 'currency' ? '\$0.00' : '0';
+
     try {
-      if (formula.startsWith('SUM(')) {
-        // SUM(cost_price * qty)
-        final expression = formula.substring(4, formula.length - 1);
-        double total = 0;
-        
+      final matches = RegExp(r'(\w+)\((.*)\)').firstMatch(formula);
+      if (matches == null) return '0';
+
+      final function = matches.group(1)?.toUpperCase();
+      final expression = matches.group(2) ?? '';
+
+      double result = 0;
+
+      if (function == 'SUM') {
+        final parts = expression.split('*').map((e) => e.trim()).toList();
         for (var row in data) {
-          if (expression.contains('*')) {
-            final parts = expression.split('*').map((e) => e.trim()).toList();
-            final val1 = double.tryParse(row[parts[0]]?.toString() ?? '0') ?? 0;
-            final val2 = double.tryParse(row[parts[1]]?.toString() ?? '0') ?? 0;
-            total += val1 * val2;
-          } else {
-            final val = double.tryParse(row[expression]?.toString() ?? '0') ?? 0;
-            total += val;
+          double val = 1.0;
+          for (var p in parts) {
+            val *= (double.tryParse(row[p]?.toString() ?? '0') ?? 0.0);
           }
+          result += val;
         }
-        
-        if (format == 'currency') {
-          return '\$${total.toStringAsFixed(2)}';
+      } else if (function == 'COUNT') {
+        final parts = expression.split('<').map((e) => e.trim()).toList();
+        if (parts.length == 2) {
+          final field = parts[0];
+          final limit = double.tryParse(parts[1]) ?? 0.0;
+          result = data.where((row) => (double.tryParse(row[field]?.toString() ?? '0') ?? 0.0) < limit).length.toDouble();
+        } else {
+          result = data.length.toDouble();
         }
-        return total.toStringAsFixed(2);
-      } 
-      else if (formula.startsWith('COUNT(')) {
-        // COUNT(qty < 10)
-        final expression = formula.substring(6, formula.length - 1);
-        int count = 0;
-        
-        if (expression.contains('<')) {
-          final parts = expression.split('<').map((e) => e.trim()).toList();
-          final key = parts[0];
-          final threshold = double.tryParse(parts[1]) ?? 0;
-          
-          for (var row in data) {
-            final val = double.tryParse(row[key]?.toString() ?? '0') ?? 0;
-            if (val < threshold) {
-              count++;
-            }
-          }
-        }
-        return count.toString();
       }
-      
-      return '0';
+
+      if (format == 'currency') {
+        return '\$${result.toStringAsFixed(2)}';
+      }
+      return result.toInt().toString();
     } catch (e) {
       return 'Error';
     }
@@ -114,23 +160,29 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
     final theme = Theme.of(context);
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        Text(
-          'PERFORMANCE OVERVIEW',
-          style: AppTheme.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: theme.textTheme.bodyMedium?.color,
-            letterSpacing: 1.5,
-          ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'PERFORMANCE OVERVIEW',
+              style: AppTheme.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: theme.textTheme.bodyMedium?.color,
+                letterSpacing: 1.5,
+              ),
+            ),
+            IconButton(
+              onPressed: _calculateAllKpis, 
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              tooltip: 'Refresh KPIs',
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         ...widget.module.dashboard.kpiCards.map((card) => _buildKpiCard(context, card)),
@@ -140,10 +192,12 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
 
   Widget _buildKpiCard(BuildContext context, KpiCard card) {
     final theme = Theme.of(context);
-    final value = _kpiValues[card.label] ?? '0';
+    final value = _kpiValues[card.label];
+    final isLoading = _loadingMap[card.label] ?? true;
+    final error = _errorMap[card.label];
     
     // Alert Logic: If label is "Shortages" and count > 0, use danger color
-    final isAlert = card.label == 'Shortages' && (int.tryParse(value) ?? 0) > 0;
+    final isAlert = card.label == 'Shortages' && value != null && (int.tryParse(value) ?? 0) > 0;
     final cardColor = isAlert ? const Color(0xFFF43F5E) : widget.primaryColor;
     final bgColor = isAlert ? const Color(0xFFF43F5E).withValues(alpha: 0.1) : theme.cardTheme.color;
     final borderColor = isAlert ? const Color(0xFFF43F5E) : widget.primaryColor.withValues(alpha: 0.3);
@@ -171,21 +225,51 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
                   letterSpacing: 1.0,
                 ),
               ),
-              Icon(
-                isAlert ? Icons.warning_rounded : Icons.show_chart_rounded, 
-                color: cardColor
-              ),
+              if (isLoading)
+                const SizedBox(
+                  width: 12, 
+                  height: 12, 
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    value: 0.5, // Static value to avoid pumpAndSettle timeouts
+                  )
+                )
+              else if (error != null)
+                Icon(Icons.error_outline_rounded, size: 16, color: theme.colorScheme.error)
+              else
+                Icon(
+                  isAlert ? Icons.warning_rounded : Icons.show_chart_rounded, 
+                  color: cardColor
+                ),
             ],
           ),
           const SizedBox(height: 16),
-          Text(
-            value,
-            style: AppTheme.sourceCodePro(
-              fontSize: 32,
-              fontWeight: FontWeight.w700,
-              color: isAlert ? cardColor : theme.textTheme.bodyLarge?.color,
+          if (isLoading)
+            Text(
+              '---',
+              style: AppTheme.sourceCodePro(
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+                color: theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.3),
+              ),
+            )
+          else if (error != null)
+            Text(
+              error,
+              style: AppTheme.inter(
+                fontSize: 14,
+                color: theme.colorScheme.error,
+              ),
+            )
+          else
+            Text(
+              value ?? '0',
+              style: AppTheme.sourceCodePro(
+                fontSize: 32,
+                fontWeight: FontWeight.w700,
+                color: isAlert ? cardColor : theme.textTheme.bodyLarge?.color,
+              ),
             ),
-          ),
           const SizedBox(height: 8),
           Text(
             "Formula: ${card.calculation}",

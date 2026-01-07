@@ -24,9 +24,20 @@ class DriveService with DriveFolderMixin, DriveFileMixin, DriveSheetMixin {
       try {
         return await action();
       } catch (e) {
+        // Fast fail if offline (SocketException or ClientException with SocketException)
+        final errorString = e.toString().toLowerCase();
+        if (errorString.contains('socketexception') || 
+            errorString.contains('failed host lookup') ||
+            errorString.contains('network is unreachable')) {
+          debugPrint('Offline detected, skipping retries for operation.');
+          rethrow;
+        }
+
         if (i == retries - 1) rethrow;
-        await Future.delayed(Duration(seconds: 1 * (i + 1)));
-        debugPrint('Retrying operation due to error: $e');
+        
+        final delay = Duration(seconds: 1 * (i + 1));
+        debugPrint('Retrying operation in ${delay.inSeconds}s due to error: $e');
+        await Future.delayed(delay);
       }
     }
     throw Exception('Unreachable');

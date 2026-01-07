@@ -10,8 +10,8 @@ import 'package:http/http.dart' as http;
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
-import 'package:drivererpapp/providers/sync_provider.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
+import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
@@ -33,7 +33,7 @@ class TestDriveProvider extends DriveProvider {
 }
 
 void main() {
-  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late MockAuthService mockAuthService;
   late MockDriveService mockDriveService;
@@ -67,6 +67,7 @@ void main() {
 
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
     when(() => mockDriveService.listWorkspaces(any())).thenAnswer((_) async => []);
+    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
   });
 
   testWidgets('Settings Screen Flow', (tester) async {
@@ -77,7 +78,6 @@ void main() {
     when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => []);
 
     final driveProvider = TestDriveProvider(mockDriveService);
-    final syncProvider = SyncProvider()..updateDriveProvider(driveProvider);
 
     // Helper to safely wait
     Future<void> safePumpAndSettle() async {
@@ -95,8 +95,8 @@ void main() {
           ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
           ChangeNotifierProvider<WorkspaceProvider>(create: (_) => WorkspaceProvider()),
           ChangeNotifierProvider<DriveProvider>.value(value: driveProvider),
-          ChangeNotifierProvider<SyncProvider>.value(value: syncProvider),
           ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
+          ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
         ],
         child: const MaterialApp(
           home: LandingScreen(),
