@@ -56,27 +56,27 @@ Map<String, dynamic> _$SettingItemToJson(SettingItem instance) =>
 
 DashboardConfig _$DashboardConfigFromJson(Map<String, dynamic> json) =>
     DashboardConfig(
-      kpiCards: (json['kpiCards'] as List<dynamic>)
-          .map((e) => KpiCard.fromJson(e as Map<String, dynamic>))
+      cards: (json['cards'] as List<dynamic>)
+          .map((e) => DashboardCard.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
 
 Map<String, dynamic> _$DashboardConfigToJson(DashboardConfig instance) =>
+    <String, dynamic>{'cards': instance.cards.map((e) => e.toJson()).toList()};
+
+DashboardCard _$DashboardCardFromJson(Map<String, dynamic> json) =>
+    DashboardCard(
+      label: json['label'] as String,
+      formula: json['formula'] as String,
+      format: json['format'] as String,
+    );
+
+Map<String, dynamic> _$DashboardCardToJson(DashboardCard instance) =>
     <String, dynamic>{
-      'kpiCards': instance.kpiCards.map((e) => e.toJson()).toList(),
+      'label': instance.label,
+      'formula': instance.formula,
+      'format': instance.format,
     };
-
-KpiCard _$KpiCardFromJson(Map<String, dynamic> json) => KpiCard(
-  label: json['label'] as String,
-  calculation: json['calculation'] as String,
-  format: json['format'] as String,
-);
-
-Map<String, dynamic> _$KpiCardToJson(KpiCard instance) => <String, dynamic>{
-  'label': instance.label,
-  'calculation': instance.calculation,
-  'format': instance.format,
-};
 
 TabConfig _$TabConfigFromJson(Map<String, dynamic> json) => TabConfig(
   id: json['id'] as String,

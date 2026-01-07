@@ -100,7 +100,7 @@ void main() {
       primaryColor: '#000000',
       version: '1.0',
       settings: {},
-      dashboard: DashboardConfig(kpiCards: []),
+      dashboard: DashboardConfig(cards: []),
       tabs: [tab1, tab2]
     );
 

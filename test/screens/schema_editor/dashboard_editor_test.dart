@@ -4,19 +4,19 @@ import 'package:drivererpapp/screens/schema_editor/dashboard_editor.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 
 void main() {
-  testWidgets('DashboardEditor renders KPIs', (WidgetTester tester) async {
-    final kpis = [
-      KpiCard(label: 'Sales', calculation: 'SUM(sales)', format: 'currency'),
-      KpiCard(label: 'Inventory', calculation: 'COUNT(items)', format: 'number'),
+  testWidgets('DashboardEditor renders Cards', (WidgetTester tester) async {
+    final cards = [
+      DashboardCard(label: 'Sales', formula: 'SUM(sales)', format: 'currency'),
+      DashboardCard(label: 'Inventory', formula: 'COUNT(items)', format: 'number'),
     ];
 
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: DashboardEditor(
-          kpis: kpis,
-          onAddKpi: () {},
-          onDeleteKpi: (index) {},
-          onEditKpi: (index, kpi) {},
+          cards: cards,
+          onAddCard: () {},
+          onDeleteCard: (index) {},
+          onEditCard: (index, card) {},
         ),
       ),
     ));
@@ -24,7 +24,7 @@ void main() {
     expect(find.text('Sales'), findsOneWidget);
     expect(find.text('Inventory'), findsOneWidget);
     expect(find.text('SUM(sales)'), findsOneWidget);
-    expect(find.text('Add KPI Card'), findsOneWidget);
+    expect(find.text('Add Card'), findsOneWidget);
   });
 
   testWidgets('DashboardEditor calls callbacks', (WidgetTester tester) async {
@@ -32,29 +32,29 @@ void main() {
     int? deletedIndex;
     int? editedIndex;
 
-    final kpis = [
-      KpiCard(label: 'Sales', calculation: 'SUM(sales)', format: 'currency'),
+    final cards = [
+      DashboardCard(label: 'Sales', formula: 'SUM(sales)', format: 'currency'),
     ];
 
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: DashboardEditor(
-          kpis: kpis,
-          onAddKpi: () {
+          cards: cards,
+          onAddCard: () {
             addCalled = true;
           },
-          onDeleteKpi: (index) {
+          onDeleteCard: (index) {
             deletedIndex = index;
           },
-          onEditKpi: (index, kpi) {
+          onEditCard: (index, card) {
             editedIndex = index;
           },
         ),
       ),
     ));
 
-    await tester.scrollUntilVisible(find.text('Add KPI Card'), 500);
-    await tester.tap(find.text('Add KPI Card'));
+    await tester.scrollUntilVisible(find.text('Add Card'), 500);
+    await tester.tap(find.text('Add Card'));
     expect(addCalled, isTrue);
 
     await tester.tap(find.byIcon(Icons.delete_outline));

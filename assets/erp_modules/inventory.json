@@ -18,15 +18,15 @@
     }
   },
   "dashboard": {
-    "kpiCards": [
+    "cards": [
       {
         "label": "Stock Worth",
-        "calculation": "SUM(cost_price * qty)",
+        "formula": "=SUMPRODUCT(stock_ledger!E:E, stock_ledger!D:D)", 
         "format": "currency"
       },
       {
         "label": "Shortages",
-        "calculation": "COUNT(qty < 10)",
+        "formula": "=COUNTIF(stock_ledger!D:D, \"<10\")",
         "format": "number"
       }
     ]

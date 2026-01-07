@@ -60,10 +60,10 @@ void main() {
           }
         },
         'dashboard': {
-          'kpiCards': [
+          'cards': [
             {
               'label': 'KPI 1',
-              'calculation': 'SUM(A)',
+              'formula': 'SUM(A)',
               'format': 'currency'
             }
           ]
@@ -78,7 +78,7 @@ void main() {
       expect(module.id, 'mod1');
       expect(module.settings.containsKey('setting1'), true);
       expect(module.settings['setting1']?.value, 'val1');
-      expect(module.dashboard.kpiCards.length, 1);
+      expect(module.dashboard.cards.length, 1);
       expect(module.tabs.length, 1);
 
       final outJson = module.toJson();

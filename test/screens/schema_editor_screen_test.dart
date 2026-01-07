@@ -48,7 +48,7 @@ void main() {
           defaultValue: 'default'
         )
       },
-      dashboard: DashboardConfig(kpiCards: []),
+      dashboard: DashboardConfig(cards: []),
       tabs: [],
     );
   });

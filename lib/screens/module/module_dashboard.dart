@@ -15,10 +15,12 @@ class ModuleDashboard extends StatefulWidget {
 }
 
 class _ModuleDashboardState extends State<ModuleDashboard> {
-  final Map<String, String> _kpiValues = {};
+  final Map<String, String> _cardValues = {};
   final Map<String, bool> _loadingMap = {};
   final Map<String, String?> _errorMap = {};
-  final Map<String, Future<List<Map<String, dynamic>>>> _fetchFutures = {};
+  
+  // Future implementation will fetch from spreadsheet directly
+  // final Map<String, Future<List<Map<String, dynamic>>>> _fetchFutures = {};
 
   @override
   void initState() {
@@ -26,15 +28,15 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
     _initializeStatus();
     // Start calculating KPIs after a short delay to let animations finish
     Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) _calculateAllKpis();
+      if (mounted) _fetchDashboardValues();
     });
   }
 
   void _initializeStatus() {
-    for (var card in widget.module.dashboard.kpiCards) {
+    for (var card in widget.module.dashboard.cards) {
       _loadingMap[card.label] = true;
       _errorMap[card.label] = null;
-      _kpiValues.remove(card.label); // Clear old value if any
+      _cardValues.remove(card.label); // Clear old value if any
     }
   }
 
@@ -42,73 +44,33 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
   void didUpdateWidget(ModuleDashboard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.module != widget.module) {
-      debugPrint('Module schema updated, recalculating KPIs...');
-      _fetchFutures.clear();
+      debugPrint('Module schema updated, refreshing dashboard...');
       _initializeStatus();
-      _calculateAllKpis();
+      _fetchDashboardValues();
     }
   }
 
-  Future<void> _calculateAllKpis() async {
-    for (var card in widget.module.dashboard.kpiCards) {
-      _calculateSingleKpi(card);
-    }
-  }
-
-  Future<void> _calculateSingleKpi(KpiCard card) async {
-    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-    final driveService = driveProvider.driveService;
+  Future<void> _fetchDashboardValues() async {
+    // TODO: Implement fetching calculated values from Spreadsheet (Dashboard Sheet)
+    // For now, we simulate fetching or show placeholder as we moved calculation to spreadsheet
     
-    if (driveService == null) {
-      _setCardError(card, 'Not authenticated');
-      return;
-    }
-
-    if (widget.module.tabs.isEmpty) {
-      _setCardError(card, 'No data sources');
-      return;
-    }
-
-    try {
-      // Heuristic: Identify which tab this formula likely refers to
-      String tabId = widget.module.tabs.first.id;
-      for (var tab in widget.module.tabs) {
-        final formula = card.calculation.toLowerCase();
-        bool matches = false;
-        for (var col in tab.columns) {
-          if (formula.contains(col.key.toLowerCase())) {
-            matches = true;
-            break;
-          }
-        }
-        if (matches) {
-          tabId = tab.id;
-          break;
-        }
-      }
-
-      // Use shared future to avoid redundant requests
-      if (!_fetchFutures.containsKey(tabId)) {
-        _fetchFutures[tabId] = driveService.fetchRecords(widget.module.id, widget.module.name, tabId);
-      }
-      
-      final data = await _fetchFutures[tabId]!;
-
-      if (mounted) {
-        final result = _evaluateFormula(card.calculation, card.format, data);
-        setState(() {
-          _kpiValues[card.label] = result;
-          _loadingMap[card.label] = false;
-          _errorMap[card.label] = null;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error calculating KPI ${card.label}: $e');
-      _setCardError(card, 'Error');
+    for (var card in widget.module.dashboard.cards) {
+       // Loop and set dummy for now, or fetch if service ready
+       if (mounted) {
+         setState(() {
+           _cardValues[card.label] = "Syncing..."; // Placeholder
+           _loadingMap[card.label] = false;
+         });
+       }
     }
   }
 
-  void _setCardError(KpiCard card, String message) {
+  /* 
+  // Old calculation logic removed as per request
+  Future<void> _calculateSingleKpi(KpiCard card) async { ... }
+  */
+
+  void _setCardError(DashboardCard card, String message) {
     if (mounted) {
       setState(() {
         _loadingMap[card.label] = false;
@@ -117,46 +79,6 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
     }
   }
 
-  String _evaluateFormula(String formula, String format, List<Map<String, dynamic>> data) {
-    if (data.isEmpty) return format == 'currency' ? '\$0.00' : '0';
-
-    try {
-      final matches = RegExp(r'(\w+)\((.*)\)').firstMatch(formula);
-      if (matches == null) return '0';
-
-      final function = matches.group(1)?.toUpperCase();
-      final expression = matches.group(2) ?? '';
-
-      double result = 0;
-
-      if (function == 'SUM') {
-        final parts = expression.split('*').map((e) => e.trim()).toList();
-        for (var row in data) {
-          double val = 1.0;
-          for (var p in parts) {
-            val *= (double.tryParse(row[p]?.toString() ?? '0') ?? 0.0);
-          }
-          result += val;
-        }
-      } else if (function == 'COUNT') {
-        final parts = expression.split('<').map((e) => e.trim()).toList();
-        if (parts.length == 2) {
-          final field = parts[0];
-          final limit = double.tryParse(parts[1]) ?? 0.0;
-          result = data.where((row) => (double.tryParse(row[field]?.toString() ?? '0') ?? 0.0) < limit).length.toDouble();
-        } else {
-          result = data.length.toDouble();
-        }
-      }
-
-      if (format == 'currency') {
-        return '\$${result.toStringAsFixed(2)}';
-      }
-      return result.toInt().toString();
-    } catch (e) {
-      return 'Error';
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -178,21 +100,21 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
               ),
             ),
             IconButton(
-              onPressed: _calculateAllKpis, 
+              onPressed: _fetchDashboardValues, 
               icon: const Icon(Icons.refresh_rounded, size: 18),
-              tooltip: 'Refresh KPIs',
+              tooltip: 'Refresh',
             ),
           ],
         ),
         const SizedBox(height: 16),
-        ...widget.module.dashboard.kpiCards.map((card) => _buildKpiCard(context, card)),
+        ...widget.module.dashboard.cards.map((card) => _buildCard(context, card)),
       ],
     );
   }
 
-  Widget _buildKpiCard(BuildContext context, KpiCard card) {
+  Widget _buildCard(BuildContext context, DashboardCard card) {
     final theme = Theme.of(context);
-    final value = _kpiValues[card.label];
+    final value = _cardValues[card.label];
     final isLoading = _loadingMap[card.label] ?? true;
     final error = _errorMap[card.label];
     
@@ -272,7 +194,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
             ),
           const SizedBox(height: 8),
           Text(
-            "Formula: ${card.calculation}",
+            "Formula: ${card.formula}",
             style: AppTheme.inter(
               fontSize: 12,
               color: isAlert ? cardColor.withValues(alpha: 0.8) : theme.textTheme.bodyMedium?.color,

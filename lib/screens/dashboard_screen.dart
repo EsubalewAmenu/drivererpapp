@@ -294,7 +294,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           primaryColor: moduleInfo['color']!,
           version: '1.0.0',
           settings: {},
-          dashboard: DashboardConfig(kpiCards: []),
+          dashboard: DashboardConfig(cards: []),
           tabs: [],
         );
         return _buildModuleCard(module, isActive: true);

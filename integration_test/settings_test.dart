@@ -45,7 +45,7 @@ void main() {
     registerFallbackValue(drive.File());
     registerFallbackValue(ModuleSchema(
       id: '', name: '', icon: '', primaryColor: '', version: '',
-      settings: {}, dashboard: DashboardConfig(kpiCards: []), tabs: []
+      settings: {}, dashboard: DashboardConfig(cards: []), tabs: []
     ));
   });
 

@@ -50,7 +50,7 @@ void main() {
       version: '1.0.0',
       settings: {},
       tabs: [], // Initial empty tabs
-      dashboard: DashboardConfig(kpiCards: []),
+      dashboard: DashboardConfig(cards: []),
     );
 
     fullModule = ModuleSchema(
@@ -63,7 +63,7 @@ void main() {
       tabs: [TabConfig(id: 'items', label: 'Items', columns: [
         ColumnConfig(key: 'name', label: 'Name', type: 'text')
       ])],
-      dashboard: DashboardConfig(kpiCards: [KpiCard(label: 'Stock', calculation: 'SUM(qty)', format: 'number')]),
+      dashboard: DashboardConfig(cards: [DashboardCard(label: 'Stock', formula: 'SUM(qty)', format: 'number')]),
     );
 
     // Default connection

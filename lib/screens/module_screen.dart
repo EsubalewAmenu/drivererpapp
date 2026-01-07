@@ -68,7 +68,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             debugPrint('Asset not found for $fileName');
             assetJson = {
               'settings': {'name': {'value': widget.module.name}},
-              'dashboard': {'kpiCards': []},
+              'dashboard': {'cards': []},
               'tabs': []
             };
           }
@@ -109,7 +109,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
     
     final dashboard = jsonMap['dashboard'] != null 
         ? DashboardConfig.fromJson(jsonMap['dashboard'])
-        : DashboardConfig(kpiCards: []);
+        : DashboardConfig(cards: []);
     
     final tabsList = (jsonMap['tabs'] as List?) ?? [];
     

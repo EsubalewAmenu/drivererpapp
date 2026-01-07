@@ -53,10 +53,10 @@ class SettingItem {
 
 @JsonSerializable(explicitToJson: true)
 class DashboardConfig {
-  final List<KpiCard> kpiCards;
+  final List<DashboardCard> cards;
 
   DashboardConfig({
-    required this.kpiCards,
+    required this.cards,
   });
 
   factory DashboardConfig.fromJson(Map<String, dynamic> json) => _$DashboardConfigFromJson(json);
@@ -64,19 +64,19 @@ class DashboardConfig {
 }
 
 @JsonSerializable(explicitToJson: true)
-class KpiCard {
+class DashboardCard {
   final String label;
-  final String calculation;
+  final String formula;
   final String format;
 
-  KpiCard({
+  DashboardCard({
     required this.label,
-    required this.calculation,
+    required this.formula,
     required this.format,
   });
 
-  factory KpiCard.fromJson(Map<String, dynamic> json) => _$KpiCardFromJson(json);
-  Map<String, dynamic> toJson() => _$KpiCardToJson(this);
+  factory DashboardCard.fromJson(Map<String, dynamic> json) => _$DashboardCardFromJson(json);
+  Map<String, dynamic> toJson() => _$DashboardCardToJson(this);
 }
 
 @JsonSerializable(explicitToJson: true)
