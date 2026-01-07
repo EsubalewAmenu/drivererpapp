@@ -9,13 +9,13 @@ import 'drive/drive_sheet_mixin.dart';
 class DriveService with DriveFolderMixin, DriveFileMixin, DriveSheetMixin {
   final http.Client authClient;
   @override
-  late final drive.DriveApi driveApi;
+  late drive.DriveApi driveApi;
   @override
-  late final sheets.SheetsApi sheetsApi;
+  late sheets.SheetsApi sheetsApi;
 
-  DriveService(this.authClient) {
-    driveApi = drive.DriveApi(authClient);
-    sheetsApi = sheets.SheetsApi(authClient);
+  DriveService(this.authClient, {drive.DriveApi? driveApi, sheets.SheetsApi? sheetsApi}) {
+    this.driveApi = driveApi ?? drive.DriveApi(authClient);
+    this.sheetsApi = sheetsApi ?? sheets.SheetsApi(authClient);
   }
 
   @override

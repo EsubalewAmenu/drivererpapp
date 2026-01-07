@@ -98,16 +98,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final switchFinder = find.byType(Switch);
-    final scrollable = find.byType(SingleChildScrollView);
-    
-    // Ensure the switch is visible before tapping
-    await tester.dragUntilVisible(switchFinder, scrollable, const Offset(0, -100));
-    await tester.pumpAndSettle();
-    
-    expect(switchFinder, findsOneWidget);
-
+    await tester.ensureVisible(switchFinder);
     await tester.tap(switchFinder);
-    
+    await tester.pumpAndSettle();
+
     verify(() => mockThemeProvider.toggleTheme()).called(1);
   });
 }

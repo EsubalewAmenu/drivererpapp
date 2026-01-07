@@ -4,13 +4,20 @@ import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sig
 import 'package:googleapis_auth/googleapis_auth.dart';
 
 class AuthService extends ChangeNotifier {
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    scopes: [
-      'email',
-      'https://www.googleapis.com/auth/drive',
-      'https://www.googleapis.com/auth/spreadsheets',
-    ],
-  );
+  final GoogleSignIn _googleSignIn;
+  
+  // Test helper to allow mocking client creation
+  @visibleForTesting
+  Future<AuthClient?> Function(GoogleSignIn)? clientFactory;
+
+  AuthService({GoogleSignIn? googleSignIn}) 
+      : _googleSignIn = googleSignIn ?? GoogleSignIn(
+          scopes: [
+            'email',
+            'https://www.googleapis.com/auth/drive',
+            'https://www.googleapis.com/auth/spreadsheets',
+          ],
+        );
 
   GoogleSignInAccount? _currentUser;
   AuthClient? _authClient;
@@ -24,7 +31,11 @@ class AuthService extends ChangeNotifier {
       final account = await _googleSignIn.signIn();
       if (account != null) {
         _currentUser = account;
-        _authClient = await _googleSignIn.authenticatedClient();
+        if (clientFactory != null) {
+          _authClient = await clientFactory!(_googleSignIn);
+        } else {
+          _authClient = await _googleSignIn.authenticatedClient();
+        }
         notifyListeners();
       }
     } catch (error) {
@@ -47,7 +58,11 @@ class AuthService extends ChangeNotifier {
       final account = await _googleSignIn.signInSilently();
       if (account != null) {
         _currentUser = account;
-        _authClient = await _googleSignIn.authenticatedClient();
+        if (clientFactory != null) {
+          _authClient = await clientFactory!(_googleSignIn);
+        } else {
+          _authClient = await _googleSignIn.authenticatedClient();
+        }
         notifyListeners();
       }
     } catch (error) {
