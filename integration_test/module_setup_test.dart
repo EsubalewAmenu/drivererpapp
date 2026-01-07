@@ -48,14 +48,7 @@ void main() {
   });
 
   testWidgets('Module Activation and Blueprint Editing Flow', (tester) async {
-    // Set a larger surface size for integration tests using synchronous view properties
-    tester.view.physicalSize = const Size(1200, 1600);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(() {
-      tester.view.resetPhysicalSize();
-      tester.view.resetDevicePixelRatio();
-    });
-
+    debugPrint('TEST: Starting module_setup_test flow');
     final workspace = drive.File()..id = 'ws1'..name = 'Test Workspace';
     
     // Initial state: no modules installed
