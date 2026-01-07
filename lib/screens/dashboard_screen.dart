@@ -19,6 +19,9 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   late Future<List<drive.File>> _modulesFuture;
+  String? _lastWorkspaceId;
+  Object? _lastDriveService;
+  bool _initialized = false;
   String _selectedPeriod = 'Today'; // 'Today', 'Week', 'Month'
   
   final List<Map<String, String>> _catalog = [
@@ -44,7 +47,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _loadModules();
+    
+    final workspace = Provider.of<WorkspaceProvider>(context).currentWorkspace;
+    final driveService = Provider.of<DriveProvider>(context).driveService;
+    final workspaceId = workspace?.id;
+
+    if (!_initialized || 
+        workspaceId != _lastWorkspaceId || 
+        driveService != _lastDriveService) {
+      _lastWorkspaceId = workspaceId;
+      _lastDriveService = driveService;
+      _initialized = true;
+      _loadModules();
+    }
   }
 
   void _loadModules() {
