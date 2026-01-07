@@ -41,15 +41,15 @@ void main() {
     when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
   });
 
-  Widget createScanningScreen() {
+  Widget createScanningScreen({bool autoRestore = true}) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ChangeNotifierProvider<ThemeProvider>.value(value: mockThemeProvider),
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
       ],
-      child: const MaterialApp(
-        home: SystemScanningScreen(),
+      child: MaterialApp(
+        home: SystemScanningScreen(autoRestore: autoRestore),
       ),
     );
   }
@@ -79,6 +79,26 @@ void main() {
     await tester.pump(); // Trigger navigation
 
     // Should push WorkspaceSelectorScreen (which shows "Select Workspace")
+    expect(find.text('SELECT WORKSPACE'), findsOneWidget);
+  });
+
+  testWidgets('SystemScanningScreen skips implicit restore when autoRestore is false', (WidgetTester tester) async {
+    // Simulate a saved workspace
+    SharedPreferences.setMockInitialValues({'last_workspace_id': 'ws_saved'});
+    
+    when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
+    when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => []);
+
+    // Because autoRestore is false, it should NOT try to use the saved ID (which would crash/fail here as we didn't mock driveApi)
+    // It should proceed to scan.
+    await tester.pumpWidget(createScanningScreen(autoRestore: false));
+    await tester.pump(); 
+
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump();
+
+    // Should reach selector
     expect(find.text('SELECT WORKSPACE'), findsOneWidget);
   });
 }
