@@ -200,6 +200,58 @@ void main() {
       expect(result.length, 1);
       expect(result.first.id, 'r1');
     });
+
+    test('updateFile updates file with media', () async {
+      when(() => mockFilesResource.update(
+        any(), 
+        'file123', 
+        uploadMedia: any(named: 'uploadMedia'),
+      )).thenAnswer((_) async => drive.File()..id = 'file123');
+
+      await driveService.updateFile('file123', '{"updated": true}');
+      
+      verify(() => mockFilesResource.update(
+        any(), 
+        'file123', 
+        uploadMedia: any(named: 'uploadMedia'),
+      )).called(1);
+    });
+
+    test('getFileModifiedTime returns time', () async {
+      final now = DateTime.now();
+      when(() => mockFilesResource.get('file123', $fields: 'modifiedTime'))
+          .thenAnswer((_) async => drive.File()..modifiedTime = now);
+
+      final result = await driveService.getFileModifiedTime('file123');
+      expect(result, now);
+    });
+
+    test('getFileModifiedTime returns null on error', () async {
+      when(() => mockFilesResource.get('error_file', $fields: 'modifiedTime'))
+          .thenThrow(Exception('API Error'));
+
+      final result = await driveService.getFileModifiedTime('error_file');
+      expect(result, isNull);
+    });
+
+    test('retryOp retries on failure', () async {
+      int calls = 0;
+      final result = await driveService.retryOp(() async {
+        calls++;
+        if (calls < 3) throw Exception('Temp Error');
+        return 'success';
+      });
+      
+      expect(result, 'success');
+      expect(calls, 3);
+    });
+
+    test('retryOp fails after retries', () async {
+      expect(
+        () => driveService.retryOp(() async => throw Exception('Persistent Error'), retries: 2),
+        throwsException,
+      );
+    });
   });
 
   group('DriveSheetMixin', () {
