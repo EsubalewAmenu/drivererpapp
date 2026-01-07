@@ -63,6 +63,9 @@ void main() {
     debugPrint('TEST: Starting app_test flow');
     // 1. Landing Screen
     await tester.pumpWidget(createTestApp());
+    // Allow silent sign-in check to complete and button to appear
+    await tester.pumpAndSettle(); 
+    
     expect(find.text('DRIVE ERP'), findsOneWidget);
 
     // 2. Sign In
