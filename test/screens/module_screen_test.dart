@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
+import 'package:drivererpapp/screens/common/history_dialog.dart';
 import 'package:drivererpapp/screens/module_screen.dart';
 import 'package:drivererpapp/screens/schema_editor_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
@@ -12,6 +13,7 @@ import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/schema_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
@@ -77,6 +79,7 @@ void main() {
     when(() => mockDriveService.fetchRecords(any(), any(), any())).thenAnswer((_) async => []);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'f123');
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
+    when(() => mockDriveService.getFileRevisions(any())).thenAnswer((_) async => []);
   });
 
   Widget createModuleScreen({ModuleSchema? module}) {
@@ -84,7 +87,7 @@ void main() {
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
-        Provider<AuthService>.value(value: mockAuthService), // For ModuleTabScreen -> RecordDetailScreen maybe?
+        ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
       ],
       child: MaterialApp(
         home: ModuleScreen(module: module ?? testModule),
@@ -92,30 +95,40 @@ void main() {
     );
   }
 
+  Future<void> settleDashboard(WidgetTester tester) async {
+    await tester.pumpAndSettle();
+    // ModuleDashboard has a 300ms timer in initState
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+  }
+
   group('ModuleScreen', () {
     testWidgets('shows loading state initially', (WidgetTester tester) async {
-      // Delay sync to show loading
       when(() => mockSchemaService.syncConfig(any())).thenAnswer((_) async {
         await Future.delayed(const Duration(milliseconds: 100));
         return fullModule.toJson();
       });
 
       await tester.pumpWidget(createModuleScreen());
-      await tester.pump(); // Start Init
+      await tester.pump();
       
       expect(find.text('LOADING BLUEPRINT...'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       
-      await tester.pumpAndSettle(); // Resolve
+      // Wait for sync to complete
+      await tester.pumpAndSettle();
+      // Wait for Dashboard timer
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('loads and renders dashboard and tabs', (WidgetTester tester) async {
       await tester.pumpWidget(createModuleScreen());
-      await tester.pumpAndSettle();
+      await settleDashboard(tester);
 
       expect(find.text('INVENTORY'), findsAtLeastNWidgets(1));
-      expect(find.text('DASHBOARD'), findsOneWidget); // Tab Label
-      expect(find.text('ITEMS'), findsOneWidget); // Tab Label
+      expect(find.text('DASHBOARD'), findsOneWidget);
+      expect(find.text('ITEMS'), findsOneWidget);
 
       expect(find.text('PERFORMANCE OVERVIEW'), findsOneWidget);
       expect(find.text('STOCK'), findsOneWidget);
@@ -123,22 +136,18 @@ void main() {
 
     testWidgets('switches to tab and shows list', (WidgetTester tester) async {
       await tester.pumpWidget(createModuleScreen());
-      await tester.pumpAndSettle();
+      await settleDashboard(tester);
 
-      // Tap Items Tab
       await tester.tap(find.text('ITEMS'));
+      // ModuleTabScreen might have animations or simple loading
       await tester.pumpAndSettle();
       
-      // Should show empty list message or headers
-      // Since fetchRecords returns [], it depends on ModuleTabScreen implementation
-      // Assuming it shows "No records found" or just the list view
-      // We can check if floating action button is visible which suggests list view
       expect(find.byType(FloatingActionButton), findsOneWidget);
     });
 
     testWidgets('navigates to SchemaEditorScreen', (WidgetTester tester) async {
       await tester.pumpWidget(createModuleScreen());
-      await tester.pumpAndSettle();
+      await settleDashboard(tester);
 
       final editButton = find.byTooltip('Edit Blueprint');
       expect(editButton, findsOneWidget);
@@ -150,19 +159,18 @@ void main() {
       expect(find.text('BLUEPRINT EDITOR'), findsOneWidget);
     });
 
-    // testWidgets('opens History Dialog', (WidgetTester tester) async {
-    //   await tester.pumpWidget(createModuleScreen());
-    //   await tester.pumpAndSettle();
+    testWidgets('opens History Dialog', (WidgetTester tester) async {
+      await tester.pumpWidget(createModuleScreen());
+      await settleDashboard(tester);
 
-    //   final historyButton = find.byTooltip('Version History');
-    //   expect(historyButton, findsOneWidget);
+      final historyButton = find.byTooltip('Version History');
+      expect(historyButton, findsOneWidget);
       
-    //   await tester.tap(historyButton);
-    //   await tester.pumpAndSettle();
+      await tester.tap(historyButton);
+      await tester.pumpAndSettle();
       
-    //   // This might fail if HistoryDialog needs specific setup or mocks we missed
-    //   // But we can check if a Dialog appeared
-    //   expect(find.text('Version History'), findsOneWidget); 
-    // });
+      expect(find.byType(HistoryDialog), findsOneWidget);
+      expect(find.text('File History'), findsOneWidget); 
+    });
   });
 }
