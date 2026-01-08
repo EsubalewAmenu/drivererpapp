@@ -25,6 +25,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
   late String _currentType;
   String? _currentDependsOn;
   late bool _isHidden;
+  late bool _isRequired;
   
   bool _isDynamicOptions = false;
   List<String> _staticOptions = [];
@@ -37,6 +38,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
     _currentType = widget.column.type;
     _currentDependsOn = widget.column.dependsOn;
     _isHidden = widget.column.hidden ?? false;
+    _isRequired = widget.column.isRequired ?? false;
 
     if (widget.column.options is List) {
       _staticOptions = List<String>.from(widget.column.options);
@@ -124,6 +126,13 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               decoration: const InputDecoration(labelText: 'Data Type'),
             ),
             const SizedBox(height: 16),
+            SwitchListTile(
+              title: Text('Is Required', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
+              value: _isRequired,
+              onChanged: (val) => setState(() => _isRequired = val),
+              activeColor: theme.primaryColor,
+              contentPadding: EdgeInsets.zero,
+            ),
             SwitchListTile(
               title: Text('Hidden (Don\'t show on form)', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
               value: _isHidden,
@@ -248,6 +257,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               type: _currentType,
               dependsOn: _currentDependsOn,
               hidden: _isHidden,
+              isRequired: _isRequired,
               options: _currentType == 'select' 
                   ? (_isDynamicOptions ? _dynamicOptionPath : _staticOptions)
                   : null,

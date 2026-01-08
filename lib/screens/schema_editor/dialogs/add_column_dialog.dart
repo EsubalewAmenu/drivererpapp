@@ -12,6 +12,7 @@ class AddColumnDialog extends StatefulWidget {
 class _AddColumnDialogState extends State<AddColumnDialog> {
   final _labelController = TextEditingController();
   String _currentType = 'text';
+  bool _isRequired = false;
 
   @override
   void dispose() {
@@ -51,6 +52,16 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
               },
               decoration: const InputDecoration(labelText: 'Data Type'),
             ),
+            const SizedBox(height: 16),
+            SwitchListTile(
+              title: const Text('Is Required'),
+              value: _isRequired,
+              activeColor: theme.primaryColor,
+              contentPadding: EdgeInsets.zero,
+              onChanged: (val) {
+                setState(() => _isRequired = val);
+              },
+            ),
           ],
         ),
       ),
@@ -65,6 +76,7 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
               key: key,
               label: _labelController.text,
               type: _currentType,
+              isRequired: _isRequired,
             );
             
             Navigator.pop(context, newCol);
