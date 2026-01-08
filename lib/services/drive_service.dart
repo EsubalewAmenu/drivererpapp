@@ -5,15 +5,23 @@ import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'drive/drive_folder_mixin.dart';
 import 'drive/drive_file_mixin.dart';
 import 'drive/drive_sheet_mixin.dart';
+import 'drive/drive_company_mixin.dart';
 
-class DriveService with DriveFolderMixin, DriveFileMixin, DriveSheetMixin {
+class DriveService with DriveFolderMixin, DriveFileMixin, DriveSheetMixin, DriveCompanyMixin {
   final http.Client authClient;
   @override
   late drive.DriveApi driveApi;
   @override
   late sheets.SheetsApi sheetsApi;
 
-  DriveService(this.authClient, {drive.DriveApi? driveApi, sheets.SheetsApi? sheetsApi}) {
+  @visibleForTesting
+  final Future<void> Function(Duration) delay;
+
+  DriveService(this.authClient, {
+    drive.DriveApi? driveApi, 
+    sheets.SheetsApi? sheetsApi,
+    this.delay = Future.delayed,
+  }) {
     this.driveApi = driveApi ?? drive.DriveApi(authClient);
     this.sheetsApi = sheetsApi ?? sheets.SheetsApi(authClient);
   }
@@ -35,9 +43,9 @@ class DriveService with DriveFolderMixin, DriveFileMixin, DriveSheetMixin {
 
         if (i == retries - 1) rethrow;
         
-        final delay = Duration(seconds: 1 * (i + 1));
-        debugPrint('Retrying operation in ${delay.inSeconds}s due to error: $e');
-        await Future.delayed(delay);
+        final delayDuration = Duration(seconds: 1 * (i + 1));
+        debugPrint('Retrying operation in ${delayDuration.inSeconds}s due to error: $e');
+        await delay(delayDuration);
       }
     }
     throw Exception('Unreachable');

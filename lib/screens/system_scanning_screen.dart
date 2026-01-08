@@ -66,16 +66,14 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
             _statusMessage = "Restoring previous workspace...";
           });
           try {
-            final file = await driveService.driveApi.files.get(
-              lastWorkspaceId,
-              $fields: 'id, name, mimeType, parents, properties'
-            ) as drive.File;
+            final provider = Provider.of<WorkspaceProvider>(context, listen: false);
+            final success = await provider.restorePreviousSession();
 
-            if (mounted) {
-              Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(file);
+            if (success && mounted) {
+               final name = provider.currentWorkspace?.name ?? 'User';
                
                setState(() {
-                _statusMessage = "Welcome back, ${file.name}.";
+                _statusMessage = "Welcome back, $name.";
                 _progress = 1.0;
               });
               await Future.delayed(const Duration(milliseconds: 500)); 
@@ -117,13 +115,11 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
         await Future.delayed(const Duration(milliseconds: 500)); // UX delay
       }
 
-      // Step 3: List Workspaces
+      // Step 3: Verifying Configuration
       setState(() {
         _statusMessage = "Syncing workspace configuration...";
         _progress = 0.7;
       });
-
-      final workspaces = await driveService.listWorkspaces(rootFolderId);
 
       // Step 4: Ready
       setState(() {
@@ -137,7 +133,6 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => WorkspaceSelectorScreen(
-              workspaces: workspaces,
               rootFolderId: rootFolderId!,
             ),
           ),

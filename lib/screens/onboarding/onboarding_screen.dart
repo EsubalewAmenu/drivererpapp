@@ -1,3 +1,4 @@
+import 'package:drivererpapp/models/company_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/drive_provider.dart';
@@ -340,6 +341,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         await driveService.createWorkspace(workspaceId, module);
       }
       
+      // 3. Register Company in Registry
+      final newCompany = Company(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: workspaceName,
+        folderId: workspaceId,
+        role: 'Owner',
+        logoUrl: '',
+      );
+
+      await Provider.of<WorkspaceProvider>(context, listen: false).registerNewCompany(
+        widget.rootFolderId, 
+        newCompany
+      );
+
       // Set global workspace
       if (mounted) {
         Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(workspaceFolder);

@@ -7,6 +7,7 @@ import 'package:drivererpapp/screens/onboarding/onboarding_screen.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/models/company_model.dart';
 
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
@@ -24,7 +25,15 @@ void main() {
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
+    
+    // Register Company fallback
     registerFallbackValue(drive.File());
+    registerFallbackValue(Company(id: '0', name: 'Fallback', folderId: 'f0', role: 'Owner'));
+
+    // Stub registerNewCompany
+    when(() => mockWorkspaceProvider.registerNewCompany(any(), any()))
+        .thenAnswer((_) async {});
+    when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
   });
 
   Widget createOnboardingScreen() {

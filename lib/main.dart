@@ -24,8 +24,7 @@ class MainApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => WorkspaceProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()), // Added ThemeProvider
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProxyProvider<AuthService, DriveProvider>(
           create: (_) => DriveProvider(),
           update: (_, auth, drive) {
@@ -33,6 +32,10 @@ class MainApp extends StatelessWidget {
             d.updateClient(auth.authClient);
             return d;
           },
+        ),
+        ChangeNotifierProxyProvider<DriveProvider, WorkspaceProvider>(
+          create: (_) => WorkspaceProvider(),
+          update: (_, drive, workspace) => WorkspaceProvider(driveService: drive.driveService),
         ),
         ChangeNotifierProxyProvider2<AuthService, DriveProvider, SchemaProvider>(
           create: (_) => SchemaProvider(),

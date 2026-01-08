@@ -14,6 +14,7 @@ import 'package:drivererpapp/providers/theme_provider.dart';
 import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
+import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
 import 'package:drivererpapp/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -66,19 +67,35 @@ void main() {
     });
 
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
+    when(() => mockDriveService.ensureCompanyRegistry(any())).thenAnswer((_) async => 'companies_sheet_id');
+    when(() => mockDriveService.getCompanies(any())).thenAnswer((_) async => []);
     when(() => mockDriveService.listWorkspaces(any())).thenAnswer((_) async => []);
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
   });
 
   testWidgets('Settings Screen Flow', (tester) async {
     debugPrint('TEST: Starting settings_test flow');
-    final workspace = drive.File()..id = 'ws1'..name = 'Test Workspace';
     
-    when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => [workspace]);
+    // Setup companies mock
+    final companies = [
+      Company(id: 'c1', name: 'Test Workspace', folderId: 'ws1', role: 'Owner')
+    ];
+    when(() => mockDriveService.getCompanies('root123')).thenAnswer((_) async => companies);
     when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => []);
 
     final driveProvider = TestDriveProvider(mockDriveService);
-
+    
+    // Inject Mock DriveService into WorkspaceProvider via the real DriveProvider logic or just construct it with it if possible.
+    // However, in the test createWidget:
+    // ChangeNotifierProvider<WorkspaceProvider>(create: (_) => WorkspaceProvider()),
+    // This WorkspaceProvider will be empty initially.
+    // But WorkspaceProvider depends on DriveService? 
+    // Wait, the main.dart uses ProxyProvider to inject DriveService into WorkspaceProvider.
+    // In this test, we are using MultiProvider without ProxyProvider update logic for WorkspaceProvider.
+    // WorkspaceProvider() constructor takes optional DriveService.
+    
+    // FIX: Pass driveService to WorkspaceProvider
+    
     // Helper to safely wait
     Future<void> safePumpAndSettle() async {
       try {
@@ -93,8 +110,12 @@ void main() {
       MultiProvider(
         providers: [
           ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
-          ChangeNotifierProvider<WorkspaceProvider>(create: (_) => WorkspaceProvider()),
           ChangeNotifierProvider<DriveProvider>.value(value: driveProvider),
+          // ProxyProvider to inject DriveService into WorkspaceProvider
+          ChangeNotifierProxyProvider<DriveProvider, WorkspaceProvider>(
+            create: (_) => WorkspaceProvider(driveService: mockDriveService),
+            update: (_, drive, workspace) => WorkspaceProvider(driveService: drive.driveService),
+          ),
           ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
           ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
         ],

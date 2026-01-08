@@ -55,15 +55,13 @@ void main() {
       mockHttpClient,
       driveApi: mockDriveApi,
       sheetsApi: mockSheetsApi,
+      delay: (_) async {}, // No delay for testing
     );
   });
 
   group('DriveFolderMixin', () {
-    test('checkRootFolder returns existing folder id', () async {
-      final fileList = drive.FileList(files: [
-        drive.File()..id = 'root123'..name = 'DriveERP_Data'
-      ]);
-
+    test('checkRootFolder returns valid ID', () async {
+      final fileList = drive.FileList(files: [drive.File()..id = 'root123']);
       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => fileList);
 
