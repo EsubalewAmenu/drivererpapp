@@ -10,7 +10,6 @@ import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/models/company_model.dart';
-
 import 'package:googleapis/drive/v3.dart' as drive;
 
 class MockDriveProvider extends Mock implements DriveProvider {}
@@ -29,7 +28,7 @@ void main() {
   });
 
   setUp(() {
-    SharedPreferences.setMockInitialValues({}); // Initialize SharedPreferences mock
+    SharedPreferences.setMockInitialValues({});
     mockDriveProvider = MockDriveProvider();
     mockDriveService = MockDriveService();
     mockThemeProvider = MockThemeProvider();
@@ -38,13 +37,12 @@ void main() {
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockThemeProvider.themeMode).thenReturn(ThemeMode.light);
     
-    // Stub WorkspaceProvider methods
     when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
     when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
     when(() => mockWorkspaceProvider.companies).thenReturn(<Company>[]);
     when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
+    when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..name = 'Test WS'..id = 'ws123');
     
-    // Stub listModules for DashboardScreen
     when(() => mockDriveService.listModules(any())).thenAnswer((_) async => <drive.File>[]);
   });
 
@@ -61,81 +59,81 @@ void main() {
     );
   }
 
-  testWidgets('SystemScanningScreen scans and redirects', (WidgetTester tester) async {
+  testWidgets('SystemScanningScreen scans and redirects to selector', (WidgetTester tester) async {
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
     when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => []);
 
     await tester.pumpWidget(createScanningScreen());
+    await tester.pump(); // PostFrame
     
-    // Scan starts in post-frame callback.
-    // Trigger the callback
+    await tester.pump(const Duration(milliseconds: 600)); 
+    await tester.pump(const Duration(milliseconds: 600)); 
     await tester.pump(); 
 
-    // There are delays in the sequence:
-    // 1. checkRootFolder
-    // 2. 500ms delay
-    // 3. listWorkspaces
-    // 4. 500ms delay
-    // 5. Navigation
-
-    // We use pump with duration to advance timers, but not 'pumpAndSettle' 
-    // because CircularProgressIndicator is indeterminate.
-    
-    await tester.pump(const Duration(milliseconds: 600)); // Past first delay
-    await tester.pump(const Duration(milliseconds: 600)); // Past second delay
-    await tester.pump(); // Trigger navigation
-
-    // Should push WorkspaceSelectorScreen (which shows "Select Workspace")
     expect(find.text('SELECT WORKSPACE'), findsOneWidget);
   });
 
-  testWidgets('SystemScanningScreen skips implicit restore when autoRestore is false', (WidgetTester tester) async {
-    // Simulate a saved workspace
+  testWidgets('SystemScanningScreen handles error and allows retry', (WidgetTester tester) async {
+    when(() => mockDriveService.checkRootFolder()).thenThrow(Exception('No connection'));
+
+    await tester.pumpWidget(createScanningScreen());
+    await tester.pump(); // PostFrame
+    await tester.pump(const Duration(seconds: 2)); 
+
+    // Debug: print all text
+    for (final element in find.byType(Text).evaluate()) {
+      final textWidget = element.widget as Text;
+      print('Text on screen: "${textWidget.data}"');
+    }
+
+    expect(find.textContaining('System Error'), findsOneWidget);
+    expect(find.text('RETRY CONNECTION'), findsOneWidget);
+
+    when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
+    when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => []);
+
+    await tester.tap(find.text('RETRY CONNECTION'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump(const Duration(seconds: 1));
+    
+    // Debug: print all text
+    for (final element in find.byType(Text).evaluate()) {
+      final textWidget = element.widget as Text;
+      print('Text on screen (post-retry): "${textWidget.data}"');
+    }
+
+    expect(find.text('SELECT WORKSPACE'), findsOneWidget);
+  });
+
+  testWidgets('SystemScanningScreen auto-restores to Dashboard', (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({'last_workspace_id': 'ws123'});
+    when(() => mockWorkspaceProvider.restorePreviousSession()).thenAnswer((_) async => true);
+    
+    await tester.pumpWidget(createScanningScreen());
+    await tester.pump(); // PostFrame
+    
+    // Auto-restore might show some messages
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DashboardScreen), findsOneWidget);
+  });
+
+  testWidgets('SystemScanningScreen skip restore when autoRestore is false', (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({'last_workspace_id': 'ws_saved'});
     
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
     when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => []);
 
-    // Because autoRestore is false, it should NOT try to use the saved ID (which would crash/fail here as we didn't mock driveApi)
-    // It should proceed to scan.
     await tester.pumpWidget(createScanningScreen(autoRestore: false));
     await tester.pump(); 
 
-    await tester.pump(const Duration(milliseconds: 600));
-    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pump(const Duration(milliseconds: 1200));
     await tester.pump();
 
-    // Should reach selector
     expect(find.text('SELECT WORKSPACE'), findsOneWidget);
-  });
-
-  testWidgets('SystemScanningScreen restores previous session', (WidgetTester tester) async {
-    // Simulate a saved workspace
-    SharedPreferences.setMockInitialValues({'last_workspace_id': 'ws_saved'});
-    
-    when(() => mockWorkspaceProvider.restorePreviousSession()).thenAnswer((_) async => true);
-    final mockWs = drive.File()..name = 'Test WS'..id = 'ws_saved';
-    when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(mockWs);
-
-    await tester.pumpWidget(createScanningScreen(autoRestore: true));
-    await tester.pump(); // Trigger scan
-
-    // Past Step 0 check
-    await tester.pump(); 
-    await tester.idle();
-    await tester.pump();
-    
-    // Check for status message or final screen
-    if (find.text('Restoring previous workspace...').evaluate().isEmpty) {
-       // Maybe it was so fast it already finished?
-    } else {
-       expect(find.text('Restoring previous workspace...'), findsOneWidget);
-    }
-
-    await tester.pump(const Duration(milliseconds: 1000)); // Delay after welcome message
-    await tester.pump(); // Trigger navigation
-
-    // Should push DashboardScreen
-    expect(find.byType(DashboardScreen), findsOneWidget);
   });
 }
