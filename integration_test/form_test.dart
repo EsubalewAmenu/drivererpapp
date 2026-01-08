@@ -104,7 +104,7 @@ void main() {
           ],
         ),
       ],
-      dashboard: DashboardConfig(kpiCards: []),
+      dashboard: DashboardConfig(cards: []),
     );
 
     when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => [workspace]);

@@ -7,7 +7,7 @@ import '../theme/app_theme.dart';
 import 'schema_editor/structure_editor.dart';
 import 'schema_editor/dashboard_editor.dart';
 import 'schema_editor/settings_editor.dart';
-import 'schema_editor/dialogs/edit_kpi_dialog.dart';
+import 'schema_editor/dialogs/edit_card_dialog.dart';
 
 class SchemaEditorScreen extends StatefulWidget {
   final ModuleSchema module;
@@ -28,7 +28,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
   
   // Editable State
   late List<TabConfig> _tabs;
-  late List<KpiCard> _kpis;
+  late List<DashboardCard> _cards;
   late Map<String, dynamic> _settingsValues;
   
   Map<String, dynamic>? _rawSettings;
@@ -41,7 +41,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
     
     // Deep copy for editing
     _tabs = List.from(widget.module.tabs); 
-    _kpis = List.from(widget.module.dashboard.kpiCards);
+    _cards = List.from(widget.module.dashboard.cards);
     
     _settingsValues = {};
     _rawSettings = {};
@@ -117,17 +117,17 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
             },
           ),
           DashboardEditor(
-            kpis: _kpis,
-            onAddKpi: () {
-              _showAddKpiDialog();
+            cards: _cards,
+            onAddCard: () {
+              _showAddCardDialog();
             },
-            onDeleteKpi: (index) {
+            onDeleteCard: (index) {
               setState(() {
-                _kpis.removeAt(index);
+                _cards.removeAt(index);
               });
             },
-            onEditKpi: (index, kpi) {
-              _showEditKpiDialog(index, kpi);
+            onEditCard: (index, card) {
+              _showEditCardDialog(index, card);
             },
           ),
           SettingsEditor(
@@ -168,7 +168,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
         'version': _settingsValues['version'] ?? widget.module.version,
         'settings': _rawSettings,
         'dashboard': {
-          'kpiCards': _kpis.map((k) => k.toJson()).toList(),
+          'cards': _cards.map((k) => k.toJson()).toList(),
         },
         'tabs': _tabs.map((t) => t.toJson()).toList(),
       };
@@ -226,28 +226,28 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
     }
   }
 
-  Future<void> _showAddKpiDialog() async {
-    final newKpi = await showDialog<KpiCard>(
+  Future<void> _showAddCardDialog() async {
+    final newCard = await showDialog<DashboardCard>(
       context: context,
-      builder: (context) => const EditKpiDialog(),
+      builder: (context) => const EditCardDialog(),
     );
 
-    if (newKpi != null) {
+    if (newCard != null) {
       setState(() {
-        _kpis.add(newKpi);
+        _cards.add(newCard);
       });
     }
   }
 
-  Future<void> _showEditKpiDialog(int index, KpiCard kpi) async {
-    final updatedKpi = await showDialog<KpiCard>(
+  Future<void> _showEditCardDialog(int index, DashboardCard card) async {
+    final updatedCard = await showDialog<DashboardCard>(
       context: context,
-      builder: (context) => EditKpiDialog(kpi: kpi),
+      builder: (context) => EditCardDialog(card: card),
     );
 
-    if (updatedKpi != null) {
+    if (updatedCard != null) {
       setState(() {
-        _kpis[index] = updatedKpi;
+        _cards[index] = updatedCard;
       });
     }
   }

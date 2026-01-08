@@ -3,34 +3,34 @@ import 'package:drivererpapp/theme/app_theme.dart';
 import '../../models/schema_models.dart';
 
 class DashboardEditor extends StatelessWidget {
-  final List<KpiCard> kpis;
-  final VoidCallback onAddKpi;
-  final Function(int index) onDeleteKpi;
-  final Function(int index, KpiCard kpi) onEditKpi;
+  final List<DashboardCard> cards;
+  final VoidCallback onAddCard;
+  final Function(int index) onDeleteCard;
+  final Function(int index, DashboardCard card) onEditCard;
 
   const DashboardEditor({
     super.key,
-    required this.kpis,
-    required this.onAddKpi,
-    required this.onDeleteKpi,
-    required this.onEditKpi,
+    required this.cards,
+    required this.onAddCard,
+    required this.onDeleteCard,
+    required this.onEditCard,
   });
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: kpis.length + 1,
+      itemCount: cards.length + 1,
       itemBuilder: (context, index) {
-        if (index == kpis.length) {
-          return _buildAddButton(context, 'Add KPI Card', onAddKpi);
+        if (index == cards.length) {
+          return _buildAddButton(context, 'Add Card', onAddCard);
         }
-        return _buildKpiEditorCard(context, kpis[index], index);
+        return _buildCardEditor(context, cards[index], index);
       },
     );
   }
 
-  Widget _buildKpiEditorCard(BuildContext context, KpiCard kpi, int index) {
+  Widget _buildCardEditor(BuildContext context, DashboardCard card, int index) {
     final theme = Theme.of(context);
     return Card(
       color: theme.cardTheme.color ?? theme.cardColor,
@@ -45,18 +45,18 @@ class DashboardEditor extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Text(kpi.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
+                  child: Text(card.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
                 ),
                 Row(
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit_rounded, size: 20),
                       color: theme.primaryColor,
-                      onPressed: () => onEditKpi(index, kpi),
+                      onPressed: () => onEditCard(index, card),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline, color: Colors.redAccent), 
-                      onPressed: () => onDeleteKpi(index),
+                      onPressed: () => onDeleteCard(index),
                     ),
                   ],
                 ),
@@ -75,7 +75,7 @@ class DashboardEditor extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      kpi.calculation,
+                      card.formula,
                       style: AppTheme.sourceCodePro(color: theme.textTheme.bodyMedium?.color),
                     ),
                   ),

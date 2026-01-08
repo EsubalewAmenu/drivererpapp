@@ -27,7 +27,7 @@ void main() {
       primaryColor: 'color',
       version: '1.0',
       settings: {},
-      dashboard: DashboardConfig(kpiCards: []),
+      dashboard: DashboardConfig(cards: []),
       tabs: [],
     );
 

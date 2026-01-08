@@ -2,43 +2,43 @@ import 'package:flutter/material.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
-class EditKpiDialog extends StatefulWidget {
-  final KpiCard? kpi; // Null if adding new
+class EditCardDialog extends StatefulWidget {
+  final DashboardCard? card; // Null if adding new
 
-  const EditKpiDialog({super.key, this.kpi});
+  const EditCardDialog({super.key, this.card});
 
   @override
-  State<EditKpiDialog> createState() => _EditKpiDialogState();
+  State<EditCardDialog> createState() => _EditCardDialogState();
 }
 
-class _EditKpiDialogState extends State<EditKpiDialog> {
+class _EditCardDialogState extends State<EditCardDialog> {
   late TextEditingController _labelController;
-  late TextEditingController _calculationController;
+  late TextEditingController _formulaController;
   String _format = 'number';
 
   @override
   void initState() {
     super.initState();
-    _labelController = TextEditingController(text: widget.kpi?.label ?? '');
-    _calculationController = TextEditingController(text: widget.kpi?.calculation ?? '');
-    _format = widget.kpi?.format ?? 'number';
+    _labelController = TextEditingController(text: widget.card?.label ?? '');
+    _formulaController = TextEditingController(text: widget.card?.formula ?? '');
+    _format = widget.card?.format ?? 'number';
   }
 
   @override
   void dispose() {
     _labelController.dispose();
-    _calculationController.dispose();
+    _formulaController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isEditing = widget.kpi != null;
+    final isEditing = widget.card != null;
 
     return AlertDialog(
       backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
-      title: Text(isEditing ? 'Edit KPI Card' : 'Add KPI Card', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
+      title: Text(isEditing ? 'Edit Card' : 'Add Card', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -56,11 +56,11 @@ class _EditKpiDialogState extends State<EditKpiDialog> {
             const SizedBox(height: 16),
             
             TextField(
-              controller: _calculationController,
+              controller: _formulaController,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(
-                labelText: 'Calculation Formula',
-                helperText: 'e.g. SUM(amount) or COUNT(id)',
+                labelText: 'Spreadsheet Formula',
+                helperText: 'e.g. =SUM(A:A)',
               ),
             ),
             const SizedBox(height: 16),
@@ -85,15 +85,15 @@ class _EditKpiDialogState extends State<EditKpiDialog> {
         TextButton(
           onPressed: () {
             if (_labelController.text.isEmpty) return;
-            if (_calculationController.text.isEmpty) return;
+            if (_formulaController.text.isEmpty) return;
             
-            final newKpi = KpiCard(
+            final newCard = DashboardCard(
               label: _labelController.text,
-              calculation: _calculationController.text,
+              formula: _formulaController.text, // Updated from calculation
               format: _format,
             );
             
-            Navigator.pop(context, newKpi);
+            Navigator.pop(context, newCard);
           }, 
           child: const Text('Save')
         ),

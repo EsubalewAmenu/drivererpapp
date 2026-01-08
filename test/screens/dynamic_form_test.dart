@@ -37,7 +37,7 @@ void main() {
       version: '1.0.0',
       settings: {},
       tabs: [testTab],
-      dashboard: DashboardConfig(kpiCards: []),
+      dashboard: DashboardConfig(cards: []),
     );
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);

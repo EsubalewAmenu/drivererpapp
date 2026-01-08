@@ -37,7 +37,7 @@ void main() {
       version: '1.0.0', 
       tabs: [testTab], 
       settings: {}, 
-      dashboard: DashboardConfig(kpiCards: [])
+      dashboard: DashboardConfig(cards: [])
     );
 
     when(() => mockThemeProvider.themeMode).thenReturn(ThemeMode.light);

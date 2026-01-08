@@ -1,0 +1,40 @@
+
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "crm" },
+    "icon": { "label": "Icon", "type": "icon", "value": "people" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "CRM" }
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Total AR",
+        "formula": "=SUMIF(contact_directory!F:F, \">0\")",
+        "format": "currency"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "contact_directory",
+      "label": "Contact Directory",
+      "quick_filters": [
+        { "label": "All Contacts", "key": "all", "field": "type", "operator": "contains", "value": "" },
+        { "label": "Clients", "key": "clients", "field": "type", "operator": "==", "value": "CLIENT" },
+        { "label": "Suppliers", "key": "suppliers", "field": "type", "operator": "==", "value": "SUPPLIER" },
+        { "label": "Overdue", "key": "overdue", "field": "balance", "operator": ">", "value": 0 }
+      ],
+      "columns": [
+        { "key": "uuid", "label": "ID", "type": "text", "hidden": true },
+        { "key": "name", "label": "Full Name", "type": "text" },
+        { "key": "type", "label": "Business Role", "type": "select", "options": ["CLIENT", "SUPPLIER", "BOTH"] },
+        { "key": "phone", "label": "Phone", "type": "text" },
+        { "key": "email", "label": "Email", "type": "text" },
+        { "key": "balance", "label": "Ledger Balance", "type": "currency" },
+        { "key": "notes", "label": "Intelligence", "type": "text" }
+      ]
+    }
+  ]
+}

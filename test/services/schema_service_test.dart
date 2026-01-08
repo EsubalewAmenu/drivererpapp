@@ -30,7 +30,7 @@ void main() {
         'version': '1.0.0',
         'settings': {},
         'tabs': [],
-        'dashboard': {'kpiCards': []}
+        'dashboard': {'cards': []}
       };
 
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMessageHandler(

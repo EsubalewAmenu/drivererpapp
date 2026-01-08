@@ -115,7 +115,7 @@ void main() {
     when(() => mockDriveService.getFileId('new_mod_id', 'config')).thenAnswer((_) async => null);
     when(() => mockDriveService.readModuleConfig(any())).thenAnswer((_) async => <String, dynamic>{
       'tabs': <dynamic>[],
-      'dashboard': <String, dynamic>{'kpiCards': <dynamic>[]},
+      'dashboard': <String, dynamic>{'cards': <dynamic>[]},
       'settings': <String, dynamic>{}
     });
 
@@ -150,7 +150,7 @@ void main() {
       'tabs': <dynamic>[
         <String, dynamic>{'id': 't1', 'label': 'Stocks', 'columns': <dynamic>[]}
       ],
-      'dashboard': <String, dynamic>{'kpiCards': <dynamic>[]},
+      'dashboard': <String, dynamic>{'cards': <dynamic>[]},
       'settings': <String, dynamic>{}
     });
 
