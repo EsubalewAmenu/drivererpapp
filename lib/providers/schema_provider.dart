@@ -25,6 +25,18 @@ class SchemaProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Saves the schema and updates memory.
+  Future<bool> saveConfig(ModuleSchema config) async {
+    try {
+      await _schemaService.saveModuleConfig(config.id, config);
+      updateMemoryCache(config.id, config);
+      return true;
+    } catch (e) {
+      debugPrint('Error saving config: $e');
+      return false;
+    }
+  }
+
   /// No-op for now, but could be used to notify all screens of schema updates.
   void notifyUpdate() {
     notifyListeners();
