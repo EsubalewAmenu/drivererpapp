@@ -20,7 +20,9 @@ class TestAssetBundle extends CachingAssetBundle {
     if (key.contains('inventory.json')) {
       return jsonEncode({
         "settings": {
-           "mode": {"type": "text", "label": "Mode", "value": "Standard"}
+           "mode": {"type": "select", "label": "Mode", "options": ["Standard", "Advanced"], "value": "Standard"},
+           "notifications": {"type": "boolean", "label": "Enable Notifications", "value": true},
+           "warehouses": {"type": "list", "label": "Warehouses", "value": ["Main Warehouse"]}
         }
       });
     }
@@ -97,6 +99,82 @@ void main() {
 
     expect(find.text('CONFIGURE INVENTORY'), findsOneWidget);
     expect(find.text('Customize your module'), findsOneWidget);
+    
+    // Check fields from mock JSON
+    expect(find.text('MODE'), findsOneWidget);
+    expect(find.text('ENABLE NOTIFICATIONS'), findsOneWidget);
+    expect(find.text('WAREHOUSES'), findsOneWidget);
+    expect(find.text('Main Warehouse'), findsOneWidget);
+  });
+
+  testWidgets('ModuleConfigurationScreen interaction - Dropdown', (WidgetTester tester) async {
+    await tester.pumpWidget(createScreen());
+    await tester.pump();
+
+    await tester.tap(find.text('Standard'));
+    await tester.pumpAndSettle();
+    
+    await tester.tap(find.text('Advanced').last);
+    await tester.pumpAndSettle();
+    
+    expect(find.text('Advanced'), findsOneWidget);
+  });
+
+  testWidgets('ModuleConfigurationScreen interaction - Switch', (WidgetTester tester) async {
+    await tester.pumpWidget(createScreen());
+    await tester.pump();
+
+    final switchFinder = find.byType(Switch);
+    expect(tester.widget<Switch>(switchFinder).value, true);
+
+    await tester.tap(switchFinder);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Switch>(switchFinder).value, false);
+  });
+
+  testWidgets('ModuleConfigurationScreen interaction - List', (WidgetTester tester) async {
+    await tester.pumpWidget(createScreen());
+    await tester.pump();
+
+    // Add item
+    await tester.tap(find.byIcon(Icons.add_circle_outline_rounded));
+    await tester.pumpAndSettle();
+    
+    expect(find.text('New Warehouse'), findsOneWidget);
+    
+    // Remove item
+    await tester.tap(find.byIcon(Icons.remove_circle_outline_rounded).first);
+    await tester.pumpAndSettle();
+    
+    expect(find.text('Main Warehouse'), findsNothing);
+  });
+
+  testWidgets('ModuleConfigurationScreen activation success', (WidgetTester tester) async {
+    await tester.pumpWidget(createScreen());
+    await tester.pump();
+
+    await tester.tap(find.text('COMPLETE SETUP'));
+    await tester.pump(); // Start loading
+    
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    
+    await tester.pumpAndSettle();
+    
+    verify(() => mockDriveService.createWorkspace(any(), 'Inventory')).called(1);
+    expect(find.text('Inventory activated successfully!'), findsOneWidget);
+  });
+
+  testWidgets('ModuleConfigurationScreen activation error', (WidgetTester tester) async {
+    when(() => mockDriveService.createWorkspace(any(), any())).thenThrow(Exception('Drive error'));
+    
+    await tester.pumpWidget(createScreen());
+    await tester.pump();
+
+    await tester.tap(find.text('COMPLETE SETUP'));
+    await tester.pumpAndSettle();
+    
+    expect(find.text('Error activating module: Exception: Drive error'), findsOneWidget);
   });
 
   testWidgets('ModuleConfigurationScreen activates module', (WidgetTester tester) async {

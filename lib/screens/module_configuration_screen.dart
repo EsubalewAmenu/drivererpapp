@@ -239,6 +239,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
             final index = entry.key;
             final item = entry.value;
             return Padding(
+              key: UniqueKey(),
               padding: const EdgeInsets.only(bottom: 8.0),
               child: Row(
                 children: [
