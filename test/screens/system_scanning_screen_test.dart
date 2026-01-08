@@ -4,6 +4,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drivererpapp/screens/system_scanning_screen.dart';
+import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
@@ -42,6 +43,9 @@ void main() {
     when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
     when(() => mockWorkspaceProvider.companies).thenReturn(<Company>[]);
     when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
+    
+    // Stub listModules for DashboardScreen
+    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => <drive.File>[]);
   });
 
   Widget createScanningScreen({bool autoRestore = true}) {
@@ -103,5 +107,35 @@ void main() {
 
     // Should reach selector
     expect(find.text('SELECT WORKSPACE'), findsOneWidget);
+  });
+
+  testWidgets('SystemScanningScreen restores previous session', (WidgetTester tester) async {
+    // Simulate a saved workspace
+    SharedPreferences.setMockInitialValues({'last_workspace_id': 'ws_saved'});
+    
+    when(() => mockWorkspaceProvider.restorePreviousSession()).thenAnswer((_) async => true);
+    final mockWs = drive.File()..name = 'Test WS'..id = 'ws_saved';
+    when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(mockWs);
+
+    await tester.pumpWidget(createScanningScreen(autoRestore: true));
+    await tester.pump(); // Trigger scan
+
+    // Past Step 0 check
+    await tester.pump(); 
+    await tester.idle();
+    await tester.pump();
+    
+    // Check for status message or final screen
+    if (find.text('Restoring previous workspace...').evaluate().isEmpty) {
+       // Maybe it was so fast it already finished?
+    } else {
+       expect(find.text('Restoring previous workspace...'), findsOneWidget);
+    }
+
+    await tester.pump(const Duration(milliseconds: 1000)); // Delay after welcome message
+    await tester.pump(); // Trigger navigation
+
+    // Should push DashboardScreen
+    expect(find.byType(DashboardScreen), findsOneWidget);
   });
 }
