@@ -88,6 +88,8 @@ void main() {
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'f123');
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
     when(() => mockDriveService.getFileRevisions(any())).thenAnswer((_) async => []);
+    when(() => mockDriveService.readModuleConfig(any())).thenAnswer((_) async => fullModule.toJson());
+    when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'config_folder');
   });
 
   Widget createModuleScreen({ModuleSchema? module}) {
@@ -179,6 +181,39 @@ void main() {
       
       expect(find.byType(HistoryDialog), findsOneWidget);
       expect(find.text('File History'), findsOneWidget); 
+    });
+
+    testWidgets('reactively updates when schema provider memory cache changes', (WidgetTester tester) async {
+       // Mock should initially return empty module
+       when(() => mockDriveService.readModuleConfig(any())).thenAnswer((_) async => testModule.toJson());
+       
+       // We need a real provider or a mock that can notify
+       final realSchemaProvider = SchemaProvider(driveService: mockDriveService);
+       
+       await tester.pumpWidget(MultiProvider(
+          providers: [
+            ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+            ChangeNotifierProvider<SchemaProvider>.value(value: realSchemaProvider),
+            ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
+          ],
+          child: MaterialApp(home: ModuleScreen(module: testModule)),
+       ));
+       
+       await settleDashboard(tester);
+       
+       // testModule has 0 tabs
+       expect(find.text('ITEMS'), findsNothing); 
+
+       // Update memory cache manually (simulates what happens after a Save in SchemaEditor)
+       realSchemaProvider.updateMemoryCache(testModule.id, fullModule);
+       
+       // Rebuild & Settle
+       await tester.pumpAndSettle();
+       await tester.pump(const Duration(milliseconds: 300));
+       await tester.pumpAndSettle();
+       
+       // fullModule has 'Items' tab
+       expect(find.text('ITEMS'), findsOneWidget); 
     });
   });
 }
