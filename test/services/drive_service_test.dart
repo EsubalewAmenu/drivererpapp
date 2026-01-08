@@ -5,6 +5,7 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:http/http.dart' as http;
 import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/models/company_model.dart';
 
 class MockHttpClient extends Mock implements http.Client {}
 class MockDriveApi extends Mock implements drive.DriveApi {}
@@ -140,6 +141,33 @@ void main() {
 
       expect(result.length, 1);
       expect(result.first.id, 'mod1');
+    });
+
+    test('getOrCreateSubFolder returns existing folder id if found', () async {
+       final fileList = drive.FileList(files: [
+        drive.File()..id = 'found_id'
+      ]);
+      
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: r'$fields')))
+          .thenAnswer((_) async => fileList);
+
+      final result = await driveService.getOrCreateSubFolder('parentId', 'FolderName');
+
+      expect(result, 'found_id');
+      verifyNever(() => mockFilesResource.create(any(), $fields: any(named: r'$fields')));
+    });
+
+    test('getOrCreateSubFolder creates new folder if not found', () async {
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: r'$fields')))
+          .thenAnswer((_) async => drive.FileList(files: []));
+      
+      when(() => mockFilesResource.create(any(), $fields: any(named: r'$fields')))
+          .thenAnswer((_) async => drive.File()..id = 'created_id');
+
+      final result = await driveService.getOrCreateSubFolder('parentId', 'FolderName');
+
+      expect(result, 'created_id');
+      verify(() => mockFilesResource.create(any(), $fields: any(named: r'$fields'))).called(1);
     });
   });
 
