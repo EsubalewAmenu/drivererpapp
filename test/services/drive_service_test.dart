@@ -428,6 +428,36 @@ void main() {
       expect(results.first['record_id'], '200'); // Newest first
       expect(results.last['record_id'], '100');
     });
+
+    test('fetchRecords with sub-tables', () async {
+       // Mock folder/file lookup
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
+
+      // Mock spreadsheet get to show sub-sheets
+      when(() => mockSpreadsheetsResource.get('sheet123')).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [
+          sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1')),
+          sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1.items')),
+        ],
+      ));
+
+      // Mock Headings & Data for main tab
+      when(() => mockValuesResource.get('sheet123', 'tab1!1:1')).thenAnswer((_) async => sheets.ValueRange(values: [['record_id', 'name']]));
+      when(() => mockValuesResource.get('sheet123', 'tab1!A2:ZZ')).thenAnswer((_) async => sheets.ValueRange(values: [['r1', 'Record 1']]));
+
+      // Mock Headings & Data for sub-tab
+      when(() => mockValuesResource.get('sheet123', 'tab1.items!1:1')).thenAnswer((_) async => sheets.ValueRange(values: [['parent_record_id', 'item_name']]));
+      when(() => mockValuesResource.get('sheet123', 'tab1.items!A2:ZZ')).thenAnswer((_) async => sheets.ValueRange(values: [['r1', 'Sub Item 1']]));
+
+      final results = await driveService.fetchRecords('mod1', 'MyModule', 'tab1', fetchSubTables: true);
+
+      expect(results.length, 1);
+      final record = results[0];
+      expect(record['items'], isA<List>());
+      expect((record['items'] as List).length, 1);
+      expect((record['items'] as List)[0]['item_name'], 'Sub Item 1');
+    });
   });
 
   group('DriveCompanyMixin', () {

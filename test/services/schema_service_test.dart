@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drivererpapp/services/schema_service.dart';
 import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/models/schema_models.dart';
 
 class MockDriveService extends Mock implements DriveService {}
 
@@ -121,6 +122,39 @@ void main() {
       
       final meta = await schemaService.getCachedMeta('mod1');
       expect(meta?['modifiedTime'], equals(newTime.toIso8601String()));
+    });
+
+    test('saveModuleConfig updates existing remote config', () async {
+      final module = ModuleSchema(
+        id: 'mod1', name: 'M1', icon: 'i', primaryColor: '#0', version: '1', settings: {},
+        tabs: [], dashboard: DashboardConfig(cards: [])
+      );
+      final modifiedTime = DateTime.now();
+
+      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_config')).thenAnswer((_) async => 'file123');
+      when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
+      when(() => mockDriveService.getFileModifiedTime('file123')).thenAnswer((_) async => modifiedTime);
+
+      await schemaService.saveModuleConfig('mod1', module);
+
+      verify(() => mockDriveService.updateModuleConfig('file123', any())).called(1);
+      final cached = await schemaService.getCachedConfig('mod1');
+      expect(cached?['id'], 'mod1');
+    });
+
+    test('saveModuleConfig creates new remote config if not exists', () async {
+       final module = ModuleSchema(
+        id: 'mod1', name: 'M1', icon: 'i', primaryColor: '#0', version: '1', settings: {},
+        tabs: [], dashboard: DashboardConfig(cards: [])
+      );
+      
+      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_config')).thenAnswer((_) async => null);
+      when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'new_file_id');
+      when(() => mockDriveService.getFileModifiedTime('new_file_id')).thenAnswer((_) async => DateTime.now());
+
+      await schemaService.saveModuleConfig('mod1', module);
+
+      verify(() => mockDriveService.createModuleConfig('config_folder_id', 'test@example.com_config', any())).called(1);
     });
   });
 }
