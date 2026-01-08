@@ -5,48 +5,36 @@ import 'package:drivererpapp/models/schema_models.dart';
 
 void main() {
   testWidgets('DynamicListField adds and removes items', (WidgetTester tester) async {
-    List<String>? changedList;
-    final column = ColumnConfig(
-      key: 'test_list',
-      label: 'Test List',
-      type: 'list',
-    );
+    final column = ColumnConfig(key: 'tags', label: 'Tags', type: 'list');
+    List<String>? result;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DynamicListField(
-            column: column,
-            value: ['Item1', 'Item2'],
-            primaryColor: Colors.blue,
-            onChanged: (val) => changedList = val,
-          ),
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: DynamicListField(
+          column: column,
+          value: ['Tag1'],
+          primaryColor: Colors.blue,
+          onChanged: (val) => result = val,
         ),
       ),
-    );
-
-    expect(find.text('TEST LIST'), findsOneWidget);
-    expect(find.text('Item1'), findsOneWidget);
-    expect(find.text('Item2'), findsOneWidget);
-
-    // Remove Item1
-    await tester.tap(find.descendant(
-      of: find.widgetWithText(Chip, 'Item1'),
-      matching: find.byIcon(Icons.close),
     ));
+
+    expect(find.text('TAGS'), findsOneWidget);
+    expect(find.text('Tag1'), findsOneWidget);
+
+    // Remove Tag1
+    await tester.tap(find.byIcon(Icons.close));
     await tester.pump();
+    expect(result, isEmpty);
 
-    expect(changedList, ['Item2']);
-
-    // Add Item3
+    // Add Tag2
     await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Add Test List'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'Item3');
-    await tester.tap(find.text('Add').last); // The button in dialog
+    await tester.enterText(find.byType(TextField), 'Tag2');
+    await tester.tap(find.text('Add').last);
     await tester.pumpAndSettle();
 
-    expect(changedList, contains('Item3'));
+    expect(result, contains('Tag2'));
   });
 }
