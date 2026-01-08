@@ -4,66 +4,70 @@ import 'package:drivererpapp/screens/dynamic_form/fields/media_field.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 
 void main() {
-  testWidgets('DynamicMediaField renders image picker', (WidgetTester tester) async {
-    final column = ColumnConfig(
-      key: 'photo',
-      label: 'Photo',
-      type: 'image',
-    );
+  testWidgets('DynamicMediaField handles image type', (WidgetTester tester) async {
+    final column = ColumnConfig(key: 'img', label: 'Photo', type: 'image');
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DynamicMediaField(
-            column: column,
-            value: null,
-            primaryColor: Colors.blue,
-            onChanged: (_) {},
-            type: 'image',
-          ),
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: DynamicMediaField(
+          column: column,
+          value: null,
+          primaryColor: Colors.blue,
+          onChanged: (val) {},
+          type: 'image',
         ),
       ),
-    );
+    ));
 
     expect(find.text('PHOTO'), findsOneWidget);
     expect(find.byIcon(Icons.camera_alt_rounded), findsOneWidget);
-    expect(find.text('Tap to capture'), findsOneWidget);
-
-    // Tap it
+    
     await tester.tap(find.text('Tap to capture'));
     await tester.pump();
-    expect(find.text('Camera integration coming soon'), findsOneWidget);
+    expect(find.byType(SnackBar), findsOneWidget);
   });
 
-  testWidgets('DynamicMediaField renders scanner', (WidgetTester tester) async {
-    final column = ColumnConfig(
-      key: 'barcode',
-      label: 'Barcode',
-      type: 'scanner',
-    );
-    String? changedValue;
+  testWidgets('DynamicMediaField handles scanner type', (WidgetTester tester) async {
+    final column = ColumnConfig(key: 'barcode', label: 'Barcode', type: 'scanner');
+    String? newValue;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DynamicMediaField(
-            column: column,
-            value: '12345',
-            primaryColor: Colors.blue,
-            onChanged: (val) => changedValue = val,
-            type: 'scanner',
-          ),
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: DynamicMediaField(
+          column: column,
+          value: 'OLD-VALUE',
+          primaryColor: Colors.blue,
+          onChanged: (val) => newValue = val,
+          type: 'scanner',
         ),
       ),
-    );
+    ));
 
     expect(find.text('BARCODE'), findsOneWidget);
-    expect(find.byType(TextFormField), findsOneWidget);
-    expect(find.text('12345'), findsOneWidget);
+    expect(find.text('OLD-VALUE'), findsOneWidget);
 
-    // Test text entry manually (as if scanner filled it)
-    await tester.enterText(find.byType(TextFormField), '67890');
+    await tester.tap(find.byIcon(Icons.qr_code_scanner_rounded));
+    await tester.pump();
     
-    expect(changedValue, '67890');
+    expect(newValue, startsWith('SCAN-'));
+  });
+
+  testWidgets('DynamicMediaField handles signature type', (WidgetTester tester) async {
+    final column = ColumnConfig(key: 'sig', label: 'Signature', type: 'signature');
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: DynamicMediaField(
+          column: column,
+          value: null,
+          primaryColor: Colors.blue,
+          onChanged: (val) {},
+          type: 'signature',
+        ),
+      ),
+    ));
+
+    expect(find.text('SIGNATURE'), findsOneWidget);
+    expect(find.text('Tap to sign'), findsOneWidget);
   });
 }
