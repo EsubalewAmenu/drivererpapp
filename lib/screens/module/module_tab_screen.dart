@@ -34,6 +34,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   bool _isLoading = true;
   bool _isLoadingMore = false;
   bool _hasMore = true;
+  bool _hasErrorLoadingMore = false;
   int _currentOffset = 0;
   static const int _pageSize = 20;
 
@@ -62,7 +63,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   void _onScroll() {
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9) {
       final isFilterEmpty = _activeFilter == null || _activeFilter == 'all';
-      if (!_isLoading && !_isLoadingMore && _hasMore && _searchQuery.isEmpty && isFilterEmpty) {
+      if (!_isLoading && !_isLoadingMore && !_hasErrorLoadingMore && _hasMore && _searchQuery.isEmpty && isFilterEmpty) {
         _loadData(refresh: false);
       }
     }
@@ -115,10 +116,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           _filteredData = [];
           _currentOffset = 0;
           _hasMore = true;
+          _hasErrorLoadingMore = false;
         });
       }
     } else {
-      if (mounted) setState(() => _isLoadingMore = true);
+      if (mounted) setState(() {
+         _isLoadingMore = true;
+         _hasErrorLoadingMore = false;
+      });
     }
 
     // Fetch fresh data from DriveService
@@ -157,13 +162,22 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
+          // In pagination, stop loading more spinner
           _isLoadingMore = false;
+          
           if (refresh) {
-            _errorMessage = 'Records unavailable (Offline)';
+            // Check for network related errors
+            final errorString = e.toString().toLowerCase();
+            if (errorString.contains('socketexception') || 
+                errorString.contains('failed host lookup') || 
+                errorString.contains('network is unreachable') ||
+                errorString.contains('offline')) {
+              _errorMessage = 'Records unavailable (Offline)';
+            } else {
+              _errorMessage = 'Failed to load records. Please try again.';
+            }
           } else {
-             ScaffoldMessenger.of(context).showSnackBar(
-               const SnackBar(content: Text('Failed to load more records')),
-             );
+             _hasErrorLoadingMore = true;
           }
         });
       }
@@ -454,10 +468,27 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     return ListView.separated(
       controller: _scrollController,
       padding: const EdgeInsets.all(16),
-      itemCount: _filteredData.length + (_isLoadingMore ? 1 : 0),
+      itemCount: _filteredData.length + (_isLoadingMore || _hasErrorLoadingMore ? 1 : 0),
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
         if (index == _filteredData.length) {
+          if (_hasErrorLoadingMore) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Text('Failed to load more records', style: TextStyle(color: theme.colorScheme.error)),
+                    TextButton.icon(
+                      onPressed: () => _loadData(refresh: false),
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Retry'),
+                    )
+                  ],
+                ),
+              ),
+            );
+          }
           return const Center(child: Padding(
             padding: EdgeInsets.all(16.0),
             child: CircularProgressIndicator(),

@@ -364,7 +364,8 @@ mixin DriveSheetMixin {
       return mainRecords;
     } catch (e) {
       debugPrint('Error fetching records: $e');
-      return [];
+      // Rethrow to allow caller (UI) to handle specific errors like Offline
+      rethrow;
     }
   }
 
