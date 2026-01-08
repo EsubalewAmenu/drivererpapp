@@ -431,6 +431,50 @@ void main() {
   });
 
   group('DriveCompanyMixin', () {
+    test('ensureCompanyRegistry returns existing ID if found', () async {
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'reg123'..name = 'companies']));
+
+      final result = await driveService.ensureCompanyRegistry('root123');
+
+      expect(result, 'reg123');
+      verify(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields'))).called(1);
+    });
+
+    test('ensureCompanyRegistry creates new registry when not found', () async {
+      // 1. Not found
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: []));
+
+      // 2. Create spreadsheet
+      when(() => mockSpreadsheetsResource.create(any()))
+          .thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'new_reg_id'));
+
+      // 3. Move to root (get then update)
+      when(() => mockFilesResource.get(any(), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.File()..id = 'new_reg_id'..parents = ['old_parent']);
+      
+      when(() => mockFilesResource.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.File());
+
+      // 4. Update headers
+      when(() => mockValuesResource.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+          .thenAnswer((_) async => sheets.UpdateValuesResponse());
+
+      final result = await driveService.ensureCompanyRegistry('root123');
+
+      expect(result, 'new_reg_id');
+      
+      verify(() => mockSpreadsheetsResource.create(any(that: isA<sheets.Spreadsheet>().having((s) => s.properties?.title, 'title', 'companies')))).called(1);
+      verify(() => mockFilesResource.update(any(), 'new_reg_id', addParents: 'root123', removeParents: 'old_parent', $fields: 'id, parents')).called(1);
+      verify(() => mockValuesResource.update(
+        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'headers', ['id', 'name', 'folderId', 'logoUrl', 'role'])),
+        'new_reg_id',
+        'companies!A1',
+        valueInputOption: 'RAW',
+      )).called(1);
+    });
+
     test('getCompanies returns empty list if registry file not found', () async {
       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => drive.FileList(files: []));
@@ -440,38 +484,47 @@ void main() {
       expect(result, isEmpty);
     });
 
-    test('getCompanies returns list of companies', () async {
+    test('getCompanies handles various row lengths correctly', () async {
       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
 
       when(() => mockValuesResource.get('sheet123', 'companies!A2:E'))
           .thenAnswer((_) async => sheets.ValueRange(values: [
-            ['c1', 'Company 1', 'f1', 'logo1', 'owner'],
-            ['c2', 'Company 2', 'f2', '', 'admin'],
+            ['c1', 'Company 1', 'f1', 'logo1', 'owner'], // Full row
+            ['c2', 'Company 2', 'f2'],                  // Partial row
+            ['c3'],                                     // Very partial row
           ]));
 
       final result = await driveService.getCompanies('root123');
 
-      expect(result.length, 2);
+      expect(result.length, 3);
+      
       expect(result[0].id, 'c1');
-      expect(result[0].name, 'Company 1');
+      expect(result[0].logoUrl, 'logo1');
+      expect(result[0].role, 'owner');
+
       expect(result[1].id, 'c2');
-      expect(result[1].role, 'admin');
+      expect(result[1].logoUrl, isNull);
+      expect(result[1].role, isNull);
+
+      expect(result[2].id, 'c3');
+      expect(result[2].name, '');
+      expect(result[2].folderId, '');
     });
 
-    test('registerCompany appends new row', () async {
-      // Stub check/creation
-       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+    test('registerCompany ensures registry and appends row', () async {
+      // Stub ensureCompanyRegistry (which uses getFileId -> list)
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
 
       when(() => mockValuesResource.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'), insertDataOption: any(named: 'insertDataOption')))
           .thenAnswer((_) async => sheets.AppendValuesResponse());
 
-      final company = Company(id: 'new_id', name: 'New Co', folderId: 'folder_abc');
+      final company = Company(id: 'new_id', name: 'New Co', folderId: 'folder_abc', logoUrl: 'logo_url', role: 'admin');
       await driveService.registerCompany('root123', company);
 
       verify(() => mockValuesResource.append(
-        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'values', containsAll(['new_id', 'New Co', 'folder_abc']))),
+        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'values', ['new_id', 'New Co', 'folder_abc', 'logo_url', 'admin'])),
         'sheet123',
         'companies!A1',
         valueInputOption: 'RAW',
