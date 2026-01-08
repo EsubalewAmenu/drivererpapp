@@ -82,7 +82,7 @@ void main() {
         primaryColor: Colors.blue
       ),
     ));
-    expect(find.text('Extra Info'), findsNothing);
+    expect(find.text('EXTRA INFO'), findsNothing);
 
     // Case 2: has_extra is true, extra_info should be visible
     await tester.pumpWidget(MaterialApp(
@@ -95,6 +95,83 @@ void main() {
     ));
     expect(find.text('EXTRA INFO'), findsOneWidget);
     expect(find.text('Secret'), findsOneWidget);
+  });
+
+  testWidgets('RecordDetailScreen displays modern template and hides header fields from list', (WidgetTester tester) async {
+    final columns = [
+      ColumnConfig(key: 'name', label: 'Name', type: 'text'),
+      ColumnConfig(key: 'desc', label: 'Description', type: 'text'),
+      ColumnConfig(key: 'price', label: 'Price', type: 'text'),
+    ];
+    final data = {
+      'name': 'Modern Item',
+      'desc': 'Detailed info',
+      'price': r'$100',
+      'img': 'https://example.com/image.png'
+    };
+    final template = DetailTemplateConfig(
+      template: 'modern',
+      titleKey: 'name',
+      subtitleKey: 'desc',
+      imageKey: 'img'
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: RecordDetailScreen(
+        title: 'Title',
+        data: data,
+        columns: columns,
+        primaryColor: Colors.blue,
+        detailTemplate: template,
+      ),
+    ));
+
+    // Modern title and subtitle in header
+    expect(find.text('Modern Item'), findsOneWidget);
+    expect(find.text('Detailed info'), findsOneWidget);
+    
+    // Header keys should be hidden from fields list
+    expect(find.text('NAME'), findsNothing);
+    expect(find.text('DESCRIPTION'), findsNothing);
+    
+    // Non-header key should be visible
+    expect(find.text('PRICE'), findsOneWidget);
+    expect(find.text(r'$100'), findsOneWidget);
+  });
+
+  testWidgets('RecordDetailScreen displays table field', (WidgetTester tester) async {
+    final columns = [
+      ColumnConfig(
+        key: 'items', 
+        label: 'Order Items', 
+        type: 'table',
+        columns: [
+          ColumnConfig(key: 'sku', label: 'SKU', type: 'text'),
+          ColumnConfig(key: 'qty', label: 'Qty', type: 'number'),
+        ]
+      ),
+    ];
+    final data = {
+      'items': [
+        {'sku': 'A1', 'qty': 5},
+        {'sku': 'B2', 'qty': 10},
+      ]
+    };
+
+    await tester.pumpWidget(MaterialApp(
+      home: RecordDetailScreen(
+        title: 'Order',
+        data: data,
+        columns: columns,
+        primaryColor: Colors.blue,
+      ),
+    ));
+
+    expect(find.text('ORDER ITEMS'), findsOneWidget);
+    expect(find.text('2 items'), findsOneWidget);
+    expect(find.text('A1'), findsOneWidget);
+    expect(find.text('B2'), findsOneWidget);
+    expect(find.text('5'), findsOneWidget);
   });
 
   testWidgets('RecordDetailScreen displays status field custom styling', (WidgetTester tester) async {
