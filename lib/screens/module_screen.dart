@@ -248,7 +248,10 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => SchemaEditorScreen(module: module)),
-                );
+                ).then((_) {
+                  // Reload the schema when callback from editor
+                  _loadSchema();
+                });
               },
             ),
           ],
