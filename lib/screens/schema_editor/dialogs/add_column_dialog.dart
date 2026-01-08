@@ -43,7 +43,7 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
               dropdownColor: theme.cardTheme.color,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               items: {
-                'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table'
+                'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table', 'email', 'phone'
               }
                   .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
                   .toList(),

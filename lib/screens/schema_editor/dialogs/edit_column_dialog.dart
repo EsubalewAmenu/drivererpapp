@@ -115,7 +115,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               dropdownColor: theme.cardTheme.color,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               items: {
-                'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table',
+                'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table', 'email', 'phone',
                 _currentType
               }
                   .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
