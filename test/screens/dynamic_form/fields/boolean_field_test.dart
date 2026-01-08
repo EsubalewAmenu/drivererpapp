@@ -4,36 +4,27 @@ import 'package:drivererpapp/screens/dynamic_form/fields/boolean_field.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 
 void main() {
-  testWidgets('DynamicBooleanField renders and toggles', (WidgetTester tester) async {
-    bool? changedValue;
-    final column = ColumnConfig(
-      key: 'test_bool',
-      label: 'Test Boolean',
-      type: 'boolean',
-    );
+  testWidgets('DynamicBooleanField toggles value', (WidgetTester tester) async {
+    final column = ColumnConfig(key: 'active', label: 'Is Active', type: 'boolean');
+    bool? newValue;
 
-    // Test with initial value true
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: DynamicBooleanField(
-            column: column,
-            value: true,
-            primaryColor: Colors.blue,
-            onChanged: (val) => changedValue = val,
-          ),
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: DynamicBooleanField(
+          column: column,
+          value: false,
+          primaryColor: Colors.blue,
+          onChanged: (val) => newValue = val,
         ),
       ),
-    );
+    ));
 
-    expect(find.text('Test Boolean'), findsOneWidget);
-    expect(find.byType(Switch), findsOneWidget);
+    expect(find.text('Is Active'), findsOneWidget);
+    final switchFinder = find.byType(Switch);
     
-    final switchWidget = tester.widget<Switch>(find.byType(Switch));
-    expect(switchWidget.value, true);
+    await tester.tap(switchFinder);
+    await tester.pump();
 
-    // Toggle switch
-    await tester.tap(find.byType(Switch));
-    expect(changedValue, false);
+    expect(newValue, isTrue);
   });
 }

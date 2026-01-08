@@ -86,6 +86,10 @@ class RecordDetailScreen extends StatelessWidget {
             Image.network(
               imageUrl,
               fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                color: Colors.black.withValues(alpha: 0.2),
+                child: const Icon(Icons.broken_image_rounded, color: Colors.white24, size: 64),
+              ),
             ),
           Container(
             decoration: BoxDecoration(
@@ -274,10 +278,10 @@ class RecordDetailScreen extends StatelessWidget {
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      itemCount: visibleColumns.length,
+      itemCount: filteredColumns.length,
       separatorBuilder: (context, index) => const SizedBox(height: 24),
       itemBuilder: (context, index) {
-        final col = visibleColumns[index];
+        final col = filteredColumns[index];
         final value = data[col.key];
         
         if (col.type == 'table' && value is List) {

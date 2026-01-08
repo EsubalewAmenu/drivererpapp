@@ -26,6 +26,7 @@ void main() {
     required Function(String?) onChanged,
     required Map<String, dynamic> data,
     ModuleSchema? module,
+    Key? key,
   }) {
     return MultiProvider(
       providers: [
@@ -34,6 +35,7 @@ void main() {
       child: MaterialApp(
         home: Scaffold(
           body: DynamicDropdownField(
+            key: key,
             column: column,
             value: value,
             onChanged: onChanged,
@@ -144,5 +146,125 @@ void main() {
     expect(find.text('Alpha').last, findsOneWidget);
     expect(find.text('Beta').last, findsOneWidget);
     expect(find.text('Gamma'), findsNothing);
+  });
+
+  testWidgets('DynamicDropdownField updates label based on dynamicLabel config', (WidgetTester tester) async {
+    final parentRelCol = ColumnConfig(
+      key: 'parent_rel', 
+      label: 'Parent', 
+      type: 'relation', 
+      options: 'tab2_id'
+    );
+    final childSelectCol = ColumnConfig(
+      key: 'child_select', 
+      label: 'Child Select', 
+      type: 'select', 
+      options: 'parent_rel.allowed_values',
+      dynamicLabel: 'parent_rel.custom_label'
+    );
+
+    final tab1 = TabConfig(id: 'tab1_id', label: 'Tab 1', columns: [parentRelCol, childSelectCol]);
+    final tab2 = TabConfig(id: 'tab2_id', label: 'Tab 2', columns: []);
+    
+    final module = ModuleSchema(
+      id: 'test_mod_id', 
+      name: 'Test Mod', 
+      icon: 'folder',
+      primaryColor: '#000000',
+      version: '1.0',
+      settings: {},
+      dashboard: DashboardConfig(cards: []),
+      tabs: [tab1, tab2]
+    );
+
+    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', descending: any(named: 'descending')))
+        .thenAnswer((_) async => [
+          {'name': 'Parent Item 1', 'custom_label': 'Category Selector', 'allowed_values': '[A, B]'},
+        ]);
+
+    await tester.pumpWidget(createField(
+      column: childSelectCol,
+      value: null,
+      onChanged: (_) {},
+      data: {'parent_rel': 'Parent Item 1'},
+      module: module,
+    ));
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('CATEGORY SELECTOR'), findsOneWidget);
+  });
+
+  testWidgets('DynamicDropdownField handles dependent visibility', (WidgetTester tester) async {
+    final parentRelCol = ColumnConfig(
+      key: 'parent_rel', 
+      label: 'Parent', 
+      type: 'relation', 
+      options: 'tab2_id'
+    );
+    // Tab 2 has a column 'is_active' which child depends on
+    final childSelectCol = ColumnConfig(
+      key: 'child_select', 
+      label: 'Child Select', 
+      type: 'select', 
+      options: 'parent_rel.allowed_values',
+    );
+
+    final tab1 = TabConfig(id: 'tab1_id', label: 'Tab 1', columns: [parentRelCol, childSelectCol]);
+    // Define Tab 2 structure where 'allowed_values' depends on 'is_active'
+    final tab2 = TabConfig(id: 'tab2_id', label: 'Tab 2', columns: [
+      ColumnConfig(key: 'allowed_values', label: 'Values', type: 'text', dependsOn: 'is_active')
+    ]);
+    
+    final module = ModuleSchema(
+      id: 'test_mod_id', 
+      name: 'Test Mod', 
+      icon: 'folder',
+      primaryColor: '#000000',
+      version: '1.0',
+      settings: {},
+      dashboard: DashboardConfig(cards: []),
+      tabs: [tab1, tab2]
+    );
+
+    // Case 1: is_active is false
+    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', descending: any(named: 'descending')))
+        .thenAnswer((_) async => [
+          {'name': 'Parent Item 1', 'is_active': false, 'allowed_values': '[A, B]'},
+        ]);
+
+    await tester.pumpWidget(createField(
+      column: childSelectCol,
+      value: null,
+      onChanged: (_) {},
+      data: {'parent_rel': 'Parent Item 1'},
+      module: module,
+      key: const Key('case1'),
+    ));
+
+    await tester.pumpAndSettle();
+
+    // Should be hidden
+    expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+
+    // Case 2: is_active is true
+    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', descending: any(named: 'descending')))
+        .thenAnswer((_) async => [
+          {'name': 'Parent Item 1', 'is_active': true, 'allowed_values': '[A, B]'},
+        ]);
+
+    await tester.pumpWidget(createField(
+      column: childSelectCol,
+      value: null,
+      onChanged: (_) {},
+      data: {'parent_rel': 'Parent Item 1'},
+      module: module,
+      key: const Key('case2'),
+    ));
+
+    await tester.pumpAndSettle();
+
+    // Should be visible
+    expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
   });
 }

@@ -58,4 +58,57 @@ void main() {
     expect(changedValue!.length, 2);
     expect(changedValue!.last['item_name'], 'New Item');
   });
+
+  testWidgets('DynamicTableField edits and deletes items', (WidgetTester tester) async {
+    List<Map<String, dynamic>>? changedValue;
+    
+    final subColumns = [
+      ColumnConfig(key: 'item_name', label: 'Item Name', type: 'text'),
+    ];
+
+    final column = ColumnConfig(
+      key: 'items',
+      label: 'Order Items',
+      type: 'table',
+      columns: subColumns,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DynamicTableField(
+            column: column,
+            value: [
+              {'item_name': 'Item 1'},
+              {'item_name': 'Item 2'},
+            ],
+            primaryColor: Colors.blue,
+            onChanged: (val) => changedValue = val,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Item 1'), findsOneWidget);
+    expect(find.text('Item 2'), findsOneWidget);
+
+    // 1. Edit Item 1
+    await tester.tap(find.byIcon(Icons.edit).first);
+    await tester.pumpAndSettle();
+    
+    expect(find.text('Edit Order Items Item'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextFormField, 'Enter item name'), 'Updated Item');
+    await tester.tap(find.text('Save Item'));
+    await tester.pumpAndSettle();
+
+    expect(changedValue!.length, 2);
+    expect(changedValue![0]['item_name'], 'Updated Item');
+
+    // 2. Delete Item 2
+    await tester.tap(find.byIcon(Icons.delete).last);
+    await tester.pumpAndSettle();
+
+    expect(changedValue!.length, 1);
+    expect(changedValue![0]['item_name'], 'Item 1'); // Wait, the previous test might have used the original value
+  });
 }

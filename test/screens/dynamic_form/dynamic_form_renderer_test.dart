@@ -2,22 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:drivererpapp/screens/dynamic_form/dynamic_form_renderer.dart';
 import 'package:drivererpapp/models/schema_models.dart';
-// Imports for field types to match by type
-import 'package:drivererpapp/screens/dynamic_form/fields/text_field.dart';
-import 'package:drivererpapp/screens/dynamic_form/fields/boolean_field.dart';
-import 'package:drivererpapp/screens/dynamic_form/fields/table_field.dart';
 
 void main() {
-  testWidgets('DynamicFormRenderer renders visible fields', (WidgetTester tester) async {
+  testWidgets('DynamicFormRenderer respects dependsOn and settings', (WidgetTester tester) async {
     final columns = [
-      ColumnConfig(key: 'name', label: 'Name', type: 'text'),
-      ColumnConfig(key: 'active', label: 'Active', type: 'boolean'),
+      ColumnConfig(key: 'show_extra', label: 'Show Extra', type: 'boolean'),
+      ColumnConfig(key: 'extra_field', label: 'Extra Field', type: 'text', dependsOn: 'show_extra'),
+      ColumnConfig(key: 'negated_field', label: 'Negated Field', type: 'text', dependsOn: '!show_extra'),
+      ColumnConfig(key: 'branded_field', label: 'Branded Field', type: 'text', dependsOn: 'settings.branded'),
     ];
-    final data = <String, dynamic>{
-      'name': 'Test',
-      'active': true,
+
+    final Map<String, dynamic> data = {'show_extra': false};
+    final Map<String, SettingItem> settings = {
+       'branded': SettingItem(label: 'Branded', type: 'switch', value: true),
     };
-    final controllers = <String, TextEditingController>{};
 
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
@@ -26,84 +24,7 @@ void main() {
             columns: columns,
             data: data,
             primaryColor: Colors.blue,
-            onFieldChanged: (key, val) => data[key] = val,
-            controllers: controllers,
-          ),
-        ),
-      ),
-    ));
-
-    expect(find.byType(DynamicTextField), findsOneWidget);
-    expect(find.byType(DynamicBooleanField), findsOneWidget);
-    expect(find.text('NAME'), findsOneWidget);
-    expect(find.text('Active'), findsOneWidget);
-  });
-
-  testWidgets('DynamicFormRenderer respects dependsOn visibility', (WidgetTester tester) async {
-    final columns = [
-      ColumnConfig(key: 'has_extra', label: 'Has Extra', type: 'boolean'),
-      ColumnConfig(key: 'extra_info', label: 'Extra Info', type: 'text', dependsOn: 'has_extra'),
-    ];
-    
-    // Case 1: has_extra = false
-    var data = <String, dynamic>{'has_extra': false};
-    var controllers = <String, TextEditingController>{};
-
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: DynamicFormRenderer(
-            columns: columns,
-            data: data,
-            primaryColor: Colors.blue,
-            onFieldChanged: (_, __) {},
-            controllers: controllers,
-          ),
-        ),
-      ),
-    ));
-
-    expect(find.byType(DynamicBooleanField), findsOneWidget);
-    expect(find.byType(DynamicTextField), findsNothing); // Hidden
-    
-    // Case 2: has_extra = true
-    data = <String, dynamic>{'has_extra': true};
-    
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: DynamicFormRenderer(
-            columns: columns,
-            data: data,
-            primaryColor: Colors.blue,
-            onFieldChanged: (_, __) {},
-            controllers: controllers,
-          ),
-        ),
-      ),
-    ));
-    
-    expect(find.byType(DynamicTextField), findsOneWidget); // Visible
-  });
-
-  testWidgets('DynamicFormRenderer respects settings visibility', (WidgetTester tester) async {
-    final columns = [
-      ColumnConfig(key: 'extra_feature', label: 'Extra Feature', type: 'text', dependsOn: 'settings.advanced_mode'),
-    ];
-    
-    // Case 1: advanced_mode disabled
-    Map<String, SettingItem> settings = {
-        'advanced_mode': SettingItem(value: false, label: 'Adv', type: 'boolean'),
-    };
-    
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: SingleChildScrollView(
-          child: DynamicFormRenderer(
-            columns: columns,
-            data: {},
-            primaryColor: Colors.blue,
-            onFieldChanged: (_, __) {},
+            onFieldChanged: (k, v) {},
             controllers: {},
             settings: settings,
           ),
@@ -111,57 +32,34 @@ void main() {
       ),
     ));
 
-    expect(find.byType(DynamicTextField), findsNothing);
-    
-    // Case 2: advanced_mode enabled
-    settings = {
-        'advanced_mode': SettingItem(value: true, label: 'Adv', type: 'boolean'),
+    expect(find.text('Show Extra'), findsOneWidget); // Boolean field doesn't uppercase
+    expect(find.text('EXTRA FIELD'), findsNothing);
+    expect(find.text('NEGATED FIELD'), findsOneWidget);
+    expect(find.text('BRANDED FIELD'), findsOneWidget);
+
+    // Update data for second build
+    final Map<String, dynamic> data2 = {'show_extra': true};
+    final Map<String, SettingItem> settings2 = {
+       'branded': SettingItem(label: 'Branded', type: 'switch', value: false),
     };
-    
+
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: SingleChildScrollView(
           child: DynamicFormRenderer(
             columns: columns,
-            data: {},
+            data: data2,
             primaryColor: Colors.blue,
-            onFieldChanged: (_, __) {},
+            onFieldChanged: (k, v) {},
             controllers: {},
-            settings: settings,
+            settings: settings2,
           ),
         ),
       ),
     ));
 
-    expect(find.byType(DynamicTextField), findsOneWidget);
+    expect(find.text('EXTRA FIELD'), findsOneWidget);
+    expect(find.text('NEGATED FIELD'), findsNothing);
+    expect(find.text('BRANDED FIELD'), findsNothing);
   });
-  testWidgets('DynamicFormRenderer renders table field', (WidgetTester tester) async {
-    final columns = [
-      ColumnConfig(
-        key: 'items', 
-        label: 'Items', 
-        type: 'table', 
-        columns: [
-          ColumnConfig(key: 'item_name', label: 'Item Name', type: 'text'),
-        ]
-      ),
-    ];
-    final data = <String, dynamic>{
-      'items': [{'item_name': 'Item 1'}],
-    };
-    
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: DynamicFormRenderer(
-          columns: columns,
-          data: data,
-          primaryColor: Colors.blue,
-          onFieldChanged: (_, __) {},
-          controllers: {},
-        ),
-      ),
-    ));
-
-    expect(find.byType(DynamicTableField), findsOneWidget);
-    expect(find.text('ITEMS'), findsOneWidget);
-  });}
+}

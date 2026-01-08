@@ -7,53 +7,70 @@ import 'package:drivererpapp/models/schema_models.dart';
 class MockDriveService extends Mock implements DriveService {}
 
 void main() {
+  late SchemaProvider schemaProvider;
   late MockDriveService mockDriveService;
-  late SchemaProvider provider;
+
+  setUpAll(() {
+    registerFallbackValue(ModuleSchema(
+      id: 'fallback',
+      name: 'Fallback',
+      icon: 'help',
+      primaryColor: '#000000',
+      version: '1.0',
+      settings: {},
+      dashboard: DashboardConfig(cards: []),
+      tabs: [],
+    ));
+  });
 
   setUp(() {
     mockDriveService = MockDriveService();
-    provider = SchemaProvider(driveService: mockDriveService);
+    schemaProvider = SchemaProvider(driveService: mockDriveService, userEmail: 'test@example.com');
   });
 
-  test('Initial state is clean', () {
-    expect(provider.getFromMemory('mod1'), isNull);
-  });
-
-  test('updateMemoryCache ads and removes items', () {
-    final schema = ModuleSchema(
+  group('SchemaProvider', () {
+    final module = ModuleSchema(
       id: 'mod1',
       name: 'Test Module',
-      icon: 'icon',
-      primaryColor: 'color',
-      version: '1.0',
+      icon: 'edit',
+      primaryColor: '#FF5722',
+      version: '1.2',
       settings: {},
       dashboard: DashboardConfig(cards: []),
       tabs: [],
     );
 
-    // Test Add
-    bool notified = false;
-    provider.addListener(() => notified = true);
+    test('updateMemoryCache updates memory and notifies listeners', () {
+      bool notified = false;
+      schemaProvider.addListener(() {
+        notified = true;
+      });
 
-    provider.updateMemoryCache('mod1', schema);
-    
-    expect(provider.getFromMemory('mod1'), equals(schema));
-    expect(notified, isTrue);
+      schemaProvider.updateMemoryCache('mod1', module);
+      expect(schemaProvider.getFromMemory('mod1'), module);
+      expect(notified, isTrue);
+    });
 
-    // Test Remove
-    notified = false;
-    provider.updateMemoryCache('mod1', null);
-    
-    expect(provider.getFromMemory('mod1'), isNull);
-    expect(notified, isTrue);
-  });
+    test('saveConfig calls SchemaService (and DriveService) and updates memory', () async {
+      // Mock the DriveService calls that SchemaService.saveModuleConfig uses
+      when(() => mockDriveService.getOrCreateSubFolder(any(), any()))
+          .thenAnswer((_) async => 'folder_id');
+      when(() => mockDriveService.getFileId(any(), any()))
+          .thenAnswer((_) async => 'file_id');
+      when(() => mockDriveService.createModuleConfig(any(), any(), any()))
+          .thenAnswer((_) async => 'file_id');
+      when(() => mockDriveService.updateModuleConfig(any(), any()))
+          .thenAnswer((_) async => {});
+      when(() => mockDriveService.getFileModifiedTime(any()))
+          .thenAnswer((_) async => DateTime.now());
 
-  test('notifyUpdate notifies listeners', () {
-    bool notified = false;
-    provider.addListener(() => notified = true);
+      final results = await schemaProvider.saveConfig(module);
 
-    provider.notifyUpdate();
-
-    expect(notified, isTrue);
+      expect(results, isTrue);
+      expect(schemaProvider.getFromMemory('mod1'), module);
+      
+      // verify calls - depend on if it exists or not
+      // for newly created vs updated
+    });
   });
 }

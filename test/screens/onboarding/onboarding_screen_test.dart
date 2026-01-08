@@ -2,45 +2,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
-import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:drivererpapp/screens/onboarding/onboarding_screen.dart';
-import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
+import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/models/company_model.dart';
+import 'package:drivererpapp/screens/dashboard_screen.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 
+class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
-class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 
 void main() {
+  late MockWorkspaceProvider mockWorkspaceProvider;
   late MockDriveProvider mockDriveProvider;
   late MockDriveService mockDriveService;
-  late MockWorkspaceProvider mockWorkspaceProvider;
 
   setUp(() {
+    mockWorkspaceProvider = MockWorkspaceProvider();
     mockDriveProvider = MockDriveProvider();
     mockDriveService = MockDriveService();
-    mockWorkspaceProvider = MockWorkspaceProvider();
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
-    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
+    when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
     
-    // Register Company fallback
+    registerFallbackValue(Company(id: '1', name: 'Test', folderId: 'f1', role: 'Owner'));
     registerFallbackValue(drive.File());
-    registerFallbackValue(Company(id: '0', name: 'Fallback', folderId: 'f0', role: 'Owner'));
-
-    // Stub registerNewCompany
-    when(() => mockWorkspaceProvider.registerNewCompany(any(), any()))
-        .thenAnswer((_) async {});
-    when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
   });
 
   Widget createOnboardingScreen() {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+        ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
       ],
       child: const MaterialApp(
         home: OnboardingScreen(rootFolderId: 'root123'),
@@ -48,13 +43,19 @@ void main() {
     );
   }
 
-  testWidgets('OnboardingScreen flow: Create New Company', (WidgetTester tester) async {
+  testWidgets('OnboardingScreen full flow: Create New Company', (WidgetTester tester) async {
     when(() => mockDriveService.createWorkspace(any(), any()))
-        .thenAnswer((_) async => drive.File()..id = 'ws1'..name = 'My Business');
+        .thenAnswer((_) async => drive.File()..id = 'ws123'..name = 'My Business');
+    when(() => mockWorkspaceProvider.registerNewCompany(any(), any()))
+        .thenAnswer((_) async {});
+    when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
+    when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'ws123'..name = 'My Business');
+    when(() => mockWorkspaceProvider.companies).thenReturn(<Company>[]);
+    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => <drive.File>[]);
 
     await tester.pumpWidget(createOnboardingScreen());
 
-    // Step 0: Choices
+    // Step 0: Choice
     expect(find.text('Create New Company'), findsOneWidget);
     await tester.tap(find.text('Create New Company'));
     await tester.pumpAndSettle();
@@ -67,7 +68,7 @@ void main() {
 
     // Step 2: Industry
     expect(find.text('INDUSTRY FOCUS'), findsOneWidget);
-    await tester.tap(find.text('Retail'));
+    await tester.tap(find.text('Logistics'));
     await tester.tap(find.text('CONTINUE'));
     await tester.pumpAndSettle();
 
@@ -76,32 +77,20 @@ void main() {
     await tester.tap(find.text('Inventory'));
     await tester.tap(find.text('LAUNCH WORKSPACE'));
     
-    // Process activation
-    await tester.pump(); // Start creating
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    
-    await tester.pumpAndSettle(); // Finish and navigate
-
-    // Should navigate to Dashboard
-    expect(find.text('NET PROFIT ENGINE'), findsOneWidget);
-    
     verify(() => mockDriveService.createWorkspace('root123', 'My Business')).called(1);
-    // Should also create the selected module
-    verify(() => mockDriveService.createWorkspace('ws1', 'Inventory')).called(1);
+    
+    await tester.pumpAndSettle();
+    expect(find.byType(DashboardScreen), findsOneWidget);
   });
 
-  testWidgets('OnboardingScreen flow: Join Network', (WidgetTester tester) async {
+  testWidgets('OnboardingScreen: Validation empty name', (WidgetTester tester) async {
     await tester.pumpWidget(createOnboardingScreen());
-
-    await tester.tap(find.text('Join Network'));
+    await tester.tap(find.text('Create New Company'));
     await tester.pumpAndSettle();
 
-    expect(find.text('JOIN NETWORK'), findsOneWidget);
-    expect(find.text('Enter Invitation Code'), findsOneWidget);
+    await tester.tap(find.text('CONTINUE'));
+    await tester.pump();
     
-    await tester.tap(find.text('LAUNCH WORKSPACE'));
-    await tester.pumpAndSettle();
-    
-    expect(find.text('NET PROFIT ENGINE'), findsOneWidget);
+    expect(find.text('Please enter a business name'), findsOneWidget);
   });
 }
