@@ -136,6 +136,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         offset: _currentOffset,
         limit: _pageSize,
         fetchSubTables: false, // Performance optimization for List View
+        descending: true,
       );
       
       if (mounted) {
@@ -238,6 +239,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
         return matchesSearch && matchesQuickFilter;
       }).toList();
+
+      // Sort by record_id in descending order (newest first)
+      _filteredData.sort((a, b) {
+        final aId = a['record_id']?.toString() ?? '';
+        final bId = b['record_id']?.toString() ?? '';
+        // If record_id is missing, fallback to empty string
+        return bId.compareTo(aId);
+      });
     });
   }
 

@@ -64,9 +64,10 @@ void main() {
       offset: any(named: 'offset'),
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
+      descending: any(named: 'descending'),
     )).thenAnswer((_) async => [
-      {'name': 'Record 1'},
-      {'name': 'Record 2'},
+      {'name': 'Record 1', 'record_id': '100'},
+      {'name': 'Record 2', 'record_id': '200'},
     ]);
   });
 
@@ -176,7 +177,8 @@ void main() {
       offset: 0,
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
-    )).thenAnswer((_) async => List.generate(20, (i) => {'name': 'Item $i'}));
+      descending: any(named: 'descending'),
+    )).thenAnswer((_) async => List.generate(20, (i) => {'name': 'Item ${20-i}', 'record_id': '${1020-i}'}));
 
     // Second page (1 item)
     when(() => mockDriveService.fetchRecords(
@@ -186,13 +188,14 @@ void main() {
       offset: 20,
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
-    )).thenAnswer((_) async => [{'name': 'Item 20'}]);
+      descending: any(named: 'descending'),
+    )).thenAnswer((_) async => [{'name': 'Item 0', 'record_id': '1000'}]);
 
     await tester.pumpWidget(createModuleTabScreen());
     await tester.pumpAndSettle();
 
-    // Verify first page loaded (check first item)
-    expect(find.text('Item 0'), findsOneWidget);
+    // Verify first page loaded (check first item in desc order)
+    expect(find.text('Item 20'), findsOneWidget);
     
     // Scroll to the bottom to trigger load more
     // We scroll a large distance to ensure we hit the bottom
@@ -205,14 +208,14 @@ void main() {
       any(), any(), any(), 
       offset: 20, 
       limit: any(named: 'limit'), 
-      fetchSubTables: any(named: 'fetchSubTables')
+      fetchSubTables: any(named: 'fetchSubTables'),
+      descending: any(named: 'descending'),
     )).called(1);
 
     await tester.pumpAndSettle();
 
     // Verify item from second page exists (might need scrolling to bring into view if list is long)
     // But since we just dragged to bottom, it should be there or close.
-    // If Item 20 is the *only* item on page 2, and we are at bottom, it should be visible.
-    expect(find.text('Item 20'), findsOneWidget);
+    expect(find.text('Item 0'), findsOneWidget);
   });
 }

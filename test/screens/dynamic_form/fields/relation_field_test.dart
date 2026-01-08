@@ -46,7 +46,15 @@ void main() {
     );
 
     // Mock response
-    when(() => mockDriveService.fetchRecords(any(), any(), 'users'))
+    when(() => mockDriveService.fetchRecords(
+      any(), 
+      any(), 
+      'users',
+      offset: any(named: 'offset'),
+      limit: any(named: 'limit'),
+      fetchSubTables: any(named: 'fetchSubTables'),
+      descending: any(named: 'descending'),
+    ))
         .thenAnswer((_) async => [
               {'name': 'John Doe'},
               {'name': 'Jane Doe'},

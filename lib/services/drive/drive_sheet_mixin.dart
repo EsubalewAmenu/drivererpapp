@@ -309,6 +309,7 @@ mixin DriveSheetMixin {
       int offset = 0,
       int? limit,
       bool fetchSubTables = true,
+      bool descending = false,
   }) async {
     try {
       // 1. Find Spreadsheet
@@ -331,12 +332,30 @@ mixin DriveSheetMixin {
       final mainRecords = await _fetchSheetData(
         spreadsheetId, 
         sheetTitle,
-        offset: offset,
-        limit: limit,
+        offset: descending ? 0 : offset,
+        limit: descending ? null : limit,
       );
       if (mainRecords.isEmpty) return [];
 
-      // 4. Fetch and Join Sub-tables
+      List<Map<String, dynamic>> finalRecords = mainRecords;
+
+      // 4. Handle Descending Sort (Client-side for now to ensure timestamp accuracy)
+      if (descending) {
+        finalRecords.sort((a, b) {
+          final aId = a['record_id']?.toString() ?? '';
+          final bId = b['record_id']?.toString() ?? '';
+          return bId.compareTo(aId);
+        });
+        
+        // Apply pagination after sort
+        var paginated = finalRecords.skip(offset);
+        if (limit != null) {
+          paginated = paginated.take(limit);
+        }
+        finalRecords = paginated.toList();
+      }
+
+      // 5. Fetch and Join Sub-tables
       if (fetchSubTables && subTableSheets.isNotEmpty) {
         for (var subSheet in subTableSheets) {
           final fieldName = subSheet.substring(sheetTitle.length + 1); // e.g., "items"
@@ -352,7 +371,7 @@ mixin DriveSheetMixin {
           }
 
           // Join to main records
-          for (var main in mainRecords) {
+          for (var main in finalRecords) {
             final recordId = main['record_id']?.toString();
             if (recordId != null) {
               main[fieldName] = groupedSubs[recordId] ?? [];
@@ -361,7 +380,7 @@ mixin DriveSheetMixin {
         }
       }
 
-      return mainRecords;
+      return finalRecords;
     } catch (e) {
       debugPrint('Error fetching records: $e');
       // Rethrow to allow caller (UI) to handle specific errors like Offline

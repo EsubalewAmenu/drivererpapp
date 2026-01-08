@@ -371,5 +371,34 @@ void main() {
       expect(results.first['col1'], 'val1');
       expect(results.first['col2'], 'val2');
     });
+
+    test('fetchRecords returns sorted list when descending is true', () async {
+       // Mock two files
+       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
+
+      when(() => mockSpreadsheetsResource.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1'))],
+      ));
+
+      // Header
+      when(() => mockValuesResource.get(any(), 'tab1!1:1')).thenAnswer((_) async => sheets.ValueRange(
+        values: [['col1', 'record_id']],
+      ));
+
+      // Data (Two records, oldest first in sheet)
+      when(() => mockValuesResource.get(any(), 'tab1!A2:ZZ')).thenAnswer((_) async => sheets.ValueRange(
+        values: [
+          ['rec1', '100'],
+          ['rec2', '200'],
+        ],
+      ));
+
+      final results = await driveService.fetchRecords('mod1', 'MyModule', 'tab1', descending: true);
+
+      expect(results.length, 2);
+      expect(results.first['record_id'], '200'); // Newest first
+      expect(results.last['record_id'], '100');
+    });
   });
 }
