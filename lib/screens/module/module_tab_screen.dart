@@ -181,9 +181,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    // Note: removed full-screen loading check to allow shell to render
 
     final theme = Theme.of(context);
 
@@ -392,6 +390,10 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   Widget _buildListView() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final theme = Theme.of(context);
     if (_filteredData.isEmpty) {
       return Center(
