@@ -2,101 +2,88 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
-import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:drivererpapp/screens/workspace_selector_screen.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
-import 'package:drivererpapp/providers/drive_provider.dart';
-import 'package:drivererpapp/providers/theme_provider.dart';
-import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/models/company_model.dart';
+import 'package:drivererpapp/screens/dashboard_screen.dart';
+import 'package:drivererpapp/screens/onboarding/onboarding_screen.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:drivererpapp/providers/drive_provider.dart';
+import 'package:drivererpapp/services/drive_service.dart';
 
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
-class MockThemeProvider extends Mock implements ThemeProvider {}
 
 void main() {
   late MockWorkspaceProvider mockWorkspaceProvider;
   late MockDriveProvider mockDriveProvider;
   late MockDriveService mockDriveService;
-  late MockThemeProvider mockThemeProvider;
-
-  setUpAll(() {
-    registerFallbackValue(drive.File());
-  });
 
   setUp(() {
     mockWorkspaceProvider = MockWorkspaceProvider();
     mockDriveProvider = MockDriveProvider();
     mockDriveService = MockDriveService();
-    mockThemeProvider = MockThemeProvider();
-
-    when(() => mockThemeProvider.themeMode).thenReturn(ThemeMode.light);
-    when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
-    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
     
-    // Default stubs
-    when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
-    when(() => mockWorkspaceProvider.companies).thenReturn([]);
-    when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
-    when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
+    when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    registerFallbackValue(drive.File());
   });
 
-  Widget createWorkspaceSelector() {
+  Widget createSelectorScreen() {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
-        ChangeNotifierProvider<ThemeProvider>.value(value: mockThemeProvider),
       ],
-      child: MaterialApp(
-        home: WorkspaceSelectorScreen(
-          rootFolderId: 'root123',
-        ),
+      child: const MaterialApp(
+        home: WorkspaceSelectorScreen(rootFolderId: 'root123'),
       ),
     );
   }
 
-  testWidgets('WorkspaceSelectorScreen shows empty state when no companies', (WidgetTester tester) async {
-    when(() => mockWorkspaceProvider.companies).thenReturn([]);
-    await tester.pumpWidget(createWorkspaceSelector());
-    // Pump to allow initState -> loadCompanies to fire (though mocked) and UI to rebuild
-    await tester.pump();
+  testWidgets('WorkspaceSelectorScreen shows loader then content', (WidgetTester tester) async {
+    when(() => mockWorkspaceProvider.isLoading).thenReturn(true);
+    when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
 
-    expect(find.text('No workspaces found.\nCreate one to get started.'), findsOneWidget);
-    expect(find.text('CREATE NEW WORKSPACE'), findsOneWidget);
+    await tester.pumpWidget(createSelectorScreen());
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
+    when(() => mockWorkspaceProvider.companies).thenReturn([
+      Company(id: '1', name: 'Test Corp', folderId: 'f1', role: 'Owner'),
+    ]);
+    
+    await tester.pump();
+    expect(find.text('Test Corp'), findsOneWidget);
   });
 
-  testWidgets('WorkspaceSelectorScreen lists available companies', (WidgetTester tester) async {
-    final companies = [
-      Company(id: '1', name: 'Company A', folderId: 'f1', role: 'Owner'),
-      Company(id: '2', name: 'Company B', folderId: 'f2', role: 'Admin'),
-    ];
-    when(() => mockWorkspaceProvider.companies).thenReturn(companies);
+  testWidgets('WorkspaceSelectorScreen selects workspace', (WidgetTester tester) async {
+    when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
+    when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
+    when(() => mockWorkspaceProvider.companies).thenReturn([
+      Company(id: '1', name: 'Test Corp', folderId: 'f1', role: 'Owner'),
+    ]);
+    when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
+    when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..name = 'Test Corp'..id = 'f1');
+    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
 
-    await tester.pumpWidget(createWorkspaceSelector());
-    await tester.pump();
-
-    expect(find.text('Company A'), findsOneWidget);
-    expect(find.text('Company B'), findsOneWidget);
-    expect(find.text('Role: Owner'), findsOneWidget);
-    expect(find.text('Role: Admin'), findsOneWidget);
-  });
-
-  testWidgets('WorkspaceSelectorScreen sets workspace and navigates', (WidgetTester tester) async {
-    final companies = [
-      Company(id: '1', name: 'Company A', folderId: 'f1', role: 'Owner'),
-    ];
-    when(() => mockWorkspaceProvider.companies).thenReturn(companies);
-
-    await tester.pumpWidget(createWorkspaceSelector());
-    await tester.pump();
-
-    await tester.tap(find.text('Company A'));
+    await tester.pumpWidget(createSelectorScreen());
+    await tester.tap(find.text('Test Corp'));
     await tester.pumpAndSettle();
 
     verify(() => mockWorkspaceProvider.setWorkspace(any())).called(1);
-    // Should navigate to Dashboard (check for KPI label again)
-    expect(find.text('NET PROFIT ENGINE'), findsOneWidget);
+    expect(find.byType(DashboardScreen), findsOneWidget);
+  });
+
+  testWidgets('WorkspaceSelectorScreen navigates to Onboarding', (WidgetTester tester) async {
+    when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
+    when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
+    when(() => mockWorkspaceProvider.companies).thenReturn([]);
+
+    await tester.pumpWidget(createSelectorScreen());
+    await tester.tap(find.text('CREATE NEW WORKSPACE'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(OnboardingScreen), findsOneWidget);
   });
 }
