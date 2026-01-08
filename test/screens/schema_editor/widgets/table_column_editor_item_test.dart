@@ -89,16 +89,32 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify sub-column item exists (ColumnListItem)
-    // We can find the text 'Sub 1' and the edit/delete buttons associated with it.
-    // Since there are multiple delete buttons (main and sub), we need to be careful.
-    // The main one is in header. Sub one is in children.
-    
-    // Find "Add Sub-Column" and tap it to verify dialog opens
+    expect(find.text('Sub 1'), findsOneWidget);
+
+    // Test Delete Sub-Column
+    await tester.tap(find.byIcon(Icons.delete_outline_rounded).last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Delete Sub-Column'), findsOneWidget);
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+
+    expect(updatedConfig, isNotNull);
+    expect(updatedConfig!.columns!.length, 0);
+
+    // Test Add Sub-Column
     await tester.tap(find.text('Add Sub-Column'));
     await tester.pumpAndSettle();
     
     expect(find.text('Add Column'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
+    
+    // Fill the AddColumnDialog
+    await tester.enterText(find.widgetWithText(TextField, 'Column Name').first, 'New Sub');
+    await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
+
+    expect(updatedConfig, isNotNull);
+    expect(updatedConfig!.columns!.length, 2);
+    expect(updatedConfig!.columns!.last.label, 'New Sub');
   });
 }
