@@ -88,6 +88,11 @@ TabConfig _$TabConfigFromJson(Map<String, dynamic> json) => TabConfig(
       ?.map((e) => QuickFilter.fromJson(e as Map<String, dynamic>))
       .toList(),
   enableCustomFilters: json['enableCustomFilters'] as bool? ?? true,
+  listTemplate: json['listTemplate'] == null
+      ? null
+      : ListTemplateConfig.fromJson(
+          json['listTemplate'] as Map<String, dynamic>,
+        ),
 );
 
 Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
@@ -96,7 +101,28 @@ Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
   'columns': instance.columns.map((e) => e.toJson()).toList(),
   'quick_filters': instance.quickFilters?.map((e) => e.toJson()).toList(),
   'enableCustomFilters': instance.enableCustomFilters,
+  'listTemplate': instance.listTemplate?.toJson(),
 };
+
+ListTemplateConfig _$ListTemplateConfigFromJson(Map<String, dynamic> json) =>
+    ListTemplateConfig(
+      template: json['template'] as String? ?? 'high_density',
+      titleKey: json['titleKey'] as String?,
+      subtitleKey: json['subtitleKey'] as String?,
+      trailingKey: json['trailingKey'] as String?,
+      detailKeys: (json['detailKeys'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+    );
+
+Map<String, dynamic> _$ListTemplateConfigToJson(ListTemplateConfig instance) =>
+    <String, dynamic>{
+      'template': instance.template,
+      'titleKey': instance.titleKey,
+      'subtitleKey': instance.subtitleKey,
+      'trailingKey': instance.trailingKey,
+      'detailKeys': instance.detailKeys,
+    };
 
 QuickFilter _$QuickFilterFromJson(Map<String, dynamic> json) => QuickFilter(
   label: json['label'] as String,

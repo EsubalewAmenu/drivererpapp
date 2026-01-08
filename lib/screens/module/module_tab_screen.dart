@@ -7,7 +7,7 @@ import '../../services/drive_service.dart';
 import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
 import '../record_detail_screen.dart';
-import 'filter/filter_management_screen.dart';
+import 'common/tab_settings_screen.dart';
 
 class ModuleTabScreen extends StatefulWidget {
   final TabConfig tab;
@@ -53,6 +53,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     super.initState();
     _driveService = Provider.of<DriveProvider>(context, listen: false).driveService!;
     _activeFilters = List.from(widget.tab.quickFilters ?? []);
+    _showFilters = widget.tab.enableCustomFilters ?? true;
     // Delay loading to keep navigation smooth
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) _loadData(refresh: true);
@@ -315,7 +316,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   Widget _buildSearchBar() {
     final theme = Theme.of(context);
-    final hasCustomFilters = widget.tab.enableCustomFilters ?? true;
     
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -339,62 +339,55 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               ),
             ),
           ),
-          if (hasCustomFilters) ...[
-            const SizedBox(width: 12),
-            InkWell(
-              onTap: _openFilterManager,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.cardTheme.color,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.tune_rounded, color: widget.primaryColor),
+          const SizedBox(width: 12),
+          InkWell(
+            onTap: _openSettings,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.cardTheme.color,
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(Icons.tune_rounded, color: widget.primaryColor),
             ),
-          ]
+          ),
         ],
       ),
     );
   }
 
-  void _openFilterManager() async {
-    final result = await Navigator.push(
+  void _openSettings() async {
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-        builder: (context) => FilterManagementScreen(
-          columns: widget.tab.columns, 
-          initialFilters: _activeFilters, 
-          initialEnabled: _showFilters
+        builder: (context) => TabSettingsScreen(
+          tab: widget.tab,
+          primaryColor: widget.primaryColor,
         ),
       ),
     );
 
-    if (result != null && result is Map) {
+    if (result != null) {
       if (!mounted) return;
 
-      final newEnabled = result['enabled'] as bool;
-      final newFilters = List<QuickFilter>.from(result['filters']);
+      final newEnabled = result['enableFilters'] as bool;
+      final newFilters = result['filters'] as List<QuickFilter>;
+      final newListTemplate = result['listTemplate'] as ListTemplateConfig;
 
-      setState(() {
-        _showFilters = newEnabled;
-        _activeFilters = newFilters;
-        // If disabled or active filter removed, reset selection
-        bool activeExists = _activeFilters.any((f) => f.key == _activeFilter);
-        if (!_showFilters || !activeExists) {
-          _activeFilter = 'all';
-        }
-        _applyFilters();
-      });
-
-      if (widget.module != null) {
-        _saveConfiguration(newEnabled, newFilters);
-      }
+      _saveConfiguration(
+        enableFilters: newEnabled,
+        filters: newFilters,
+        listTemplate: newListTemplate,
+      );
     }
   }
 
-  Future<void> _saveConfiguration(bool enabled, List<QuickFilter> filters) async {
+  Future<void> _saveConfiguration({
+    required bool enableFilters,
+    required List<QuickFilter> filters,
+    ListTemplateConfig? listTemplate,
+  }) async {
     try {
       final schemaProvider = context.read<SchemaProvider>();
       final currentModule = widget.module!;
@@ -404,7 +397,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         label: widget.tab.label,
         columns: widget.tab.columns,
         quickFilters: filters,
-        enableCustomFilters: enabled,
+        enableCustomFilters: enableFilters,
+        listTemplate: listTemplate,
       );
 
       final updatedTabs = currentModule.tabs.map((t) {
@@ -423,13 +417,24 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saving filter configuration...'), duration: Duration(seconds: 1)),
+        const SnackBar(content: Text('Saving configuration...'), duration: Duration(seconds: 1)),
       );
 
       await schemaProvider.service.saveModuleConfig(currentModule.id, updatedModule);
       schemaProvider.updateMemoryCache(currentModule.id, updatedModule);
 
       if (mounted) {
+        setState(() {
+          _showFilters = enableFilters;
+          _activeFilters = filters;
+          // If disabled or active filter removed, reset selection
+          bool activeExists = _activeFilters.any((f) => f.key == _activeFilter);
+          if (!_showFilters || !activeExists) {
+            _activeFilter = 'all';
+          }
+          _applyFilters();
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Configuration saved')),
         );
@@ -563,35 +568,151 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           ));
         }
         final item = _filteredData[index];
+        
+        final template = widget.tab.listTemplate?.template ?? 'high_density';
+        if (template == 'standard') {
+          return _buildStandardCard(item);
+        }
         return _buildHighDensityCard(item);
       },
     );
   }
 
+  Widget _buildStandardCard(Map<String, dynamic> item) {
+    final theme = Theme.of(context);
+    final config = widget.tab.listTemplate;
+    
+    final titleKey = config?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
+    final subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '');
+    final trailingKey = config?.trailingKey;
+
+    return Card(
+      color: theme.cardTheme.color,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: () => _openRecordDetail(item),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (titleKey.isNotEmpty)
+                          Text(
+                            item[titleKey]?.toString() ?? '',
+                            style: AppTheme.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: theme.textTheme.bodyLarge?.color,
+                            ),
+                          ),
+                        if (subtitleKey.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            item[subtitleKey]?.toString() ?? '',
+                            style: AppTheme.inter(
+                              fontSize: 14,
+                              color: theme.textTheme.bodyMedium?.color,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (trailingKey != null && item[trailingKey] != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: widget.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        item[trailingKey].toString(),
+                        style: AppTheme.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: widget.primaryColor,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (config?.detailKeys != null && config!.detailKeys!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: config.detailKeys!.map((key) {
+                    final col = widget.tab.columns.firstWhere((c) => c.key == key, orElse: () => widget.tab.columns.first);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          col.label.toUpperCase(),
+                          style: AppTheme.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        Text(
+                          item[key]?.toString() ?? '-',
+                          style: AppTheme.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: theme.textTheme.bodyLarge?.color,
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openRecordDetail(Map<String, dynamic> item) {
+    final titleKey = widget.tab.listTemplate?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RecordDetailScreen(
+          data: item,
+          columns: widget.tab.columns,
+          primaryColor: widget.primaryColor,
+          title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
+          settings: widget.settings,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHighDensityCard(Map<String, dynamic> item) {
     final theme = Theme.of(context);
-    // Use the first column as title, second as subtitle
-    final titleKey = widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '';
-    final subtitleKey = widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '';
+    final config = widget.tab.listTemplate;
+
+    final titleKey = config?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
+    final subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '');
 
     return Card(
       color: theme.cardTheme.color,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => RecordDetailScreen(
-                data: item,
-                columns: widget.tab.columns,
-                primaryColor: widget.primaryColor,
-                title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
-                settings: widget.settings,
-              ),
-            ),
-          );
-        },
+        onTap: () => _openRecordDetail(item),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16.0),

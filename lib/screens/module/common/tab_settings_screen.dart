@@ -1,0 +1,378 @@
+import 'package:flutter/material.dart';
+import '../../../models/schema_models.dart';
+import '../../../theme/app_theme.dart';
+import '../filter/filter_editor_screen.dart';
+
+class TabSettingsScreen extends StatefulWidget {
+  final TabConfig tab;
+  final Color primaryColor;
+
+  const TabSettingsScreen({
+    super.key,
+    required this.tab,
+    required this.primaryColor,
+  });
+
+  @override
+  State<TabSettingsScreen> createState() => _TabSettingsScreenState();
+}
+
+class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  
+  // Filter State
+  late List<QuickFilter> _filters;
+  late bool _filtersEnabled;
+  
+  // Display State
+  late String _selectedTemplate;
+  String? _titleKey;
+  String? _subtitleKey;
+  String? _trailingKey;
+  List<String> _detailKeys = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    
+    // Initialize Filters
+    _filters = List.from(widget.tab.quickFilters ?? []);
+    _filtersEnabled = widget.tab.enableCustomFilters ?? true;
+    
+    // Initialize Display
+    final config = widget.tab.listTemplate;
+    _selectedTemplate = config?.template ?? 'high_density';
+    _titleKey = config?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : null);
+    _subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : null);
+    _trailingKey = config?.trailingKey;
+    _detailKeys = List.from(config?.detailKeys ?? []);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    Navigator.of(context).pop({
+      'enableFilters': _filtersEnabled,
+      'filters': _filters,
+      'listTemplate': ListTemplateConfig(
+        template: _selectedTemplate,
+        titleKey: _titleKey,
+        subtitleKey: _subtitleKey,
+        trailingKey: _trailingKey,
+        detailKeys: _detailKeys,
+      ),
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text('${widget.tab.label} Settings', style: AppTheme.inter(fontWeight: FontWeight.w700, fontSize: 18)),
+        bottom: TabBar(
+          controller: _tabController,
+          labelColor: widget.primaryColor,
+          unselectedLabelColor: theme.textTheme.bodyMedium?.color,
+          indicatorColor: widget.primaryColor,
+          tabs: const [
+            Tab(text: 'Display'),
+            Tab(text: 'Filters'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: Text('Save', style: TextStyle(color: widget.primaryColor, fontWeight: FontWeight.bold)),
+          )
+        ],
+      ),
+      floatingActionButton: _tabController.index == 1 && _filtersEnabled
+        ? FloatingActionButton(
+            onPressed: _addFilter,
+            backgroundColor: widget.primaryColor,
+            child: const Icon(Icons.add, color: Colors.white),
+          )
+        : null,
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildDisplayTab(theme),
+          _buildFiltersTab(theme),
+        ],
+      ),
+    );
+  }
+
+  // --- Display Settings UI ---
+
+  Widget _buildDisplayTab(ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('CHOOSE TEMPLATE', style: _sectionHeaderStyle(theme)),
+          const SizedBox(height: 16),
+          _buildTemplateOption(
+            'high_density', 
+            'High Density', 
+            'Compact rows with status indicator', 
+            Icons.reorder_rounded
+          ),
+          const SizedBox(height: 12),
+          _buildTemplateOption(
+            'standard', 
+            'Standard Card', 
+            'Detailed cards with trailing info and labels', 
+            Icons.view_agenda_rounded
+          ),
+          const SizedBox(height: 32),
+          
+          Text('COLUMN MAPPING', style: _sectionHeaderStyle(theme)),
+          const SizedBox(height: 16),
+          _buildColumnDropdown('Title Column', _titleKey, (val) => setState(() => _titleKey = val)),
+          const SizedBox(height: 16),
+          _buildColumnDropdown('Subtitle Column', _subtitleKey, (val) => setState(() => _subtitleKey = val)),
+          
+          if (_selectedTemplate == 'standard') ...[
+            const SizedBox(height: 16),
+            _buildColumnDropdown('Trailing Column (Badge)', _trailingKey, (val) => setState(() => _trailingKey = val), isOptional: true),
+            const SizedBox(height: 32),
+            Text('EXTRA DETAILS', style: _sectionHeaderStyle(theme)),
+            const SizedBox(height: 8),
+            ...widget.tab.columns.map((col) {
+              if (col.key == _titleKey || col.key == _subtitleKey || col.key == _trailingKey) {
+                return const SizedBox.shrink();
+              }
+              return CheckboxListTile(
+                title: Text(col.label, style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
+                value: _detailKeys.contains(col.key),
+                activeColor: widget.primaryColor,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (val) {
+                  setState(() {
+                    if (val == true) {
+                      _detailKeys.add(col.key);
+                    } else {
+                      _detailKeys.remove(col.key);
+                    }
+                  });
+                },
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  TextStyle _sectionHeaderStyle(ThemeData theme) => AppTheme.inter(
+    fontSize: 11,
+    fontWeight: FontWeight.w800,
+    color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6),
+    letterSpacing: 1.2
+  );
+
+  Widget _buildTemplateOption(String value, String title, String subtitle, IconData icon) {
+    final isSelected = _selectedTemplate == value;
+    final theme = Theme.of(context);
+    
+    return InkWell(
+      onTap: () => setState(() => _selectedTemplate = value),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? widget.primaryColor.withValues(alpha: 0.1) : theme.cardTheme.color,
+          border: Border.all(
+            color: isSelected ? widget.primaryColor : Colors.transparent,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: isSelected ? widget.primaryColor : theme.iconTheme.color),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: AppTheme.inter(
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? widget.primaryColor : theme.textTheme.bodyLarge?.color,
+                  )),
+                  Text(subtitle, style: AppTheme.inter(
+                    fontSize: 12,
+                    color: theme.textTheme.bodyMedium?.color,
+                  )),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle, color: widget.primaryColor, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColumnDropdown(String label, String? value, Function(String?) onChanged, {bool isOptional = false}) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          value: value,
+          isExpanded: true,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: theme.cardTheme.color,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+          ),
+          items: [
+            if (isOptional) const DropdownMenuItem(value: null, child: Text('None')),
+            ...widget.tab.columns.map((col) => DropdownMenuItem(
+              value: col.key,
+              child: Text(col.label),
+            )).toList(),
+          ],
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
+  // --- Filter Settings UI ---
+
+  Widget _buildFiltersTab(ThemeData theme) {
+    // We update FAB visibility when switching to this tab
+    _tabController.addListener(() {
+      if (mounted) setState(() {});
+    });
+
+    return ListView(
+      children: [
+        SwitchListTile(
+          title: const Text('Enable Filtering'),
+          subtitle: const Text('Show filter options for this tab'),
+          value: _filtersEnabled,
+          activeColor: widget.primaryColor,
+          onChanged: (val) {
+            setState(() => _filtersEnabled = val);
+          },
+        ),
+        if (_filtersEnabled) ...[
+          const Divider(),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text('ACTIVE QUICK FILTERS', style: _sectionHeaderStyle(theme)),
+          ),
+          if (_filters.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                children: [
+                  Icon(Icons.filter_list_off_rounded, size: 48, color: theme.disabledColor),
+                  const SizedBox(height: 16),
+                  Text('No custom filters added yet.', style: TextStyle(color: theme.disabledColor, fontStyle: FontStyle.italic)),
+                ],
+              ),
+            ),
+          ..._filters.asMap().entries.map((entry) {
+            final index = entry.key;
+            final filter = entry.value;
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundColor: widget.primaryColor.withValues(alpha: 0.1),
+                child: Icon(Icons.filter_alt_outlined, color: widget.primaryColor, size: 20),
+              ),
+              title: Text(filter.label),
+              subtitle: Text('${filter.field} ${filter.operator} ${filter.value}'),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    onPressed: () => _editFilter(index),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    onPressed: () => _removeFilter(index),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ] else ...[
+            Padding(
+            padding: const EdgeInsets.all(48.0),
+            child: Center(
+              child: Column(
+                children: [
+                  Icon(Icons.visibility_off_outlined, size: 64, color: theme.disabledColor.withValues(alpha: 0.5)),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Filters are disabled for this tab.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: theme.disabledColor),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ]
+      ],
+    );
+  }
+
+  void _addFilter() async {
+    final result = await Navigator.push<QuickFilter>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FilterEditorScreen(columns: widget.tab.columns),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _filters.add(result);
+      });
+    }
+  }
+
+  void _editFilter(int index) async {
+    final result = await Navigator.push<QuickFilter>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FilterEditorScreen(
+          columns: widget.tab.columns,
+          existingFilter: _filters[index],
+        ),
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _filters[index] = result;
+      });
+    }
+  }
+
+  void _removeFilter(int index) {
+    setState(() {
+      _filters.removeAt(index);
+    });
+  }
+}
