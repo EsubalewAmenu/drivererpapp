@@ -35,7 +35,6 @@
         { "key": "type", "label": "Business Role", "type": "select", "options": ["CLIENT", "SUPPLIER", "BOTH"], "required": true },
         { "key": "phone", "label": "Phone", "type": "text" },
         { "key": "email", "label": "Email", "type": "email" },
-        { "key": "email2", "label": "Email 2", "type": "email", "required": true },
         { "key": "balance", "label": "Ledger Balance", "type": "currency" },
         { "key": "notes", "label": "Intelligence", "type": "text" }
       ]
