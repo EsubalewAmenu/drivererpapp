@@ -20,6 +20,19 @@
     {
       "id": "contact_directory",
       "label": "Contact Directory",
+      "enable_custom_filters": true,
+      "list_template": {
+        "template": "high_density",
+        "title_key": "name",
+        "subtitle_key": "type",
+        "trailing_key": "balance"
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "name",
+        "subtitle_key": "type",
+        "show_all_fields": true
+      },
       "quick_filters": [
         { "label": "All Contacts", "key": "all", "field": "type", "operator": "contains", "value": "" },
         { "label": "Clients", "key": "clients", "field": "type", "operator": "==", "value": "CLIENT" },
@@ -29,9 +42,9 @@
       "columns": [
         { "key": "uuid", "label": "ID", "type": "text", "hidden": true },
         { "key": "is_individual", "label": "Is individual?", "type": "boolean" },
-        { "key": "name", "label": "Full Name", "type": "text", "dependsOn": "is_individual", "required": true },
-        { "key": "company_name", "label": "Company Name", "type": "text", "dependsOn": "!is_individual", "required": true },
-        { "key": "company_tin", "label": "Company TIN", "type": "text", "dependsOn": "!is_individual" },
+        { "key": "name", "label": "Full Name", "type": "text", "depends_on": "is_individual", "required": true },
+        { "key": "company_name", "label": "Company Name", "type": "text", "depends_on": "!is_individual", "required": true },
+        { "key": "company_tin", "label": "Company TIN", "type": "text", "depends_on": "!is_individual" },
         { "key": "type", "label": "Business Role", "type": "select", "options": ["CLIENT", "SUPPLIER", "BOTH"], "required": true },
         { "key": "phone", "label": "Phone", "type": "phone" },
         { "key": "email", "label": "Email", "type": "email" },

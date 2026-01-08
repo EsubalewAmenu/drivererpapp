@@ -83,6 +83,7 @@ void main() {
       offset: any(named: 'offset'),
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
+      descending: any(named: 'descending'),
     )).thenAnswer((_) async => []);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'f123');
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());

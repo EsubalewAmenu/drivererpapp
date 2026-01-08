@@ -7,7 +7,7 @@ import '../../services/drive_service.dart';
 import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
 import '../record_detail_screen.dart';
-import 'filter/filter_management_screen.dart';
+import 'common/tab_settings_screen.dart';
 
 class ModuleTabScreen extends StatefulWidget {
   final TabConfig tab;
@@ -53,6 +53,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     super.initState();
     _driveService = Provider.of<DriveProvider>(context, listen: false).driveService!;
     _activeFilters = List.from(widget.tab.quickFilters ?? []);
+    _showFilters = widget.tab.enableCustomFilters ?? true;
     // Delay loading to keep navigation smooth
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) _loadData(refresh: true);
@@ -73,15 +74,27 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   @override
   void didUpdateWidget(ModuleTabScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If the tab config or module schema changed, we might need to refresh
+    // If the tab config or module schema changed, we might need to update state
     if (oldWidget.tab != widget.tab || oldWidget.module != widget.module) {
+      debugPrint('Tab or Module schema updated for ${widget.tab.id}, updating sync state...');
+      
+      setState(() {
+        _activeFilters = List.from(widget.tab.quickFilters ?? []);
+        _showFilters = widget.tab.enableCustomFilters ?? true;
+        
+        // Reset active filter if it no longer exists in the new list
+        if (_activeFilter != 'all' && _activeFilter != null) {
+          bool exists = _activeFilters.any((f) => f.key == _activeFilter);
+          if (!exists) _activeFilter = 'all';
+        }
+      });
+      
+      // If critical fields changed, reload data
       if (oldWidget.tab.id != widget.tab.id) {
-         _activeFilters = List.from(widget.tab.quickFilters ?? []);
-         _showFilters = true;
-         _activeFilter = 'all';
+        _loadData(refresh: true);
+      } else {
+        _applyFilters();
       }
-      debugPrint('Tab or Module schema updated for ${widget.tab.id}, refreshing tab...');
-      _loadData(refresh: true);
     }
   }
 
@@ -136,6 +149,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         offset: _currentOffset,
         limit: _pageSize,
         fetchSubTables: false, // Performance optimization for List View
+        descending: true,
       );
       
       if (mounted) {
@@ -238,6 +252,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
         return matchesSearch && matchesQuickFilter;
       }).toList();
+
+      // Sort by record_id in descending order (newest first)
+      _filteredData.sort((a, b) {
+        final aId = a['record_id']?.toString() ?? '';
+        final bId = b['record_id']?.toString() ?? '';
+        // If record_id is missing, fallback to empty string
+        return bId.compareTo(aId);
+      });
     });
   }
 
@@ -306,7 +328,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   Widget _buildSearchBar() {
     final theme = Theme.of(context);
-    final hasCustomFilters = widget.tab.enableCustomFilters ?? true;
     
     return Padding(
       padding: const EdgeInsets.all(16.0),
@@ -330,72 +351,76 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               ),
             ),
           ),
-          if (hasCustomFilters) ...[
-            const SizedBox(width: 12),
-            InkWell(
-              onTap: _openFilterManager,
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: theme.cardTheme.color,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(Icons.tune_rounded, color: widget.primaryColor),
+          const SizedBox(width: 12),
+          InkWell(
+            onTap: _openSettings,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.cardTheme.color,
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: Icon(Icons.tune_rounded, color: widget.primaryColor),
             ),
-          ]
+          ),
         ],
       ),
     );
   }
 
-  void _openFilterManager() async {
-    final result = await Navigator.push(
+  void _openSettings() async {
+    // Get latest tab configuration
+    final latestModule = context.read<SchemaProvider>().getFromMemory(widget.module?.id ?? '');
+    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == widget.tab.id, orElse: () => widget.tab) ?? widget.tab;
+
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
-        builder: (context) => FilterManagementScreen(
-          columns: widget.tab.columns, 
-          initialFilters: _activeFilters, 
-          initialEnabled: _showFilters
+        builder: (context) => TabSettingsScreen(
+          tab: currentTab,
+          primaryColor: widget.primaryColor,
         ),
       ),
     );
 
-    if (result != null && result is Map) {
+    if (result != null) {
       if (!mounted) return;
 
-      final newEnabled = result['enabled'] as bool;
-      final newFilters = List<QuickFilter>.from(result['filters']);
+      final newEnabled = result['enableFilters'] as bool;
+      final newFilters = result['filters'] as List<QuickFilter>;
+      final newListTemplate = result['listTemplate'] as ListTemplateConfig;
+      final newDetailTemplate = result['detailTemplate'] as DetailTemplateConfig;
 
-      setState(() {
-        _showFilters = newEnabled;
-        _activeFilters = newFilters;
-        // If disabled or active filter removed, reset selection
-        bool activeExists = _activeFilters.any((f) => f.key == _activeFilter);
-        if (!_showFilters || !activeExists) {
-          _activeFilter = 'all';
-        }
-        _applyFilters();
-      });
-
-      if (widget.module != null) {
-        _saveConfiguration(newEnabled, newFilters);
-      }
+      _saveConfiguration(
+        enableFilters: newEnabled,
+        filters: newFilters,
+        listTemplate: newListTemplate,
+        detailTemplate: newDetailTemplate,
+      );
     }
   }
 
-  Future<void> _saveConfiguration(bool enabled, List<QuickFilter> filters) async {
+  Future<void> _saveConfiguration({
+    required bool enableFilters,
+    required List<QuickFilter> filters,
+    ListTemplateConfig? listTemplate,
+    DetailTemplateConfig? detailTemplate,
+  }) async {
     try {
       final schemaProvider = context.read<SchemaProvider>();
-      final currentModule = widget.module!;
+      
+      // Always get the latest module from memory to avoid stale data
+      final currentModule = schemaProvider.getFromMemory(widget.module!.id) ?? widget.module!;
       
       final updatedTab = TabConfig(
         id: widget.tab.id,
         label: widget.tab.label,
         columns: widget.tab.columns,
         quickFilters: filters,
-        enableCustomFilters: enabled,
+        enableCustomFilters: enableFilters,
+        listTemplate: listTemplate,
+        detailTemplate: detailTemplate,
       );
 
       final updatedTabs = currentModule.tabs.map((t) {
@@ -414,13 +439,24 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saving filter configuration...'), duration: Duration(seconds: 1)),
+        const SnackBar(content: Text('Saving configuration...'), duration: Duration(seconds: 1)),
       );
 
       await schemaProvider.service.saveModuleConfig(currentModule.id, updatedModule);
       schemaProvider.updateMemoryCache(currentModule.id, updatedModule);
 
       if (mounted) {
+        setState(() {
+          _showFilters = enableFilters;
+          _activeFilters = filters;
+          // If disabled or active filter removed, reset selection
+          bool activeExists = _activeFilters.any((f) => f.key == _activeFilter);
+          if (!_showFilters || !activeExists) {
+            _activeFilter = 'all';
+          }
+          _applyFilters();
+        });
+        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Configuration saved')),
         );
@@ -554,35 +590,156 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           ));
         }
         final item = _filteredData[index];
+        
+        final template = widget.tab.listTemplate?.template ?? 'high_density';
+        if (template == 'standard') {
+          return _buildStandardCard(item);
+        }
         return _buildHighDensityCard(item);
       },
     );
   }
 
+  Widget _buildStandardCard(Map<String, dynamic> item) {
+    final theme = Theme.of(context);
+    final config = widget.tab.listTemplate;
+    
+    final titleKey = config?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
+    final subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '');
+    final trailingKey = config?.trailingKey;
+
+    return Card(
+      color: theme.cardTheme.color,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: InkWell(
+        onTap: () => _openRecordDetail(item),
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (titleKey.isNotEmpty)
+                          Text(
+                            item[titleKey]?.toString() ?? '',
+                            style: AppTheme.inter(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: theme.textTheme.bodyLarge?.color,
+                            ),
+                          ),
+                        if (subtitleKey.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            item[subtitleKey]?.toString() ?? '',
+                            style: AppTheme.inter(
+                              fontSize: 14,
+                              color: theme.textTheme.bodyMedium?.color,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (trailingKey != null && item[trailingKey] != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: widget.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        item[trailingKey].toString(),
+                        style: AppTheme.inter(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: widget.primaryColor,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (config?.detailKeys != null && config!.detailKeys!.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const Divider(height: 1),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 8,
+                  children: config.detailKeys!.map((key) {
+                    final col = widget.tab.columns.firstWhere((c) => c.key == key, orElse: () => widget.tab.columns.first);
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          col.label.toUpperCase(),
+                          style: AppTheme.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6),
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                        Text(
+                          item[key]?.toString() ?? '-',
+                          style: AppTheme.inter(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: theme.textTheme.bodyLarge?.color,
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openRecordDetail(Map<String, dynamic> item) {
+    // Get the latest tab config from memory if available
+    final latestModule = context.read<SchemaProvider>().getFromMemory(widget.module?.id ?? '');
+    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == widget.tab.id, orElse: () => widget.tab) ?? widget.tab;
+
+    final titleKey = currentTab.detailTemplate?.titleKey ?? currentTab.listTemplate?.titleKey ?? (currentTab.columns.isNotEmpty ? currentTab.columns[0].key : '');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RecordDetailScreen(
+          data: item,
+          columns: currentTab.columns,
+          primaryColor: widget.primaryColor,
+          title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
+          settings: widget.settings,
+          detailTemplate: currentTab.detailTemplate,
+        ),
+      ),
+    );
+  }
+
   Widget _buildHighDensityCard(Map<String, dynamic> item) {
     final theme = Theme.of(context);
-    // Use the first column as title, second as subtitle
-    final titleKey = widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '';
-    final subtitleKey = widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '';
+    final config = widget.tab.listTemplate;
+
+    final titleKey = config?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
+    final subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '');
 
     return Card(
       color: theme.cardTheme.color,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => RecordDetailScreen(
-                data: item,
-                columns: widget.tab.columns,
-                primaryColor: widget.primaryColor,
-                title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
-                settings: widget.settings,
-              ),
-            ),
-          );
-        },
+        onTap: () => _openRecordDetail(item),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(16.0),

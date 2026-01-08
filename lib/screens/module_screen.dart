@@ -206,8 +206,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Listen to SchemaProvider for updates to the module configuration
+    final schemaProvider = context.watch<SchemaProvider>();
+    final cachedModule = schemaProvider.getFromMemory(widget.module.id);
+    
     // Basic module info is always available even if full schema is loading
-    final module = _fullModule ?? widget.module;
+    final module = cachedModule ?? _fullModule ?? widget.module;
     final primaryColor = Color(int.parse(module.primaryColor.replaceAll('#', '0xFF')));
     final theme = Theme.of(context);
 

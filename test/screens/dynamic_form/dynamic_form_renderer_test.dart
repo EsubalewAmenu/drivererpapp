@@ -5,6 +5,7 @@ import 'package:drivererpapp/models/schema_models.dart';
 // Imports for field types to match by type
 import 'package:drivererpapp/screens/dynamic_form/fields/text_field.dart';
 import 'package:drivererpapp/screens/dynamic_form/fields/boolean_field.dart';
+import 'package:drivererpapp/screens/dynamic_form/fields/table_field.dart';
 
 void main() {
   testWidgets('DynamicFormRenderer renders visible fields', (WidgetTester tester) async {
@@ -134,4 +135,33 @@ void main() {
 
     expect(find.byType(DynamicTextField), findsOneWidget);
   });
-}
+  testWidgets('DynamicFormRenderer renders table field', (WidgetTester tester) async {
+    final columns = [
+      ColumnConfig(
+        key: 'items', 
+        label: 'Items', 
+        type: 'table', 
+        columns: [
+          ColumnConfig(key: 'item_name', label: 'Item Name', type: 'text'),
+        ]
+      ),
+    ];
+    final data = <String, dynamic>{
+      'items': [{'item_name': 'Item 1'}],
+    };
+    
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: DynamicFormRenderer(
+          columns: columns,
+          data: data,
+          primaryColor: Colors.blue,
+          onFieldChanged: (_, __) {},
+          controllers: {},
+        ),
+      ),
+    ));
+
+    expect(find.byType(DynamicTableField), findsOneWidget);
+    expect(find.text('ITEMS'), findsOneWidget);
+  });}

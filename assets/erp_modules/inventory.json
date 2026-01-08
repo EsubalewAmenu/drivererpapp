@@ -14,7 +14,7 @@
       "label": "Warehouses", 
       "type": "list", 
       "value": ["Main Warehouse"],
-      "dependsOn": "has_multiple_warehouses" 
+      "depends_on": "has_multiple_warehouses" 
     }
   },
   "dashboard": {
@@ -35,6 +35,18 @@
     {
       "id": "stock_ledger",
       "label": "Stock Entries",
+      "enable_custom_filters": true,
+      "list_template": {
+        "template": "high_density",
+        "title_key": "entry_date",
+        "subtitle_key": "warehouse"
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "entry_date",
+        "subtitle_key": "warehouse",
+        "show_all_fields": true
+      },
       "quick_filters": [
         { "label": "All", "key": "all", "field": "warehouse", "operator": "contains", "value": "" },
         { "label": "Main Warehouse", "key": "main_warehouse", "field": "warehouse", "operator": "==", "value": "Main Warehouse" }
@@ -47,7 +59,7 @@
           "label": "Warehouse", 
           "type": "select",
           "options": "settings.warehouses",
-          "dependsOn": "settings.has_multiple_warehouses"
+          "depends_on": "settings.has_multiple_warehouses"
         },
         { "key": "batch", "label": "Batch Name", "type": "text" },
         { 
@@ -61,8 +73,8 @@
                "label": "Variant", 
                "type": "select", 
                "options": "item_ref.variants",
-               "dependsOn": "item_ref",
-               "dynamicLabel": "item_ref.variant_name"
+               "depends_on": "item_ref",
+               "dynamic_label": "item_ref.variant_name"
              },
              { "key": "qty", "label": "Quantity", "type": "number" },
              { "key": "cost_price", "label": "Unit Cost", "type": "currency" }
@@ -73,6 +85,21 @@
     {
       "id": "items",
       "label": "Item Catalog",
+      "enable_custom_filters": true,
+      "list_template": {
+        "template": "standard",
+        "title_key": "item_name",
+        "subtitle_key": "barcode_sku",
+        "trailing_key": "min_stock_alerts",
+        "detail_keys": ["is_item_variants"]
+      },
+      "detail_template": {
+        "template": "modern",
+        "title_key": "item_name",
+        "subtitle_key": "barcode_sku",
+        "image_key": "item_image",
+        "show_all_fields": true
+      },
       "quick_filters": [
         { "label": "All", "key": "all", "field": "item_name", "operator": "contains", "value": "" },
         { "label": "Low stock", "key": "low_stock", "field": "min_stock_alerts", "operator": "<", "value": "10" }
@@ -82,12 +109,12 @@
         { "key": "item_name", "label": "Item Name", "type": "text", "required": true },
         { "key": "barcode_sku", "label": "SKU", "type": "scanner" },
         { "key": "is_item_variants", "label": "Does it have variants?", "type": "boolean" },
-        { "key": "variant_name", "label": "Variant Name", "type": "text", "dependsOn": "is_item_variants" },
+        { "key": "variant_name", "label": "Variant Name", "type": "text", "depends_on": "is_item_variants" },
         { 
           "key": "variants", 
           "label": "Variants", 
           "type": "list",
-          "dependsOn": "is_item_variants",
+          "depends_on": "is_item_variants",
           "default": ["Small", "Big"]
         },
         { "key": "min_stock_alerts", "label": "Minimum Stock Alerts", "type": "number" }

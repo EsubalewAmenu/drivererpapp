@@ -92,6 +92,42 @@ void main() {
     expect(updatedColumn!.type, 'boolean');
   });
 
+  testWidgets('EditColumnDialog updates isRequired field', (WidgetTester tester) async {
+    final column = ColumnConfig(key: 'col1', label: 'Column 1', type: 'text', isRequired: false);
+    final tab = TabConfig(id: 't1', label: 'Tab 1', columns: [column]);
+    
+    ColumnConfig? updatedColumn;
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(
+          builder: (context) => ElevatedButton(
+            onPressed: () async {
+              updatedColumn = await showDialog<ColumnConfig>(
+                context: context,
+                builder: (context) => EditColumnDialog(column: column, tab: tab),
+              );
+            },
+            child: const Text('Open'),
+          ),
+        ),
+      ),
+    ));
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    // Find and tap "Is Required" toggle
+    await tester.tap(find.widgetWithText(SwitchListTile, 'Is Required'));
+    await tester.pump();
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(updatedColumn, isNotNull);
+    expect(updatedColumn!.isRequired, true);
+  });
+
   testWidgets('EditColumnDialog cancels', (WidgetTester tester) async {
     final column = ColumnConfig(key: 'col1', label: 'Column 1', type: 'text');
     final tab = TabConfig(id: 't1', label: 'Tab 1', columns: [column]);

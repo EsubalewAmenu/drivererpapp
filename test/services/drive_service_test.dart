@@ -5,6 +5,7 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:http/http.dart' as http;
 import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/models/company_model.dart';
 
 class MockHttpClient extends Mock implements http.Client {}
 class MockDriveApi extends Mock implements drive.DriveApi {}
@@ -140,6 +141,33 @@ void main() {
 
       expect(result.length, 1);
       expect(result.first.id, 'mod1');
+    });
+
+    test('getOrCreateSubFolder returns existing folder id if found', () async {
+       final fileList = drive.FileList(files: [
+        drive.File()..id = 'found_id'
+      ]);
+      
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: r'$fields')))
+          .thenAnswer((_) async => fileList);
+
+      final result = await driveService.getOrCreateSubFolder('parentId', 'FolderName');
+
+      expect(result, 'found_id');
+      verifyNever(() => mockFilesResource.create(any(), $fields: any(named: r'$fields')));
+    });
+
+    test('getOrCreateSubFolder creates new folder if not found', () async {
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: r'$fields')))
+          .thenAnswer((_) async => drive.FileList(files: []));
+      
+      when(() => mockFilesResource.create(any(), $fields: any(named: r'$fields')))
+          .thenAnswer((_) async => drive.File()..id = 'created_id');
+
+      final result = await driveService.getOrCreateSubFolder('parentId', 'FolderName');
+
+      expect(result, 'created_id');
+      verify(() => mockFilesResource.create(any(), $fields: any(named: r'$fields'))).called(1);
     });
   });
 
@@ -370,6 +398,85 @@ void main() {
       expect(results.length, 1);
       expect(results.first['col1'], 'val1');
       expect(results.first['col2'], 'val2');
+    });
+
+    test('fetchRecords returns sorted list when descending is true', () async {
+       // Mock two files
+       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
+
+      when(() => mockSpreadsheetsResource.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1'))],
+      ));
+
+      // Header
+      when(() => mockValuesResource.get(any(), 'tab1!1:1')).thenAnswer((_) async => sheets.ValueRange(
+        values: [['col1', 'record_id']],
+      ));
+
+      // Data (Two records, oldest first in sheet)
+      when(() => mockValuesResource.get(any(), 'tab1!A2:ZZ')).thenAnswer((_) async => sheets.ValueRange(
+        values: [
+          ['rec1', '100'],
+          ['rec2', '200'],
+        ],
+      ));
+
+      final results = await driveService.fetchRecords('mod1', 'MyModule', 'tab1', descending: true);
+
+      expect(results.length, 2);
+      expect(results.first['record_id'], '200'); // Newest first
+      expect(results.last['record_id'], '100');
+    });
+  });
+
+  group('DriveCompanyMixin', () {
+    test('getCompanies returns empty list if registry file not found', () async {
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: []));
+
+      final result = await driveService.getCompanies('root123');
+
+      expect(result, isEmpty);
+    });
+
+    test('getCompanies returns list of companies', () async {
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
+
+      when(() => mockValuesResource.get('sheet123', 'companies!A2:E'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['c1', 'Company 1', 'f1', 'logo1', 'owner'],
+            ['c2', 'Company 2', 'f2', '', 'admin'],
+          ]));
+
+      final result = await driveService.getCompanies('root123');
+
+      expect(result.length, 2);
+      expect(result[0].id, 'c1');
+      expect(result[0].name, 'Company 1');
+      expect(result[1].id, 'c2');
+      expect(result[1].role, 'admin');
+    });
+
+    test('registerCompany appends new row', () async {
+      // Stub check/creation
+       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
+
+      when(() => mockValuesResource.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'), insertDataOption: any(named: 'insertDataOption')))
+          .thenAnswer((_) async => sheets.AppendValuesResponse());
+
+      final company = Company(id: 'new_id', name: 'New Co', folderId: 'folder_abc');
+      await driveService.registerCompany('root123', company);
+
+      verify(() => mockValuesResource.append(
+        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'values', containsAll(['new_id', 'New Co', 'folder_abc']))),
+        'sheet123',
+        'companies!A1',
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+      )).called(1);
     });
   });
 }

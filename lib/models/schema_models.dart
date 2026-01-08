@@ -86,7 +86,12 @@ class TabConfig {
   final List<ColumnConfig> columns;
   @JsonKey(name: 'quick_filters')
   final List<QuickFilter>? quickFilters;
+  @JsonKey(name: 'enable_custom_filters')
   final bool? enableCustomFilters;
+  @JsonKey(name: 'list_template')
+  final ListTemplateConfig? listTemplate;
+  @JsonKey(name: 'detail_template')
+  final DetailTemplateConfig? detailTemplate;
 
   TabConfig({
     required this.id,
@@ -94,10 +99,63 @@ class TabConfig {
     required this.columns,
     this.quickFilters,
     this.enableCustomFilters = true,
+    this.listTemplate,
+    this.detailTemplate,
   });
 
   factory TabConfig.fromJson(Map<String, dynamic> json) => _$TabConfigFromJson(json);
   Map<String, dynamic> toJson() => _$TabConfigToJson(this);
+}
+
+@JsonSerializable(explicitToJson: true)
+class ListTemplateConfig {
+  final String template; // 'high_density', 'standard'
+  @JsonKey(name: 'title_key')
+  final String? titleKey;
+  @JsonKey(name: 'subtitle_key')
+  final String? subtitleKey;
+  @JsonKey(name: 'trailing_key')
+  final String? trailingKey;
+  @JsonKey(name: 'detail_keys')
+  final List<String>? detailKeys;
+
+  ListTemplateConfig({
+    this.template = 'high_density',
+    this.titleKey,
+    this.subtitleKey,
+    this.trailingKey,
+    this.detailKeys,
+  });
+
+  factory ListTemplateConfig.fromJson(Map<String, dynamic> json) => _$ListTemplateConfigFromJson(json);
+  Map<String, dynamic> toJson() => _$ListTemplateConfigToJson(this);
+}
+
+@JsonSerializable(explicitToJson: true)
+class DetailTemplateConfig {
+  final String template; // 'standard', 'modern'
+  @JsonKey(name: 'title_key')
+  final String? titleKey;
+  @JsonKey(name: 'subtitle_key')
+  final String? subtitleKey;
+  @JsonKey(name: 'image_key')
+  final String? imageKey;
+  @JsonKey(name: 'show_all_fields')
+  final bool? showAllFields;
+  @JsonKey(name: 'detail_keys')
+  final List<String>? detailKeys;
+
+  DetailTemplateConfig({
+    this.template = 'standard',
+    this.titleKey,
+    this.subtitleKey,
+    this.imageKey,
+    this.showAllFields = true,
+    this.detailKeys,
+  });
+
+  factory DetailTemplateConfig.fromJson(Map<String, dynamic> json) => _$DetailTemplateConfigFromJson(json);
+  Map<String, dynamic> toJson() => _$DetailTemplateConfigToJson(this);
 }
 
 @JsonSerializable(explicitToJson: true)
@@ -127,14 +185,17 @@ class ColumnConfig {
   final String type;
   final dynamic options; // Can be List<String> or String (reference)
   final String? formula;
+  @JsonKey(name: 'depends_on')
   final String? dependsOn;
   @JsonKey(name: 'default')
   final dynamic defaultValue;
   final List<ColumnConfig>? columns;
   final bool? hidden;
+  @JsonKey(name: 'dynamic_label')
   final String? dynamicLabel;
   @JsonKey(name: 'required')
   final bool? isRequired;
+  @JsonKey(name: 'currency_symbol')
   final String? currencySymbol;
 
   ColumnConfig({

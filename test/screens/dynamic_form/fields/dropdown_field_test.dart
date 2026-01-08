@@ -108,7 +108,15 @@ void main() {
     final formData = {'parent_rel': 'Parent Item 1'};
 
     // Setup Mock Response
-    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id')).thenAnswer((_) async => [
+    when(() => mockDriveService.fetchRecords(
+      any(), 
+      any(), 
+      'tab2_id',
+      offset: any(named: 'offset'),
+      limit: any(named: 'limit'),
+      fetchSubTables: any(named: 'fetchSubTables'),
+      descending: any(named: 'descending'),
+    )).thenAnswer((_) async => [
       {'name': 'Parent Item 1', 'allowed_values': '[Alpha, Beta]'},
       {'name': 'Parent Item 2', 'allowed_values': '[Gamma]'},
     ]);
