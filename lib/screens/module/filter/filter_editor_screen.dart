@@ -20,6 +20,7 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
   String? _selectedColumnKey;
   String _selectedOperator = '==';
   final TextEditingController _valueController = TextEditingController();
+  final TextEditingController _labelController = TextEditingController();
 
   final List<Map<String, String>> _operators = [
     {'label': 'Equals', 'value': '=='},
@@ -37,6 +38,7 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
       _selectedColumnKey = widget.existingFilter!.field;
       _selectedOperator = widget.existingFilter!.operator;
       _valueController.text = widget.existingFilter!.value;
+      _labelController.text = widget.existingFilter!.label;
     } else if (widget.columns.isNotEmpty) {
       _selectedColumnKey = widget.columns.first.key;
     }
@@ -45,6 +47,7 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
   @override
   void dispose() {
     _valueController.dispose();
+    _labelController.dispose();
     super.dispose();
   }
 
@@ -54,8 +57,13 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
     final col = widget.columns.firstWhere((c) => c.key == _selectedColumnKey);
     final opLabel = _operators.firstWhere((element) => element['value'] == _selectedOperator)['label'];
     
+    String label = _labelController.text.trim();
+    if (label.isEmpty) {
+      label = '${col.label} $opLabel ${_valueController.text}';
+    }
+
     final filter = QuickFilter(
-      label: '${col.label} $opLabel ${_valueController.text}', 
+      label: label, 
       key: widget.existingFilter?.key ?? 'custom_${DateTime.now().millisecondsSinceEpoch}', 
       field: _selectedColumnKey!, 
       operator: _selectedOperator,
@@ -84,6 +92,20 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Text('Filter Name', style: TextStyle(fontSize: 14, color: theme.disabledColor)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _labelController,
+              decoration: InputDecoration(
+                hintText: 'Auto-generated if empty',
+                filled: true,
+                fillColor: theme.cardTheme.color,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: theme.dividerColor)),
+              ),
+            ),
+            const SizedBox(height: 24),
+
             Text('Column', style: TextStyle(fontSize: 14, color: theme.disabledColor)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
