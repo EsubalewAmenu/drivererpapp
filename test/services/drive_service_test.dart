@@ -401,4 +401,54 @@ void main() {
       expect(results.last['record_id'], '100');
     });
   });
+
+  group('DriveCompanyMixin', () {
+    test('getCompanies returns empty list if registry file not found', () async {
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: []));
+
+      final result = await driveService.getCompanies('root123');
+
+      expect(result, isEmpty);
+    });
+
+    test('getCompanies returns list of companies', () async {
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
+
+      when(() => mockValuesResource.get('sheet123', 'companies!A2:E'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['c1', 'Company 1', 'f1', 'logo1', 'owner'],
+            ['c2', 'Company 2', 'f2', '', 'admin'],
+          ]));
+
+      final result = await driveService.getCompanies('root123');
+
+      expect(result.length, 2);
+      expect(result[0].id, 'c1');
+      expect(result[0].name, 'Company 1');
+      expect(result[1].id, 'c2');
+      expect(result[1].role, 'admin');
+    });
+
+    test('registerCompany appends new row', () async {
+      // Stub check/creation
+       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
+
+      when(() => mockValuesResource.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'), insertDataOption: any(named: 'insertDataOption')))
+          .thenAnswer((_) async => sheets.AppendValuesResponse());
+
+      final company = Company(id: 'new_id', name: 'New Co', folderId: 'folder_abc');
+      await driveService.registerCompany('root123', company);
+
+      verify(() => mockValuesResource.append(
+        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'values', containsAll(['new_id', 'New Co', 'folder_abc']))),
+        'sheet123',
+        'companies!A1',
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+      )).called(1);
+    });
+  });
 }
