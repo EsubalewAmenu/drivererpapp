@@ -47,6 +47,7 @@ class DynamicFormRenderer extends StatelessWidget {
   }
 
   bool _shouldShowField(ColumnConfig col) {
+    if (col.hidden == true) return false;
     if (col.dependsOn == null) return true;
 
     final dependency = col.dependsOn!;
