@@ -34,7 +34,7 @@
         { "key": "company_tin", "label": "Company TIN", "type": "text", "dependsOn": "!is_individual" },
         { "key": "type", "label": "Business Role", "type": "select", "options": ["CLIENT", "SUPPLIER", "BOTH"] },
         { "key": "phone", "label": "Phone", "type": "text" },
-        { "key": "email", "label": "Email", "type": "text" },
+        { "key": "email", "label": "Email", "type": "email" },
         { "key": "balance", "label": "Ledger Balance", "type": "currency" },
         { "key": "notes", "label": "Intelligence", "type": "text" }
       ]
