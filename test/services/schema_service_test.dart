@@ -16,7 +16,10 @@ void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
     mockDriveService = MockDriveService();
-    schemaService = SchemaService(driveService: mockDriveService);
+    schemaService = SchemaService(driveService: mockDriveService, userEmail: 'test@example.com');
+
+    // Default mocks for folder creation/lookup to avoid MissingStubError
+    when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'config_folder_id');
   });
 
   group('SchemaService', () {
@@ -70,6 +73,7 @@ void main() {
     });
 
     test('syncConfig returns null if remote file not found', () async {
+      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_config')).thenAnswer((_) async => null);
       when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => null);
       
       final result = await schemaService.syncConfig('mod1');
@@ -83,8 +87,8 @@ void main() {
       // Setup local cache
       await schemaService.cacheConfig('mod1', testConfig, fileId: 'file123', modifiedTime: modifiedTime.toIso8601String());
       
-      // Setup remote mock
-      when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'file123');
+      // Setup remote mock (Finding in new location)
+      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_config')).thenAnswer((_) async => 'file123');
       when(() => mockDriveService.getFileModifiedTime('file123')).thenAnswer((_) async => modifiedTime);
       
       final result = await schemaService.syncConfig('mod1');
@@ -102,8 +106,8 @@ void main() {
       // Setup local cache
       await schemaService.cacheConfig('mod1', oldConfig, fileId: 'file123', modifiedTime: oldTime);
       
-      // Setup remote mock
-      when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'file123');
+      // Setup remote mock (finding in new location)
+      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_config')).thenAnswer((_) async => 'file123');
       when(() => mockDriveService.getFileModifiedTime('file123')).thenAnswer((_) async => newTime);
       when(() => mockDriveService.readModuleConfig('file123')).thenAnswer((_) async => newConfig);
       

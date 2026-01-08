@@ -68,6 +68,33 @@ mixin DriveFolderMixin {
     }
   }
 
+  /// Gets or creates a subfolder inside a parent folder.
+  Future<String> getOrCreateSubFolder(String parentId, String folderName) async {
+    try {
+      // Check if exists
+      final fileList = await driveApi.files.list(
+        q: "'$parentId' in parents and mimeType = 'application/vnd.google-apps.folder' and name = '$folderName' and trashed = false",
+        $fields: 'files(id)',
+      );
+
+      if (fileList.files != null && fileList.files!.isNotEmpty) {
+        return fileList.files!.first.id!;
+      }
+
+      // Create if not exists
+      final folder = drive.File()
+        ..name = folderName
+        ..parents = [parentId]
+        ..mimeType = 'application/vnd.google-apps.folder';
+
+      final created = await driveApi.files.create(folder);
+      return created.id!;
+    } catch (e) {
+      debugPrint('Error getting/creating subfolder $folderName: $e');
+      rethrow;
+    }
+  }
+
   /// Lists subfolders (modules) inside a workspace folder.
   Future<List<drive.File>> listModules(String workspaceId) async {
     try {

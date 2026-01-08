@@ -10,8 +10,9 @@ class SchemaService {
   static const String _metaPrefix = 'module_meta_';
 
   final DriveService? driveService;
+  final String? userEmail;
 
-  SchemaService({this.driveService});
+  SchemaService({this.driveService, this.userEmail});
 
   /// Loads the module configuration from local cache if available.
   Future<Map<String, dynamic>?> getCachedConfig(String moduleId) async {
@@ -64,8 +65,24 @@ class SchemaService {
     if (driveService == null) return null;
 
     try {
-      // 1. Get remote file info
-      final configFileId = await driveService!.getFileId(moduleId, 'config');
+      String? configFileId;
+      
+      // New logic: Look in config folder first if user email is present
+      if (userEmail != null) {
+        try {
+          final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
+          final fileName = '${userEmail}_config';
+          configFileId = await driveService!.getFileId(configFolderId, fileName);
+        } catch (e) {
+          debugPrint('Error looking up user config: $e');
+        }
+      }
+
+      // Fallback: Look for legacy config file in module root
+      if (configFileId == null) {
+         configFileId = await driveService!.getFileId(moduleId, 'config');
+      }
+
       if (configFileId == null) return null;
 
       final remoteModifiedTime = await driveService!.getFileModifiedTime(configFileId);
@@ -99,29 +116,36 @@ class SchemaService {
     if (driveService == null) throw Exception('DriveService not initialized');
 
     try {
-      // 1. Get file ID (try cache first, then lookup)
       String? fileId;
-      final meta = await getCachedMeta(moduleId);
-      fileId = meta?['fileId'];
       
-      if (fileId == null) {
-         fileId = await driveService!.getFileId(moduleId, 'config');
-      }
+      if (userEmail != null) {
+        // 1. Prepare target location: config/email_config
+        final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
+        final fileName = '${userEmail}_config';
+        
+        fileId = await driveService!.getFileId(configFolderId, fileName);
+        
+        // 2. Prepare config map
+        final configMap = config.toJson();
 
-      if (fileId == null) {
-         throw Exception('Config file not found for module $moduleId');
+        if (fileId != null) {
+           // Update existing user config
+           await driveService!.updateModuleConfig(fileId, configMap);
+        } else {
+           // Create new user config
+           fileId = await driveService!.createModuleConfig(configFolderId, fileName, configMap);
+        }
+      } else {
+        // Legacy/Fallback behavior: config in root
+        fileId = await driveService!.getFileId(moduleId, 'config');
+        if (fileId == null) throw Exception('Config file not found and no user email to create new one');
+         
+        await driveService!.updateModuleConfig(fileId, config.toJson());
       }
-
-      // 2. Prepare config map for Spreadsheet Update
-      final configMap = config.toJson();
-      
-      // 3. Update Drive via Sheets API
-      // Instead of overwriting the file with raw JSON, we update the spreadsheet sheets
-      await driveService!.updateModuleConfig(fileId, configMap);
 
       // 4. Update Cache
       // Fetch updated metadata so we are in sync
-      final modifiedTime = await driveService!.getFileModifiedTime(fileId);
+      final modifiedTime = await driveService!.getFileModifiedTime(fileId!);
       if (modifiedTime != null) {
          await cacheConfig(moduleId, config.toJson(), fileId: fileId, modifiedTime: modifiedTime.toIso8601String());
       } else {

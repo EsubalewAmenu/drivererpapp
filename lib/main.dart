@@ -34,10 +34,13 @@ class MainApp extends StatelessWidget {
             return d;
           },
         ),
-        ChangeNotifierProxyProvider<DriveProvider, SchemaProvider>(
+        ChangeNotifierProxyProvider2<AuthService, DriveProvider, SchemaProvider>(
           create: (_) => SchemaProvider(),
-          update: (_, drive, schema) {
-            return SchemaProvider(driveService: drive.driveService);
+          update: (_, auth, drive, schema) {
+            return SchemaProvider(
+              driveService: drive.driveService, 
+              userEmail: auth.currentUser?.email
+            );
           },
         ),
       ],
