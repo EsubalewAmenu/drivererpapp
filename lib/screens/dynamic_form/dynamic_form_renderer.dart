@@ -86,6 +86,7 @@ class DynamicFormRenderer extends StatelessWidget {
       case 'number':
       case 'currency':
       case 'email':
+      case 'phone':
         return DynamicTextField(
           column: col,
           value: value?.toString() ?? '',

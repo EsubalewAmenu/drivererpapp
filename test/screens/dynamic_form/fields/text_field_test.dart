@@ -201,4 +201,73 @@ void main() {
 
     expect(find.text('Please enter a valid email'), findsNothing);
   });
+
+  testWidgets('DynamicTextField validates phone input', (WidgetTester tester) async {
+    final column = ColumnConfig(
+      key: 'test_phone_validation',
+      label: 'Phone Label',
+      type: 'phone',
+    );
+
+    String inputValue = '';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return Form(
+                child: Builder(
+                  builder: (innerContext) {
+                    return Column(
+                      children: [
+                        DynamicTextField(
+                          column: column,
+                          value: inputValue,
+                          primaryColor: Colors.blue,
+                          onChanged: (val) {
+                             setState(() {
+                               inputValue = val;
+                             });
+                          },
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                             Form.of(innerContext).validate();
+                          }, 
+                          child: const Text('Validate')
+                        )
+                      ],
+                    );
+                  }
+                ),
+              );
+            }
+          ),
+        ),
+      ),
+    );
+
+    // Initial state
+    final textField = tester.widget<TextField>(find.descendant(
+      of: find.byType(TextFormField),
+      matching: find.byType(TextField),
+    ));
+    // Verify keyboard type
+    expect(textField.keyboardType, TextInputType.phone);
+
+    // Enter invalid phone
+    await tester.enterText(find.byType(TextFormField), 'abc');
+    await tester.tap(find.text('Validate'));
+    await tester.pump();
+
+    expect(find.text('Please enter a valid phone number'), findsOneWidget);
+
+     // Enter valid phone
+    await tester.enterText(find.byType(TextFormField), '+1234567890');
+    await tester.tap(find.text('Validate'));
+    await tester.pump();
+
+    expect(find.text('Please enter a valid phone number'), findsNothing);
+  });
 }

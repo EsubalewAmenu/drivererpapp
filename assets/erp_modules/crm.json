@@ -33,7 +33,7 @@
         { "key": "company_name", "label": "Company Name", "type": "text", "dependsOn": "!is_individual", "required": true },
         { "key": "company_tin", "label": "Company TIN", "type": "text", "dependsOn": "!is_individual" },
         { "key": "type", "label": "Business Role", "type": "select", "options": ["CLIENT", "SUPPLIER", "BOTH"], "required": true },
-        { "key": "phone", "label": "Phone", "type": "text" },
+        { "key": "phone", "label": "Phone", "type": "phone" },
         { "key": "email", "label": "Email", "type": "email" },
         { "key": "balance", "label": "Ledger Balance", "type": "currency" },
         { "key": "notes", "label": "Intelligence", "type": "text" }
