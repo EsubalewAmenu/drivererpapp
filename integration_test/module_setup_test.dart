@@ -44,7 +44,15 @@ void main() {
     when(() => mockAuthService.currentUser).thenReturn(null);
     
     // Default mocks for module loading and dashboard
-    when(() => mockDriveService.fetchRecords(any(), any(), any())).thenAnswer((_) async => []);
+    when(() => mockDriveService.fetchRecords(
+      any(), 
+      any(), 
+      any(),
+      offset: any(named: 'offset'),
+      limit: any(named: 'limit'),
+      fetchSubTables: any(named: 'fetchSubTables'),
+      descending: any(named: 'descending'),
+    )).thenAnswer((_) async => []);
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
   });

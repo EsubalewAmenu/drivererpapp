@@ -120,6 +120,7 @@ void main() {
       offset: any(named: 'offset'),
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
+      descending: any(named: 'descending'),
     )).thenAnswer((_) async => []);
     when(() => mockDriveService.fetchRecords(
       any(), 
@@ -128,6 +129,7 @@ void main() {
       offset: any(named: 'offset'),
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
+      descending: any(named: 'descending'),
     )).thenAnswer((_) async => [
        {'name': 'Apple Inc.', 'id': 's1'},
        {'name': 'Samsung', 'id': 's2'},
