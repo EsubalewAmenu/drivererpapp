@@ -125,7 +125,11 @@ void main() {
     await tester.tap(filterButton);
     await tester.pumpAndSettle();
 
-    expect(find.text('Filter Settings'), findsOneWidget);
+    expect(find.text('Tab 1 Settings'), findsOneWidget);
+
+    // Switch to Filters Tab
+    await tester.tap(find.text('Filters'));
+    await tester.pumpAndSettle();
 
     // Tap Add FAB
     await tester.tap(find.byType(FloatingActionButton));
