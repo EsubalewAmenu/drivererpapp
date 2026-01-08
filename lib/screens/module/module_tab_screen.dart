@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
 import '../../providers/drive_provider.dart';
+import '../../providers/schema_provider.dart'; // Add this
 import '../../services/drive_service.dart';
 import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
 import '../record_detail_screen.dart';
+import 'filter/filter_management_screen.dart';
 
 class ModuleTabScreen extends StatefulWidget {
   final TabConfig tab;
@@ -31,21 +33,41 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   List<Map<String, dynamic>> _allData = [];
   List<Map<String, dynamic>> _filteredData = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  bool _hasErrorLoadingMore = false;
+  int _currentOffset = 0;
+  static const int _pageSize = 20;
+
   String? _errorMessage;
   String _searchQuery = '';
   String? _activeFilter;
+  List<QuickFilter> _activeFilters = [];
+  bool _showFilters = true;
 
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _driveService = Provider.of<DriveProvider>(context, listen: false).driveService!;
+    _activeFilters = List.from(widget.tab.quickFilters ?? []);
     // Delay loading to keep navigation smooth
     Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) _loadData();
+      if (mounted) _loadData(refresh: true);
     });
     _searchController.addListener(_onSearchChanged);
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9) {
+      final isFilterEmpty = _activeFilter == null || _activeFilter == 'all';
+      if (!_isLoading && !_isLoadingMore && !_hasErrorLoadingMore && _hasMore && _searchQuery.isEmpty && isFilterEmpty) {
+        _loadData(refresh: false);
+      }
+    }
   }
 
   @override
@@ -53,8 +75,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     super.didUpdateWidget(oldWidget);
     // If the tab config or module schema changed, we might need to refresh
     if (oldWidget.tab != widget.tab || oldWidget.module != widget.module) {
+      if (oldWidget.tab.id != widget.tab.id) {
+         _activeFilters = List.from(widget.tab.quickFilters ?? []);
+         _showFilters = true;
+         _activeFilter = 'all';
+      }
       debugPrint('Tab or Module schema updated for ${widget.tab.id}, refreshing tab...');
-      _loadData();
+      _loadData(refresh: true);
     }
   }
 
@@ -70,36 +97,64 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool refresh = false}) async {
     if (widget.module == null) {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
 
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
+    if (refresh) {
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _errorMessage = null;
+          _allData = [];
+          _filteredData = [];
+          _currentOffset = 0;
+          _hasMore = true;
+          _hasErrorLoadingMore = false;
+        });
+      }
+    } else {
+      if (mounted) setState(() {
+         _isLoadingMore = true;
+         _hasErrorLoadingMore = false;
       });
     }
 
     // Fetch fresh data from DriveService
     try {
-      final data = await _driveService.fetchRecords(
+      final fetchedData = await _driveService.fetchRecords(
         widget.module!.id, 
         widget.module!.name, 
-        widget.tab.id
+        widget.tab.id,
+        offset: _currentOffset,
+        limit: _pageSize,
+        fetchSubTables: false, // Performance optimization for List View
       );
       
       if (mounted) {
         setState(() {
-          _allData = data;
-          _filteredData = data;
+          if (refresh) {
+            _allData = fetchedData;
+          } else {
+            _allData.addAll(fetchedData);
+          }
+          
+          if (fetchedData.length < _pageSize) {
+            _hasMore = false;
+          } else {
+            _currentOffset += _pageSize;
+          }
+          
+          _applyFilters();
           _isLoading = false;
+          _isLoadingMore = false;
           _errorMessage = null;
         });
       }
@@ -108,7 +163,23 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Records unavailable (Offline)';
+          // In pagination, stop loading more spinner
+          _isLoadingMore = false;
+          
+          if (refresh) {
+            // Check for network related errors
+            final errorString = e.toString().toLowerCase();
+            if (errorString.contains('socketexception') || 
+                errorString.contains('failed host lookup') || 
+                errorString.contains('network is unreachable') ||
+                errorString.contains('offline')) {
+              _errorMessage = 'Records unavailable (Offline)';
+            } else {
+              _errorMessage = 'Failed to load records. Please try again.';
+            }
+          } else {
+             _hasErrorLoadingMore = true;
+          }
         });
       }
     }
@@ -124,19 +195,40 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         
         // Quick Filter
         bool matchesQuickFilter = true;
-        if (_activeFilter != null && widget.tab.quickFilters != null) {
+        if (_activeFilter != null && _activeFilter != 'all') {
            try {
-             final filter = widget.tab.quickFilters!.firstWhere((f) => f.key == _activeFilter);
-             if (filter.key == 'all') {
-               matchesQuickFilter = true;
-             } else {
-               final itemValue = item[filter.field];
-               if (filter.operator == '==') {
-                 matchesQuickFilter = itemValue.toString() == filter.value.toString();
-               } else if (filter.operator == 'contains') {
-                 matchesQuickFilter = itemValue.toString().contains(filter.value.toString());
-               }
-               // Add more operators if needed
+             // Look in active filters
+             final filter = _activeFilters.firstWhere((f) => f.key == _activeFilter);
+             
+             final itemValue = item[filter.field];
+             final filterVal = filter.value.toString().toLowerCase();
+             final itemValStr = itemValue?.toString().toLowerCase() ?? '';
+
+             if (filter.operator == '==') {
+               matchesQuickFilter = itemValStr == filterVal;
+             } else if (filter.operator == '!=') { 
+               matchesQuickFilter = itemValStr != filterVal;
+             } else if (filter.operator == 'contains') {
+               matchesQuickFilter = itemValStr.contains(filterVal);
+             } else if (filter.operator == 'startsWidth') {
+               matchesQuickFilter = itemValStr.startsWith(filterVal);
+             } else if (filter.operator == '>') {
+                // Try numeric comparison first
+                final numItem = num.tryParse(itemValStr);
+                final numFilter = num.tryParse(filterVal);
+                if (numItem != null && numFilter != null) {
+                  matchesQuickFilter = numItem > numFilter;
+                } else {
+                  matchesQuickFilter = itemValStr.compareTo(filterVal) > 0;
+                }
+             } else if (filter.operator == '<') {
+                final numItem = num.tryParse(itemValStr);
+                final numFilter = num.tryParse(filterVal);
+                if (numItem != null && numFilter != null) {
+                  matchesQuickFilter = numItem < numFilter;
+                } else {
+                  matchesQuickFilter = itemValStr.compareTo(filterVal) < 0;
+                }
              }
            } catch (e) {
              // Filter not found or error
@@ -151,9 +243,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    // Note: removed full-screen loading check to allow shell to render
 
     final theme = Theme.of(context);
 
@@ -170,7 +260,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _loadData, 
+              onPressed: () => _loadData(refresh: true), 
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
@@ -208,7 +298,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             ),
           );
           // Refresh data on return
-          _loadData();
+          if (_currentOffset == 0) _loadData(refresh: true);
         },
       ),
     );
@@ -216,63 +306,195 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   Widget _buildSearchBar() {
     final theme = Theme.of(context);
+    final hasCustomFilters = widget.tab.enableCustomFilters ?? true;
+    
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: TextField(
-        controller: _searchController,
-        style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
-        decoration: InputDecoration(
-          hintText: 'Search ${widget.tab.label.toLowerCase()}...',
-          hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
-          prefixIcon: Icon(Icons.search_rounded, color: theme.textTheme.bodyMedium?.color),
-          filled: true,
-          fillColor: theme.cardTheme.color,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
+              decoration: InputDecoration(
+                hintText: 'Search ${widget.tab.label.toLowerCase()}...',
+                hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
+                prefixIcon: Icon(Icons.search_rounded, color: theme.textTheme.bodyMedium?.color),
+                filled: true,
+                fillColor: theme.cardTheme.color,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+            ),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        ),
+          if (hasCustomFilters) ...[
+            const SizedBox(width: 12),
+            InkWell(
+              onTap: _openFilterManager,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.cardTheme.color,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.tune_rounded, color: widget.primaryColor),
+              ),
+            ),
+          ]
+        ],
       ),
     );
   }
 
+  void _openFilterManager() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FilterManagementScreen(
+          columns: widget.tab.columns, 
+          initialFilters: _activeFilters, 
+          initialEnabled: _showFilters
+        ),
+      ),
+    );
+
+    if (result != null && result is Map) {
+      if (!mounted) return;
+
+      final newEnabled = result['enabled'] as bool;
+      final newFilters = List<QuickFilter>.from(result['filters']);
+
+      setState(() {
+        _showFilters = newEnabled;
+        _activeFilters = newFilters;
+        // If disabled or active filter removed, reset selection
+        bool activeExists = _activeFilters.any((f) => f.key == _activeFilter);
+        if (!_showFilters || !activeExists) {
+          _activeFilter = 'all';
+        }
+        _applyFilters();
+      });
+
+      if (widget.module != null) {
+        _saveConfiguration(newEnabled, newFilters);
+      }
+    }
+  }
+
+  Future<void> _saveConfiguration(bool enabled, List<QuickFilter> filters) async {
+    try {
+      final schemaProvider = context.read<SchemaProvider>();
+      final currentModule = widget.module!;
+      
+      final updatedTab = TabConfig(
+        id: widget.tab.id,
+        label: widget.tab.label,
+        columns: widget.tab.columns,
+        quickFilters: filters,
+        enableCustomFilters: enabled,
+      );
+
+      final updatedTabs = currentModule.tabs.map((t) {
+        return t.id == widget.tab.id ? updatedTab : t;
+      }).toList();
+
+      final updatedModule = ModuleSchema(
+        id: currentModule.id,
+        name: currentModule.name,
+        icon: currentModule.icon,
+        primaryColor: currentModule.primaryColor,
+        version: currentModule.version,
+        settings: currentModule.settings,
+        dashboard: currentModule.dashboard,
+        tabs: updatedTabs,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saving filter configuration...'), duration: Duration(seconds: 1)),
+      );
+
+      await schemaProvider.service.saveModuleConfig(currentModule.id, updatedModule);
+      schemaProvider.updateMemoryCache(currentModule.id, updatedModule);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Configuration saved')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving configuration: $e')),
+        );
+      }
+    }
+  }
+
   Widget _buildQuickFilters() {
-    if (widget.tab.quickFilters == null || widget.tab.quickFilters!.isEmpty) {
+    if (!_showFilters || _activeFilters.isEmpty) {
       return const SizedBox.shrink();
     }
     
     final theme = Theme.of(context);
 
+    // Filter Chips Row logic needs to handle scrolling and selection
     return SizedBox(
       height: 40,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
-        itemCount: widget.tab.quickFilters!.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemCount: _activeFilters.length + 1, // +1 for "All"
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final filter = widget.tab.quickFilters![index];
-          final isSelected = _activeFilter == filter.key || (_activeFilter == null && filter.key == 'all');
+          if (index == 0) {
+            // "All" Chip
+            final isSelected = _activeFilter == null || _activeFilter == 'all';
+             return FilterChip(
+              label: const Text('All'),
+              selected: isSelected,
+              onSelected: (_) {
+                setState(() {
+                  _activeFilter = 'all';
+                  _applyFilters();
+                });
+              },
+              backgroundColor: theme.cardTheme.color,
+              selectedColor: widget.primaryColor.withValues(alpha: 0.2),
+              labelStyle: TextStyle(
+                color: isSelected ? widget.primaryColor : theme.textTheme.bodyMedium?.color,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: isSelected ? widget.primaryColor : Colors.transparent,
+                ),
+              ),
+              showCheckmark: false,
+            );
+          }
           
+          final filter = _activeFilters[index - 1];
+          final isSelected = _activeFilter == filter.key;
+
           return FilterChip(
             label: Text(filter.label),
             selected: isSelected,
-            onSelected: (selected) {
+            onSelected: (_) {
               setState(() {
-                if (selected) {
-                   _activeFilter = filter.key;
-                } else {
-                   _activeFilter = 'all';
-                }
+                _activeFilter = filter.key;
                 _applyFilters();
               });
             },
             backgroundColor: theme.cardTheme.color,
             selectedColor: widget.primaryColor.withValues(alpha: 0.2),
-            labelStyle: AppTheme.inter(
+            labelStyle: TextStyle(
               color: isSelected ? widget.primaryColor : theme.textTheme.bodyMedium?.color,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
@@ -284,10 +506,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           );
         },
       ),
-    );
+    ); 
   }
 
   Widget _buildListView() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final theme = Theme.of(context);
     if (_filteredData.isEmpty) {
       return Center(
@@ -299,10 +525,34 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     }
 
     return ListView.separated(
+      controller: _scrollController,
       padding: const EdgeInsets.all(16),
-      itemCount: _filteredData.length,
+      itemCount: _filteredData.length + (_isLoadingMore || _hasErrorLoadingMore ? 1 : 0),
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
+        if (index == _filteredData.length) {
+          if (_hasErrorLoadingMore) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  children: [
+                    Text('Failed to load more records', style: TextStyle(color: theme.colorScheme.error)),
+                    TextButton.icon(
+                      onPressed: () => _loadData(refresh: false),
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Retry'),
+                    )
+                  ],
+                ),
+              ),
+            );
+          }
+          return const Center(child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: CircularProgressIndicator(),
+          ));
+        }
         final item = _filteredData[index];
         return _buildHighDensityCard(item);
       },

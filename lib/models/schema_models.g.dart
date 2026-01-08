@@ -87,6 +87,7 @@ TabConfig _$TabConfigFromJson(Map<String, dynamic> json) => TabConfig(
   quickFilters: (json['quick_filters'] as List<dynamic>?)
       ?.map((e) => QuickFilter.fromJson(e as Map<String, dynamic>))
       .toList(),
+  enableCustomFilters: json['enableCustomFilters'] as bool? ?? true,
 );
 
 Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
@@ -94,6 +95,7 @@ Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
   'label': instance.label,
   'columns': instance.columns.map((e) => e.toJson()).toList(),
   'quick_filters': instance.quickFilters?.map((e) => e.toJson()).toList(),
+  'enableCustomFilters': instance.enableCustomFilters,
 };
 
 QuickFilter _$QuickFilterFromJson(Map<String, dynamic> json) => QuickFilter(

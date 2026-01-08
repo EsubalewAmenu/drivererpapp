@@ -51,6 +51,7 @@ class _EditTabDialogState extends State<EditTabDialog> {
               id: widget.tab.id,
               label: _labelController.text,
               columns: widget.tab.columns,
+              quickFilters: widget.tab.quickFilters,
             );
             
             Navigator.pop(context, updatedTab);

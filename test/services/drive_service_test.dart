@@ -353,9 +353,16 @@ void main() {
         sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1'))],
       ));
 
-      when(() => mockValuesResource.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(
+      // Mock Header Call
+      when(() => mockValuesResource.get(any(), 'tab1!1:1')).thenAnswer((_) async => sheets.ValueRange(
         values: [
           ['col1', 'col2'],
+        ],
+      ));
+
+      // Mock Data Call (Initial fetch uses A2:ZZ)
+      when(() => mockValuesResource.get(any(), 'tab1!A2:ZZ')).thenAnswer((_) async => sheets.ValueRange(
+        values: [
           ['val1', 'val2'],
         ],
       ));

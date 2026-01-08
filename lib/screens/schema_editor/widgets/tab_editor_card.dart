@@ -124,6 +124,7 @@ class TabEditorCard extends StatelessWidget {
         id: tab.id,
         label: tab.label,
         columns: newColumns,
+        quickFilters: tab.quickFilters,
       );
       onTabChanged(newTab);
     }
@@ -153,6 +154,7 @@ class TabEditorCard extends StatelessWidget {
           id: tab.id,
           label: tab.label,
           columns: newColumns,
+          quickFilters: tab.quickFilters,
         );
         onTabChanged(newTab);
       }
@@ -175,6 +177,7 @@ class TabEditorCard extends StatelessWidget {
                 id: tab.id,
                 label: tab.label,
                 columns: newColumns,
+                quickFilters: tab.quickFilters,
               );
               onTabChanged(newTab);
               Navigator.pop(context);

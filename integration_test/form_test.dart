@@ -113,8 +113,22 @@ void main() {
     when(() => mockDriveService.getFileModifiedTime('config_file')).thenAnswer((_) async => DateTime.now());
     when(() => mockDriveService.readModuleConfig('config_file')).thenAnswer((_) async => moduleSchema.toJson());
     when(() => mockDriveService.getFileId('mod1', 'stocks')).thenAnswer((_) async => 'stocks_sheet');
-    when(() => mockDriveService.fetchRecords(any(), any(), 'stocks')).thenAnswer((_) async => []);
-    when(() => mockDriveService.fetchRecords(any(), any(), 'suppliers')).thenAnswer((_) async => [
+    when(() => mockDriveService.fetchRecords(
+      any(), 
+      any(), 
+      'stocks',
+      offset: any(named: 'offset'),
+      limit: any(named: 'limit'),
+      fetchSubTables: any(named: 'fetchSubTables'),
+    )).thenAnswer((_) async => []);
+    when(() => mockDriveService.fetchRecords(
+      any(), 
+      any(), 
+      'suppliers',
+      offset: any(named: 'offset'),
+      limit: any(named: 'limit'),
+      fetchSubTables: any(named: 'fetchSubTables'),
+    )).thenAnswer((_) async => [
        {'name': 'Apple Inc.', 'id': 's1'},
        {'name': 'Samsung', 'id': 's2'},
     ]);
