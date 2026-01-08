@@ -270,4 +270,21 @@ void main() {
 
     expect(find.text('Please enter a valid phone number'), findsNothing);
   });
+
+  testWidgets('DynamicTextField displays diverse currency symbols', (WidgetTester tester) async {
+    // Default USD
+    final usdColumn = ColumnConfig(key: 'usd', label: 'USD', type: 'currency');
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: DynamicTextField(column: usdColumn, value: '', primaryColor: Colors.blue, onChanged: (_){}))));
+    expect(find.text('\$ '), findsOneWidget);
+
+    // Custom Euro
+    final eurColumn = ColumnConfig(key: 'eur', label: 'EUR', type: 'currency', currencySymbol: '€');
+     await tester.pumpWidget(MaterialApp(home: Scaffold(body: DynamicTextField(column: eurColumn, value: '', primaryColor: Colors.blue, onChanged: (_){}))));
+    expect(find.text('€ '), findsOneWidget);
+
+    // Custom ETB
+    final etbColumn = ColumnConfig(key: 'etb', label: 'ETB', type: 'currency', currencySymbol: 'Br');
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: DynamicTextField(column: etbColumn, value: '', primaryColor: Colors.blue, onChanged: (_){}))));
+    expect(find.text('Br '), findsOneWidget);
+  });
 }

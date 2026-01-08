@@ -26,6 +26,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
   String? _currentDependsOn;
   late bool _isHidden;
   late bool _isRequired;
+  String _currencySymbol = '\$';
   
   bool _isDynamicOptions = false;
   List<String> _staticOptions = [];
@@ -39,6 +40,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
     _currentDependsOn = widget.column.dependsOn;
     _isHidden = widget.column.hidden ?? false;
     _isRequired = widget.column.isRequired ?? false;
+    _currencySymbol = widget.column.currencySymbol ?? '\$';
 
     if (widget.column.options is List) {
       _staticOptions = List<String>.from(widget.column.options);
@@ -183,6 +185,26 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
                 Text('NOTE: Use the arrow in the main list to expand this table and edit its columns.', style: TextStyle(color: theme.textTheme.bodyMedium?.color, fontSize: 11, fontStyle: FontStyle.italic)),
             ],
 
+            if (_currentType == 'currency') ...[
+              const SizedBox(height: 24),
+              DropdownButtonFormField<String>(
+                initialValue: _currencySymbol,
+                dropdownColor: theme.cardTheme.color,
+                style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+                decoration: const InputDecoration(labelText: 'Currency Symbol'),
+                items: const [
+                  DropdownMenuItem(value: '\$', child: Text('USD (\$)')),
+                  DropdownMenuItem(value: '€', child: Text('EUR (€)')),
+                  DropdownMenuItem(value: '£', child: Text('GBP (£)')),
+                  DropdownMenuItem(value: 'Br', child: Text('ETB (Br)')),
+                  DropdownMenuItem(value: '¥', child: Text('JPY/CNY (¥)')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _currencySymbol = val);
+                },
+              ),
+            ],
+
             if (_currentType == 'select') ...[
               const SizedBox(height: 24),
               Text('Options Source', style: AppTheme.inter(fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color)),
@@ -258,6 +280,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               dependsOn: _currentDependsOn,
               hidden: _isHidden,
               isRequired: _isRequired,
+              currencySymbol: _currentType == 'currency' ? _currencySymbol : null,
               options: _currentType == 'select' 
                   ? (_isDynamicOptions ? _dynamicOptionPath : _staticOptions)
                   : null,
