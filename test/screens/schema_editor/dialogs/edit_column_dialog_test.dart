@@ -128,6 +128,111 @@ void main() {
     expect(updatedColumn!.isRequired, true);
   });
 
+  testWidgets('EditColumnDialog updates currency symbol', (WidgetTester tester) async {
+    final column = ColumnConfig(key: 'col', label: 'Price', type: 'currency', currencySymbol: '\$');
+    final tab = TabConfig(id: 't1', label: 'T1', columns: [column]);
+    ColumnConfig? result;
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Builder(builder: (c) => ElevatedButton(
+          onPressed: () async => result = await showDialog(context: c, builder: (c) => EditColumnDialog(column: column, tab: tab)),
+          child: const Text('Open'),
+        ))
+      )
+    ));
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    final currencyDropdown = find.text('USD (\$)');
+    await tester.ensureVisible(currencyDropdown);
+    await tester.tap(currencyDropdown);
+    await tester.pumpAndSettle();
+    
+    final etbOption = find.text('ETB (Br)').last;
+    await tester.tap(etbOption);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(result!.currencySymbol, 'Br');
+  });
+
+  testWidgets('EditColumnDialog edits static options for select type', (WidgetTester tester) async {
+    final column = ColumnConfig(key: 'col', label: 'Choice', type: 'select', options: ['A', 'B']);
+    final tab = TabConfig(id: 't1', label: 'T1', columns: [column]);
+    ColumnConfig? result;
+
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(builder: (c) => ElevatedButton(
+      onPressed: () async => result = await showDialog(context: c, builder: (c) => EditColumnDialog(column: column, tab: tab)),
+      child: const Text('Open'),
+    )))));
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    // Check existing chips
+    expect(find.text('A'), findsOneWidget);
+    expect(find.text('B'), findsOneWidget);
+
+    // Add option
+    final addButton = find.byIcon(Icons.add);
+    await tester.ensureVisible(addButton);
+    await tester.tap(addButton);
+    await tester.pumpAndSettle();
+    
+    await tester.enterText(find.byType(TextField).last, 'C');
+    await tester.tap(find.text('Add'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('C'), findsOneWidget);
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(result!.options as List, containsAll(['A', 'B', 'C']));
+  });
+
+  testWidgets('EditColumnDialog configures dynamic options', (WidgetTester tester) async {
+    final column = ColumnConfig(key: 'col', label: 'Choice', type: 'select');
+    final tab = TabConfig(id: 't1', label: 'T1', columns: [column]);
+    final rawSettings = {
+      'categories': {'type': 'list', 'label': 'Cats', 'value': ['C1', 'C2']}
+    };
+    ColumnConfig? result;
+
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: Builder(builder: (c) => ElevatedButton(
+      onPressed: () async => result = await showDialog(context: c, builder: (c) => EditColumnDialog(column: column, tab: tab, rawSettings: rawSettings)),
+      child: const Text('Open'),
+    )))));
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    // Tap Dynamic Radio
+    final dynamicRadio = find.text('Dynamic');
+    await tester.ensureVisible(dynamicRadio);
+    await tester.tap(dynamicRadio);
+    await tester.pumpAndSettle();
+
+    // Select dynamic source
+    final dropdownLabel = find.text('Select Setting List');
+    await tester.ensureVisible(dropdownLabel);
+    await tester.tap(dropdownLabel);
+    await tester.pumpAndSettle();
+    
+    // Choose categories
+    await tester.tap(find.text('categories').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(result!.options, 'settings.categories');
+  });
+
   testWidgets('EditColumnDialog cancels', (WidgetTester tester) async {
     final column = ColumnConfig(key: 'col1', label: 'Column 1', type: 'text');
     final tab = TabConfig(id: 't1', label: 'Tab 1', columns: [column]);
