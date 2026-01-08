@@ -32,6 +32,11 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   List<Map<String, dynamic>> _allData = [];
   List<Map<String, dynamic>> _filteredData = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _currentOffset = 0;
+  static const int _pageSize = 20;
+
   String? _errorMessage;
   String _searchQuery = '';
   String? _activeFilter;
@@ -39,6 +44,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   bool _showFilters = true;
 
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -47,9 +53,19 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     _activeFilters = List.from(widget.tab.quickFilters ?? []);
     // Delay loading to keep navigation smooth
     Future.delayed(const Duration(milliseconds: 500), () {
-      if (mounted) _loadData();
+      if (mounted) _loadData(refresh: true);
     });
     _searchController.addListener(_onSearchChanged);
+    _scrollController.addListener(_onScroll);
+  }
+
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9) {
+      final isFilterEmpty = _activeFilter == null || _activeFilter == 'all';
+      if (!_isLoading && !_isLoadingMore && _hasMore && _searchQuery.isEmpty && isFilterEmpty) {
+        _loadData(refresh: false);
+      }
+    }
   }
 
   @override
@@ -63,7 +79,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
          _activeFilter = 'all';
       }
       debugPrint('Tab or Module schema updated for ${widget.tab.id}, refreshing tab...');
-      _loadData();
+      _loadData(refresh: true);
     }
   }
 
@@ -79,36 +95,60 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool refresh = false}) async {
     if (widget.module == null) {
       if (mounted) setState(() => _isLoading = false);
       return;
     }
 
-    if (mounted) {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = null;
-      });
+    if (refresh) {
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _errorMessage = null;
+          _allData = [];
+          _filteredData = [];
+          _currentOffset = 0;
+          _hasMore = true;
+        });
+      }
+    } else {
+      if (mounted) setState(() => _isLoadingMore = true);
     }
 
     // Fetch fresh data from DriveService
     try {
-      final data = await _driveService.fetchRecords(
+      final fetchedData = await _driveService.fetchRecords(
         widget.module!.id, 
         widget.module!.name, 
-        widget.tab.id
+        widget.tab.id,
+        offset: _currentOffset,
+        limit: _pageSize,
+        fetchSubTables: false, // Performance optimization for List View
       );
       
       if (mounted) {
         setState(() {
-          _allData = data;
-          _filteredData = data;
+          if (refresh) {
+            _allData = fetchedData;
+          } else {
+            _allData.addAll(fetchedData);
+          }
+          
+          if (fetchedData.length < _pageSize) {
+            _hasMore = false;
+          } else {
+            _currentOffset += _pageSize;
+          }
+          
+          _applyFilters();
           _isLoading = false;
+          _isLoadingMore = false;
           _errorMessage = null;
         });
       }
@@ -117,7 +157,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       if (mounted) {
         setState(() {
           _isLoading = false;
-          _errorMessage = 'Records unavailable (Offline)';
+          _isLoadingMore = false;
+          if (refresh) {
+            _errorMessage = 'Records unavailable (Offline)';
+          } else {
+             ScaffoldMessenger.of(context).showSnackBar(
+               const SnackBar(content: Text('Failed to load more records')),
+             );
+          }
         });
       }
     }
@@ -198,7 +245,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _loadData, 
+              onPressed: () => _loadData(refresh: true), 
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
@@ -236,7 +283,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             ),
           );
           // Refresh data on return
-          _loadData();
+          if (_currentOffset == 0) _loadData(refresh: true);
         },
       ),
     );
@@ -405,10 +452,17 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     }
 
     return ListView.separated(
+      controller: _scrollController,
       padding: const EdgeInsets.all(16),
-      itemCount: _filteredData.length,
+      itemCount: _filteredData.length + (_isLoadingMore ? 1 : 0),
       separatorBuilder: (context, index) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
+        if (index == _filteredData.length) {
+          return const Center(child: Padding(
+            padding: EdgeInsets.all(16.0),
+            child: CircularProgressIndicator(),
+          ));
+        }
         final item = _filteredData[index];
         return _buildHighDensityCard(item);
       },

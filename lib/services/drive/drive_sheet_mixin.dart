@@ -302,7 +302,14 @@ mixin DriveSheetMixin {
     debugPrint('Appended data to $sheetTitle');
   }
 
-  Future<List<Map<String, dynamic>>> fetchRecords(String moduleFolderId, String spreadsheetName, String sheetTitle) async {
+  Future<List<Map<String, dynamic>>> fetchRecords(
+    String moduleFolderId, 
+    String spreadsheetName, 
+    String sheetTitle, {
+      int offset = 0,
+      int? limit,
+      bool fetchSubTables = true,
+  }) async {
     try {
       // 1. Find Spreadsheet
       String targetSpreadsheetName = sheetTitle;
@@ -312,35 +319,44 @@ mixin DriveSheetMixin {
         return [];
       }
 
-      // 2. Read All Sheets to Find Sub-tables
-      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
-      final allSheetTitles = spreadsheet.sheets?.map((s) => s.properties?.title ?? '').toList() ?? [];
-      
-      final subTableSheets = allSheetTitles.where((t) => t.startsWith('$sheetTitle.')).toList();
+      // 2. Read All Sheets to Find Sub-tables (Only if fetching sub-tables)
+      List<String> subTableSheets = [];
+      if (fetchSubTables) {
+        final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+        final allSheetTitles = spreadsheet.sheets?.map((s) => s.properties?.title ?? '').toList() ?? [];
+        subTableSheets = allSheetTitles.where((t) => t.startsWith('$sheetTitle.')).toList();
+      }
 
       // 3. Fetch Main Records
-      final mainRecords = await _fetchSheetData(spreadsheetId, sheetTitle);
+      final mainRecords = await _fetchSheetData(
+        spreadsheetId, 
+        sheetTitle,
+        offset: offset,
+        limit: limit,
+      );
       if (mainRecords.isEmpty) return [];
 
       // 4. Fetch and Join Sub-tables
-      for (var subSheet in subTableSheets) {
-        final fieldName = subSheet.substring(sheetTitle.length + 1); // e.g., "items"
-        final subRecords = await _fetchSheetData(spreadsheetId, subSheet);
-        
-        // Group sub-records by parent_record_id
-        final groupedSubs = <String, List<Map<String, dynamic>>>{};
-        for (var sub in subRecords) {
-          final parentId = sub['parent_record_id']?.toString();
-          if (parentId != null) {
-            groupedSubs.putIfAbsent(parentId, () => []).add(sub);
+      if (fetchSubTables && subTableSheets.isNotEmpty) {
+        for (var subSheet in subTableSheets) {
+          final fieldName = subSheet.substring(sheetTitle.length + 1); // e.g., "items"
+          final subRecords = await _fetchSheetData(spreadsheetId, subSheet);
+          
+          // Group sub-records by parent_record_id
+          final groupedSubs = <String, List<Map<String, dynamic>>>{};
+          for (var sub in subRecords) {
+            final parentId = sub['parent_record_id']?.toString();
+            if (parentId != null) {
+              groupedSubs.putIfAbsent(parentId, () => []).add(sub);
+            }
           }
-        }
 
-        // Join to main records
-        for (var main in mainRecords) {
-          final recordId = main['record_id']?.toString();
-          if (recordId != null) {
-            main[fieldName] = groupedSubs[recordId] ?? [];
+          // Join to main records
+          for (var main in mainRecords) {
+            final recordId = main['record_id']?.toString();
+            if (recordId != null) {
+              main[fieldName] = groupedSubs[recordId] ?? [];
+            }
           }
         }
       }
@@ -352,23 +368,53 @@ mixin DriveSheetMixin {
     }
   }
 
-  Future<List<Map<String, dynamic>>> _fetchSheetData(String spreadsheetId, String sheetTitle) async {
+  Future<List<Map<String, dynamic>>> _fetchSheetData(
+    String spreadsheetId, 
+    String sheetTitle, {
+    int offset = 0,
+    int? limit,
+  }) async {
     try {
-      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!A:ZZ'));
+      // Always fetch headers first (Row 1)
+      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
+      final headerValues = headerResponse.values;
+      if (headerValues == null || headerValues.isEmpty) return [];
+      
+      final headers = headerValues.first.map((e) => e.toString()).toList();
+
+      // Calculate Data Range
+      String range;
+      if (limit != null) {
+        // Rows are 1-indexed. Header is 1. Data starts at 2.
+        // offset 0 -> row 2
+        // offset 20 -> row 22
+        final startRow = 2 + offset;
+        final endRow = startRow + limit - 1;
+        range = '$sheetTitle!A$startRow:ZZ$endRow';
+      } else {
+        // Fetch remaining from offset
+        final startRow = 2 + offset;
+        range = '$sheetTitle!A$startRow:ZZ';
+      }
+
+      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, range));
       final values = response.values;
 
       if (values == null || values.isEmpty) return [];
 
-      final headers = values.first.map((e) => e.toString()).toList();
       final records = <Map<String, dynamic>>[];
 
-      for (var i = 1; i < values.length; i++) {
-        final row = values[i];
+      for (var row in values) {
         final record = <String, dynamic>{};
+        bool isEmptyRow = true;
         for (var j = 0; j < headers.length; j++) {
-          record[headers[j]] = (j < row.length) ? row[j] : null;
+          final val = (j < row.length) ? row[j] : null;
+          if (val != null && val.toString().isNotEmpty) isEmptyRow = false;
+          record[headers[j]] = val;
         }
-        records.add(record);
+        if (!isEmptyRow) {
+          records.add(record);
+        }
       }
       return records;
     } catch (e) {
