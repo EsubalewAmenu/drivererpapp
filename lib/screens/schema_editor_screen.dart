@@ -159,50 +159,28 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
     });
 
     try {
-      // 1. Construct the JSON object
-      final Map<String, dynamic> jsonMap = {
-        'id': widget.module.id,
-        'name': _settingsValues['name'] ?? widget.module.name,
-        'icon': _settingsValues['icon'] ?? widget.module.icon,
-        'primaryColor': _settingsValues['primaryColor'] ?? widget.module.primaryColor,
-        'version': _settingsValues['version'] ?? widget.module.version,
-        'settings': _rawSettings,
-        'dashboard': {
-          'cards': _cards.map((k) => k.toJson()).toList(),
-        },
-        'tabs': _tabs.map((t) => t.toJson()).toList(),
-      };
+      final moduleSettings = _rawSettings?.map((key, value) {
+        return MapEntry(key, SettingItem.fromJson(value as Map<String, dynamic>));
+      }) ?? {};
 
-      // 2. Save to Drive
-      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
-      if (driveService == null) throw Exception("Not authenticated");
-
-      // Check if config exists
-      final existingFileId = await driveService.getFileId(widget.module.id, 'config');
-
-      String? fileId = existingFileId;
-      if (existingFileId != null) {
-        debugPrint('Updating existing config sheet ($existingFileId)...');
-        await driveService.updateModuleConfig(existingFileId, jsonMap);
-      } else {
-        debugPrint('Creating new config sheet in ${widget.module.id}...');
-        fileId = await driveService.createModuleConfig(widget.module.id, 'config', jsonMap);
-      }
-
-      // 3. Update Local Cache
-      final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
-      final schemaService = schemaProvider.service;
-      final remoteModifiedTime = await driveService.getFileModifiedTime(fileId!);
-      
-      await schemaService.cacheConfig(
-        widget.module.id, 
-        jsonMap, 
-        fileId: fileId, 
-        modifiedTime: remoteModifiedTime?.toIso8601String()
+      // 1. Construct schema object
+      final updatedSchema = ModuleSchema(
+        id: widget.module.id,
+        name: _settingsValues['name'] ?? widget.module.name,
+        icon: _settingsValues['icon'] ?? widget.module.icon,
+        primaryColor: _settingsValues['primaryColor'] ?? widget.module.primaryColor,
+        version: _settingsValues['version'] ?? widget.module.version,
+        settings: moduleSettings,
+        dashboard: DashboardConfig(cards: _cards),
+        tabs: _tabs,
       );
 
-      // Clear memory cache so it reloads from disk on next access
-      schemaProvider.updateMemoryCache(widget.module.id, null);
+      // 2. Save via SchemaService
+      final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+      await schemaProvider.service.saveModuleConfig(widget.module.id, updatedSchema);
+
+      // 3. Update memory cache
+      schemaProvider.updateMemoryCache(widget.module.id, updatedSchema);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

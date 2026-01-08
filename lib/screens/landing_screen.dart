@@ -44,13 +44,10 @@ class _LandingScreenState extends State<LandingScreen> {
           }
 
           if (driveProvider.driveService != null) {
-            final file = await driveProvider.driveService!.driveApi.files.get(
-              lastWorkspaceId,
-              $fields: 'id, name, mimeType, parents, properties'
-            ) as drive.File;
+            final success = await Provider.of<WorkspaceProvider>(context, listen: false)
+                .restorePreviousSession();
             
-            if (mounted) {
-              Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(file);
+            if (success && mounted) {
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(builder: (_) => const DashboardScreen()),
               );
@@ -59,7 +56,6 @@ class _LandingScreenState extends State<LandingScreen> {
           }
         } catch (e) {
           debugPrint('Error restoring workspace: $e');
-          // If restore fails (e.g. 404), fall through to scanning
         }
       }
 

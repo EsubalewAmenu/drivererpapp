@@ -10,6 +10,7 @@ import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
+import 'package:drivererpapp/models/company_model.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -42,7 +43,12 @@ void main() {
     when(() => mockAuthService.signInSilently()).thenAnswer((_) async {});
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
+    
+    // Workspace Provider stubs
     when(() => mockWorkspaceProvider.hasWorkspace).thenReturn(false);
+    when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
+    when(() => mockWorkspaceProvider.companies).thenReturn([]);
+    when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
   });
 
   Widget createTestApp() {
@@ -75,9 +81,12 @@ void main() {
     
     // Mock Drive Service for scanning
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
-    when(() => mockDriveService.listWorkspaces(any())).thenAnswer((_) async => [
-      drive.File()..name = 'Test Workspace'..id = 'ws123'
-    ]);
+    // Note: listWorkspaces is no longer called by SystemScanningScreen, but we mock companies for Selector
+    
+    final companies = [
+      Company(id: 'c1', name: 'Test Workspace', folderId: 'ws123', role: 'Owner')
+    ];
+    when(() => mockWorkspaceProvider.companies).thenReturn(companies);
 
     await tester.tap(find.text('Continue with Google'));
     await tester.pumpAndSettle();

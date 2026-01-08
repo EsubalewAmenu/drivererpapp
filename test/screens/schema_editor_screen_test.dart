@@ -16,6 +16,7 @@ class MockDriveProvider extends Mock implements DriveProvider {}
 class MockSchemaProvider extends Mock implements SchemaProvider {}
 class MockDriveService extends Mock implements DriveService {}
 class MockSchemaService extends Mock implements SchemaService {}
+class FakeModuleSchema extends Fake implements ModuleSchema {}
 
 void main() {
   late MockDriveProvider mockDriveProvider;
@@ -23,6 +24,10 @@ void main() {
   late MockDriveService mockDriveService;
   late MockSchemaService mockSchemaService;
   late ModuleSchema testModule;
+
+  setUpAll(() {
+    registerFallbackValue(FakeModuleSchema());
+  });
 
   setUp(() {
     mockDriveProvider = MockDriveProvider();
@@ -119,10 +124,7 @@ void main() {
 
   testWidgets('SchemaEditorScreen saves changes successfully', (WidgetTester tester) async {
     // Setup Mock Responses for Save
-    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'existing_file_id');
-    when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async {});
-    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
-    when(() => mockSchemaService.cacheConfig(any(), any(), fileId: any(named: 'fileId'), modifiedTime: any(named: 'modifiedTime'))).thenAnswer((_) async {});
+    when(() => mockSchemaService.saveModuleConfig(any(), any())).thenAnswer((_) async {});
     when(() => mockSchemaProvider.updateMemoryCache(any(), any())).thenReturn(null);
 
     await tester.pumpWidget(createWidgetUnderTest(false));
@@ -136,9 +138,8 @@ void main() {
     await tester.pumpAndSettle(); // Finish save
 
     // Verify calls
-    verify(() => mockDriveService.getFileId('test_module', 'config')).called(1);
-    verify(() => mockDriveService.updateModuleConfig('existing_file_id', any())).called(1);
-    verify(() => mockSchemaProvider.updateMemoryCache('test_module', null)).called(1);
+    verify(() => mockSchemaService.saveModuleConfig('test_module', any())).called(1);
+    verify(() => mockSchemaProvider.updateMemoryCache('test_module', any(that: isNotNull))).called(1);
     
     // Should verify Success SnackBar
     expect(find.text('Configuration saved successfully.'), findsOneWidget);
@@ -149,7 +150,7 @@ void main() {
 
   testWidgets('SchemaEditorScreen handles save error', (WidgetTester tester) async {
     // Setup Mock Responses for Failure
-    when(() => mockDriveService.getFileId(any(), any())).thenThrow(Exception('Drive Error'));
+    when(() => mockSchemaService.saveModuleConfig(any(), any())).thenThrow(Exception('Drive Error'));
 
     await tester.pumpWidget(createWidgetUnderTest(false));
     await tester.tap(find.text('OPEN EDITOR'));
@@ -162,7 +163,7 @@ void main() {
     await tester.pumpAndSettle(); // Finish save
 
     // Verify calls
-    verify(() => mockDriveService.getFileId('test_module', 'config')).called(1);
+    verify(() => mockSchemaService.saveModuleConfig('test_module', any())).called(1);
     
     // Should verify Error SnackBar
     expect(find.textContaining('Error saving configuration: Exception: Drive Error'), findsOneWidget);

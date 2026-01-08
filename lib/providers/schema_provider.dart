@@ -7,8 +7,8 @@ class SchemaProvider extends ChangeNotifier {
   final SchemaService _schemaService;
   final Map<String, ModuleSchema> _memoryCache = {};
 
-  SchemaProvider({DriveService? driveService}) 
-      : _schemaService = SchemaService(driveService: driveService);
+  SchemaProvider({DriveService? driveService, String? userEmail}) 
+      : _schemaService = SchemaService(driveService: driveService, userEmail: userEmail);
 
   SchemaService get service => _schemaService;
 

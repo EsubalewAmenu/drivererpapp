@@ -8,6 +8,7 @@ import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
+import 'package:drivererpapp/models/company_model.dart';
 
 import 'package:googleapis/drive/v3.dart' as drive;
 
@@ -35,10 +36,12 @@ void main() {
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockThemeProvider.themeMode).thenReturn(ThemeMode.light);
-    // Be sure to mock methods called by WorkspaceProvider if any during init, 
-    // but WorkspaceProvider.getLastWorkspaceId is static and uses SharedPreferences directly.
-    // However, setWorkspace is called on the provider instance.
+    
+    // Stub WorkspaceProvider methods
     when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
+    when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
+    when(() => mockWorkspaceProvider.companies).thenReturn(<Company>[]);
+    when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
   });
 
   Widget createScanningScreen({bool autoRestore = true}) {
