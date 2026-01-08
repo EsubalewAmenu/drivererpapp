@@ -11,12 +11,32 @@ class AddColumnDialog extends StatefulWidget {
 
 class _AddColumnDialogState extends State<AddColumnDialog> {
   final _labelController = TextEditingController();
+  final _keyController = TextEditingController();
+  bool _isKeyManuallyEdited = false;
   String _currentType = 'text';
   bool _isRequired = false;
 
   @override
+  void initState() {
+    super.initState();
+    _labelController.addListener(_onLabelChanged);
+  }
+
+  void _onLabelChanged() {
+    if (!_isKeyManuallyEdited) {
+      _keyController.text = _labelController.text
+          .toLowerCase()
+          .trim()
+          .replaceAll(RegExp(r'\s+'), '_')
+          .replaceAll(RegExp(r'[^a-z0-9_]'), '');
+    }
+  }
+
+  @override
   void dispose() {
+    _labelController.removeListener(_onLabelChanged);
     _labelController.dispose();
+    _keyController.dispose();
     super.dispose();
   }
 
@@ -34,8 +54,26 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
             TextField(
               controller: _labelController,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-              decoration: const InputDecoration(labelText: 'Column Name'),
+              decoration: const InputDecoration(
+                labelText: 'Column Name',
+                hintText: 'e.g. Unit Price',
+              ),
               autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _keyController,
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+              decoration: const InputDecoration(
+                labelText: 'Column Key (Database/Spreadsheet)',
+                hintText: 'e.g. unit_price',
+                helperText: 'Used as the column header in your spreadsheet.',
+              ),
+              onChanged: (val) {
+                if (val.isNotEmpty) {
+                  _isKeyManuallyEdited = true;
+                }
+              },
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
@@ -69,12 +107,11 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
         TextButton(
           onPressed: () {
-            if (_labelController.text.isEmpty) return;
+            if (_labelController.text.isEmpty || _keyController.text.isEmpty) return;
             
-            final key = _labelController.text.toLowerCase().replaceAll(' ', '_');
             final newCol = ColumnConfig(
-              key: key,
-              label: _labelController.text,
+              key: _keyController.text.trim(),
+              label: _labelController.text.trim(),
               type: _currentType,
               isRequired: _isRequired,
             );

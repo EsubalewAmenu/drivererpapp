@@ -29,14 +29,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Add Column'), findsOneWidget);
-    await tester.enterText(find.byType(TextField), 'Price');
+    
+    // Fill Name
+    await tester.enterText(find.byType(TextField).first, 'Full Price');
+    await tester.pump(); // Allow listener to run
+
+    // Verify auto-filled key
+    expect(find.text('full_price'), findsOneWidget);
+
+    // Overwrite key
+    await tester.enterText(find.byType(TextField).last, 'custom_price');
     
     await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
 
     expect(result, isNotNull);
-    expect(result!.label, 'Price');
-    expect(result!.key, 'price');
+    expect(result!.label, 'Full Price');
+    expect(result!.key, 'custom_price');
     expect(result!.type, 'text'); // Default type
   });
 }
