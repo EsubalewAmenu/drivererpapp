@@ -31,6 +31,9 @@ void main() {
     
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(mockWorkspace);
     when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
+
+    // Mock for DashboardScreen which is navigated to after activation
+    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
   });
 
   Widget createConfigScreen() {
@@ -52,13 +55,31 @@ void main() {
     );
   }
 
-  testWidgets('ModuleConfigurationScreen renders correctly', (WidgetTester tester) async {
+  testWidgets('ModuleConfigurationScreen renders and activates', (WidgetTester tester) async {
     await tester.pumpWidget(createConfigScreen());
     await tester.pump(); 
     await tester.pumpAndSettle();
 
     expect(find.text('CONFIGURE CRM'), findsOneWidget);
-    expect(find.text('Customize your module'), findsOneWidget);
-    expect(find.text('COMPLETE SETUP'), findsOneWidget);
+    
+    // crm.json has "settings" -> "name" -> "label": "Name"
+    expect(find.text('NAME'), findsOneWidget);
+
+    // Mock activation
+    final moduleFolder = MockDriveFile();
+    when(() => moduleFolder.id).thenReturn('folder123');
+    when(() => mockDriveService.createWorkspace(any(), any()))
+        .thenAnswer((_) async => moduleFolder);
+
+    // Tap COMPLETE SETUP
+    await tester.tap(find.text('COMPLETE SETUP'));
+    
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    
+    verify(() => mockDriveService.createWorkspace('ws123', 'CRM')).called(1);
+    expect(find.text('CRM activated successfully!'), findsOneWidget);
   });
 }
