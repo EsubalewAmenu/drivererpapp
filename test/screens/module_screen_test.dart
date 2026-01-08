@@ -76,7 +76,14 @@ void main() {
     when(() => mockSchemaService.syncConfig(any())).thenAnswer((_) async => fullModule.toJson());
     
     // Drive Service defaults
-    when(() => mockDriveService.fetchRecords(any(), any(), any())).thenAnswer((_) async => []);
+    when(() => mockDriveService.fetchRecords(
+      any(), 
+      any(), 
+      any(),
+      offset: any(named: 'offset'),
+      limit: any(named: 'limit'),
+      fetchSubTables: any(named: 'fetchSubTables'),
+    )).thenAnswer((_) async => []);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'f123');
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
     when(() => mockDriveService.getFileRevisions(any())).thenAnswer((_) async => []);
