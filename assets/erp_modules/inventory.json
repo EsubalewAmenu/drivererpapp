@@ -42,6 +42,7 @@
         "subtitle_key": "warehouse"
       },
       "detail_template": {
+        "template": "standard",
         "title_key": "entry_date",
         "subtitle_key": "warehouse",
         "show_all_fields": true
@@ -93,6 +94,7 @@
         "detail_keys": ["is_item_variants"]
       },
       "detail_template": {
+        "template": "modern",
         "title_key": "item_name",
         "subtitle_key": "barcode_sku",
         "image_key": "item_image",

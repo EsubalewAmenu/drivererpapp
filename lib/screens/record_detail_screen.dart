@@ -24,9 +24,11 @@ class RecordDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isModern = detailTemplate?.template == 'modern';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
+      extendBodyBehindAppBar: isModern,
       appBar: AppBar(
         title: Text(
           'DETAILS',
@@ -34,22 +36,109 @@ class RecordDetailScreen extends StatelessWidget {
             fontWeight: FontWeight.w900, 
             letterSpacing: 1.0, 
             fontSize: 16,
+            color: isModern ? Colors.white : theme.textTheme.titleMedium?.color,
           ),
         ),
+        backgroundColor: isModern ? Colors.transparent : null,
+        elevation: 0,
+        iconTheme: IconThemeData(color: isModern ? Colors.white : theme.iconTheme.color),
         centerTitle: true,
       ),
       body: SafeArea(
+        top: !isModern,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
+          padding: isModern ? EdgeInsets.zero : const EdgeInsets.all(24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(context),
+              if (isModern) _buildModernHeader(context) else _buildHeader(context),
               const SizedBox(height: 32),
-              _buildFieldsList(context),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                child: _buildFieldsList(context),
+              ),
+              const SizedBox(height: 32),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildModernHeader(BuildContext context) {
+    final theme = Theme.of(context);
+    
+    final headerTitle = detailTemplate?.titleKey != null ? (data[detailTemplate!.titleKey]?.toString() ?? title) : title;
+    final headerSubtitle = detailTemplate?.subtitleKey != null ? (data[detailTemplate!.subtitleKey]?.toString() ?? '') : '';
+    final imageUrl = detailTemplate?.imageKey != null ? (data[detailTemplate!.imageKey]?.toString() ?? '') : '';
+    final hasImage = imageUrl.isNotEmpty && (imageUrl.startsWith('http') || imageUrl.contains('data:image'));
+
+    return Container(
+      width: double.infinity,
+      height: 300,
+      decoration: BoxDecoration(
+        color: primaryColor,
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (hasImage) 
+            Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+            ),
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withValues(alpha: 0.4),
+                  Colors.black.withValues(alpha: 0.0),
+                  Colors.black.withValues(alpha: 0.7),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: 24,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'RECORD ENTRY',
+                  style: AppTheme.inter(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white.withValues(alpha: 0.7),
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  headerTitle,
+                  style: AppTheme.inter(
+                    fontSize: 28,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+                if (headerSubtitle.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    headerSubtitle,
+                    style: AppTheme.inter(
+                      fontSize: 16,
+                      color: Colors.white.withValues(alpha: 0.9),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

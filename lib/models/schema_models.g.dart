@@ -133,6 +133,7 @@ Map<String, dynamic> _$ListTemplateConfigToJson(ListTemplateConfig instance) =>
 DetailTemplateConfig _$DetailTemplateConfigFromJson(
   Map<String, dynamic> json,
 ) => DetailTemplateConfig(
+  template: json['template'] as String? ?? 'standard',
   titleKey: json['title_key'] as String?,
   subtitleKey: json['subtitle_key'] as String?,
   imageKey: json['image_key'] as String?,
@@ -145,6 +146,7 @@ DetailTemplateConfig _$DetailTemplateConfigFromJson(
 Map<String, dynamic> _$DetailTemplateConfigToJson(
   DetailTemplateConfig instance,
 ) => <String, dynamic>{
+  'template': instance.template,
   'title_key': instance.titleKey,
   'subtitle_key': instance.subtitleKey,
   'image_key': instance.imageKey,

@@ -74,15 +74,27 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   @override
   void didUpdateWidget(ModuleTabScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // If the tab config or module schema changed, we might need to refresh
+    // If the tab config or module schema changed, we might need to update state
     if (oldWidget.tab != widget.tab || oldWidget.module != widget.module) {
+      debugPrint('Tab or Module schema updated for ${widget.tab.id}, updating sync state...');
+      
+      setState(() {
+        _activeFilters = List.from(widget.tab.quickFilters ?? []);
+        _showFilters = widget.tab.enableCustomFilters ?? true;
+        
+        // Reset active filter if it no longer exists in the new list
+        if (_activeFilter != 'all' && _activeFilter != null) {
+          bool exists = _activeFilters.any((f) => f.key == _activeFilter);
+          if (!exists) _activeFilter = 'all';
+        }
+      });
+      
+      // If critical fields changed, reload data
       if (oldWidget.tab.id != widget.tab.id) {
-         _activeFilters = List.from(widget.tab.quickFilters ?? []);
-         _showFilters = true;
-         _activeFilter = 'all';
+        _loadData(refresh: true);
+      } else {
+        _applyFilters();
       }
-      debugPrint('Tab or Module schema updated for ${widget.tab.id}, refreshing tab...');
-      _loadData(refresh: true);
     }
   }
 
@@ -358,11 +370,15 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   void _openSettings() async {
+    // Get latest tab configuration
+    final latestModule = context.read<SchemaProvider>().getFromMemory(widget.module?.id ?? '');
+    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == widget.tab.id, orElse: () => widget.tab) ?? widget.tab;
+
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (context) => TabSettingsScreen(
-          tab: widget.tab,
+          tab: currentTab,
           primaryColor: widget.primaryColor,
         ),
       ),
@@ -393,7 +409,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }) async {
     try {
       final schemaProvider = context.read<SchemaProvider>();
-      final currentModule = widget.module!;
+      
+      // Always get the latest module from memory to avoid stale data
+      final currentModule = schemaProvider.getFromMemory(widget.module!.id) ?? widget.module!;
       
       final updatedTab = TabConfig(
         id: widget.tab.id,
@@ -690,17 +708,21 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   void _openRecordDetail(Map<String, dynamic> item) {
-    final titleKey = widget.tab.detailTemplate?.titleKey ?? widget.tab.listTemplate?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
+    // Get the latest tab config from memory if available
+    final latestModule = context.read<SchemaProvider>().getFromMemory(widget.module?.id ?? '');
+    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == widget.tab.id, orElse: () => widget.tab) ?? widget.tab;
+
+    final titleKey = currentTab.detailTemplate?.titleKey ?? currentTab.listTemplate?.titleKey ?? (currentTab.columns.isNotEmpty ? currentTab.columns[0].key : '');
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => RecordDetailScreen(
           data: item,
-          columns: widget.tab.columns,
+          columns: currentTab.columns,
           primaryColor: widget.primaryColor,
           title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
           settings: widget.settings,
-          detailTemplate: widget.tab.detailTemplate,
+          detailTemplate: currentTab.detailTemplate,
         ),
       ),
     );

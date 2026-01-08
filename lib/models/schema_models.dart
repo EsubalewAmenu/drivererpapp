@@ -133,6 +133,7 @@ class ListTemplateConfig {
 
 @JsonSerializable(explicitToJson: true)
 class DetailTemplateConfig {
+  final String template; // 'standard', 'modern'
   @JsonKey(name: 'title_key')
   final String? titleKey;
   @JsonKey(name: 'subtitle_key')
@@ -145,6 +146,7 @@ class DetailTemplateConfig {
   final List<String>? detailKeys;
 
   DetailTemplateConfig({
+    this.template = 'standard',
     this.titleKey,
     this.subtitleKey,
     this.imageKey,

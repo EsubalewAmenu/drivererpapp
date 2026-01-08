@@ -32,6 +32,7 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
   List<String> _detailKeys = [];
 
   // Detail State (Item)
+  late String _selectedDetailTemplate;
   String? _detailTitleKey;
   String? _detailSubtitleKey;
   String? _detailImageKey;
@@ -57,6 +58,7 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
 
     // Initialize Detail
     final detailConfig = widget.tab.detailTemplate;
+    _selectedDetailTemplate = detailConfig?.template ?? 'standard';
     _detailTitleKey = detailConfig?.titleKey ?? _titleKey;
     _detailSubtitleKey = detailConfig?.subtitleKey ?? _subtitleKey;
     
@@ -93,6 +95,7 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
         detailKeys: _detailKeys,
       ),
       'detailTemplate': DetailTemplateConfig(
+        template: _selectedDetailTemplate,
         titleKey: _detailTitleKey,
         subtitleKey: _detailSubtitleKey,
         imageKey: _detailImageKey,
@@ -217,6 +220,23 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text('CHOOSE LAYOUT', style: _sectionHeaderStyle(theme)),
+          const SizedBox(height: 16),
+          _buildDetailTemplateOption(
+            'standard', 
+            'Standard Card', 
+            'Classic centered header with rounded borders', 
+            Icons.crop_16_9_rounded
+          ),
+          const SizedBox(height: 12),
+          _buildDetailTemplateOption(
+            'modern', 
+            'Modern Visual', 
+            'Full-width image header with integrated titles', 
+            Icons.view_quilt_rounded
+          ),
+          const SizedBox(height: 32),
+          
           Text('HEADER CONFIGURATION', style: _sectionHeaderStyle(theme)),
           const SizedBox(height: 16),
           _buildColumnDropdown('Main Title', _detailTitleKey, (val) => setState(() => _detailTitleKey = val)),
@@ -258,6 +278,50 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
             }),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildDetailTemplateOption(String value, String title, String subtitle, IconData icon) {
+    final isSelected = _selectedDetailTemplate == value;
+    final theme = Theme.of(context);
+    
+    return InkWell(
+      onTap: () => setState(() => _selectedDetailTemplate = value),
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? widget.primaryColor.withValues(alpha: 0.1) : theme.cardTheme.color,
+          border: Border.all(
+            color: isSelected ? widget.primaryColor : Colors.transparent,
+            width: 2,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: isSelected ? widget.primaryColor : theme.iconTheme.color),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: AppTheme.inter(
+                    fontWeight: FontWeight.w600,
+                    color: isSelected ? widget.primaryColor : theme.textTheme.bodyLarge?.color,
+                  )),
+                  Text(subtitle, style: AppTheme.inter(
+                    fontSize: 12,
+                    color: theme.textTheme.bodyMedium?.color,
+                  )),
+                ],
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle, color: widget.primaryColor, size: 20),
+          ],
+        ),
       ),
     );
   }

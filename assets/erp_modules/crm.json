@@ -28,6 +28,7 @@
         "trailing_key": "balance"
       },
       "detail_template": {
+        "template": "standard",
         "title_key": "name",
         "subtitle_key": "type",
         "show_all_fields": true
