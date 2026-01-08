@@ -28,7 +28,8 @@ void main() {
       settings: {},
       tabs: [
         TabConfig(id: 'users', label: 'Users', columns: [
-          ColumnConfig(key: 'name', label: 'Name', type: 'text')
+          ColumnConfig(key: 'name', label: 'Name', type: 'text'),
+          ColumnConfig(key: 'dept', label: 'Dept', type: 'text'),
         ]),
       ],
       dashboard: DashboardConfig(cards: []),
@@ -37,13 +38,15 @@ void main() {
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
   });
 
-  testWidgets('DynamicRelationField fetching items', (WidgetTester tester) async {
+  testWidgets('DynamicRelationField fetching and selecting items', (WidgetTester tester) async {
     final column = ColumnConfig(
       key: 'user',
       label: 'User',
       type: 'relation',
       options: 'users', // Refers to 'users' tab
     );
+
+    String? selectedValue;
 
     // Mock response
     when(() => mockDriveService.fetchRecords(
@@ -54,11 +57,73 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
-    ))
-        .thenAnswer((_) async => [
-              {'name': 'John Doe'},
-              {'name': 'Jane Doe'},
-            ]);
+    )).thenAnswer((_) async => [
+      {'name': 'John Doe'},
+      {'name': 'Jane Doe'},
+    ]);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: DynamicRelationField(
+              column: column,
+              value: null,
+              module: testModule,
+              onChanged: (v) => selectedValue = v,
+              data: {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('USER'), findsOneWidget);
+
+    // Tap to open
+    await tester.tap(find.byType(InkWell));
+    await tester.pump(); 
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
+    // Check if dialog is open with items
+    expect(find.text('Select Users'), findsOneWidget);
+    expect(find.text('John Doe'), findsOneWidget);
+
+    // Select John Doe
+    await tester.tap(find.text('John Doe'));
+    await tester.pumpAndSettle();
+
+    // Check if callback was called and dialog closed
+    expect(selectedValue, 'John Doe');
+    expect(find.text('Select Users'), findsNothing);
+  });
+
+  testWidgets('DynamicRelationField dependency filtering', (WidgetTester tester) async {
+    final column = ColumnConfig(
+      key: 'user',
+      label: 'User',
+      type: 'relation',
+      options: 'users',
+      dependsOn: 'selected_dept',
+    );
+
+    // Mock response with items from different departments
+    when(() => mockDriveService.fetchRecords(
+      any(), 
+      any(), 
+      'users',
+      offset: any(named: 'offset'),
+      limit: any(named: 'limit'),
+      fetchSubTables: any(named: 'fetchSubTables'),
+      descending: any(named: 'descending'),
+    )).thenAnswer((_) async => [
+      {'name': 'Engineer 1', 'selected_dept': 'Engineering'},
+      {'name': 'Sales 1', 'selected_dept': 'Sales'},
+    ]);
 
     await tester.pumpWidget(
       MultiProvider(
@@ -72,24 +137,57 @@ void main() {
               value: null,
               module: testModule,
               onChanged: (_) {},
-              data: {},
+              data: {'selected_dept': 'Engineering'},
             ),
           ),
         ),
       ),
     );
 
-    expect(find.text('USER'), findsOneWidget);
-
     // Tap to open
     await tester.tap(find.byType(InkWell));
-    await tester.pump(); // Start loading
-    await tester.pump(const Duration(milliseconds: 500)); // Wait for snackbar? Or just pumpSettle
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
-    // Check if dialog is open with items
-    expect(find.text('Select Users'), findsOneWidget);
-    expect(find.text('John Doe'), findsOneWidget);
-    expect(find.text('Jane Doe'), findsOneWidget);
+    // Should only see Engineer 1
+    expect(find.text('Engineer 1'), findsOneWidget);
+    expect(find.text('Sales 1'), findsNothing);
+  });
+
+  testWidgets('DynamicRelationField blocked if dependency parent is missing', (WidgetTester tester) async {
+    final column = ColumnConfig(
+      key: 'user',
+      label: 'User',
+      type: 'relation',
+      options: 'users',
+      dependsOn: 'selected_dept',
+    );
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: DynamicRelationField(
+              column: column,
+              value: null,
+              module: testModule,
+              onChanged: (_) {},
+              data: {}, // Missing selected_dept
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Tap should show snackbar and NOT open dialog
+    await tester.tap(find.byType(InkWell));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Please select a value for selected_dept first'), findsOneWidget);
+    expect(find.text('Select Users'), findsNothing);
   });
 }
