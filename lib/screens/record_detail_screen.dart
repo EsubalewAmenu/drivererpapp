@@ -9,6 +9,7 @@ class RecordDetailScreen extends StatelessWidget {
   final Color primaryColor;
   final String title;
   final Map<String, SettingItem> settings;
+  final DetailTemplateConfig? detailTemplate;
 
   const RecordDetailScreen({
     super.key,
@@ -17,6 +18,7 @@ class RecordDetailScreen extends StatelessWidget {
     required this.primaryColor,
     required this.title,
     this.settings = const {},
+    this.detailTemplate,
   });
 
   @override
@@ -26,19 +28,12 @@ class RecordDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: theme.appBarTheme.backgroundColor ?? theme.scaffoldBackgroundColor,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_rounded, color: theme.iconTheme.color),
-          onPressed: () => Navigator.pop(context),
-        ),
         title: Text(
           'DETAILS',
           style: AppTheme.inter(
             fontWeight: FontWeight.w900, 
             letterSpacing: 1.0, 
             fontSize: 16,
-            color: theme.textTheme.titleMedium?.color
           ),
         ),
         centerTitle: true,
@@ -61,46 +56,86 @@ class RecordDetailScreen extends StatelessWidget {
 
   Widget _buildHeader(BuildContext context) {
     final theme = Theme.of(context);
-    final cardColor = theme.cardTheme.color ?? theme.cardColor;
+    final cardColor = theme.cardTheme.color;
+    
+    final headerTitle = detailTemplate?.titleKey != null ? (data[detailTemplate!.titleKey]?.toString() ?? title) : title;
+    final headerSubtitle = detailTemplate?.subtitleKey != null ? (data[detailTemplate!.subtitleKey]?.toString() ?? '') : '';
+    final imageUrl = detailTemplate?.imageKey != null ? (data[detailTemplate!.imageKey]?.toString() ?? '') : '';
 
     return Container(
-      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.1)),
       ),
-      child: Row(
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: primaryColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(Icons.description_rounded, color: primaryColor, size: 32),
-          ),
-          const SizedBox(width: 24),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'RECORD ENTRY',
-                  style: AppTheme.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: theme.textTheme.bodyMedium?.color,
-                    letterSpacing: 1.0,
-                  ),
+          if (imageUrl.isNotEmpty && (imageUrl.startsWith('http') || imageUrl.contains('data:image'))) 
+            Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: theme.scaffoldBackgroundColor,
+              ),
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: primaryColor.withValues(alpha: 0.05),
+                  child: Icon(Icons.broken_image_rounded, color: primaryColor.withValues(alpha: 0.4), size: 48),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  title,
-                  style: AppTheme.inter(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                    color: theme.textTheme.titleLarge?.color,
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Row(
+              children: [
+                if (imageUrl.isEmpty || !imageUrl.startsWith('http'))
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withValues(alpha: 0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(Icons.description_rounded, color: primaryColor, size: 32),
+                  ),
+                if (imageUrl.isEmpty || !imageUrl.startsWith('http'))
+                  const SizedBox(width: 24),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'RECORD ENTRY',
+                        style: AppTheme.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6),
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        headerTitle,
+                        style: AppTheme.inter(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w700,
+                          color: theme.textTheme.titleLarge?.color,
+                        ),
+                      ),
+                      if (headerSubtitle.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          headerSubtitle,
+                          style: AppTheme.inter(
+                            fontSize: 16,
+                            color: theme.textTheme.bodyMedium?.color,
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
@@ -112,31 +147,36 @@ class RecordDetailScreen extends StatelessWidget {
   }
 
   Widget _buildFieldsList(BuildContext context) {
-    // Filter columns based on dependencies and visibility
-    final visibleColumns = columns.where((col) {
-      // 1. Check hidden
-      if (col.hidden == true) return false;
+    // 1. Determine which columns to show
+    List<ColumnConfig> visibleColumns;
+    
+    if (detailTemplate?.showAllFields ?? true) {
+      visibleColumns = columns;
+    } else {
+      final keys = detailTemplate?.detailKeys ?? [];
+      visibleColumns = columns.where((c) => keys.contains(c.key)).toList();
+    }
 
-      // 2. Check dependencies
+    // 2. Filter based on logic dependencies
+    final filteredColumns = visibleColumns.where((col) {
+      if (col.hidden == true) return false;
+      
+      // Don't show header fields in the list if already in header
+      if (col.key == detailTemplate?.titleKey || col.key == detailTemplate?.subtitleKey || col.key == detailTemplate?.imageKey) {
+        return false;
+      }
+
       if (col.dependsOn != null && col.dependsOn!.isNotEmpty) {
         final dep = col.dependsOn!;
-        
         if (dep.startsWith('settings.')) {
           final settingKey = dep.replaceFirst('settings.', '');
           final setting = settings[settingKey];
-          if (setting == null) return true; // Show if setting not found (safe fallback)
-          
+          if (setting == null) return true;
           final val = setting.value;
-          if (val == null || val == false || (val is String && val.isEmpty) || (val is List && val.isEmpty)) {
-            return false;
-          }
+          if (val == null || val == false || (val is String && val.isEmpty) || (val is List && val.isEmpty)) return false;
         } else {
-          // Local data dependency
           final val = data[dep];
-          // Truthy check for booleans, strings, lists
-          if (val == null || val == false || (val is String && val.isEmpty) || (val is List && val.isEmpty)) {
-            return false;
-          }
+          if (val == null || val == false || (val is String && val.isEmpty) || (val is List && val.isEmpty)) return false;
         }
       }
       return true;

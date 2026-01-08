@@ -90,6 +90,8 @@ class TabConfig {
   final bool? enableCustomFilters;
   @JsonKey(name: 'list_template')
   final ListTemplateConfig? listTemplate;
+  @JsonKey(name: 'detail_template')
+  final DetailTemplateConfig? detailTemplate;
 
   TabConfig({
     required this.id,
@@ -98,6 +100,7 @@ class TabConfig {
     this.quickFilters,
     this.enableCustomFilters = true,
     this.listTemplate,
+    this.detailTemplate,
   });
 
   factory TabConfig.fromJson(Map<String, dynamic> json) => _$TabConfigFromJson(json);
@@ -126,6 +129,31 @@ class ListTemplateConfig {
 
   factory ListTemplateConfig.fromJson(Map<String, dynamic> json) => _$ListTemplateConfigFromJson(json);
   Map<String, dynamic> toJson() => _$ListTemplateConfigToJson(this);
+}
+
+@JsonSerializable(explicitToJson: true)
+class DetailTemplateConfig {
+  @JsonKey(name: 'title_key')
+  final String? titleKey;
+  @JsonKey(name: 'subtitle_key')
+  final String? subtitleKey;
+  @JsonKey(name: 'image_key')
+  final String? imageKey;
+  @JsonKey(name: 'show_all_fields')
+  final bool? showAllFields;
+  @JsonKey(name: 'detail_keys')
+  final List<String>? detailKeys;
+
+  DetailTemplateConfig({
+    this.titleKey,
+    this.subtitleKey,
+    this.imageKey,
+    this.showAllFields = true,
+    this.detailKeys,
+  });
+
+  factory DetailTemplateConfig.fromJson(Map<String, dynamic> json) => _$DetailTemplateConfigFromJson(json);
+  Map<String, dynamic> toJson() => _$DetailTemplateConfigToJson(this);
 }
 
 @JsonSerializable(explicitToJson: true)

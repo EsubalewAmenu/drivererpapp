@@ -27,6 +27,11 @@
         "subtitle_key": "type",
         "trailing_key": "balance"
       },
+      "detail_template": {
+        "title_key": "name",
+        "subtitle_key": "type",
+        "show_all_fields": true
+      },
       "quick_filters": [
         { "label": "All Contacts", "key": "all", "field": "type", "operator": "contains", "value": "" },
         { "label": "Clients", "key": "clients", "field": "type", "operator": "==", "value": "CLIENT" },

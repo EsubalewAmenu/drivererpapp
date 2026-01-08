@@ -24,17 +24,24 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
   late List<QuickFilter> _filters;
   late bool _filtersEnabled;
   
-  // Display State
+  // Display State (List)
   late String _selectedTemplate;
   String? _titleKey;
   String? _subtitleKey;
   String? _trailingKey;
   List<String> _detailKeys = [];
 
+  // Detail State (Item)
+  String? _detailTitleKey;
+  String? _detailSubtitleKey;
+  String? _detailImageKey;
+  late bool _detailShowAll;
+  List<String> _detailFields = [];
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     
     // Initialize Filters
     _filters = List.from(widget.tab.quickFilters ?? []);
@@ -47,6 +54,25 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
     _subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : null);
     _trailingKey = config?.trailingKey;
     _detailKeys = List.from(config?.detailKeys ?? []);
+
+    // Initialize Detail
+    final detailConfig = widget.tab.detailTemplate;
+    _detailTitleKey = detailConfig?.titleKey ?? _titleKey;
+    _detailSubtitleKey = detailConfig?.subtitleKey ?? _subtitleKey;
+    
+    // Auto-detect image key if not set
+    if (detailConfig?.imageKey != null) {
+      _detailImageKey = detailConfig!.imageKey;
+    } else {
+      try {
+        _detailImageKey = widget.tab.columns.firstWhere((c) => c.type == 'image').key;
+      } catch (_) {
+        _detailImageKey = null;
+      }
+    }
+    
+    _detailShowAll = detailConfig?.showAllFields ?? true;
+    _detailFields = List.from(detailConfig?.detailKeys ?? []);
   }
 
   @override
@@ -66,6 +92,13 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
         trailingKey: _trailingKey,
         detailKeys: _detailKeys,
       ),
+      'detailTemplate': DetailTemplateConfig(
+        titleKey: _detailTitleKey,
+        subtitleKey: _detailSubtitleKey,
+        imageKey: _detailImageKey,
+        showAllFields: _detailShowAll,
+        detailKeys: _detailFields,
+      ),
     });
   }
 
@@ -83,7 +116,8 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
           unselectedLabelColor: theme.textTheme.bodyMedium?.color,
           indicatorColor: widget.primaryColor,
           tabs: const [
-            Tab(text: 'Display'),
+            Tab(text: 'List'),
+            Tab(text: 'Details'),
             Tab(text: 'Filters'),
           ],
         ),
@@ -94,7 +128,7 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
           )
         ],
       ),
-      floatingActionButton: _tabController.index == 1 && _filtersEnabled
+      floatingActionButton: _tabController.index == 2 && _filtersEnabled
         ? FloatingActionButton(
             onPressed: _addFilter,
             backgroundColor: widget.primaryColor,
@@ -105,13 +139,14 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
         controller: _tabController,
         children: [
           _buildDisplayTab(theme),
+          _buildDetailTab(theme),
           _buildFiltersTab(theme),
         ],
       ),
     );
   }
 
-  // --- Display Settings UI ---
+  // --- Display Settings UI (List) ---
 
   Widget _buildDisplayTab(ThemeData theme) {
     return SingleChildScrollView(
@@ -163,6 +198,59 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
                       _detailKeys.add(col.key);
                     } else {
                       _detailKeys.remove(col.key);
+                    }
+                  });
+                },
+              );
+            }),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // --- Detail Settings UI (Item) ---
+
+  Widget _buildDetailTab(ThemeData theme) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('HEADER CONFIGURATION', style: _sectionHeaderStyle(theme)),
+          const SizedBox(height: 16),
+          _buildColumnDropdown('Main Title', _detailTitleKey, (val) => setState(() => _detailTitleKey = val)),
+          const SizedBox(height: 16),
+          _buildColumnDropdown('Subtitle', _detailSubtitleKey, (val) => setState(() => _detailSubtitleKey = val), isOptional: true),
+          const SizedBox(height: 16),
+          _buildColumnDropdown('Header Image', _detailImageKey, (val) => setState(() => _detailImageKey = val), isOptional: true),
+          
+          const SizedBox(height: 32),
+          Text('FIELD VISIBILITY', style: _sectionHeaderStyle(theme)),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            title: const Text('Show All Fields'),
+            subtitle: const Text('Automatically display all visible columns'),
+            value: _detailShowAll,
+            activeColor: widget.primaryColor,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (val) => setState(() => _detailShowAll = val),
+          ),
+          
+          if (!_detailShowAll) ...[
+            const SizedBox(height: 16),
+            ...widget.tab.columns.where((c) => c.hidden != true).map((col) {
+              return CheckboxListTile(
+                title: Text(col.label, style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
+                value: _detailFields.contains(col.key),
+                activeColor: widget.primaryColor,
+                contentPadding: EdgeInsets.zero,
+                onChanged: (val) {
+                  setState(() {
+                    if (val == true) {
+                      _detailFields.add(col.key);
+                    } else {
+                      _detailFields.remove(col.key);
                     }
                   });
                 },
@@ -376,3 +464,4 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
     });
   }
 }
+

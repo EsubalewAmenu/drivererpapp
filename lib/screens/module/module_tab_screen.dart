@@ -374,11 +374,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       final newEnabled = result['enableFilters'] as bool;
       final newFilters = result['filters'] as List<QuickFilter>;
       final newListTemplate = result['listTemplate'] as ListTemplateConfig;
+      final newDetailTemplate = result['detailTemplate'] as DetailTemplateConfig;
 
       _saveConfiguration(
         enableFilters: newEnabled,
         filters: newFilters,
         listTemplate: newListTemplate,
+        detailTemplate: newDetailTemplate,
       );
     }
   }
@@ -387,6 +389,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     required bool enableFilters,
     required List<QuickFilter> filters,
     ListTemplateConfig? listTemplate,
+    DetailTemplateConfig? detailTemplate,
   }) async {
     try {
       final schemaProvider = context.read<SchemaProvider>();
@@ -399,6 +402,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         quickFilters: filters,
         enableCustomFilters: enableFilters,
         listTemplate: listTemplate,
+        detailTemplate: detailTemplate,
       );
 
       final updatedTabs = currentModule.tabs.map((t) {
@@ -686,7 +690,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   void _openRecordDetail(Map<String, dynamic> item) {
-    final titleKey = widget.tab.listTemplate?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
+    final titleKey = widget.tab.detailTemplate?.titleKey ?? widget.tab.listTemplate?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -696,6 +700,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           primaryColor: widget.primaryColor,
           title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
           settings: widget.settings,
+          detailTemplate: widget.tab.detailTemplate,
         ),
       ),
     );
