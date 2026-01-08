@@ -86,7 +86,9 @@ class TabConfig {
   final List<ColumnConfig> columns;
   @JsonKey(name: 'quick_filters')
   final List<QuickFilter>? quickFilters;
+  @JsonKey(name: 'enable_custom_filters')
   final bool? enableCustomFilters;
+  @JsonKey(name: 'list_template')
   final ListTemplateConfig? listTemplate;
 
   TabConfig({
@@ -105,9 +107,13 @@ class TabConfig {
 @JsonSerializable(explicitToJson: true)
 class ListTemplateConfig {
   final String template; // 'high_density', 'standard'
+  @JsonKey(name: 'title_key')
   final String? titleKey;
+  @JsonKey(name: 'subtitle_key')
   final String? subtitleKey;
+  @JsonKey(name: 'trailing_key')
   final String? trailingKey;
+  @JsonKey(name: 'detail_keys')
   final List<String>? detailKeys;
 
   ListTemplateConfig({
@@ -149,14 +155,17 @@ class ColumnConfig {
   final String type;
   final dynamic options; // Can be List<String> or String (reference)
   final String? formula;
+  @JsonKey(name: 'depends_on')
   final String? dependsOn;
   @JsonKey(name: 'default')
   final dynamic defaultValue;
   final List<ColumnConfig>? columns;
   final bool? hidden;
+  @JsonKey(name: 'dynamic_label')
   final String? dynamicLabel;
   @JsonKey(name: 'required')
   final bool? isRequired;
+  @JsonKey(name: 'currency_symbol')
   final String? currencySymbol;
 
   ColumnConfig({
