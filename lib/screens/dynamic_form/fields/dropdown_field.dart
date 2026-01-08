@@ -298,6 +298,14 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
             );
           }).toList(),
           onChanged: widget.onChanged,
+          validator: (value) {
+            if (widget.column.isRequired == true) {
+              if (value == null || value.isEmpty) {
+                return 'This field is required';
+              }
+            }
+            return null;
+          },
         ),
       ],
     );

@@ -29,12 +29,13 @@
       "columns": [
         { "key": "uuid", "label": "ID", "type": "text", "hidden": true },
         { "key": "is_individual", "label": "Is individual?", "type": "boolean" },
-        { "key": "name", "label": "Full Name", "type": "text", "dependsOn": "is_individual" },
-        { "key": "company_name", "label": "Company Name", "type": "text", "dependsOn": "!is_individual" },
+        { "key": "name", "label": "Full Name", "type": "text", "dependsOn": "is_individual", "required": true },
+        { "key": "company_name", "label": "Company Name", "type": "text", "dependsOn": "!is_individual", "required": true },
         { "key": "company_tin", "label": "Company TIN", "type": "text", "dependsOn": "!is_individual" },
-        { "key": "type", "label": "Business Role", "type": "select", "options": ["CLIENT", "SUPPLIER", "BOTH"] },
+        { "key": "type", "label": "Business Role", "type": "select", "options": ["CLIENT", "SUPPLIER", "BOTH"], "required": true },
         { "key": "phone", "label": "Phone", "type": "text" },
         { "key": "email", "label": "Email", "type": "email" },
+        { "key": "email2", "label": "Email 2", "type": "email", "required": true },
         { "key": "balance", "label": "Ledger Balance", "type": "currency" },
         { "key": "notes", "label": "Intelligence", "type": "text" }
       ]
