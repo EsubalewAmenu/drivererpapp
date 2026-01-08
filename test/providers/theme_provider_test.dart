@@ -41,17 +41,29 @@ void main() {
       await Future.delayed(Duration.zero);
 
       // Force to dark
-      if (provider.themeMode != ThemeMode.dark) {
-        provider.toggleTheme();
-        if (provider.themeMode != ThemeMode.dark) {
-           provider.toggleTheme();
-        }
-      }
+      await provider.setThemeMode(ThemeMode.dark);
       expect(provider.isDarkMode, isTrue);
 
       // Toggle to light
       provider.toggleTheme();
       expect(provider.isDarkMode, isFalse);
+    });
+
+    test('setThemeMode should persist value', () async {
+      final provider = ThemeProvider();
+      await provider.setThemeMode(ThemeMode.dark);
+      
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString('theme_mode'), 'dark');
+    });
+
+    test('loadTheme should reading from SharedPreferences', () async {
+      SharedPreferences.setMockInitialValues({'theme_mode': 'light'});
+      
+      final provider = ThemeProvider();
+      await Future.delayed(Duration.zero);
+      
+      expect(provider.themeMode, ThemeMode.light);
     });
   });
 }
