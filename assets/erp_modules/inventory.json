@@ -40,7 +40,7 @@
         { "label": "Main Warehouse", "key": "main_warehouse", "field": "warehouse", "operator": "==", "value": "Main Warehouse" }
       ],
       "columns": [
-        { "key": "entry_date", "label": "Date", "type": "date" },
+        { "key": "entry_date", "label": "Date", "type": "date", "required": true },
         { "key": "item_sku", "label": "Item SKU", "type": "scanner" },
         { 
           "key": "warehouse", 
@@ -79,7 +79,7 @@
       ],
       "columns": [
         { "key": "item_image", "label": "Photo", "type": "image" },
-        { "key": "item_name", "label": "Item Name", "type": "text" },
+        { "key": "item_name", "label": "Item Name", "type": "text", "required": true },
         { "key": "barcode_sku", "label": "SKU", "type": "scanner" },
         { "key": "is_item_variants", "label": "Does it have variants?", "type": "boolean" },
         { "key": "variant_name", "label": "Variant Name", "type": "text", "dependsOn": "is_item_variants" },

@@ -25,6 +25,8 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
   late String _currentType;
   String? _currentDependsOn;
   late bool _isHidden;
+  late bool _isRequired;
+  String _currencySymbol = '\$';
   
   bool _isDynamicOptions = false;
   List<String> _staticOptions = [];
@@ -37,6 +39,8 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
     _currentType = widget.column.type;
     _currentDependsOn = widget.column.dependsOn;
     _isHidden = widget.column.hidden ?? false;
+    _isRequired = widget.column.isRequired ?? false;
+    _currencySymbol = widget.column.currencySymbol ?? '\$';
 
     if (widget.column.options is List) {
       _staticOptions = List<String>.from(widget.column.options);
@@ -113,7 +117,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               dropdownColor: theme.cardTheme.color,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               items: {
-                'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table',
+                'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table', 'email', 'phone',
                 _currentType
               }
                   .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
@@ -124,6 +128,13 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               decoration: const InputDecoration(labelText: 'Data Type'),
             ),
             const SizedBox(height: 16),
+            SwitchListTile(
+              title: Text('Is Required', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
+              value: _isRequired,
+              onChanged: (val) => setState(() => _isRequired = val),
+              activeColor: theme.primaryColor,
+              contentPadding: EdgeInsets.zero,
+            ),
             SwitchListTile(
               title: Text('Hidden (Don\'t show on form)', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
               value: _isHidden,
@@ -172,6 +183,26 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
                  ),
                const SizedBox(height: 8),
                 Text('NOTE: Use the arrow in the main list to expand this table and edit its columns.', style: TextStyle(color: theme.textTheme.bodyMedium?.color, fontSize: 11, fontStyle: FontStyle.italic)),
+            ],
+
+            if (_currentType == 'currency') ...[
+              const SizedBox(height: 24),
+              DropdownButtonFormField<String>(
+                initialValue: _currencySymbol,
+                dropdownColor: theme.cardTheme.color,
+                style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+                decoration: const InputDecoration(labelText: 'Currency Symbol'),
+                items: const [
+                  DropdownMenuItem(value: '\$', child: Text('USD (\$)')),
+                  DropdownMenuItem(value: '€', child: Text('EUR (€)')),
+                  DropdownMenuItem(value: '£', child: Text('GBP (£)')),
+                  DropdownMenuItem(value: 'Br', child: Text('ETB (Br)')),
+                  DropdownMenuItem(value: '¥', child: Text('JPY/CNY (¥)')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _currencySymbol = val);
+                },
+              ),
             ],
 
             if (_currentType == 'select') ...[
@@ -248,6 +279,8 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               type: _currentType,
               dependsOn: _currentDependsOn,
               hidden: _isHidden,
+              isRequired: _isRequired,
+              currencySymbol: _currentType == 'currency' ? _currencySymbol : null,
               options: _currentType == 'select' 
                   ? (_isDynamicOptions ? _dynamicOptionPath : _staticOptions)
                   : null,

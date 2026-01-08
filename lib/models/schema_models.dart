@@ -133,6 +133,7 @@ class ColumnConfig {
   final String? dynamicLabel;
   @JsonKey(name: 'required')
   final bool? isRequired;
+  final String? currencySymbol;
 
   ColumnConfig({
     required this.key,
@@ -146,6 +147,7 @@ class ColumnConfig {
     this.hidden,
     this.dynamicLabel,
     this.isRequired,
+    this.currencySymbol,
   });
 
   factory ColumnConfig.fromJson(Map<String, dynamic> json) => _$ColumnConfigFromJson(json);

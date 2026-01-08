@@ -66,6 +66,8 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isNumeric = widget.column.type == 'number' || widget.column.type == 'currency';
+    final isEmail = widget.column.type == 'email';
+    final isPhone = widget.column.type == 'phone';
     final isCurrency = widget.column.type == 'currency';
     final maxLines = widget.column.type == 'longtext' ? 4 : 1;
 
@@ -88,7 +90,11 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _controller,
-          keyboardType: isNumeric ? TextInputType.number : TextInputType.text,
+          keyboardType: isNumeric 
+            ? TextInputType.number 
+            : (isEmail 
+                ? TextInputType.emailAddress 
+                : (isPhone ? TextInputType.phone : TextInputType.text)),
           maxLines: maxLines,
           style: AppTheme.inter(color: textColor),
           decoration: InputDecoration(
@@ -96,7 +102,7 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
             fillColor: fillColor,
             hintText: 'Enter ${widget.column.label.toLowerCase()}',
             hintStyle: TextStyle(color: hintColor),
-            prefixText: isCurrency ? '\$ ' : null,
+            prefixText: isCurrency ? '${widget.column.currencySymbol ?? '\$'} ' : null,
             prefixStyle: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -112,6 +118,24 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
             if (widget.column.isRequired == true) {
               if (value == null || value.isEmpty) {
                 return 'This field is required';
+              }
+            }
+            if (isNumeric && value != null && value.isNotEmpty) {
+              if (double.tryParse(value) == null) {
+                return 'Please enter a valid number';
+              }
+            }
+            if (widget.column.type == 'email' && value != null && value.isNotEmpty) {
+              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+              if (!emailRegex.hasMatch(value)) {
+                return 'Please enter a valid email';
+              }
+            }
+            if (widget.column.type == 'phone' && value != null && value.isNotEmpty) {
+              // Basic phone validation: allows +, digits, spaces, dashes
+              final phoneRegex = RegExp(r'^\+?[\d\s-]{7,15}$');
+              if (!phoneRegex.hasMatch(value)) {
+                return 'Please enter a valid phone number';
               }
             }
             return null;

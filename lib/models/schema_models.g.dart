@@ -127,6 +127,7 @@ ColumnConfig _$ColumnConfigFromJson(Map<String, dynamic> json) => ColumnConfig(
   hidden: json['hidden'] as bool?,
   dynamicLabel: json['dynamicLabel'] as String?,
   isRequired: json['required'] as bool?,
+  currencySymbol: json['currencySymbol'] as String?,
 );
 
 Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
@@ -142,4 +143,5 @@ Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
       'hidden': instance.hidden,
       'dynamicLabel': instance.dynamicLabel,
       'required': instance.isRequired,
+      'currencySymbol': instance.currencySymbol,
     };
