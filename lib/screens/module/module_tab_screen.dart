@@ -6,6 +6,7 @@ import '../../services/drive_service.dart';
 import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
 import '../record_detail_screen.dart';
+import 'filter/filter_management_screen.dart';
 
 class ModuleTabScreen extends StatefulWidget {
   final TabConfig tab;
@@ -34,6 +35,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   String? _errorMessage;
   String _searchQuery = '';
   String? _activeFilter;
+  List<QuickFilter> _activeFilters = [];
+  bool _showFilters = true;
 
   final TextEditingController _searchController = TextEditingController();
 
@@ -41,6 +44,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   void initState() {
     super.initState();
     _driveService = Provider.of<DriveProvider>(context, listen: false).driveService!;
+    _activeFilters = List.from(widget.tab.quickFilters ?? []);
     // Delay loading to keep navigation smooth
     Future.delayed(const Duration(milliseconds: 500), () {
       if (mounted) _loadData();
@@ -53,6 +57,11 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     super.didUpdateWidget(oldWidget);
     // If the tab config or module schema changed, we might need to refresh
     if (oldWidget.tab != widget.tab || oldWidget.module != widget.module) {
+      if (oldWidget.tab.id != widget.tab.id) {
+         _activeFilters = List.from(widget.tab.quickFilters ?? []);
+         _showFilters = true;
+         _activeFilter = 'all';
+      }
       debugPrint('Tab or Module schema updated for ${widget.tab.id}, refreshing tab...');
       _loadData();
     }
@@ -124,19 +133,40 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         
         // Quick Filter
         bool matchesQuickFilter = true;
-        if (_activeFilter != null && widget.tab.quickFilters != null) {
+        if (_activeFilter != null && _activeFilter != 'all') {
            try {
-             final filter = widget.tab.quickFilters!.firstWhere((f) => f.key == _activeFilter);
-             if (filter.key == 'all') {
-               matchesQuickFilter = true;
-             } else {
-               final itemValue = item[filter.field];
-               if (filter.operator == '==') {
-                 matchesQuickFilter = itemValue.toString() == filter.value.toString();
-               } else if (filter.operator == 'contains') {
-                 matchesQuickFilter = itemValue.toString().contains(filter.value.toString());
-               }
-               // Add more operators if needed
+             // Look in active filters
+             final filter = _activeFilters.firstWhere((f) => f.key == _activeFilter);
+             
+             final itemValue = item[filter.field];
+             final filterVal = filter.value.toString().toLowerCase();
+             final itemValStr = itemValue?.toString().toLowerCase() ?? '';
+
+             if (filter.operator == '==') {
+               matchesQuickFilter = itemValStr == filterVal;
+             } else if (filter.operator == '!=') { 
+               matchesQuickFilter = itemValStr != filterVal;
+             } else if (filter.operator == 'contains') {
+               matchesQuickFilter = itemValStr.contains(filterVal);
+             } else if (filter.operator == 'startsWidth') {
+               matchesQuickFilter = itemValStr.startsWith(filterVal);
+             } else if (filter.operator == '>') {
+                // Try numeric comparison first
+                final numItem = num.tryParse(itemValStr);
+                final numFilter = num.tryParse(filterVal);
+                if (numItem != null && numFilter != null) {
+                  matchesQuickFilter = numItem > numFilter;
+                } else {
+                  matchesQuickFilter = itemValStr.compareTo(filterVal) > 0;
+                }
+             } else if (filter.operator == '<') {
+                final numItem = num.tryParse(itemValStr);
+                final numFilter = num.tryParse(filterVal);
+                if (numItem != null && numFilter != null) {
+                  matchesQuickFilter = numItem < numFilter;
+                } else {
+                  matchesQuickFilter = itemValStr.compareTo(filterVal) < 0;
+                }
              }
            } catch (e) {
              // Filter not found or error
@@ -216,63 +246,137 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   Widget _buildSearchBar() {
     final theme = Theme.of(context);
+    final hasCustomFilters = widget.tab.enableCustomFilters ?? true;
+    
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: TextField(
-        controller: _searchController,
-        style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
-        decoration: InputDecoration(
-          hintText: 'Search ${widget.tab.label.toLowerCase()}...',
-          hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
-          prefixIcon: Icon(Icons.search_rounded, color: theme.textTheme.bodyMedium?.color),
-          filled: true,
-          fillColor: theme.cardTheme.color,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
+              decoration: InputDecoration(
+                hintText: 'Search ${widget.tab.label.toLowerCase()}...',
+                hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
+                prefixIcon: Icon(Icons.search_rounded, color: theme.textTheme.bodyMedium?.color),
+                filled: true,
+                fillColor: theme.cardTheme.color,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              ),
+            ),
           ),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        ),
+          if (hasCustomFilters) ...[
+            const SizedBox(width: 12),
+            InkWell(
+              onTap: _openFilterManager,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.cardTheme.color,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(Icons.tune_rounded, color: widget.primaryColor),
+              ),
+            ),
+          ]
+        ],
       ),
     );
   }
 
+  void _openFilterManager() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FilterManagementScreen(
+          columns: widget.tab.columns, 
+          initialFilters: _activeFilters, 
+          initialEnabled: _showFilters
+        ),
+      ),
+    );
+
+    if (result != null && result is Map) {
+      setState(() {
+        _showFilters = result['enabled'];
+        _activeFilters = result['filters'];
+        // If disabled or active filter removed, reset selection
+        bool activeExists = _activeFilters.any((f) => f.key == _activeFilter);
+        if (!_showFilters || !activeExists) {
+          _activeFilter = 'all';
+        }
+        _applyFilters();
+      });
+    }
+  }
+
   Widget _buildQuickFilters() {
-    if (widget.tab.quickFilters == null || widget.tab.quickFilters!.isEmpty) {
+    if (!_showFilters || _activeFilters.isEmpty) {
       return const SizedBox.shrink();
     }
     
     final theme = Theme.of(context);
 
+    // Filter Chips Row logic needs to handle scrolling and selection
     return SizedBox(
       height: 40,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         scrollDirection: Axis.horizontal,
-        itemCount: widget.tab.quickFilters!.length,
-        separatorBuilder: (context, index) => const SizedBox(width: 8),
+        itemCount: _activeFilters.length + 1, // +1 for "All"
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final filter = widget.tab.quickFilters![index];
-          final isSelected = _activeFilter == filter.key || (_activeFilter == null && filter.key == 'all');
+          if (index == 0) {
+            // "All" Chip
+            final isSelected = _activeFilter == null || _activeFilter == 'all';
+             return FilterChip(
+              label: const Text('All'),
+              selected: isSelected,
+              onSelected: (_) {
+                setState(() {
+                  _activeFilter = 'all';
+                  _applyFilters();
+                });
+              },
+              backgroundColor: theme.cardTheme.color,
+              selectedColor: widget.primaryColor.withValues(alpha: 0.2),
+              labelStyle: TextStyle(
+                color: isSelected ? widget.primaryColor : theme.textTheme.bodyMedium?.color,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+                side: BorderSide(
+                  color: isSelected ? widget.primaryColor : Colors.transparent,
+                ),
+              ),
+              showCheckmark: false,
+            );
+          }
           
+          final filter = _activeFilters[index - 1];
+          final isSelected = _activeFilter == filter.key;
+
           return FilterChip(
             label: Text(filter.label),
             selected: isSelected,
-            onSelected: (selected) {
+            onSelected: (_) {
               setState(() {
-                if (selected) {
-                   _activeFilter = filter.key;
-                } else {
-                   _activeFilter = 'all';
-                }
+                _activeFilter = filter.key;
                 _applyFilters();
               });
             },
             backgroundColor: theme.cardTheme.color,
             selectedColor: widget.primaryColor.withValues(alpha: 0.2),
-            labelStyle: AppTheme.inter(
+            labelStyle: TextStyle(
               color: isSelected ? widget.primaryColor : theme.textTheme.bodyMedium?.color,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
@@ -284,7 +388,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           );
         },
       ),
-    );
+    ); 
   }
 
   Widget _buildListView() {

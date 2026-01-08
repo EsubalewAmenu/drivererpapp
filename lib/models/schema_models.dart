@@ -86,12 +86,14 @@ class TabConfig {
   final List<ColumnConfig> columns;
   @JsonKey(name: 'quick_filters')
   final List<QuickFilter>? quickFilters;
+  final bool? enableCustomFilters;
 
   TabConfig({
     required this.id,
     required this.label,
     required this.columns,
     this.quickFilters,
+    this.enableCustomFilters = true,
   });
 
   factory TabConfig.fromJson(Map<String, dynamic> json) => _$TabConfigFromJson(json);

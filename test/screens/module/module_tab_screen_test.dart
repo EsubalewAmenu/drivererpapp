@@ -87,4 +87,56 @@ void main() {
     expect(find.text('Record 1'), findsNWidgets(2));
     expect(find.text('Record 2'), findsNothing);
   });
+
+  testWidgets('ModuleTabScreen allows custom filtering', (WidgetTester tester) async {
+    await tester.pumpWidget(createModuleTabScreen());
+    await tester.pumpAndSettle();
+
+    // Find filter button (new tune icon)
+    final filterButton = find.byIcon(Icons.tune_rounded);
+    expect(filterButton, findsOneWidget);
+    
+    // Open Management Screen
+    await tester.tap(filterButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Filter Settings'), findsOneWidget);
+
+    // Tap Add FAB
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Add Filter'), findsOneWidget);
+
+    // Enter Value 'Record 2'
+    // Find text field for value (last one)
+    await tester.enterText(find.byType(TextField).last, 'Record 2'); 
+    
+    // Tap Save
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    // Now back in Filter Settings, check list
+    expect(find.text('Name Equals Record 2'), findsOneWidget);
+
+    // Go back to Tab Screen
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    // Verify the chip exists (but is not selected yet)
+    // NOTE: FilterChip label is a Text widget
+    expect(find.text('Name Equals Record 2'), findsOneWidget);
+    
+    // Tap the filter to activate it
+    await tester.tap(find.text('Name Equals Record 2'));
+    await tester.pumpAndSettle();
+
+    // Check filtering applied on main screen
+    // It should show a Chip with the filter name
+    expect(find.text('Name Equals Record 2'), findsOneWidget);
+    // And filter the list
+    expect(find.text('Record 2'), findsOneWidget);
+    // Record 1 should be gone
+    expect(find.text('Record 1'), findsNothing);
+  });
 }
