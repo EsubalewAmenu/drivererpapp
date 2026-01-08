@@ -114,6 +114,11 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
                 return 'This field is required';
               }
             }
+            if (isNumeric && value != null && value.isNotEmpty) {
+              if (double.tryParse(value) == null) {
+                return 'Please enter a valid number';
+              }
+            }
             return null;
           },
         ),

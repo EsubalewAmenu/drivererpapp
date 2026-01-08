@@ -72,4 +72,65 @@ void main() {
       ));
       expect(textField.keyboardType, TextInputType.number);
   });
+
+  testWidgets('DynamicTextField validates numeric input', (WidgetTester tester) async {
+    final column = ColumnConfig(
+      key: 'test_numeric_validation',
+      label: 'Numeric Label',
+      type: 'number',
+    );
+
+    String inputValue = '';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return Form(
+                child: Builder(
+                  builder: (innerContext) {
+                    return Column(
+                      children: [
+                        DynamicTextField(
+                          column: column,
+                          value: inputValue,
+                          primaryColor: Colors.blue,
+                          onChanged: (val) {
+                             setState(() {
+                               inputValue = val;
+                             });
+                          },
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                             Form.of(innerContext).validate();
+                          }, 
+                          child: const Text('Validate')
+                        )
+                      ],
+                    );
+                  }
+                ),
+              );
+            }
+          ),
+        ),
+      ),
+    );
+
+    // Enter invalid number
+    await tester.enterText(find.byType(TextFormField), 'abc');
+    await tester.tap(find.text('Validate'));
+    await tester.pump();
+
+    expect(find.text('Please enter a valid number'), findsOneWidget);
+
+    // Enter valid number
+    await tester.enterText(find.byType(TextFormField), '123');
+    await tester.tap(find.text('Validate'));
+    await tester.pump();
+
+    expect(find.text('Please enter a valid number'), findsNothing);
+  });
 }
