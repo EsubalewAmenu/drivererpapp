@@ -41,19 +41,22 @@ void main() {
     );
   }
 
-  testWidgets('WorkspaceSelectorScreen shows loader then content', (WidgetTester tester) async {
+  testWidgets('WorkspaceSelectorScreen shows loader when loading', (WidgetTester tester) async {
     when(() => mockWorkspaceProvider.isLoading).thenReturn(true);
     when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
 
     await tester.pumpWidget(createSelectorScreen());
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
+  });
 
+  testWidgets('WorkspaceSelectorScreen shows content when loaded', (WidgetTester tester) async {
     when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
+    when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
     when(() => mockWorkspaceProvider.companies).thenReturn([
       Company(id: '1', name: 'Test Corp', folderId: 'f1', role: 'Owner'),
     ]);
     
-    await tester.pump();
+    await tester.pumpWidget(createSelectorScreen());
     expect(find.text('Test Corp'), findsOneWidget);
   });
 
