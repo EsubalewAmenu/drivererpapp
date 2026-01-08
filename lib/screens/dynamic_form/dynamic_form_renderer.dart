@@ -51,19 +51,30 @@ class DynamicFormRenderer extends StatelessWidget {
 
     final dependency = col.dependsOn!;
     
+    // Check for negation
+    bool expectedValue = true;
+    String actualDependency = dependency;
+    if (dependency.startsWith('!')) {
+      expectedValue = false;
+      actualDependency = dependency.substring(1);
+    }
+
     // Check if it depends on settings
-    if (dependency.startsWith('settings.')) {
-      final settingKey = dependency.split('.')[1];
+    if (actualDependency.startsWith('settings.')) {
+      final settingKey = actualDependency.split('.')[1];
       final setting = settings[settingKey];
-      return setting?.value == true;
+      return (setting?.value == true) == expectedValue;
     }
 
     // Check if it depends on another field in the form
-    final dependentValue = data[dependency];
+    final dependentValue = data[actualDependency];
     // Simple truthy check: true, or non-empty string, or non-null object
-    if (dependentValue is bool) return dependentValue;
-    if (dependentValue is String) return dependentValue.isNotEmpty;
-    return dependentValue != null;
+    bool isTruthy = false;
+    if (dependentValue is bool) isTruthy = dependentValue;
+    else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
+    else isTruthy = dependentValue != null;
+
+    return isTruthy == expectedValue;
   }
 
   Widget _buildField(BuildContext context, ColumnConfig col) {

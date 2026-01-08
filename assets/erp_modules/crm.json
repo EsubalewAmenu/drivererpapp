@@ -28,7 +28,10 @@
       ],
       "columns": [
         { "key": "uuid", "label": "ID", "type": "text", "hidden": true },
-        { "key": "name", "label": "Full Name", "type": "text" },
+        { "key": "is_individual", "label": "Is individual?", "type": "boolean" },
+        { "key": "name", "label": "Full Name", "type": "text", "dependsOn": "is_individual" },
+        { "key": "company_name", "label": "Company Name", "type": "text", "dependsOn": "!is_individual" },
+        { "key": "company_tin", "label": "Company TIN", "type": "text", "dependsOn": "!is_individual" },
         { "key": "type", "label": "Business Role", "type": "select", "options": ["CLIENT", "SUPPLIER", "BOTH"] },
         { "key": "phone", "label": "Phone", "type": "text" },
         { "key": "email", "label": "Email", "type": "text" },
