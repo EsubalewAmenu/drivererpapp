@@ -29,6 +29,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final Map<String, dynamic> _formData = {};
   final Map<String, TextEditingController> _controllers = {};
+  bool _isSaving = false;
+  String _statusMessage = '';
 
   @override
   void initState() {
@@ -85,36 +87,56 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         elevation: 0,
         iconTheme: theme.iconTheme,
         actions: [
-          TextButton(
-            onPressed: _saveForm,
-            child: Text(
-              'SAVE',
-              style: AppTheme.inter(
-                fontWeight: FontWeight.w700,
-                color: widget.primaryColor,
+          if (_isSaving) 
+             Center(child: Padding(
+               padding: const EdgeInsets.only(right: 16.0),
+               child: Text(_statusMessage, style: TextStyle(fontSize: 12, color: theme.disabledColor)),
+             ))
+          else
+            TextButton(
+              onPressed: _saveForm,
+              child: Text(
+                'SAVE',
+                style: AppTheme.inter(
+                  fontWeight: FontWeight.w700,
+                  color: widget.primaryColor,
+                ),
               ),
             ),
-          ),
         ],
       ),
       body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: DynamicFormRenderer(
-              columns: widget.tab.columns,
-              data: _formData,
-              primaryColor: widget.primaryColor,
-              onFieldChanged: (key, value) {
-                setState(() {
-                  _formData[key] = value;
-                });
-              },
-              controllers: _controllers,
-              module: widget.module,
-              settings: widget.settings,
-            ),
+        child: AbsorbPointer(
+          absorbing: _isSaving,
+          child: Column(
+            children: [
+               if (_isSaving)
+                 LinearProgressIndicator(
+                   backgroundColor: theme.scaffoldBackgroundColor, 
+                   valueColor: AlwaysStoppedAnimation<Color>(widget.primaryColor)
+                 ),
+               Expanded(
+                 child: Form(
+                  key: _formKey,
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: DynamicFormRenderer(
+                      columns: widget.tab.columns,
+                      data: _formData,
+                      primaryColor: widget.primaryColor,
+                      onFieldChanged: (key, value) {
+                        setState(() {
+                          _formData[key] = value;
+                        });
+                      },
+                      controllers: _controllers,
+                      module: widget.module,
+                      settings: widget.settings,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -125,6 +147,11 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       
+      setState(() {
+        _isSaving = true;
+        _statusMessage = 'Initiating...';
+      });
+
       try {
         final driveProvider = Provider.of<DriveProvider>(context, listen: false);
         
@@ -133,12 +160,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         if (driveProvider.driveService == null) {
           throw Exception("No authenticated drive service. Check your connection.");
         }
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Saving to Drive...'), duration: Duration(seconds: 1)),
-          );
-        }
+        
+        // Progress simulation for better UX since saveRecord is monolithic
+        // ideally saveRecord would take a progress callback
+        _updateStatus('Locating spreadsheet...');
+        await Future.delayed(const Duration(milliseconds: 300));
+        
+        _updateStatus('Preparing data...');
 
         await driveProvider.driveService!.saveRecord(
           widget.module!.id,
@@ -146,6 +174,8 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
           widget.tab.id,
           _formData,
         );
+        
+        _updateStatus('Done!');
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record saved successfully')));
@@ -158,7 +188,19 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
             SnackBar(content: Text('Error saving record: ${e.toString().contains('Failed host lookup') ? 'Network connection error' : e.toString()}')),
           );
         }
+      } finally {
+        if (mounted) {
+           setState(() {
+             _isSaving = false;
+           });
+        }
       }
+    }
+  }
+  
+  void _updateStatus(String msg) {
+    if (mounted) {
+      setState(() => _statusMessage = msg);
     }
   }
 
