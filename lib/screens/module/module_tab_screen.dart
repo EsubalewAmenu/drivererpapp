@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
 import '../../providers/drive_provider.dart';
+import '../../providers/schema_provider.dart'; // Add this
 import '../../services/drive_service.dart';
 import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
@@ -362,9 +363,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     );
 
     if (result != null && result is Map) {
+      if (!mounted) return;
+
+      final newEnabled = result['enabled'] as bool;
+      final newFilters = List<QuickFilter>.from(result['filters']);
+
       setState(() {
-        _showFilters = result['enabled'];
-        _activeFilters = result['filters'];
+        _showFilters = newEnabled;
+        _activeFilters = newFilters;
         // If disabled or active filter removed, reset selection
         bool activeExists = _activeFilters.any((f) => f.key == _activeFilter);
         if (!_showFilters || !activeExists) {
@@ -372,6 +378,59 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         }
         _applyFilters();
       });
+
+      if (widget.module != null) {
+        _saveConfiguration(newEnabled, newFilters);
+      }
+    }
+  }
+
+  Future<void> _saveConfiguration(bool enabled, List<QuickFilter> filters) async {
+    try {
+      final schemaProvider = context.read<SchemaProvider>();
+      final currentModule = widget.module!;
+      
+      final updatedTab = TabConfig(
+        id: widget.tab.id,
+        label: widget.tab.label,
+        columns: widget.tab.columns,
+        quickFilters: filters,
+        enableCustomFilters: enabled,
+      );
+
+      final updatedTabs = currentModule.tabs.map((t) {
+        return t.id == widget.tab.id ? updatedTab : t;
+      }).toList();
+
+      final updatedModule = ModuleSchema(
+        id: currentModule.id,
+        name: currentModule.name,
+        icon: currentModule.icon,
+        primaryColor: currentModule.primaryColor,
+        version: currentModule.version,
+        settings: currentModule.settings,
+        dashboard: currentModule.dashboard,
+        tabs: updatedTabs,
+      );
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saving filter configuration...'), duration: Duration(seconds: 1)),
+      );
+
+      await schemaProvider.service.saveModuleConfig(currentModule.id, updatedModule);
+      schemaProvider.updateMemoryCache(currentModule.id, updatedModule);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Configuration saved')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving configuration: $e')),
+        );
+      }
     }
   }
 

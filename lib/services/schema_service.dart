@@ -77,7 +77,7 @@ class SchemaService {
           localMeta['fileId'] == configFileId && 
           localMeta['modifiedTime'] == remoteModifiedString) {
         debugPrint('Module $moduleId config is up to date.');
-        return null;
+        return null; // Local is up-to-date, return null to indicate no change needed
       }
 
       // 3. Needs update
@@ -91,6 +91,46 @@ class SchemaService {
     } catch (e) {
       debugPrint('Error syncing module config: $e');
       return null;
+    }
+  }
+
+  /// Saves the module configuration to Drive and updates the local cache.
+  Future<void> saveModuleConfig(String moduleId, ModuleSchema config) async {
+    if (driveService == null) throw Exception('DriveService not initialized');
+
+    try {
+      // 1. Get file ID (try cache first, then lookup)
+      String? fileId;
+      final meta = await getCachedMeta(moduleId);
+      fileId = meta?['fileId'];
+      
+      if (fileId == null) {
+         fileId = await driveService!.getFileId(moduleId, 'config');
+      }
+
+      if (fileId == null) {
+         throw Exception('Config file not found for module $moduleId');
+      }
+
+      // 2. Prepare config map for Spreadsheet Update
+      final configMap = config.toJson();
+      
+      // 3. Update Drive via Sheets API
+      // Instead of overwriting the file with raw JSON, we update the spreadsheet sheets
+      await driveService!.updateModuleConfig(fileId, configMap);
+
+      // 4. Update Cache
+      // Fetch updated metadata so we are in sync
+      final modifiedTime = await driveService!.getFileModifiedTime(fileId);
+      if (modifiedTime != null) {
+         await cacheConfig(moduleId, config.toJson(), fileId: fileId, modifiedTime: modifiedTime.toIso8601String());
+      } else {
+         // Fallback if we can't get time, at least update content
+         await cacheConfig(moduleId, config.toJson());
+      }
+    } catch (e) {
+      debugPrint('Error saving module config: $e');
+      rethrow;
     }
   }
 

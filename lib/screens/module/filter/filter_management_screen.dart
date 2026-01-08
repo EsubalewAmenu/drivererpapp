@@ -69,7 +69,7 @@ class _FilterManagementScreenState extends State<FilterManagementScreen> {
     });
   }
 
-  void _onPop() {
+  void _save() {
     Navigator.of(context).pop({
       'enabled': _isEnabled,
       'filters': _filters,
@@ -80,16 +80,16 @@ class _FilterManagementScreenState extends State<FilterManagementScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        _onPop();
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Filter Settings'),
-        ),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Filter Settings'),
+        actions: [
+          TextButton(
+            onPressed: _save,
+            child: Text('Save', style: TextStyle(color: theme.primaryColor, fontWeight: FontWeight.bold)),
+          )
+        ],
+      ),
         floatingActionButton: _isEnabled 
           ? FloatingActionButton(
               onPressed: _addFilter,
@@ -158,7 +158,6 @@ class _FilterManagementScreenState extends State<FilterManagementScreen> {
             ]
           ],
         ),
-      ),
-    );
+      );
   }
 }
