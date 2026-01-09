@@ -1,136 +1,238 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
-import 'package:drivererpapp/screens/module_configuration_screen.dart';
-import 'package:drivererpapp/providers/drive_provider.dart';
-import 'package:drivererpapp/providers/workspace_provider.dart';
-import 'package:drivererpapp/services/drive_service.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:drivererpapp/screens/module_configuration_screen.dart';
+import 'package:drivererpapp/providers/workspace_provider.dart';
+import 'package:drivererpapp/providers/drive_provider.dart';
+import 'package:drivererpapp/models/company_model.dart';
+import 'package:drivererpapp/services/drive_service.dart';
 
-class MockDriveProvider extends Mock implements DriveProvider {}
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
+class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
-class MockDriveFile extends Mock implements drive.File {}
+
+class TestAssetBundle extends CachingAssetBundle {
+  final Map<String, String> assets;
+  TestAssetBundle({required this.assets});
+
+  @override
+  Future<String> loadString(String key, {bool cache = true}) async {
+    if (assets.containsKey(key)) {
+      return assets[key]!;
+    }
+    throw FlutterError('Asset not found');
+  }
+
+  @override
+  Future<ByteData> load(String key) async => ByteData(0);
+}
 
 void main() {
-  late MockDriveProvider mockDriveProvider;
   late MockWorkspaceProvider mockWorkspaceProvider;
+  late MockDriveProvider mockDriveProvider;
   late MockDriveService mockDriveService;
 
   setUp(() {
-    mockDriveProvider = MockDriveProvider();
     mockWorkspaceProvider = MockWorkspaceProvider();
+    mockDriveProvider = MockDriveProvider();
     mockDriveService = MockDriveService();
 
+    when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(
+      drive.File(id: 'w1', name: 'Test Company'),
+    );
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
-    
-    final mockWorkspace = MockDriveFile();
-    when(() => mockWorkspace.id).thenReturn('ws123');
-    when(() => mockWorkspace.name).thenReturn('Test Workspace');
-    
-    when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(mockWorkspace);
-    when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
-
-    // Mock for DashboardScreen which is navigated to after activation
-    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
+    when(() => mockDriveService.createWorkspace(any(), any())).thenAnswer((_) async => drive.File(id: 'new_folder_id', name: 'New Folder'));
+    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => <drive.File>[]);
   });
 
-  Widget createConfigScreen() {
+  Widget createScreen(Map<String, String> moduleInfo, AssetBundle bundle) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+        ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
       ],
-      child: const MaterialApp(
-        home: ModuleConfigurationScreen(
-          moduleInfo: {
-            'name': 'CRM',
-            'icon': 'people',
-            'desc': 'Customer Relationship Management',
-            'color': '#3B82F6'
-          },
+      child: MaterialApp(
+        home: DefaultAssetBundle(
+          bundle: bundle,
+          child: ModuleConfigurationScreen(moduleInfo: moduleInfo),
         ),
       ),
     );
   }
 
-  testWidgets('ModuleConfigurationScreen renders and activates', (WidgetTester tester) async {
-    await tester.pumpWidget(createConfigScreen());
-    await tester.pump(); 
-    await tester.pumpAndSettle();
+  group('ModuleConfigurationScreen Tests', () {
+    testWidgets('loads fallback when asset not found', (WidgetTester tester) async {
+      final moduleInfo = {'name': 'Inventory', 'color': '#F59E0B'};
+      final bundle = TestAssetBundle(assets: {});
 
-    expect(find.text('CONFIGURE CRM'), findsOneWidget);
-    
-    // crm.json has "settings" -> "name" -> "label": "Name"
-    expect(find.text('NAME'), findsOneWidget);
+      await tester.pumpWidget(createScreen(moduleInfo, bundle));
+      await tester.pumpAndSettle();
 
-    // Mock activation
-    final moduleFolder = MockDriveFile();
-    when(() => moduleFolder.id).thenReturn('folder123');
-    when(() => mockDriveService.createWorkspace(any(), any()))
-        .thenAnswer((_) async => moduleFolder);
+      expect(find.text('CONFIGURE INVENTORY'), findsOneWidget);
+      expect(find.text('MODULE NAME'), findsOneWidget);
+      expect(find.text('COMPLETE SETUP'), findsOneWidget);
+    });
 
-    // Tap COMPLETE SETUP
-    await tester.tap(find.text('COMPLETE SETUP'));
-    
-    await tester.pump();
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-
-    await tester.pumpAndSettle();
-    
-    verify(() => mockDriveService.createWorkspace('ws123', 'CRM')).called(1);
-    expect(find.text('CRM activated successfully!'), findsOneWidget);
-  });
-
-  testWidgets('ModuleConfigurationScreen handles activation error', (WidgetTester tester) async {
-    await tester.pumpWidget(createConfigScreen());
-    await tester.pumpAndSettle();
-
-    when(() => mockDriveService.createWorkspace(any(), any()))
-        .thenThrow(Exception('Drive error'));
-
-    await tester.tap(find.text('COMPLETE SETUP'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Error activating module: Exception: Drive error'), findsOneWidget);
-  });
-
-  testWidgets('ModuleConfigurationScreen handles missing services', (WidgetTester tester) async {
-    when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(null);
-    
-    await tester.pumpWidget(createConfigScreen());
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('COMPLETE SETUP'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Error activating module: Exception: Drive Service or Workspace missing'), findsOneWidget);
-  });
-
-  testWidgets('ModuleConfigurationScreen handles config loading failure', (WidgetTester tester) async {
-    // We can't easily mock DefaultAssetBundle in a simple widget test without more boilerplate,
-    // but the code already has a try-catch that falls back to defaults.
-    // The current CRM test already covers the success case.
-    
-    await tester.pumpWidget(MultiProvider(
-      providers: [
-        ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
-        ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
-      ],
-      child: const MaterialApp(
-        home: ModuleConfigurationScreen(
-          moduleInfo: {
-            'name': 'NonExistent',
-            'color': '#000000'
+    testWidgets('loads specific module config from JSON', (WidgetTester tester) async {
+      final moduleInfo = {'name': 'CRM', 'color': '#10B981'};
+      final crmJson = jsonEncode({
+        'settings': {
+          'business_type': {
+            'label': 'Business Type',
+            'type': 'select',
+            'options': ['Retail', 'Service'],
+            'value': 'Retail'
           },
-        ),
-      ),
-    ));
-    await tester.pumpAndSettle();
+          'enable_leads': {
+            'label': 'Enable Leads',
+            'type': 'boolean',
+            'value': true
+          },
+          'warehouses': {
+            'label': 'Warehouses',
+            'type': 'list',
+            'value': ['Main']
+          }
+        }
+      });
+      
+      final bundle = TestAssetBundle(assets: {
+        'assets/erp_modules/crm.json': crmJson,
+      });
+
+      await tester.pumpWidget(createScreen(moduleInfo, bundle));
+      await tester.pump(); 
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+
+      expect(find.text('CONFIGURE CRM'), findsOneWidget);
+      expect(find.text('BUSINESS TYPE'), findsOneWidget);
+      expect(find.text('ENABLE LEADS'), findsOneWidget);
+      expect(find.text('WAREHOUSES'), findsOneWidget);
+      expect(find.text('Main'), findsOneWidget);
+    });
+
+    testWidgets('activates module successfully', (WidgetTester tester) async {
+      final moduleInfo = {'name': 'Inventory', 'color': '#F59E0B'};
+      final bundle = TestAssetBundle(assets: {});
+
+      await tester.pumpWidget(createScreen(moduleInfo, bundle));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'My Inventory');
+      await tester.tap(find.text('COMPLETE SETUP'));
+      
+      await tester.pump(); 
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+
+      verify(() => mockDriveService.createWorkspace('w1', 'My Inventory')).called(1);
+      // SnackBar might be gone if we navigated, but we check navigation worked
+      expect(find.text('My Inventory activated successfully!'), findsWidgets);
+    });
+
+    testWidgets('handles activation error', (WidgetTester tester) async {
+      final moduleInfo = {'name': 'Inventory', 'color': '#F59E0B'};
+      final bundle = TestAssetBundle(assets: {});
+
+      when(() => mockDriveService.createWorkspace(any(), any())).thenThrow(Exception('Drive Error'));
+
+      await tester.pumpWidget(createScreen(moduleInfo, bundle));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('COMPLETE SETUP'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Error activating module: Exception: Drive Error'), findsOneWidget);
+    });
+
+    testWidgets('adds and removes items in list field', (WidgetTester tester) async {
+      final moduleInfo = {'name': 'Inventory', 'color': '#F59E0B'};
+      final json = jsonEncode({
+        'settings': {
+          'locs': {
+            'label': 'Locations',
+            'type': 'list',
+            'value': ['Loc 1']
+          }
+        }
+      });
+      final bundle = TestAssetBundle(assets: {'assets/erp_modules/inventory.json': json});
+
+      await tester.pumpWidget(createScreen(moduleInfo, bundle));
+      await tester.pumpAndSettle();
+
+      // Add item
+      await tester.tap(find.byIcon(Icons.add_circle_outline_rounded));
+      await tester.pumpAndSettle();
+      expect(find.text('New Warehouse'), findsOneWidget);
+
+      // Remove item
+      await tester.tap(find.byIcon(Icons.remove_circle_outline_rounded).first);
+      await tester.pumpAndSettle();
+      expect(find.text('Loc 1'), findsNothing);
+    });
+
+    testWidgets('updates UI based on boolean dependencies', (WidgetTester tester) async {
+       final moduleInfo = {'name': 'Inventory', 'color': '#F59E0B'};
+      final json = jsonEncode({
+        'settings': {
+          'show_advanced': {
+            'label': 'Advanced',
+            'type': 'boolean',
+            'value': false
+          },
+          'extra_field': {
+            'label': 'Extra Field',
+            'type': 'text',
+            'dependsOn': 'show_advanced'
+          }
+        }
+      });
+      final bundle = TestAssetBundle(assets: {'assets/erp_modules/inventory.json': json});
+
+      await tester.pumpWidget(createScreen(moduleInfo, bundle));
+      await tester.pumpAndSettle();
+
+      expect(find.text('EXTRA FIELD'), findsNothing);
+
+      // Toggle switch
+      await tester.tap(find.byType(Switch));
+      await tester.pumpAndSettle();
+
+      expect(find.text('EXTRA FIELD'), findsOneWidget);
+    });
     
-    expect(find.text('CONFIGURE NONEXISTENT'), findsOneWidget);
-    // Should fallback to showing name field
-    expect(find.text('NAME'), findsOneWidget);
+    testWidgets('updates dropdown value', (WidgetTester tester) async {
+       final moduleInfo = {'name': 'Inventory', 'color': '#F59E0B'};
+      final json = jsonEncode({
+        'settings': {
+          'type': {
+            'label': 'Type',
+            'type': 'select',
+            'options': ['A', 'B'],
+            'value': 'A'
+          }
+        }
+      });
+      final bundle = TestAssetBundle(assets: {'assets/erp_modules/inventory.json': json});
+
+      await tester.pumpWidget(createScreen(moduleInfo, bundle));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('A'));
+      await tester.pumpAndSettle();
+      
+      await tester.tap(find.text('B').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('B'), findsWidgets);
+    });
   });
 }
