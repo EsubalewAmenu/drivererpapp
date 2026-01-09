@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:http/http.dart' as http;
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:drivererpapp/services/drive/drive_sheet_mixin.dart';
@@ -9,14 +10,17 @@ class MockFilesResource extends Mock implements drive.FilesResource {}
 class MockSheetsApi extends Mock implements sheets.SheetsApi {}
 class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
 class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
+class MockHttpClient extends Mock implements http.Client {}
 
 class TestDriveService with DriveSheetMixin {
   @override
   final drive.DriveApi driveApi;
   @override
   final sheets.SheetsApi sheetsApi;
+  @override
+  final http.Client authClient;
   
-  TestDriveService(this.driveApi, this.sheetsApi);
+  TestDriveService(this.driveApi, this.sheetsApi, this.authClient);
 
   @override
   Future<T> retryOp<T>(Future<T> Function() action, {int retries = 3}) async {
@@ -41,8 +45,10 @@ class TestDriveService2 with DriveSheetMixin {
   final drive.DriveApi driveApi;
   @override
   final sheets.SheetsApi sheetsApi;
+  @override
+  final http.Client authClient;
   
-  TestDriveService2(this.driveApi, this.sheetsApi);
+  TestDriveService2(this.driveApi, this.sheetsApi, this.authClient);
 
   @override
   Future<T> retryOp<T>(Future<T> Function() action, {int retries = 3}) async => await action();
@@ -57,6 +63,7 @@ void main() {
   late MockSheetsApi mockSheetsApi;
   late MockSpreadsheetsResource mockSpreadsheets;
   late MockValuesResource mockValues;
+  late MockHttpClient mockHttpClient;
   late TestDriveService service;
 
   setUp(() {
@@ -65,11 +72,21 @@ void main() {
     mockSheetsApi = MockSheetsApi();
     mockSpreadsheets = MockSpreadsheetsResource();
     mockValues = MockValuesResource();
-    service = TestDriveService(mockDriveApi, mockSheetsApi);
+    mockHttpClient = MockHttpClient();
+    
+    service = TestDriveService(mockDriveApi, mockSheetsApi, mockHttpClient);
 
     when(() => mockDriveApi.files).thenReturn(mockFiles);
     when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
     when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    
+    // Default metadata mock
+    when(() => mockSpreadsheets.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+      sheets: [
+        sheets.Sheet(properties: sheets.SheetProperties(title: 'Main', sheetId: 0)),
+        sheets.Sheet(properties: sheets.SheetProperties(title: 'Sheet1', sheetId: 1)),
+      ],
+    ));
 
     registerFallbackValue(sheets.ClearValuesRequest());
     registerFallbackValue(sheets.ValueRange());
@@ -77,6 +94,7 @@ void main() {
     registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
     registerFallbackValue(sheets.Request());
     registerFallbackValue(drive.File());
+    registerFallbackValue(Uri.parse('https://example.com'));
   });
 
   group('DriveSheetMixin', () {
@@ -221,7 +239,7 @@ void main() {
       when(() => mockSheetsApi2.spreadsheets).thenReturn(mockSpreadsheets2);
       when(() => mockSpreadsheets2.values).thenReturn(mockValues2);
 
-      final service2 = TestDriveService2(mockDriveApi2, mockSheetsApi2);
+      final service2 = TestDriveService2(mockDriveApi2, mockSheetsApi2, mockHttpClient);
 
       when(() => mockSpreadsheets2.create(any())).thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'new_sid'));
       when(() => mockFiles2.get(any(), $fields: any(named: '\$fields'))).thenAnswer((_) async => drive.File(id: 'new_sid', parents: []));
@@ -253,6 +271,20 @@ void main() {
           ['101', 'v101'],
           ['102', 'v102'],
         ]);
+      });
+
+      // Gviz metadata mock (for column types)
+      final gvizMeta = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"record_id","type":"string"},{"id":"B","label":"h2","type":"string"}],"rows":[]}});';
+      
+      // Gviz data mock for paginated result (LIMIT 1 OFFSET 1 on 102, 101, 100)
+      final gvizData = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"record_id","type":"string"},{"id":"B","label":"h2","type":"string"}],"rows":[{"c":[{"v":"101"},{"v":"v101"}]}]}});';
+
+      when(() => mockHttpClient.get(any())).thenAnswer((inv) async {
+         final url = (inv.positionalArguments[0] as Uri).toString();
+         if (url.contains('SELECT%20*%20LIMIT%200')) {
+           return http.Response(gvizMeta, 200);
+         }
+         return http.Response(gvizData, 200);
       });
 
       // Descending should sort by record_id (strings)

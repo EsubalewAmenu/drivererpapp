@@ -27,8 +27,11 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
     {'label': 'Contains', 'value': 'contains'},
     {'label': 'Not Equals', 'value': '!='},
     {'label': 'Greater Than', 'value': '>'},
+    {'label': 'Greater or Equal', 'value': '>='},
     {'label': 'Less Than', 'value': '<'},
+    {'label': 'Less or Equal', 'value': '<='},
     {'label': 'Starts With', 'value': 'startsWidth'},
+    {'label': 'Ends With', 'value': 'endsWith'},
   ];
 
   @override
@@ -37,7 +40,7 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
     if (widget.existingFilter != null) {
       _selectedColumnKey = widget.existingFilter!.field;
       _selectedOperator = widget.existingFilter!.operator;
-      _valueController.text = widget.existingFilter!.value;
+      _valueController.text = widget.existingFilter!.value?.toString() ?? '';
       _labelController.text = widget.existingFilter!.label;
     } else if (widget.columns.isNotEmpty) {
       _selectedColumnKey = widget.columns.first.key;

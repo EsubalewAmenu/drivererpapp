@@ -3,9 +3,12 @@ import 'package:flutter/foundation.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
 
+import 'package:http/http.dart' as http;
+
 mixin DriveSheetMixin {
   drive.DriveApi get driveApi;
   sheets.SheetsApi get sheetsApi;
+  http.Client get authClient;
   Future<T> retryOp<T>(Future<T> Function() action, {int retries = 3});
   Future<String?> getFileId(String folderId, String fileName);
 
@@ -323,6 +326,8 @@ mixin DriveSheetMixin {
       int? limit,
       bool fetchSubTables = true,
       bool descending = false,
+      String? searchQuery,
+      Map<String, dynamic>? quickFilter,
   }) async {
     try {
       // 1. Find Spreadsheet
@@ -333,40 +338,112 @@ mixin DriveSheetMixin {
         return [];
       }
 
-      // 2. Read All Sheets to Find Sub-tables (Only if fetching sub-tables)
+      // 2. Fetch Spreadsheet Metadata (to get sheet ID and titles)
+      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+      final allSheetTitles = spreadsheet.sheets?.map((s) => s.properties?.title ?? '').toList() ?? [];
+      final targetSheet = spreadsheet.sheets?.firstWhere((s) => s.properties?.title == sheetTitle);
+      final int? gid = targetSheet?.properties?.sheetId;
+
+      // 3. Read All Sheets to Find Sub-tables (Only if fetching sub-tables)
       List<String> subTableSheets = [];
       if (fetchSubTables) {
-        final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
-        final allSheetTitles = spreadsheet.sheets?.map((s) => s.properties?.title ?? '').toList() ?? [];
         subTableSheets = allSheetTitles.where((t) => t.startsWith('$sheetTitle.')).toList();
       }
 
-      // 3. Fetch Main Records
-      final mainRecords = await _fetchSheetData(
-        spreadsheetId, 
-        sheetTitle,
-        offset: descending ? 0 : offset,
-        limit: descending ? null : limit,
-      );
-      if (mainRecords.isEmpty) return [];
+      // 4. Fetch Records
+      List<Map<String, dynamic>> finalRecords;
+      
+      bool isSearch = searchQuery != null && searchQuery.length >= 2;
+      bool hasQuickFilter = quickFilter != null && quickFilter['field'] != null && quickFilter['operator'] != null;
+      
+      if (isSearch || descending || hasQuickFilter) {
+        try {
+          // PERFORM SERVER-SIDE SEARCH, FILTER or SORT using Google Visualization API
+          finalRecords = await _fetchSheetDataSearch(
+            spreadsheetId, 
+            sheetTitle, 
+            gid: gid,
+            query: isSearch ? searchQuery : null,
+            filter: hasQuickFilter ? quickFilter : null,
+            offset: offset,
+            limit: limit ?? 20,
+            descending: descending,
+          );
+        } catch (e) {
+          debugPrint('Server-side search/filter/sort failed: $e. Falling back to local filter...');
+          // Fallback to standard fetch
+          finalRecords = await _fetchSheetData(
+            spreadsheetId, 
+            sheetTitle,
+            offset: offset,
+            limit: limit ?? 20,
+          );
+          
+          // Apply local search if needed
+          if (isSearch) {
+             finalRecords = finalRecords.where((item) => 
+               item.values.any((val) => 
+                 val.toString().toLowerCase().contains(searchQuery.toLowerCase())
+               )
+             ).toList();
+          }
 
-      List<Map<String, dynamic>> finalRecords = mainRecords;
+          // Apply local quick filter if needed
+          if (hasQuickFilter) {
+            final field = quickFilter['field'] as String;
+            final op = quickFilter['operator'] as String;
+            final filterValue = quickFilter['value']?.toString().toLowerCase() ?? '';
 
-      // 4. Handle Descending Sort (Client-side for now to ensure timestamp accuracy)
-      if (descending) {
-        finalRecords.sort((a, b) {
-          final aId = a['record_id']?.toString() ?? '';
-          final bId = b['record_id']?.toString() ?? '';
-          return bId.compareTo(aId);
-        });
-        
-        // Apply pagination after sort
-        var paginated = finalRecords.skip(offset);
-        if (limit != null) {
-          paginated = paginated.take(limit);
+            finalRecords = finalRecords.where((item) {
+              final itemVal = item[field]?.toString().toLowerCase() ?? '';
+              if (op == '==' || op == '=') return itemVal == filterValue;
+              if (op == '!=') return itemVal != filterValue;
+              if (op == 'contains') return itemVal.contains(filterValue);
+              if (op == 'startsWith') return itemVal.startsWith(filterValue);
+              
+              final numItem = num.tryParse(itemVal);
+              final numFilter = num.tryParse(filterValue);
+              if (numItem != null && numFilter != null) {
+                if (op == '>') return numItem > numFilter;
+                if (op == '>=') return numItem >= numFilter;
+                if (op == '<') return numItem < numFilter;
+                if (op == '<=') return numItem <= numFilter;
+              }
+              return true;
+            }).toList();
+          }
+          
+          // Apply local sort if descending
+          if (descending) {
+            finalRecords.sort((a, b) {
+              final aVal = a['record_id'];
+              final bVal = b['record_id'];
+              
+              // Numeric sort if possible
+              final aNum = num.tryParse(aVal?.toString() ?? '');
+              final bNum = num.tryParse(bVal?.toString() ?? '');
+              
+              if (aNum != null && bNum != null) {
+                return bNum.compareTo(aNum);
+              }
+              
+              final aStr = aVal?.toString() ?? '';
+              final bStr = bVal?.toString() ?? '';
+              return bStr.compareTo(aStr);
+            });
+          }
         }
-        finalRecords = paginated.toList();
+      } else {
+        // Standard Paginated Fetch (Ascending or No Sort)
+        finalRecords = await _fetchSheetData(
+          spreadsheetId, 
+          sheetTitle,
+          offset: offset,
+          limit: limit,
+        );
       }
+
+      if (finalRecords.isEmpty) return [];
 
       // 5. Fetch and Join Sub-tables
       if (fetchSubTables && subTableSheets.isNotEmpty) {
@@ -454,5 +531,220 @@ mixin DriveSheetMixin {
       debugPrint('Error reading sheet $sheetTitle: $e');
       return [];
     }
+  }
+
+  // Cache for column types to avoid redundant metadata fetches
+  static final Map<String, List<String>> _columnTypesCache = {};
+
+  Future<List<String>> _getSheetColumnTypes(String spreadsheetId, int? gid) async {
+    final cacheKey = '$spreadsheetId-${gid ?? 0}';
+    if (_columnTypesCache.containsKey(cacheKey)) {
+      return _columnTypesCache[cacheKey]!;
+    }
+
+    try {
+      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent("SELECT * LIMIT 0")}${gid != null ? '&gid=$gid' : ''}';
+      final response = await authClient.get(Uri.parse(url));
+      
+      if (response.statusCode == 200) {
+        final body = response.body;
+        final start = body.indexOf('{');
+        final end = body.lastIndexOf('}');
+        if (start != -1 && end != -1) {
+          final jsonStr = body.substring(start, end + 1);
+          final decoded = jsonDecode(jsonStr);
+          final cols = decoded['table']['cols'] as List;
+          final types = cols.map((c) => c['type'].toString()).toList();
+          _columnTypesCache[cacheKey] = types;
+          return types;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching column types: $e');
+    }
+    return [];
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchSheetDataSearch(
+    String spreadsheetId, 
+    String sheetTitle, {
+    int? gid,
+    String? query,
+    Map<String, dynamic>? filter, // { field: String, operator: String, value: dynamic }
+    int offset = 0,
+    int limit = 20,
+    bool descending = false,
+  }) async {
+    try {
+      // 1. Get headers for column mapping
+      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
+      final headers = headerResponse.values?.first.map((e) => e.toString()).toList() ?? [];
+      if (headers.isEmpty) return [];
+
+      // 2. Build Query
+      String tq = "SELECT *";
+      final whereClauses = <String>[];
+      
+      // Handle Search Query
+      if (query != null && query.isNotEmpty) {
+        final searchParts = <String>[];
+        // Limit to first 50 columns to keep query string manageable
+        final searchLimit = headers.length > 50 ? 50 : headers.length;
+        
+        // Try to get actual column types from Gviz metadata
+        final actualTypes = await _getSheetColumnTypes(spreadsheetId, gid);
+        
+        // Fallback keywords for columns that are strictly numeric or non-text (dates, booleans).
+        final strictlyNonText = [
+          'qty', 'quantity', 'price', 'amount', 'total', 'cost', 
+          'tax', 'discount', 'date', 'time', 'lat', 'long', 'zip', 'postcode', 
+          'balance', 'ledger', 'credit', 'debit', 'value', 'count', 'score', 'percent',
+          'is_', 'has_', 'can_', 'are_', 'was_', 'is ', 'has ', 'can ', 'are ', 'was ', '?',
+          'record_id', 'parent_record_id', 'sub_record_id', 'tin', 'phone', 'mobile'
+        ];
+
+        for (var i = 0; i < searchLimit; i++) {
+          final col = _indexToColumn(i);
+          final header = headers[i].toLowerCase();
+          
+          bool isText = true;
+          if (actualTypes.length > i) {
+            isText = actualTypes[i] == 'string';
+          } else {
+            // Fallback to heuristic if metadata fetch failed
+            isText = !strictlyNonText.any((k) => header.contains(k));
+          }
+          
+          if (!isText) {
+            // Only search numeric columns if the query itself is a number.
+            final numQuery = double.tryParse(query);
+            if (numQuery != null) {
+              searchParts.add("$col = $numQuery");
+            }
+          } else {
+            // For text columns
+            searchParts.add("lower($col) contains '${query.toLowerCase().replaceAll("'", "\\'")}'");
+          }
+        }
+        if (searchParts.isNotEmpty) {
+          whereClauses.add("(${searchParts.join(' OR ')})");
+        }
+      }
+
+      // Handle Quick Filter
+      if (filter != null) {
+        final field = filter['field'] as String;
+        final op = filter['operator'] as String;
+        final val = filter['value'];
+        
+        final fieldIndex = headers.indexOf(field);
+        if (fieldIndex != -1) {
+          final col = _indexToColumn(fieldIndex);
+          String? clause;
+          
+          // Stringify value for Gviz
+          String gvizVal = val.toString();
+          bool isNumeric = num.tryParse(gvizVal) != null;
+          bool isBool = gvizVal.toLowerCase() == 'true' || gvizVal.toLowerCase() == 'false';
+          String escapedVal = gvizVal.replaceAll("'", "\\'");
+          
+          if (op == '==' || op == '=') {
+            if (isNumeric || isBool) {
+              clause = "$col = $gvizVal";
+            } else {
+              clause = "$col = '$escapedVal'";
+            }
+          } else if (op == '!=') {
+            if (isNumeric || isBool) {
+              clause = "$col != $gvizVal";
+            } else {
+              clause = "$col != '$escapedVal'";
+            }
+          } else if (op == 'contains') {
+            clause = "lower($col) contains '${escapedVal.toLowerCase()}'";
+          } else if (op == '>' || op == '>=' || op == '<' || op == '<=') {
+            clause = isNumeric ? "$col $op $gvizVal" : "$col $op '$escapedVal'";
+          } else if (op == 'startsWith' || op == 'startsWidth') {
+            clause = "lower($col) starts with '${escapedVal.toLowerCase()}'";
+          } else if (op == 'endsWith' || op == 'endsWidth') {
+            clause = "lower($col) ends with '${escapedVal.toLowerCase()}'";
+          }
+          
+          if (clause != null) {
+            whereClauses.add(clause);
+          }
+        }
+      }
+
+      if (whereClauses.isNotEmpty) {
+        tq += " WHERE ${whereClauses.join(' AND ')}";
+      }
+      
+      final recordIdIndex = headers.indexOf('record_id');
+      if (recordIdIndex != -1) {
+        tq += " ORDER BY ${_indexToColumn(recordIdIndex)} ${descending ? 'DESC' : 'ASC'}";
+      }
+
+      tq += " LIMIT $limit OFFSET $offset";
+
+      // 3. Request from Google Vis API
+      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(tq)}${gid != null ? '&gid=$gid' : ''}&headers=1';
+      
+      final response = await authClient.get(Uri.parse(url));
+      if (response.statusCode != 200) {
+        debugPrint('Gviz request failed with status: ${response.statusCode}');
+        return [];
+      }
+
+      // 4. Parse
+      final body = response.body;
+      final start = body.indexOf('{');
+      final end = body.lastIndexOf('}');
+      if (start == -1 || end == -1) return [];
+
+      final jsonStr = body.substring(start, end + 1);
+      final decoded = jsonDecode(jsonStr);
+      
+      if (decoded['status'] == 'error') {
+        final error = (decoded['errors'] as List?)?.firstOrNull;
+        final message = error?['detailed_message'] ?? error?['message'] ?? 'Unknown Gviz Error';
+        throw Exception('Gviz Query Failed: $message');
+      }
+
+      final table = decoded['table'];
+      if (table == null || table['rows'] == null) return [];
+
+      final List<Map<String, dynamic>> results = [];
+      final rows = table['rows'] as List;
+
+      for (var row in rows) {
+        final cells = row['c'] as List;
+        final record = <String, dynamic>{};
+        for (var i = 0; i < headers.length; i++) {
+          if (i < cells.length && cells[i] != null) {
+            final cell = cells[i] as Map<String, dynamic>;
+            record[headers[i]] = cell['v'];
+          } else {
+            record[headers[i]] = null;
+          }
+        }
+        results.add(record);
+      }
+      return results;
+    } catch (e) {
+      debugPrint('Error in server-side search: $e');
+      rethrow;
+    }
+  }
+
+  String _indexToColumn(int index) {
+    String res = '';
+    int n = index + 1;
+    while (n > 0) {
+      int m = (n - 1) % 26;
+      res = String.fromCharCode(65 + m) + res;
+      n = ((n - m) ~/ 26);
+    }
+    return res;
   }
 }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
@@ -50,6 +51,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  Timer? _searchTimer;
 
   @override
   void initState() {
@@ -66,9 +68,19 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9) {
+    if (_scrollController.hasClients && _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       final isFilterEmpty = _activeFilter == null || _activeFilter == 'all';
-      if (!_isLoading && !_isLoadingMore && !_hasErrorLoadingMore && _hasMore && _searchQuery.isEmpty && isFilterEmpty) {
+      
+      // Allow pagination if not loading, has more data, 
+      // AND (is not searching OR is searching with enough chars)
+      bool canLoadMore = !_isLoading && !_isLoadingMore && !_hasErrorLoadingMore && _hasMore;
+      bool isSearchActive = _searchQuery.isNotEmpty;
+      bool isSearchRemote = _searchQuery.length >= 2;
+
+      if (canLoadMore) {
+        // ALWAYS allow pagination if not currently busy.
+        // If it's a short search (<2 chars), we fetch more unfiltered data 
+        // from the server and then apply the local filter to find more matches.
         _loadData(refresh: false);
       }
     }
@@ -102,16 +114,36 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   void _onSearchChanged() {
-    if (mounted) {
-      setState(() {
-        _searchQuery = _searchController.text;
-        _applyFilters();
-      });
+    final newQuery = _searchController.text;
+    
+    // local filtering for quick feedback if length < 2
+    if (newQuery.length < 2) {
+       if (_searchQuery.length >= 2) {
+         // Clear remote search
+         _searchQuery = newQuery;
+         _loadData(refresh: true);
+       } else {
+         _searchQuery = newQuery;
+         _applyFilters();
+       }
+       return;
     }
+
+    // Debounce remote search (>= 2 chars)
+    _searchTimer?.cancel();
+    _searchTimer = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) {
+        setState(() {
+          _searchQuery = newQuery;
+          _loadData(refresh: true);
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _searchTimer?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _scrollController.dispose();
     _searchController.dispose();
@@ -145,6 +177,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
     // Fetch fresh data from DriveService
     try {
+      QuickFilter? selectedFilter;
+      if (_activeFilter != null && _activeFilter != 'all') {
+        try {
+          selectedFilter = _activeFilters.firstWhere((f) => f.key == _activeFilter);
+        } catch (_) {}
+      }
+
       final fetchedData = await _driveService.fetchRecords(
         widget.module!.id, 
         widget.module!.name, 
@@ -153,6 +192,12 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         limit: _pageSize,
         fetchSubTables: false, // Performance optimization for List View
         descending: true,
+        searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
+        quickFilter: selectedFilter != null ? {
+          'field': selectedFilter.field,
+          'operator': selectedFilter.operator,
+          'value': selectedFilter.value,
+        } : null,
       );
       
       if (mounted) {
@@ -221,14 +266,16 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
              final filterVal = filter.value.toString().toLowerCase();
              final itemValStr = itemValue?.toString().toLowerCase() ?? '';
 
-             if (filter.operator == '==') {
+             if (filter.operator == '==' || filter.operator == '=') {
                matchesQuickFilter = itemValStr == filterVal;
              } else if (filter.operator == '!=') { 
                matchesQuickFilter = itemValStr != filterVal;
              } else if (filter.operator == 'contains') {
                matchesQuickFilter = itemValStr.contains(filterVal);
-             } else if (filter.operator == 'startsWidth') {
+             } else if (filter.operator == 'startsWidth' || filter.operator == 'startsWith') {
                matchesQuickFilter = itemValStr.startsWith(filterVal);
+             } else if (filter.operator == 'endsWith') {
+               matchesQuickFilter = itemValStr.endsWith(filterVal);
              } else if (filter.operator == '>') {
                 // Try numeric comparison first
                 final numItem = num.tryParse(itemValStr);
@@ -238,6 +285,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 } else {
                   matchesQuickFilter = itemValStr.compareTo(filterVal) > 0;
                 }
+             } else if (filter.operator == '>=') {
+                final numItem = num.tryParse(itemValStr);
+                final numFilter = num.tryParse(filterVal);
+                if (numItem != null && numFilter != null) {
+                  matchesQuickFilter = numItem >= numFilter;
+                } else {
+                  matchesQuickFilter = itemValStr.compareTo(filterVal) >= 0;
+                }
              } else if (filter.operator == '<') {
                 final numItem = num.tryParse(itemValStr);
                 final numFilter = num.tryParse(filterVal);
@@ -245,6 +300,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                   matchesQuickFilter = numItem < numFilter;
                 } else {
                   matchesQuickFilter = itemValStr.compareTo(filterVal) < 0;
+                }
+             } else if (filter.operator == '<=') {
+                final numItem = num.tryParse(itemValStr);
+                final numFilter = num.tryParse(filterVal);
+                if (numItem != null && numFilter != null) {
+                  matchesQuickFilter = numItem <= numFilter;
+                } else {
+                  matchesQuickFilter = itemValStr.compareTo(filterVal) <= 0;
                 }
              }
            } catch (e) {
@@ -256,13 +319,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         return matchesSearch && matchesQuickFilter;
       }).toList();
 
-      // Sort by record_id in descending order (newest first)
-      _filteredData.sort((a, b) {
-        final aId = a['record_id']?.toString() ?? '';
-        final bId = b['record_id']?.toString() ?? '';
-        // If record_id is missing, fallback to empty string
-        return bId.compareTo(aId);
-      });
+      // We rely on server-side sorting (record_id DESC) from Google Sheets/Gviz.
+      // Local sorting is only a fallback or for newly added items if any.
     });
   }
 
@@ -296,8 +354,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             onFilterChanged: (filterKey) {
               setState(() {
                 _activeFilter = filterKey;
-                _applyFilters();
               });
+              _loadData(refresh: true);
             },
             onOpenSettings: _openSettings,
           ),
