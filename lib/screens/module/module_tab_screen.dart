@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
@@ -50,6 +51,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  Timer? _searchTimer;
 
   @override
   void initState() {
@@ -68,8 +70,20 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   void _onScroll() {
     if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9) {
       final isFilterEmpty = _activeFilter == null || _activeFilter == 'all';
-      if (!_isLoading && !_isLoadingMore && !_hasErrorLoadingMore && _hasMore && _searchQuery.isEmpty && isFilterEmpty) {
-        _loadData(refresh: false);
+      
+      // Allow pagination if not loading, has more data, 
+      // AND (is not searching OR is searching with enough chars)
+      bool canLoadMore = !_isLoading && !_isLoadingMore && !_hasErrorLoadingMore && _hasMore;
+      bool isSearchActive = _searchQuery.isNotEmpty;
+      bool isSearchRemote = _searchQuery.length >= 2;
+
+      if (canLoadMore) {
+        if (isFilterEmpty) {
+          // If search is empty or search is remote (>=2), we can paginate from Googl Sheets
+          if (!isSearchActive || isSearchRemote) {
+            _loadData(refresh: false);
+          }
+        }
       }
     }
   }
@@ -102,16 +116,36 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   void _onSearchChanged() {
-    if (mounted) {
-      setState(() {
-        _searchQuery = _searchController.text;
-        _applyFilters();
-      });
+    final newQuery = _searchController.text;
+    
+    // local filtering for quick feedback if length < 2
+    if (newQuery.length < 2) {
+       if (_searchQuery.length >= 2) {
+         // Clear remote search
+         _searchQuery = newQuery;
+         _loadData(refresh: true);
+       } else {
+         _searchQuery = newQuery;
+         _applyFilters();
+       }
+       return;
     }
+
+    // Debounce remote search (>= 2 chars)
+    _searchTimer?.cancel();
+    _searchTimer = Timer(const Duration(milliseconds: 600), () {
+      if (mounted) {
+        setState(() {
+          _searchQuery = newQuery;
+          _loadData(refresh: true);
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
+    _searchTimer?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _scrollController.dispose();
     _searchController.dispose();
@@ -153,6 +187,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         limit: _pageSize,
         fetchSubTables: false, // Performance optimization for List View
         descending: true,
+        searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
       );
       
       if (mounted) {

@@ -34,6 +34,7 @@ void main() {
     registerFallbackValue(sheets.ClearValuesRequest());
     registerFallbackValue(drive.Media(Stream.empty(), 0));
     registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
+    registerFallbackValue(Uri());
   });
 
   setUp(() {
@@ -401,32 +402,55 @@ void main() {
     });
 
     test('fetchRecords returns sorted list when descending is true', () async {
-       // Mock two files
+       // Mock spreadsheet lookup
        when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
 
       when(() => mockSpreadsheetsResource.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
-        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1'))],
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1', sheetId: 0))],
       ));
 
-      // Header
+      // Header (Gviz also needs headers)
       when(() => mockValuesResource.get(any(), 'tab1!1:1')).thenAnswer((_) async => sheets.ValueRange(
         values: [['col1', 'record_id']],
       ));
 
-      // Data (Two records, oldest first in sheet)
-      when(() => mockValuesResource.get(any(), 'tab1!A2:ZZ')).thenAnswer((_) async => sheets.ValueRange(
-        values: [
-          ['rec1', '100'],
-          ['rec2', '200'],
-        ],
-      ));
+      // Gviz Mock Result (Two records, newest first as requested by DESC)
+      final gvizResponse = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"rows":[{"c":[{"v":"rec2"},{"v":"200"}]},{"c":[{"v":"rec1"},{"v":"100"}]}]}});';
+      when(() => mockHttpClient.get(any())).thenAnswer((_) async => http.Response(gvizResponse, 200));
 
       final results = await driveService.fetchRecords('mod1', 'MyModule', 'tab1', descending: true);
 
       expect(results.length, 2);
       expect(results.first['record_id'], '200'); // Newest first
       expect(results.last['record_id'], '100');
+    });
+
+    test('fetchRecords handles search with mixed numeric columns (Gviz)', () async {
+       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'contacts']));
+
+      when(() => mockSpreadsheetsResource.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'contacts', sheetId: 101))],
+      ));
+
+      // Header: Name and Phone (numeric keyword)
+      when(() => mockValuesResource.get(any(), 'contacts!1:1')).thenAnswer((_) async => sheets.ValueRange(
+        values: [['Name', 'Phone']],
+      ));
+
+      final gvizResponse = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"rows":[{"c":[{"v":"Dawit"},{"v":12345}]}]}});';
+      when(() => mockHttpClient.get(any(that: predicate((Uri uri) {
+        final tq = uri.queryParameters['tq'] ?? '';
+        // Should use lower() for Name (A). 
+        // Phone (B) is in strictlyNonText, so it should be skipped if query is "Dawit".
+        return tq.contains('lower(A)') && !tq.contains('B');
+      })))).thenAnswer((_) async => http.Response(gvizResponse, 200));
+
+      final results = await driveService.fetchRecords('mod1', 'MyModule', 'contacts', searchQuery: 'Dawit');
+
+      expect(results.length, 1);
+      expect(results.first['Name'], 'Dawit');
     });
 
     test('fetchRecords with sub-tables', () async {
