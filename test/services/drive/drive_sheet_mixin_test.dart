@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:drivererpapp/services/drive/drive_sheet_mixin.dart';
+import 'package:drivererpapp/models/schema_models.dart';
 
 class MockDriveApi extends Mock implements drive.DriveApi {}
 class MockFilesResource extends Mock implements drive.FilesResource {}
@@ -333,6 +334,100 @@ void main() {
         }, retries: 2);
       } catch (_) {}
       expect(calls, 3); // initial + 2 retries
+    });
+
+    test('fetchRecords handles search and quickFilter in Gviz', () async {
+      // Mock headers fetch
+      when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(
+        values: [['name', 'age']]
+      ));
+
+      // Mock metadata response (discovery)
+      final gvizMeta = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"name","type":"string"},{"id":"B","label":"age","type":"number"}],"rows":[]}});';
+      
+      // Mock data response
+      final gvizData = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"name","type":"string"}],"rows":[{"c":[{"v":"Alice"}]}]}});';
+
+      String? capturedUrl;
+      when(() => mockHttpClient.get(any())).thenAnswer((inv) async {
+         capturedUrl = (inv.positionalArguments[0] as Uri).toString();
+         if (capturedUrl!.contains('LIMIT%200')) return http.Response(gvizMeta, 200);
+         return http.Response(gvizData, 200);
+      });
+
+      await service.fetchRecords(
+        'f1', 's1', 'Main',
+        searchQuery: 'ali',
+        quickFilter: QuickFilter(label: 'Gold', key: 'g', field: 'age', operator: '>=', value: 30).toJson()
+      );
+
+      // Verify URL contains search and filter
+      final decodedUrl = Uri.decodeFull(capturedUrl!);
+      expect(decodedUrl, contains("lower(A) contains 'ali'"));
+      expect(decodedUrl, contains("B >= 30"));
+    });
+
+    test('fetchRecords falls back to local filter if Gviz fails', () async {
+      // Mock headers fetch
+      when(() => mockValues.get(any(), any())).thenAnswer((inv) async {
+        final range = inv.positionalArguments[1] as String;
+        if (range.contains('1:1')) return sheets.ValueRange(values: [['name', 'age']]);
+        return sheets.ValueRange(values: [
+          ['Alice', '30'],
+          ['Bob', '25'],
+        ]);
+      });
+
+      // Mock Gviz error response
+      when(() => mockHttpClient.get(any())).thenAnswer((_) async => 
+        http.Response('/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"error","errors":[{"reason":"invalid_query"}]});', 200)
+      );
+
+      // Search for 'ali' should return Alice only
+      final results = await service.fetchRecords('f1', 's1', 'Main', searchQuery: 'ali');
+      
+      expect(results.length, 1);
+      expect(results.first['name'], 'Alice');
+    });
+
+    test('Gviz metadata discovery handles network error', () async {
+      // Mock headers fetch
+      when(() => mockValues.get(any(), any())).thenAnswer((inv) async {
+        final range = inv.positionalArguments[1] as String;
+        if (range.contains('1:1')) return sheets.ValueRange(values: [['name']]);
+        return sheets.ValueRange(values: [['Alice']]);
+      });
+
+      when(() => mockHttpClient.get(any())).thenThrow(Exception('Network error'));
+      
+      final results = await service.fetchRecords('f1', 's1', 'Main');
+      expect(results.length, 1);
+      expect(results.first['name'], 'Alice');
+    });
+
+    test('fetchRecords with endsWith operator', () async {
+        // Mock headers fetch
+        when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(
+          values: [['email']]
+        ));
+
+        final gvizMeta = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"email","type":"string"}],"rows":[]}});';
+        final gvizData = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"email","type":"string"}],"rows":[]}});';
+
+        String? capturedUrl;
+        when(() => mockHttpClient.get(any())).thenAnswer((inv) async {
+            capturedUrl = (inv.positionalArguments[0] as Uri).toString();
+            if (capturedUrl!.contains('LIMIT%200')) return http.Response(gvizMeta, 200);
+            return http.Response(gvizData, 200);
+        });
+
+        await service.fetchRecords(
+            'f1', 's1', 'Main',
+            quickFilter: QuickFilter(label: 'L', key: 'k', field: 'email', operator: 'endsWith', value: '@gmail.com').toJson()
+        );
+
+        final decodedUrl = Uri.decodeFull(capturedUrl!);
+        expect(decodedUrl, contains("lower(A) ends with '@gmail.com'"));
     });
   });
 }

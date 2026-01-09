@@ -83,4 +83,25 @@ void main() {
     await tester.tap(find.text('All'));
     expect(selectedFilter, equals('all'));
   });
+
+  testWidgets('ModuleFilterBar triggers onOpenSettings when icon tapped', (WidgetTester tester) async {
+    bool opened = false;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ModuleFilterBar(
+          tab: TabConfig(id: 't1', label: 'T', columns: []),
+          primaryColor: Colors.blue,
+          searchController: TextEditingController(),
+          activeFilter: 'all',
+          activeFilters: [],
+          showFilters: true,
+          onFilterChanged: (_) {},
+          onOpenSettings: () => opened = true,
+        ),
+      ),
+    ));
+
+    await tester.tap(find.byIcon(Icons.tune_rounded));
+    expect(opened, isTrue);
+  });
 }
