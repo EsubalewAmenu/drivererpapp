@@ -10,6 +10,7 @@ import '../record_detail_screen.dart';
 import 'common/tab_settings_screen.dart';
 import 'widgets/module_filter_bar.dart';
 import 'widgets/module_list_item.dart';
+import 'widgets/module_status_views.dart';
 
 class ModuleTabScreen extends StatefulWidget {
   final TabConfig tab;
@@ -274,28 +275,10 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     final theme = Theme.of(context);
 
     if (_errorMessage != null && _allData.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.cloud_off_rounded, size: 48, color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => _loadData(refresh: true), 
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: widget.primaryColor,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
+      return ModuleErrorView(
+        message: _errorMessage!,
+        primaryColor: widget.primaryColor,
+        onRetry: () => _loadData(refresh: true),
       );
     }
 
@@ -303,8 +286,21 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       backgroundColor: Colors.transparent,
       body: Column(
         children: [
-          _buildSearchBar(currentTab),
-          _buildQuickFilters(currentTab),
+          ModuleFilterBar(
+            tab: currentTab,
+            primaryColor: widget.primaryColor,
+            searchController: _searchController,
+            activeFilter: _activeFilter,
+            activeFilters: _activeFilters,
+            showFilters: _showFilters,
+            onFilterChanged: (filterKey) {
+              setState(() {
+                _activeFilter = filterKey;
+                _applyFilters();
+              });
+            },
+            onOpenSettings: _openSettings,
+          ),
           Expanded(child: _buildListView(currentTab)),
         ],
       ),
@@ -326,49 +322,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           // Refresh data on return
           if (_currentOffset == 0) _loadData(refresh: true);
         },
-      ),
-    );
-  }
-
-  Widget _buildSearchBar(TabConfig tab) {
-    final theme = Theme.of(context);
-    
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
-              decoration: InputDecoration(
-                hintText: 'Search ${tab.label.toLowerCase()}...',
-                hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
-                prefixIcon: Icon(Icons.search_rounded, color: theme.textTheme.bodyMedium?.color),
-                filled: true,
-                fillColor: theme.cardTheme.color,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          InkWell(
-            onTap: _openSettings,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.cardTheme.color,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.tune_rounded, color: widget.primaryColor),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -472,81 +425,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     }
   }
 
-  Widget _buildQuickFilters(TabConfig tab) {
-    if (!_showFilters || _activeFilters.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    final theme = Theme.of(context);
-
-    // Filter Chips Row logic needs to handle scrolling and selection
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: _activeFilters.length + 1, // +1 for "All"
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            // "All" Chip
-            final isSelected = _activeFilter == null || _activeFilter == 'all';
-             return FilterChip(
-              label: const Text('All'),
-              selected: isSelected,
-              onSelected: (_) {
-                setState(() {
-                  _activeFilter = 'all';
-                  _applyFilters();
-                });
-              },
-              backgroundColor: theme.cardTheme.color,
-              selectedColor: widget.primaryColor.withValues(alpha: 0.2),
-              labelStyle: TextStyle(
-                color: isSelected ? widget.primaryColor : theme.textTheme.bodyMedium?.color,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: isSelected ? widget.primaryColor : Colors.transparent,
-                ),
-              ),
-              showCheckmark: false,
-            );
-          }
-          
-          final filter = _activeFilters[index - 1];
-          final isSelected = _activeFilter == filter.key;
-
-          return FilterChip(
-            label: Text(filter.label),
-            selected: isSelected,
-            onSelected: (_) {
-              setState(() {
-                _activeFilter = filter.key;
-                _applyFilters();
-              });
-            },
-            backgroundColor: theme.cardTheme.color,
-            selectedColor: widget.primaryColor.withValues(alpha: 0.2),
-            labelStyle: TextStyle(
-              color: isSelected ? widget.primaryColor : theme.textTheme.bodyMedium?.color,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(
-                color: isSelected ? widget.primaryColor : Colors.transparent,
-              ),
-            ),
-            showCheckmark: false,
-          );
-        },
-      ),
-    ); 
-  }
-
   Widget _buildListView(TabConfig tab) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -554,22 +432,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
     final theme = Theme.of(context);
     if (_filteredData.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.inventory_2_outlined, size: 64, color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.2)),
-              const SizedBox(height: 16),
-              Text(
-                'No items found',
-                style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
-              ),
-            ],
-          ),
-        ),
-      );
+      return const ModuleEmptyView();
     }
 
     return RefreshIndicator(
@@ -607,167 +470,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           }
           final item = _filteredData[index];
           
-          final template = tab.listTemplate?.template ?? 'high_density';
-          if (template == 'standard') {
-            return _buildStandardCard(item, tab);
-          }
-          return _buildHighDensityCard(item, tab);
+          return ModuleListItem(
+            item: item,
+            tab: tab,
+            primaryColor: widget.primaryColor,
+            onTap: () => _openRecordDetail(item),
+          );
         },
-      ),
-    );
-  }
-
-  dynamic _getValueFromLogic(Map<String, dynamic> data, ConditionalLogic? logic) {
-    if (logic == null || logic.conditionKey == null) return null;
-
-    final conditionValue = data[logic.conditionKey];
-    bool isTruthy = false;
-
-    if (conditionValue is bool) {
-      isTruthy = conditionValue;
-    } else if (conditionValue is String) {
-      final s = conditionValue.toLowerCase().trim();
-      isTruthy = s.isNotEmpty && s != 'false' && s != '0';
-    } else if (conditionValue is List) {
-      isTruthy = conditionValue.isNotEmpty;
-    } else if (conditionValue is num) {
-      isTruthy = conditionValue != 0;
-    } else if (conditionValue != null) {
-      isTruthy = true;
-    }
-
-    final key = isTruthy ? logic.truthyKey : logic.falsyKey;
-    return (key != null && data.containsKey(key)) ? data[key] : null;
-  }
-
-  String _resolveTitle(Map<String, dynamic> item, ListTemplateConfig? config, TabConfig tab) {
-    final logicValue = _getValueFromLogic(item, config?.titleLogic);
-    if (logicValue != null) return logicValue.toString();
-
-    final titleKey = config?.titleKey ?? (tab.columns.isNotEmpty ? tab.columns[0].key : '');
-    return item[titleKey]?.toString() ?? '';
-  }
-
-  String _resolveSubtitle(Map<String, dynamic> item, ListTemplateConfig? config, TabConfig tab) {
-    final logicValue = _getValueFromLogic(item, config?.subtitleLogic);
-    if (logicValue != null) return logicValue.toString();
-
-    final subtitleKey = config?.subtitleKey ?? (tab.columns.length > 1 ? tab.columns[1].key : '');
-    return item[subtitleKey]?.toString() ?? '';
-  }
-
-  String _resolveTrailing(Map<String, dynamic> item, ListTemplateConfig? config, TabConfig tab) {
-    final logicValue = _getValueFromLogic(item, config?.trailingLogic);
-    if (logicValue != null) return logicValue.toString();
-
-    final trailingKey = config?.trailingKey;
-    if (trailingKey == null) return '';
-    return item[trailingKey]?.toString() ?? '';
-  }
-
-  Widget _buildStandardCard(Map<String, dynamic> item, TabConfig tab) {
-    final theme = Theme.of(context);
-    final config = tab.listTemplate;
-
-    final title = _resolveTitle(item, config, tab);
-    final subtitle = _resolveSubtitle(item, config, tab);
-    final trailing = _resolveTrailing(item, config, tab);
-
-    return Card(
-      color: theme.cardTheme.color,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: () => _openRecordDetail(item),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (title.isNotEmpty)
-                          Text(
-                            title,
-                            style: AppTheme.inter(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: theme.textTheme.bodyLarge?.color,
-                            ),
-                          ),
-                        if (subtitle.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            subtitle,
-                            style: AppTheme.inter(
-                              fontSize: 14,
-                              color: theme.textTheme.bodyMedium?.color,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (trailing.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: widget.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        trailing,
-                        style: AppTheme.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: widget.primaryColor,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              if (config?.detailKeys != null && config!.detailKeys!.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Divider(height: 1),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  children: config.detailKeys!.map((key) {
-                    final col = tab.columns.firstWhere((c) => c.key == key, orElse: () => tab.columns.first);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          col.label.toUpperCase(),
-                          style: AppTheme.inter(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        Text(
-                          item[key]?.toString() ?? '-',
-                          style: AppTheme.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: theme.textTheme.bodyLarge?.color,
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -788,64 +497,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
           settings: widget.settings,
           detailTemplate: currentTab.detailTemplate,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHighDensityCard(Map<String, dynamic> item, TabConfig tab) {
-    final theme = Theme.of(context);
-    final config = tab.listTemplate;
-
-    final title = _resolveTitle(item, config, tab);
-    final subtitle = _resolveSubtitle(item, config, tab);
-
-    return Card(
-      color: theme.cardTheme.color,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () => _openRecordDetail(item),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Container(
-                width: 4,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: widget.primaryColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (title.isNotEmpty)
-                      Text(
-                        title,
-                        style: AppTheme.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: theme.textTheme.bodyLarge?.color,
-                        ),
-                      ),
-                    if (subtitle.isNotEmpty)
-                      Text(
-                        subtitle,
-                        style: AppTheme.inter(
-                          fontSize: 14,
-                          color: theme.textTheme.bodyMedium?.color,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: theme.textTheme.bodyMedium?.color),
-            ],
-          ),
         ),
       ),
     );
