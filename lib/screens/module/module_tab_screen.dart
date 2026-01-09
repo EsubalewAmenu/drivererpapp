@@ -624,15 +624,18 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     if (conditionValue is bool) {
       isTruthy = conditionValue;
     } else if (conditionValue is String) {
-      isTruthy = conditionValue.isNotEmpty;
+      final s = conditionValue.toLowerCase().trim();
+      isTruthy = s.isNotEmpty && s != 'false' && s != '0';
     } else if (conditionValue is List) {
       isTruthy = conditionValue.isNotEmpty;
+    } else if (conditionValue is num) {
+      isTruthy = conditionValue != 0;
     } else if (conditionValue != null) {
       isTruthy = true;
     }
 
     final key = isTruthy ? logic.truthyKey : logic.falsyKey;
-    return key != null ? data[key] : null;
+    return (key != null && data.containsKey(key)) ? data[key] : null;
   }
 
   String _resolveTitle(Map<String, dynamic> item, ListTemplateConfig? config) {

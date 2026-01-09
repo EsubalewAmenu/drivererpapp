@@ -42,20 +42,24 @@ class RecordDetailScreen extends StatelessWidget {
   }
 
   String _getValueFromLogic(ConditionalLogic logic) {
-    final conditionVal = data[logic.conditionKey];
+    final conditionValue = data[logic.conditionKey];
     bool isTruthy = false;
-    if (conditionVal is bool) {
-      isTruthy = conditionVal;
-    } else if (conditionVal is String) {
-      isTruthy = conditionVal.isNotEmpty;
-    } else if (conditionVal is List) {
-      isTruthy = conditionVal.isNotEmpty;
-    } else {
-      isTruthy = conditionVal != null;
+
+    if (conditionValue is bool) {
+      isTruthy = conditionValue;
+    } else if (conditionValue is String) {
+      final s = conditionValue.toLowerCase().trim();
+      isTruthy = s.isNotEmpty && s != 'false' && s != '0';
+    } else if (conditionValue is List) {
+      isTruthy = conditionValue.isNotEmpty;
+    } else if (conditionValue is num) {
+      isTruthy = conditionValue != 0;
+    } else if (conditionValue != null) {
+      isTruthy = true;
     }
 
     final resultKey = isTruthy ? logic.truthyKey : logic.falsyKey;
-    return data[resultKey]?.toString() ?? '';
+    return (resultKey != null && data.containsKey(resultKey)) ? data[resultKey]?.toString() ?? '' : '';
   }
 
   @override
