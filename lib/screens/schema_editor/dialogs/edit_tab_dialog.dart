@@ -68,12 +68,11 @@ class _EditTabDialogState extends State<EditTabDialog> {
           onPressed: () {
             if (_labelController.text.isEmpty) return;
             
-            final updatedTab = TabConfig(
-              id: widget.tab.id,
+            final updatedTab = widget.tab.copyWith(
               label: _labelController.text,
-              columns: widget.tab.columns,
-              quickFilters: widget.tab.quickFilters,
-              detailTemplate: DetailTemplateConfig(template: _template),
+              detailTemplate: (widget.tab.detailTemplate ?? DetailTemplateConfig()).copyWith(
+                template: _template,
+              ),
             );
             
             Navigator.pop(context, updatedTab);

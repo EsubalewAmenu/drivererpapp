@@ -594,6 +594,10 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
 
   Widget _buildColumnDropdown(String label, String? value, Function(String?) onChanged, {bool isOptional = false}) {
     final theme = Theme.of(context);
+    
+    // Check if the current value exists in the columns
+    final bool valueExists = value == null || widget.tab.columns.any((c) => c.key == value);
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -614,6 +618,11 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
               value: col.key,
               child: Text(col.label),
             )).toList(),
+            if (!valueExists && value != null)
+              DropdownMenuItem(
+                value: value,
+                child: Text('$value (Missing)', style: const TextStyle(color: Colors.red)),
+              ),
           ],
           onChanged: onChanged,
         ),

@@ -161,6 +161,28 @@ class ListTemplateConfig {
     this.detailKeys,
   });
 
+  ListTemplateConfig copyWith({
+    String? template,
+    String? titleKey,
+    ConditionalLogic? titleLogic,
+    String? subtitleKey,
+    ConditionalLogic? subtitleLogic,
+    String? trailingKey,
+    ConditionalLogic? trailingLogic,
+    List<String>? detailKeys,
+  }) {
+    return ListTemplateConfig(
+      template: template ?? this.template,
+      titleKey: titleKey ?? this.titleKey,
+      titleLogic: titleLogic ?? this.titleLogic,
+      subtitleKey: subtitleKey ?? this.subtitleKey,
+      subtitleLogic: subtitleLogic ?? this.subtitleLogic,
+      trailingKey: trailingKey ?? this.trailingKey,
+      trailingLogic: trailingLogic ?? this.trailingLogic,
+      detailKeys: detailKeys ?? this.detailKeys,
+    );
+  }
+
   factory ListTemplateConfig.fromJson(Map<String, dynamic> json) => _$ListTemplateConfigFromJson(json);
   Map<String, dynamic> toJson() => _$ListTemplateConfigToJson(this);
 }
@@ -193,6 +215,28 @@ class DetailTemplateConfig {
     this.showAllFields = true,
     this.detailKeys,
   });
+
+  DetailTemplateConfig copyWith({
+    String? template,
+    String? titleKey,
+    ConditionalLogic? titleLogic,
+    String? subtitleKey,
+    ConditionalLogic? subtitleLogic,
+    String? imageKey,
+    bool? showAllFields,
+    List<String>? detailKeys,
+  }) {
+    return DetailTemplateConfig(
+      template: template ?? this.template,
+      titleKey: titleKey ?? this.titleKey,
+      titleLogic: titleLogic ?? this.titleLogic,
+      subtitleKey: subtitleKey ?? this.subtitleKey,
+      subtitleLogic: subtitleLogic ?? this.subtitleLogic,
+      imageKey: imageKey ?? this.imageKey,
+      showAllFields: showAllFields ?? this.showAllFields,
+      detailKeys: detailKeys ?? this.detailKeys,
+    );
+  }
 
   factory DetailTemplateConfig.fromJson(Map<String, dynamic> json) => _$DetailTemplateConfigFromJson(json);
   Map<String, dynamic> toJson() => _$DetailTemplateConfigToJson(this);
