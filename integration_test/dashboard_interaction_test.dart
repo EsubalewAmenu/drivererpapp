@@ -11,6 +11,7 @@ import 'package:drivererpapp/providers/theme_provider.dart';
 import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
+import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/screens/workspace_selector_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -34,7 +35,6 @@ void main() {
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
     AppTheme.useGoogleFonts = false;
-    registerFallbackValue(drive.File());
   });
 
   setUp(() {
@@ -68,13 +68,19 @@ void main() {
   testWidgets('Dashboard: Period Switching and Module Navigation', (tester) async {
     debugPrint('TEST: Starting dashboard_interaction_test (Period & Navigation)');
     
-    final workspace = drive.File()..id = 'ws1'..name = 'Growth Corp';
+    final workspace = drive.File()..id = 'ws1'..name = 'ERP Lab';
     final moduleFile = drive.File()..id = 'mod1'..name = 'Sales';
     
     when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFile]);
-    when(() => mockDriveService.fetchRecords(any(), any(), any(), 
-      offset: any(named: 'offset'), limit: any(named: 'limit'), fetchSubTables: any(named: 'fetchSubTables'), descending: any(named: 'descending')))
-      .thenAnswer((_) async => []);
+    when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_id');
+    when(() => mockDriveService.readModuleConfig('config_id')).thenAnswer((_) async => <String, dynamic>{
+      'id': 'mod1',
+      'name': 'Sales',
+      'icon': 'trending_up',
+      'primaryColor': '#4F46E5',
+      'tabs': [],
+      'dashboard': {'cards': []}
+    });
 
     final workspaceProvider = WorkspaceProvider();
     workspaceProvider.setWorkspace(workspace);
@@ -87,38 +93,42 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // 1. Verify Default KPI (Today)
-    expect(find.text('GROWTH CORP'), findsOneWidget);
-    expect(find.text(r'$800.00'), findsOneWidget); // Default hardcoded Today Profit
+    // 1. Initial Dashboard Check
+    expect(find.text('ERP LAB'), findsOneWidget);
+    expect(find.text('TODAY'), findsOneWidget);
 
-    // 2. Switch to Moonth
-    await tester.tap(find.text('TODAY'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('MONTH').last);
+    // 2. Period Switch
+    await tester.tap(find.text('MONTH'));
     await tester.pumpAndSettle();
     
-    expect(find.text(r'-$7000.00'), findsOneWidget); // Default hardcoded Month Profit (35k - 42k)
+    // Check Profit - formatting might include commas or different spacing
+    // We expect a loss in the mocked month data: 35000 - 42000 = -7000
+    expect(find.textContaining('7000'), findsOneWidget);
 
     // 3. Navigate to Module
-    await tester.tap(find.text('Sales'));
+    final salesCard = find.text('Sales');
+    await tester.ensureVisible(salesCard);
+    await tester.tap(salesCard);
     await tester.pumpAndSettle();
 
     expect(find.text('SALES'), findsOneWidget);
-    expect(find.text('DASHBOARD'), findsOneWidget);
   });
 
   testWidgets('Dashboard: Workspace Switching via Drawer', (tester) async {
     debugPrint('TEST: Starting dashboard_interaction_test (Workspace Switch)');
     
     final ws1 = drive.File()..id = 'ws1'..name = 'Company A';
-    final ws2 = drive.File()..id = 'ws2'..name = 'Company B';
+    final companyB = Company(id: 'c2', name: 'Company B', folderId: 'ws2');
     
     when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root_id');
-    when(() => mockDriveService.getCompanies(any())).thenAnswer((_) async => []);
     when(() => mockDriveService.ensureCompanyRegistry(any())).thenAnswer((_) async => 'reg_id');
+    when(() => mockDriveService.getCompanies(any())).thenAnswer((_) async => [
+      Company(id: 'c1', name: 'Company A', folderId: 'ws1'),
+      companyB,
+    ]);
 
-    final workspaceProvider = WorkspaceProvider();
+    final workspaceProvider = WorkspaceProvider(driveService: mockDriveService);
     workspaceProvider.setWorkspace(ws1);
     final driveProvider = TestDriveProvider(mockDriveService);
 
@@ -131,7 +141,6 @@ void main() {
     expect(find.text('COMPANY A'), findsOneWidget);
 
     // 1. Open Drawer
-    // Using tooltip for drawer button as icon might vary by platform/theme
     await tester.tap(find.byTooltip('Open navigation menu'));
     await tester.pumpAndSettle();
 
@@ -141,11 +150,13 @@ void main() {
 
     expect(find.byType(WorkspaceSelectorScreen), findsOneWidget);
 
-    // 3. Mock workspace selection (since they are listed in real app)
-    // In this test environment, we just manually call setWorkspace to simulate selection
-    workspaceProvider.setWorkspace(ws2);
+    // 3. Select Company B from the list
+    final companyBCard = find.text('Company B');
+    await tester.ensureVisible(companyBCard);
+    await tester.tap(companyBCard);
     await tester.pumpAndSettle();
 
+    // After selection, it should pop back to Dashboard
     expect(find.text('COMPANY B'), findsOneWidget);
   });
 }

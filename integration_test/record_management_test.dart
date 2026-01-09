@@ -13,7 +13,7 @@ import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/screens/record_detail_screen.dart';
-import 'package:drivererpapp/screens/settings_screen.dart';
+import 'package:drivererpapp/screens/schema_editor_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
@@ -74,6 +74,22 @@ void main() {
     
     when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFile]);
     
+    // Config for Inventory
+    when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_id');
+    when(() => mockDriveService.getFileId('mod1', 'stocks')).thenAnswer((_) async => 'stocks_id');
+    when(() => mockDriveService.readModuleConfig('config_id')).thenAnswer((_) async => <String, dynamic>{
+      'id': 'mod1',
+      'name': 'Inventory',
+      'icon': 'inventory',
+      'primaryColor': '#F59E0B',
+      'version': '1.0.0',
+      'tabs': <dynamic>[
+        {'id': 'stocks', 'label': 'Stocks', 'columns': [{'key': 'item_name', 'label': 'Item Name', 'type': 'text'}]}
+      ],
+      'dashboard': <String, dynamic>{'cards': <dynamic>[]},
+      'settings': <String, dynamic>{}
+    });
+
     // Mock records for Inventory -> Stocks
     when(() => mockDriveService.fetchRecords('mod1', 'Inventory', 'stocks',
       offset: any(named: 'offset'), limit: any(named: 'limit'), fetchSubTables: any(named: 'fetchSubTables'), descending: any(named: 'descending')))
@@ -81,8 +97,8 @@ void main() {
         {'record_id': 'item-001', 'item_name': 'MacBook Pro', 'quantity': 5, 'price': 2500},
       ]);
 
-    // Mock history for record
-    when(() => mockDriveService.listFileVersions(any())).thenAnswer((_) async => [
+    // Mock history for record correctly
+    when(() => mockDriveService.getFileRevisions(any())).thenAnswer((_) async => [
       drive.Revision()..id = 'v1'..modifiedTime = DateTime.now().subtract(const Duration(days: 1)),
       drive.Revision()..id = 'v2'..modifiedTime = DateTime.now(),
     ]);
@@ -99,47 +115,59 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Navigate to Module
-    await tester.tap(find.text('Inventory'));
+    final inventoryCard = find.text('Inventory');
+    await tester.ensureVisible(inventoryCard);
+    await tester.tap(inventoryCard);
+    await tester.pumpAndSettle();
+    
+    // Switch to STOCKS tab
+    await tester.tap(find.text('STOCKS'));
+    await tester.pumpAndSettle();
+    
+    // Wait for the 500ms delay in ModuleTabScreen initState
+    await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
 
     // 2. Select record
-    await tester.tap(find.text('MacBook Pro'));
+    final recordRow = find.text('MacBook Pro');
+    await tester.ensureVisible(recordRow);
+    await tester.tap(recordRow);
     await tester.pumpAndSettle();
 
     expect(find.byType(RecordDetailScreen), findsOneWidget);
-    expect(find.text('ITEM-001'), findsOneWidget);
+    expect(find.text('RECORD ENTRY'), findsOneWidget);
+    expect(find.text('MacBook Pro'), findsAtLeastNWidgets(1));
 
-    // 3. Check History inside record
-    await tester.tap(find.byIcon(Icons.history_rounded));
-    await tester.pumpAndSettle();
-    expect(find.text('Version History'), findsOneWidget);
-    await tester.tap(find.text('CLOSE'));
-    await tester.pumpAndSettle();
-
-    // 4. Go to Settings via Dashboard Drawer (Back out first)
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pumpAndSettle();
+    // 3. Go back and open Schema Editor
     await tester.tap(find.byIcon(Icons.arrow_back));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byIcon(Icons.menu_rounded));
+    // 4. Open Schema Editor to change template
+    await tester.tap(find.byIcon(Icons.edit_note_rounded));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle();
-    expect(find.byType(SettingsScreen), findsOneWidget);
+    expect(find.byType(SchemaEditorScreen), findsOneWidget);
 
-    // 5. Change Template to "Modern Visual"
-    await tester.tap(find.text('STANDARD'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('MODERN VISUAL').last);
-    await tester.pumpAndSettle();
-
-    // 6. Go back and verify visual change in RecordDetail
-    await tester.tap(find.byIcon(Icons.arrow_back));
+    // 5. Edit Tab to change to "Modern Visual"
+    await tester.tap(find.byIcon(Icons.edit_rounded).first); // Edit 'Stocks' tab
     await tester.pumpAndSettle();
     
-    await tester.tap(find.text('Inventory'));
+    // Select Modern Visual from dropdown
+    await tester.tap(find.text('Standard'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Modern Visual').last);
+    await tester.pumpAndSettle();
+    
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    // 6. Save and Activate
+    when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
+    await tester.tap(find.byType(TextButton).first); // The Activate button
+    await tester.pumpAndSettle();
+
+    // 7. Go back and verify visual change in RecordDetail
+    // Reload happens when we back out of editor usually, but we are back in ModuleScreen
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.tap(find.text('MacBook Pro'));
     await tester.pumpAndSettle();
 

@@ -13,11 +13,13 @@ class EditTabDialog extends StatefulWidget {
 
 class _EditTabDialogState extends State<EditTabDialog> {
   late TextEditingController _labelController;
+  late String _template;
 
   @override
   void initState() {
     super.initState();
     _labelController = TextEditingController(text: widget.tab.label);
+    _template = widget.tab.detailTemplate?.template ?? 'standard';
   }
 
   @override
@@ -32,11 +34,30 @@ class _EditTabDialogState extends State<EditTabDialog> {
     return AlertDialog(
       backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
       title: Text('Edit Tab', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
-      content: TextField(
-        controller: _labelController,
-        style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-        decoration: const InputDecoration(labelText: 'Tab Name'),
-        autofocus: true,
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _labelController,
+            style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+            decoration: const InputDecoration(labelText: 'Tab Name'),
+            autofocus: true,
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            value: _template,
+            decoration: const InputDecoration(labelText: 'Detail Template'),
+            dropdownColor: theme.cardColor,
+            style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+            items: const [
+              DropdownMenuItem(value: 'standard', child: Text('Standard')),
+              DropdownMenuItem(value: 'modern', child: Text('Modern Visual')),
+            ],
+            onChanged: (val) {
+              if (val != null) setState(() => _template = val);
+            },
+          ),
+        ],
       ),
       actions: [
         TextButton(
@@ -52,6 +73,7 @@ class _EditTabDialogState extends State<EditTabDialog> {
               label: _labelController.text,
               columns: widget.tab.columns,
               quickFilters: widget.tab.quickFilters,
+              detailTemplate: DetailTemplateConfig(template: _template),
             );
             
             Navigator.pop(context, updatedTab);
