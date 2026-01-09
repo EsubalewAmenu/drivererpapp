@@ -553,9 +553,19 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     final theme = Theme.of(context);
     if (_filteredData.isEmpty) {
       return Center(
-        child: Text(
-          'No items found',
-          style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.inventory_2_outlined, size: 64, color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.2)),
+              const SizedBox(height: 16),
+              Text(
+                'No items found',
+                style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
+              ),
+            ],
+          ),
         ),
       );
     }

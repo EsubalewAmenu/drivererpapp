@@ -92,6 +92,8 @@ class TabConfig {
   final ListTemplateConfig? listTemplate;
   @JsonKey(name: 'detail_template')
   final DetailTemplateConfig? detailTemplate;
+  @JsonKey(name: 'initial_data')
+  final List<Map<String, dynamic>>? initialData;
 
   TabConfig({
     required this.id,
@@ -101,6 +103,7 @@ class TabConfig {
     this.enableCustomFilters = true,
     this.listTemplate,
     this.detailTemplate,
+    this.initialData,
   });
 
   factory TabConfig.fromJson(Map<String, dynamic> json) => _$TabConfigFromJson(json);

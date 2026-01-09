@@ -98,6 +98,9 @@ TabConfig _$TabConfigFromJson(Map<String, dynamic> json) => TabConfig(
       : DetailTemplateConfig.fromJson(
           json['detail_template'] as Map<String, dynamic>,
         ),
+  initialData: (json['initial_data'] as List<dynamic>?)
+      ?.map((e) => e as Map<String, dynamic>)
+      .toList(),
 );
 
 Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
@@ -108,6 +111,7 @@ Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
   'enable_custom_filters': instance.enableCustomFilters,
   'list_template': instance.listTemplate?.toJson(),
   'detail_template': instance.detailTemplate?.toJson(),
+  'initial_data': instance.initialData,
 };
 
 ListTemplateConfig _$ListTemplateConfigFromJson(Map<String, dynamic> json) =>
