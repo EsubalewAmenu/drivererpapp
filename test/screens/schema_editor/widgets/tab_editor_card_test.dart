@@ -65,19 +65,27 @@ void main() {
     await tester.tap(find.byType(ExpansionTile));
     await tester.pumpAndSettle();
 
-    // Check columns rendered
     expect(find.byType(ColumnListItem), findsOneWidget); // Col 1
     expect(find.byType(TableColumnEditorItem), findsOneWidget); // Table 1
 
     expect(find.text('Col 1'), findsOneWidget);
     expect(find.text('Table 1'), findsOneWidget);
 
+    // Edit Column (Col 1)
+    final colItemFinder = find.byType(ColumnListItem);
+    final colEditBtn = find.descendant(of: colItemFinder, matching: find.byIcon(Icons.edit_rounded));
+    
+    await tester.tap(colEditBtn);
+    await tester.pumpAndSettle();
+    expect(find.text('Edit Column'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
     // Add Column
     await tester.tap(find.text('Add Column'));
     await tester.pumpAndSettle();
 
     expect(find.text('Add Column'), findsNWidgets(2)); // Button + Dialog Title
-    // Note: Add Column dialog title is 'Add Column' (verified previously as 'Add Column' not 'Add New Column')
     
     // Close dialog
     await tester.tap(find.text('Cancel'));
@@ -128,7 +136,38 @@ void main() {
     await tester.tap(find.text('Delete'));
     await tester.pumpAndSettle();
 
-    expect(updatedTab, isNotNull);
     expect(updatedTab!.columns, isEmpty);
+  });
+
+  testWidgets('TabEditorCard handles table column update', (WidgetTester tester) async {
+    final col1 = ColumnConfig(key: 't1', label: 'Table 1', type: 'table', columns: []);
+    final tab = TabConfig(id: 't1', label: 'My Tab', columns: [col1]);
+    
+    TabConfig? updatedTab;
+
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ListView(
+          children: [
+            TabEditorCard(
+              tab: tab,
+              rawSettings: const {},
+              onTabChanged: (val) => updatedTab = val,
+              onDelete: () {},
+              onEdit: () {},
+            ),
+          ],
+        ),
+      ),
+    ));
+
+    await tester.tap(find.byType(ExpansionTile));
+    await tester.pumpAndSettle();
+
+    final tableItem = tester.widget<TableColumnEditorItem>(find.byType(TableColumnEditorItem));
+    final updatedCol = col1.copyWith(label: 'New Label');
+    
+    tableItem.onUpdate(updatedCol);
+    expect(updatedTab!.columns.first.label, 'New Label');
   });
 }

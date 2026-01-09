@@ -56,6 +56,10 @@ if __name__ == "__main__":
         'lib/providers/drive_provider.dart',
         'lib/screens/module/module_tab_screen.dart',
         'lib/screens/record_detail_screen.dart',
-        'lib/screens/dynamic_form/fields/dropdown_field.dart'
+        'lib/screens/dynamic_form/fields/dropdown_field.dart',
+        'lib/screens/module_details_screen.dart',
+        'lib/screens/schema_editor/widgets/tab_editor_card.dart',
+        'lib/services/auth_service.dart',
+        'lib/screens/module/common/tab_settings_screen.dart'
     ]
     check_coverage('coverage/lcov.info', targets)

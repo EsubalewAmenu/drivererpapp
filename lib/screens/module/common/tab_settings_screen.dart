@@ -6,11 +6,13 @@ import '../filter/filter_editor_screen.dart';
 class TabSettingsScreen extends StatefulWidget {
   final TabConfig tab;
   final Color primaryColor;
+  final Function(Map<String, dynamic>)? onSave;
 
   const TabSettingsScreen({
     super.key,
     required this.tab,
     required this.primaryColor,
+    this.onSave,
   });
 
   @override
@@ -145,7 +147,15 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
   }
 
   void _save() {
-    Navigator.of(context).pop({
+    final data = _collectData();
+    if (widget.onSave != null) {
+      widget.onSave!(data);
+    }
+    Navigator.of(context).pop(data);
+  }
+
+  Map<String, dynamic> _collectData() {
+    return {
       'enableFilters': _filtersEnabled,
       'filters': _filters,
       'listTemplate': ListTemplateConfig(
@@ -198,7 +208,7 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
         showAllFields: _detailShowAll,
         detailKeys: _detailFields,
       ),
-    });
+    };
   }
 
   @override
