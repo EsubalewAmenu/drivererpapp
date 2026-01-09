@@ -71,26 +71,39 @@ mixin DriveSheetMixin {
   }
 
   /// Reads the module configuration from the spreadsheet.
-  Future<Map<String, dynamic>> readModuleConfig(String fileId) async {
+  Future<Map<String, dynamic>?> readModuleConfig(String fileId) async {
     final config = <String, dynamic>{};
     
     try {
       // Read settings
       final settingsMap = await _readMapFromSheet(fileId, 'settings');
-      config['settings'] = settingsMap.map((k, v) => MapEntry(k, jsonDecode(v)));
+      if (settingsMap.isEmpty) {
+        debugPrint('Settings sheet is empty or missing for $fileId');
+      } else {
+        config['settings'] = settingsMap.map((k, v) => MapEntry(k, jsonDecode(v)));
+      }
       
       // Read dashboard
       final dashboardMap = await _readMapFromSheet(fileId, 'dashboard');
-      config['dashboard'] = dashboardMap.map((k, v) => MapEntry(k, jsonDecode(v)));
+      if (dashboardMap.isNotEmpty) {
+        config['dashboard'] = dashboardMap.map((k, v) => MapEntry(k, jsonDecode(v)));
+      }
       
       // Read tabs
       final tabsMap = await _readMapFromSheet(fileId, 'tabs');
-      config['tabs'] = tabsMap.values.map((v) => jsonDecode(v)).toList();
+      if (tabsMap.isNotEmpty) {
+        config['tabs'] = tabsMap.values.map((v) => jsonDecode(v)).toList();
+      }
+
+      // If we have nothing significant, return null to allow fallback
+      if (config.isEmpty || (config['settings'] == null && config['tabs'] == null)) {
+        return null;
+      }
       
       return config;
     } catch (e) {
       debugPrint('Error reading module config: $e');
-      return {};
+      return null;
     }
   }
 

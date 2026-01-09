@@ -101,6 +101,11 @@ class SchemaService {
       debugPrint('Syncing module $moduleId config from Drive...');
       final newConfig = await driveService!.readModuleConfig(configFileId);
       
+      if (newConfig == null) {
+        debugPrint('Remote config for $moduleId was null or malformed.');
+        return null;
+      }
+      
       // 4. Update cache
       await cacheConfig(moduleId, newConfig, fileId: configFileId, modifiedTime: remoteModifiedString);
       

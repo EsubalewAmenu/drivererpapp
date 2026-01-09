@@ -87,7 +87,7 @@ void main() {
 
       final config = await service.readModuleConfig('fileId');
 
-      expect(config['settings'], contains('key1'));
+      expect(config!['settings'], contains('key1'));
       expect(config['settings']['key1'], 'value1');
     });
 
@@ -191,7 +191,7 @@ void main() {
       ));
 
       final result = await service.readModuleConfig('file_id');
-      expect(result['settings'], isNotNull);
+      expect(result!['settings'], isNotNull);
       expect(result['tabs'], isNotNull);
     });
 
@@ -289,7 +289,7 @@ void main() {
 
       final config = await service.readModuleConfig('fileId');
       // key2 should be ignored because it has < 2 elements
-      expect(config['settings'].length, 2); 
+      expect(config!['settings'].length, 2); 
     });
 
     test('retryOp fails after retries', () async {

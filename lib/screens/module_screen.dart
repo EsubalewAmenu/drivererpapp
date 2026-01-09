@@ -110,39 +110,41 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final primaryColor = settingsMap['primaryColor']?['value']?.toString() ?? jsonMap['primaryColor']?.toString() ?? widget.module.primaryColor;
       final version = settingsMap['version']?['value']?.toString() ?? jsonMap['version']?.toString() ?? widget.module.version;
       
-      final dashboard = jsonMap['dashboard'] != null 
-          ? DashboardConfig.fromJson(jsonMap['dashboard'])
+      final dashboardJson = jsonMap['dashboard'] as Map<String, dynamic>?;
+      final dashboard = (dashboardJson != null && dashboardJson['cards'] != null)
+          ? DashboardConfig.fromJson(dashboardJson)
           : DashboardConfig(cards: []);
       
       final tabsList = List<dynamic>.from((jsonMap['tabs'] as List?) ?? []);
       
       // Pre-process tabs
       for (var i = 0; i < tabsList.length; i++) {
-        final tab = tabsList[i];
-        if (tab is Map && tab['columns'] != null) {
-          final columns = List<dynamic>.from(tab['columns'] as List);
-          for (var j = 0; j < columns.length; j++) {
-            final col = columns[j];
-            if (col is Map && col['options'] is String && (col['options'] as String).startsWith('settings.')) {
-              final path = (col['options'] as String).split('.');
-              if (path.length == 2) {
-                final settingKey = path[1];
-                final settingValue = settingsMap[settingKey]?['value'];
-                
-                final colMap = Map<String, dynamic>.from(col);
-                if (settingValue is List) {
-                  colMap['options'] = settingValue;
-                } else {
-                  colMap['options'] = [];
-                }
-                columns[j] = colMap;
+        final tab = Map<String, dynamic>.from(tabsList[i] as Map);
+        if (tab['columns'] == null) {
+          tab['columns'] = [];
+        }
+        
+        final columns = List<dynamic>.from(tab['columns'] as List);
+        for (var j = 0; j < columns.length; j++) {
+          final col = columns[j];
+          if (col is Map && col['options'] is String && (col['options'] as String).startsWith('settings.')) {
+            final path = (col['options'] as String).split('.');
+            if (path.length == 2) {
+              final settingKey = path[1];
+              final settingValue = settingsMap[settingKey]?['value'];
+              
+              final colMap = Map<String, dynamic>.from(col);
+              if (settingValue is List) {
+                colMap['options'] = settingValue;
+              } else {
+                colMap['options'] = [];
               }
+              columns[j] = colMap;
             }
           }
-          final tabMap = Map<String, dynamic>.from(tab);
-          tabMap['columns'] = columns;
-          tabsList[i] = tabMap;
         }
+        tab['columns'] = columns;
+        tabsList[i] = tab;
       }
 
       final tabs = (tabsList as List).map((t) {
@@ -201,12 +203,16 @@ class _ModuleScreenState extends State<ModuleScreen> {
           _loadSchema();
         });
       }
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('Error in _processJson: $e');
+      debugPrint('Stack: $stack');
       if (mounted) {
         setState(() {
           _isLoadingSchema = false;
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading blueprint: $e')),
+        );
       }
     }
   }
