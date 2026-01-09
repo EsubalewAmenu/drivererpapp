@@ -176,4 +176,42 @@ void main() {
     expect(find.text('Bob Corp'), findsOneWidget);
     expect(find.text('Sales'), findsOneWidget);
   });
+
+  testWidgets('RecordDetailScreen handles other ConditionalLogic types', (tester) async {
+    final template = DetailTemplateConfig(
+      titleLogic: ConditionalLogic(
+        conditionKey: 'score', // num
+        truthyKey: 'has_score',
+        falsyKey: 'no_score',
+      ),
+      subtitleLogic: ConditionalLogic(
+        conditionKey: 'tags', // list
+        truthyKey: 'has_tags',
+        falsyKey: 'no_tags',
+      ),
+    );
+
+    final data = {
+      'score': 50,
+      'has_score': 'Score Found',
+      'no_score': 'Missing',
+      'tags': ['a'],
+      'has_tags': 'Tags Found',
+      'no_tags': 'MT',
+    };
+
+    await tester.pumpWidget(MaterialApp(
+      home: RecordDetailScreen(
+        data: data,
+        columns: [],
+        primaryColor: Colors.blue,
+        title: 'Default',
+        detailTemplate: template,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Score Found'), findsOneWidget);
+    expect(find.text('Tags Found'), findsOneWidget);
+  });
 }

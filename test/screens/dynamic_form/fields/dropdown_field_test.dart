@@ -281,4 +281,67 @@ void main() {
     // Should be visible
     expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
   });
+
+  testWidgets('DynamicDropdownField reloads when dependency value changes in data', (WidgetTester tester) async {
+    final parentRelCol = ColumnConfig(
+      key: 'parent_rel', 
+      label: 'Parent', 
+      type: 'relation', 
+      options: 'tab2_id'
+    );
+    final childSelectCol = ColumnConfig(
+      key: 'child_select', 
+      label: 'Child Select', 
+      type: 'select', 
+      options: 'parent_rel.allowed_values',
+    );
+
+    final tab1 = TabConfig(id: 'tab1_id', label: 'Tab 1', columns: [parentRelCol, childSelectCol]);
+    final tab2 = TabConfig(id: 'tab2_id', label: 'Tab 2', columns: []);
+    
+    final module = ModuleSchema(
+      id: 'test_mod_id', name: 'Test Mod', icon: 'folder', primaryColor: '#000000', version: '1.0',
+      settings: {}, dashboard: DashboardConfig(cards: []),
+      tabs: [tab1, tab2]
+    );
+
+    int fetchCount = 0;
+    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', 
+      descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
+    ))
+        .thenAnswer((_) async {
+          fetchCount++;
+          if (fetchCount == 1) {
+            return [{'name': 'P1', 'allowed_values': '[A]'}];
+          } else {
+            return [{'name': 'P2', 'allowed_values': '[B]'}];
+          }
+        });
+
+    // Initial render with P1
+    await tester.pumpWidget(createField(
+      column: childSelectCol,
+      value: null,
+      onChanged: (_) {},
+      data: {'parent_rel': 'P1'},
+      module: module,
+    ));
+    await tester.pumpAndSettle();
+    expect(fetchCount, 1);
+
+    // Update with P2
+    await tester.pumpWidget(createField(
+      column: childSelectCol,
+      value: null,
+      onChanged: (_) {},
+      data: {'parent_rel': 'P2'},
+      module: module,
+    ));
+    await tester.pumpAndSettle();
+    
+    // Should have called fetch again
+    expect(fetchCount, 2);
+  });
 }
