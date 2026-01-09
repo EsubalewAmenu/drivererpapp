@@ -60,5 +60,20 @@ void main() {
       expect(authService.currentUser, mockAccount);
       expect(authService.authClient, mockAuthClient);
     });
+
+    test('signIn handles error', () async {
+      when(() => mockGoogleSignIn.signIn()).thenThrow(Exception('Sign-in failed'));
+
+      expect(() => authService.signIn(), throwsException);
+    });
+
+    test('signInSilently handles error gracefully', () async {
+      when(() => mockGoogleSignIn.signInSilently()).thenThrow(Exception('Silent sign-in failed'));
+
+      // Should not throw, just log in debug mode
+      await authService.signInSilently();
+      
+      expect(authService.currentUser, isNull);
+    });
   });
 }

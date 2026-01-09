@@ -230,4 +230,114 @@ void main() {
     
     expect(find.text('Full-width image header with integrated titles'), findsOneWidget);
   });
+
+  testWidgets('TabSettingsScreen handles Detail Field Visibility', (WidgetTester tester) async {
+    await tester.pumpWidget(createTabSettingsScreen(testTab));
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+
+    final showAllSwitch = find.ancestor(of: find.text('Show All Fields'), matching: find.byType(SwitchListTile));
+    await tester.tap(showAllSwitch);
+    await tester.pumpAndSettle();
+    
+    expect(find.widgetWithText(CheckboxListTile, 'Name'), findsOneWidget);
+    await tester.tap(find.widgetWithText(CheckboxListTile, 'Name'));
+    await tester.pumpAndSettle();
+    
+    // Scroll down if needed
+    await tester.drag(find.byType(SingleChildScrollView).last, const Offset(0, -300));
+    await tester.pumpAndSettle();
+    
+    expect(find.widgetWithText(CheckboxListTile, 'Age'), findsOneWidget);
+    await tester.tap(find.widgetWithText(CheckboxListTile, 'Age'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('TabSettingsScreen handles conditional logic in Detail tab', (WidgetTester tester) async {
+    await tester.pumpWidget(createTabSettingsScreen(testTab));
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+
+    final titleLogicSwitch = find.ancestor(of: find.text('Conditional Title'), matching: find.byType(SwitchListTile));
+    await tester.tap(titleLogicSwitch);
+    await tester.pumpAndSettle();
+    expect(find.text('Condition (e.g. Is Individual?)'), findsOneWidget);
+
+    final subtLogicSwitch = find.ancestor(of: find.text('Conditional Subtitle'), matching: find.byType(SwitchListTile));
+    await tester.tap(subtLogicSwitch);
+    await tester.pumpAndSettle();
+    expect(find.text('Condition Column'), findsOneWidget);
+  });
+
+  testWidgets('TabSettingsScreen saves configuration with detail template logic', (WidgetTester tester) async {
+    Map<String, dynamic>? resultData;
+    
+    await tester.pumpWidget(MaterialApp(
+      home: TabSettingsScreen(
+        tab: testTab,
+        primaryColor: Colors.blue,
+        onSave: (data) => resultData = data,
+      ),
+    ));
+
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+
+    // Scroll to see the title logic if needed
+    await tester.drag(find.byType(SingleChildScrollView).last, const Offset(0, -300));
+    await tester.pumpAndSettle();
+
+    // Toggle conditional title in details
+    final titleLogicSwitch = find.ancestor(of: find.text('Conditional Title'), matching: find.byType(SwitchListTile)).last;
+    await tester.tap(titleLogicSwitch);
+    await tester.pumpAndSettle();
+
+    // Select condition column
+    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
+    await tester.pumpAndSettle();
+    
+    await tester.tap(find.text('Is Active').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(resultData, isNotNull);
+    final detailConfig = resultData!['detailTemplate'] as DetailTemplateConfig;
+    expect(detailConfig.titleLogic?.conditionKey, 'is_active');
+  });
+
+  testWidgets('TabSettingsScreen handles filter removal', (WidgetTester tester) async {
+    Map<String, dynamic>? resultData;
+    
+    final tabWithFilter = TabConfig(
+      id: 'tab1',
+      label: 'Test Tab',
+      columns: testTab.columns,
+      quickFilters: [
+        QuickFilter(key: 'q1', label: 'name contains abc', field: 'name', operator: 'contains', value: 'abc'),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: TabSettingsScreen(
+        tab: tabWithFilter,
+        primaryColor: Colors.blue,
+        onSave: (data) => resultData = data,
+      ),
+    ));
+
+    expect(find.text('name contains abc'), findsNWidgets(2));
+
+    // Remove the filter
+    await tester.tap(find.byIcon(Icons.delete_outline).last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(resultData, isNotNull);
+    final filters = resultData!['filters'] as List<QuickFilter>;
+    expect(filters, isEmpty);
+  });
 }
