@@ -39,7 +39,19 @@ class TableColumnEditorItem extends StatelessWidget {
             Icon(Icons.table_chart_outlined, size: 20, color: theme.textTheme.bodyMedium?.color),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(column.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   Text(column.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
+                   Text(
+                    column.key,
+                    style: AppTheme.sourceCodePro(
+                      fontSize: 10,
+                      color: (theme.textTheme.bodyMedium?.color ?? Colors.grey).withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
             ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -125,22 +137,8 @@ class TableColumnEditorItem extends StatelessWidget {
     );
 
     if (newCol != null) {
-      final currentSubColumns = List<ColumnConfig>.from(column.columns ?? []);
-      currentSubColumns.add(newCol);
-      
-      final updatedColumn = ColumnConfig(
-        key: column.key,
-        label: column.label,
-        type: column.type,
-        options: column.options,
-        formula: column.formula,
-        dependsOn: column.dependsOn,
-        defaultValue: column.defaultValue,
-        hidden: column.hidden,
-        dynamicLabel: column.dynamicLabel,
-        columns: currentSubColumns,
-      );
-      
+      final currentSubColumns = List<ColumnConfig>.from(column.columns ?? [])..add(newCol);
+      final updatedColumn = column.copyWith(columns: currentSubColumns);
       onUpdate(updatedColumn);
     }
   }
@@ -160,20 +158,7 @@ class TableColumnEditorItem extends StatelessWidget {
       final index = currentSubColumns.indexOf(subCol);
       if (index != -1) {
         currentSubColumns[index] = updatedCol;
-        
-        final updatedColumn = ColumnConfig(
-          key: column.key,
-          label: column.label,
-          type: column.type,
-          options: column.options,
-          formula: column.formula,
-          dependsOn: column.dependsOn,
-          defaultValue: column.defaultValue,
-          hidden: column.hidden,
-          dynamicLabel: column.dynamicLabel,
-          columns: currentSubColumns,
-        );
-        
+        final updatedColumn = column.copyWith(columns: currentSubColumns);
         onUpdate(updatedColumn);
       }
     }
@@ -193,20 +178,7 @@ class TableColumnEditorItem extends StatelessWidget {
             onPressed: () {
               final currentSubColumns = List<ColumnConfig>.from(column.columns ?? []);
               currentSubColumns.remove(subCol);
-              
-              final updatedColumn = ColumnConfig(
-                key: column.key,
-                label: column.label,
-                type: column.type,
-                options: column.options,
-                formula: column.formula,
-                dependsOn: column.dependsOn,
-                defaultValue: column.defaultValue,
-                hidden: column.hidden,
-                dynamicLabel: column.dynamicLabel,
-                columns: currentSubColumns,
-              );
-              
+              final updatedColumn = column.copyWith(columns: currentSubColumns);
               onUpdate(updatedColumn);
               Navigator.pop(context);
             },

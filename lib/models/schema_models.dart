@@ -106,6 +106,28 @@ class TabConfig {
     this.initialData,
   });
 
+  TabConfig copyWith({
+    String? id,
+    String? label,
+    List<ColumnConfig>? columns,
+    List<QuickFilter>? quickFilters,
+    bool? enableCustomFilters,
+    ListTemplateConfig? listTemplate,
+    DetailTemplateConfig? detailTemplate,
+    List<Map<String, dynamic>>? initialData,
+  }) {
+    return TabConfig(
+      id: id ?? this.id,
+      label: label ?? this.label,
+      columns: columns ?? this.columns,
+      quickFilters: quickFilters ?? this.quickFilters,
+      enableCustomFilters: enableCustomFilters ?? this.enableCustomFilters,
+      listTemplate: listTemplate ?? this.listTemplate,
+      detailTemplate: detailTemplate ?? this.detailTemplate,
+      initialData: initialData ?? this.initialData,
+    );
+  }
+
   factory TabConfig.fromJson(Map<String, dynamic> json) => _$TabConfigFromJson(json);
   Map<String, dynamic> toJson() => _$TabConfigToJson(this);
 }
@@ -249,6 +271,36 @@ class ColumnConfig {
     this.isRequired,
     this.currencySymbol,
   });
+
+  ColumnConfig copyWith({
+    String? key,
+    String? label,
+    String? type,
+    dynamic options,
+    String? formula,
+    String? dependsOn,
+    dynamic defaultValue,
+    List<ColumnConfig>? columns,
+    bool? hidden,
+    String? dynamicLabel,
+    bool? isRequired,
+    String? currencySymbol,
+  }) {
+    return ColumnConfig(
+      key: key ?? this.key,
+      label: label ?? this.label,
+      type: type ?? this.type,
+      options: options ?? this.options,
+      formula: formula ?? this.formula,
+      dependsOn: dependsOn ?? this.dependsOn,
+      defaultValue: defaultValue ?? this.defaultValue,
+      columns: columns ?? this.columns,
+      hidden: hidden ?? this.hidden,
+      dynamicLabel: dynamicLabel ?? this.dynamicLabel,
+      isRequired: isRequired ?? this.isRequired,
+      currencySymbol: currencySymbol ?? this.currencySymbol,
+    );
+  }
 
   factory ColumnConfig.fromJson(Map<String, dynamic> json) => _$ColumnConfigFromJson(json);
   Map<String, dynamic> toJson() => _$ColumnConfigToJson(this);
