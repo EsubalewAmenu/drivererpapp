@@ -218,4 +218,63 @@ void main() {
     expect(find.text('Score Found'), findsOneWidget);
     expect(find.text('Tags Found'), findsOneWidget);
   });
+
+  testWidgets('RecordDetailScreen handles table column type rendering', (tester) async {
+    final columns = [
+      ColumnConfig(
+        key: 'items',
+        label: 'Items',
+        type: 'table',
+        columns: [
+          ColumnConfig(key: 'name', label: 'Name', type: 'text'),
+          ColumnConfig(key: 'qty', label: 'Qty', type: 'number'),
+        ],
+      ),
+    ];
+
+    final data = {
+      'items': [
+        {'name': 'Apple', 'qty': 10},
+        {'name': 'Orange', 'qty': 5},
+      ],
+    };
+
+    await tester.pumpWidget(MaterialApp(
+      home: RecordDetailScreen(
+        data: data,
+        columns: columns,
+        primaryColor: Colors.blue,
+        title: 'Items List',
+        tab: TabConfig(id: 't1', label: 'Test', columns: columns),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ITEMS'), findsOneWidget);
+    expect(find.text('2 items'), findsOneWidget);
+    expect(find.text('Apple'), findsOneWidget);
+    expect(find.text('Orange'), findsOneWidget);
+    expect(find.text('10'), findsOneWidget);
+  });
+
+  testWidgets('RecordDetailScreen edit button navigates to DynamicFormScreen', (tester) async {
+    final columns = [ColumnConfig(key: 'name', label: 'Name', type: 'text')];
+    final data = {'name': 'Alice', 'record_id': 'r1'};
+
+    await tester.pumpWidget(MaterialApp(
+      home: RecordDetailScreen(
+        data: data,
+        columns: columns,
+        primaryColor: Colors.blue,
+        title: 'Alice',
+        tab: TabConfig(id: 't1', label: 'Test', columns: columns),
+      ),
+    ));
+
+    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.pumpAndSettle();
+
+    expect(find.text('EDIT TEST'), findsOneWidget);
+    expect(find.text('Alice'), findsOneWidget);
+  });
 }
