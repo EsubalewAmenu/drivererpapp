@@ -82,4 +82,55 @@ void main() {
     verify(() => mockDriveService.createWorkspace('ws123', 'CRM')).called(1);
     expect(find.text('CRM activated successfully!'), findsOneWidget);
   });
+
+  testWidgets('ModuleConfigurationScreen handles activation error', (WidgetTester tester) async {
+    await tester.pumpWidget(createConfigScreen());
+    await tester.pumpAndSettle();
+
+    when(() => mockDriveService.createWorkspace(any(), any()))
+        .thenThrow(Exception('Drive error'));
+
+    await tester.tap(find.text('COMPLETE SETUP'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Error activating module: Exception: Drive error'), findsOneWidget);
+  });
+
+  testWidgets('ModuleConfigurationScreen handles missing services', (WidgetTester tester) async {
+    when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(null);
+    
+    await tester.pumpWidget(createConfigScreen());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('COMPLETE SETUP'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Error activating module: Exception: Drive Service or Workspace missing'), findsOneWidget);
+  });
+
+  testWidgets('ModuleConfigurationScreen handles config loading failure', (WidgetTester tester) async {
+    // We can't easily mock DefaultAssetBundle in a simple widget test without more boilerplate,
+    // but the code already has a try-catch that falls back to defaults.
+    // The current CRM test already covers the success case.
+    
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+        ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+      ],
+      child: const MaterialApp(
+        home: ModuleConfigurationScreen(
+          moduleInfo: {
+            'name': 'NonExistent',
+            'color': '#000000'
+          },
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    
+    expect(find.text('CONFIGURE NONEXISTENT'), findsOneWidget);
+    // Should fallback to showing name field
+    expect(find.text('NAME'), findsOneWidget);
+  });
 }
