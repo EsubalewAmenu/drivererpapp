@@ -114,8 +114,23 @@ ListTemplateConfig _$ListTemplateConfigFromJson(Map<String, dynamic> json) =>
     ListTemplateConfig(
       template: json['template'] as String? ?? 'high_density',
       titleKey: json['title_key'] as String?,
+      titleLogic: json['title_logic'] == null
+          ? null
+          : ConditionalLogic.fromJson(
+              json['title_logic'] as Map<String, dynamic>,
+            ),
       subtitleKey: json['subtitle_key'] as String?,
+      subtitleLogic: json['subtitle_logic'] == null
+          ? null
+          : ConditionalLogic.fromJson(
+              json['subtitle_logic'] as Map<String, dynamic>,
+            ),
       trailingKey: json['trailing_key'] as String?,
+      trailingLogic: json['trailing_logic'] == null
+          ? null
+          : ConditionalLogic.fromJson(
+              json['trailing_logic'] as Map<String, dynamic>,
+            ),
       detailKeys: (json['detail_keys'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
@@ -125,8 +140,11 @@ Map<String, dynamic> _$ListTemplateConfigToJson(ListTemplateConfig instance) =>
     <String, dynamic>{
       'template': instance.template,
       'title_key': instance.titleKey,
+      'title_logic': instance.titleLogic?.toJson(),
       'subtitle_key': instance.subtitleKey,
+      'subtitle_logic': instance.subtitleLogic?.toJson(),
       'trailing_key': instance.trailingKey,
+      'trailing_logic': instance.trailingLogic?.toJson(),
       'detail_keys': instance.detailKeys,
     };
 

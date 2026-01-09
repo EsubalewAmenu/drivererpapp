@@ -112,18 +112,27 @@ class ListTemplateConfig {
   final String template; // 'high_density', 'standard'
   @JsonKey(name: 'title_key')
   final String? titleKey;
+  @JsonKey(name: 'title_logic')
+  final ConditionalLogic? titleLogic;
   @JsonKey(name: 'subtitle_key')
   final String? subtitleKey;
+  @JsonKey(name: 'subtitle_logic')
+  final ConditionalLogic? subtitleLogic;
   @JsonKey(name: 'trailing_key')
   final String? trailingKey;
+  @JsonKey(name: 'trailing_logic')
+  final ConditionalLogic? trailingLogic;
   @JsonKey(name: 'detail_keys')
   final List<String>? detailKeys;
 
   ListTemplateConfig({
     this.template = 'high_density',
     this.titleKey,
+    this.titleLogic,
     this.subtitleKey,
+    this.subtitleLogic,
     this.trailingKey,
+    this.trailingLogic,
     this.detailKeys,
   });
 

@@ -605,13 +605,58 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     );
   }
 
+  dynamic _getValueFromLogic(Map<String, dynamic> data, ConditionalLogic? logic) {
+    if (logic == null || logic.conditionKey == null) return null;
+
+    final conditionValue = data[logic.conditionKey];
+    bool isTruthy = false;
+
+    if (conditionValue is bool) {
+      isTruthy = conditionValue;
+    } else if (conditionValue is String) {
+      isTruthy = conditionValue.isNotEmpty;
+    } else if (conditionValue is List) {
+      isTruthy = conditionValue.isNotEmpty;
+    } else if (conditionValue != null) {
+      isTruthy = true;
+    }
+
+    final key = isTruthy ? logic.truthyKey : logic.falsyKey;
+    return key != null ? data[key] : null;
+  }
+
+  String _resolveTitle(Map<String, dynamic> item, ListTemplateConfig? config) {
+    final logicValue = _getValueFromLogic(item, config?.titleLogic);
+    if (logicValue != null) return logicValue.toString();
+
+    final titleKey = config?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
+    return item[titleKey]?.toString() ?? '';
+  }
+
+  String _resolveSubtitle(Map<String, dynamic> item, ListTemplateConfig? config) {
+    final logicValue = _getValueFromLogic(item, config?.subtitleLogic);
+    if (logicValue != null) return logicValue.toString();
+
+    final subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '');
+    return item[subtitleKey]?.toString() ?? '';
+  }
+
+  String _resolveTrailing(Map<String, dynamic> item, ListTemplateConfig? config) {
+    final logicValue = _getValueFromLogic(item, config?.trailingLogic);
+    if (logicValue != null) return logicValue.toString();
+
+    final trailingKey = config?.trailingKey;
+    if (trailingKey == null) return '';
+    return item[trailingKey]?.toString() ?? '';
+  }
+
   Widget _buildStandardCard(Map<String, dynamic> item) {
     final theme = Theme.of(context);
     final config = widget.tab.listTemplate;
-    
-    final titleKey = config?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
-    final subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '');
-    final trailingKey = config?.trailingKey;
+
+    final title = _resolveTitle(item, config);
+    final subtitle = _resolveSubtitle(item, config);
+    final trailing = _resolveTrailing(item, config);
 
     return Card(
       color: theme.cardTheme.color,
@@ -631,19 +676,19 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (titleKey.isNotEmpty)
+                        if (title.isNotEmpty)
                           Text(
-                            item[titleKey]?.toString() ?? '',
+                            title,
                             style: AppTheme.inter(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
                               color: theme.textTheme.bodyLarge?.color,
                             ),
                           ),
-                        if (subtitleKey.isNotEmpty) ...[
+                        if (subtitle.isNotEmpty) ...[
                           const SizedBox(height: 4),
                           Text(
-                            item[subtitleKey]?.toString() ?? '',
+                            subtitle,
                             style: AppTheme.inter(
                               fontSize: 14,
                               color: theme.textTheme.bodyMedium?.color,
@@ -653,7 +698,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                       ],
                     ),
                   ),
-                  if (trailingKey != null && item[trailingKey] != null)
+                  if (trailing.isNotEmpty)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
@@ -661,7 +706,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                         borderRadius: BorderRadius.circular(20),
                       ),
                       child: Text(
-                        item[trailingKey].toString(),
+                        trailing,
                         style: AppTheme.inter(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -737,8 +782,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     final theme = Theme.of(context);
     final config = widget.tab.listTemplate;
 
-    final titleKey = config?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
-    final subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '');
+    final title = _resolveTitle(item, config);
+    final subtitle = _resolveSubtitle(item, config);
 
     return Card(
       color: theme.cardTheme.color,
@@ -763,18 +808,18 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (titleKey.isNotEmpty)
+                    if (title.isNotEmpty)
                       Text(
-                        item[titleKey]?.toString() ?? '',
+                        title,
                         style: AppTheme.inter(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: theme.textTheme.bodyLarge?.color,
                         ),
                       ),
-                    if (subtitleKey.isNotEmpty)
+                    if (subtitle.isNotEmpty)
                       Text(
-                        item[subtitleKey]?.toString() ?? '',
+                        subtitle,
                         style: AppTheme.inter(
                           fontSize: 14,
                           color: theme.textTheme.bodyMedium?.color,
