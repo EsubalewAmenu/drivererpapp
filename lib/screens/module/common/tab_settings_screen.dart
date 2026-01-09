@@ -119,9 +119,9 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
           unselectedLabelColor: theme.textTheme.bodyMedium?.color,
           indicatorColor: widget.primaryColor,
           tabs: const [
+            Tab(text: 'Filters'),
             Tab(text: 'List'),
             Tab(text: 'Details'),
-            Tab(text: 'Filters'),
           ],
         ),
         actions: [
@@ -131,7 +131,7 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
           )
         ],
       ),
-      floatingActionButton: _tabController.index == 2 && _filtersEnabled
+      floatingActionButton: _tabController.index == 0 && _filtersEnabled
         ? FloatingActionButton(
             onPressed: _addFilter,
             backgroundColor: widget.primaryColor,
@@ -141,9 +141,9 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
       body: TabBarView(
         controller: _tabController,
         children: [
+          _buildFiltersTab(theme),
           _buildDisplayTab(theme),
           _buildDetailTab(theme),
-          _buildFiltersTab(theme),
         ],
       ),
     );
