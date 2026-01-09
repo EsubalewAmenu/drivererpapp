@@ -555,6 +555,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
           settings: widget.settings,
           detailTemplate: currentTab.detailTemplate,
+          tab: currentTab,
+          module: widget.module,
         ),
       ),
     );

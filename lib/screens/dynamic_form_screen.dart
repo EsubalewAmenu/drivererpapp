@@ -35,6 +35,12 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Copy all initial data inclusive of technical fields (record_id, etc)
+    if (widget.initialData != null) {
+      _formData.addAll(widget.initialData!);
+    }
+
     // Initialize form data and controllers
     for (var col in widget.tab.columns) {
       var initialValue = widget.initialData?[col.key];

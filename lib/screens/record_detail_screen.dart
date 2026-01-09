@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/schema_models.dart';
 import '../theme/app_theme.dart';
+import 'dynamic_form_screen.dart';
 
 class RecordDetailScreen extends StatelessWidget {
   final Map<String, dynamic> data;
@@ -10,6 +11,8 @@ class RecordDetailScreen extends StatelessWidget {
   final String title;
   final Map<String, SettingItem> settings;
   final DetailTemplateConfig? detailTemplate;
+  final TabConfig tab;
+  final ModuleSchema? module;
 
   const RecordDetailScreen({
     super.key,
@@ -17,8 +20,10 @@ class RecordDetailScreen extends StatelessWidget {
     required this.columns,
     required this.primaryColor,
     required this.title,
+    required this.tab,
     this.settings = const {},
     this.detailTemplate,
+    this.module,
   });
 
   String _resolveTitle() {
@@ -84,6 +89,13 @@ class RecordDetailScreen extends StatelessWidget {
         elevation: 0,
         iconTheme: IconThemeData(color: isModern ? Colors.white : theme.iconTheme.color),
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.edit_outlined, color: isModern ? Colors.white : theme.iconTheme.color),
+            onPressed: () => _editRecord(context),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: SafeArea(
         top: !isModern,
@@ -718,5 +730,20 @@ class RecordDetailScreen extends StatelessWidget {
           ],
         );
     });
+  }
+
+  void _editRecord(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DynamicFormScreen(
+          tab: tab,
+          primaryColor: primaryColor,
+          initialData: data,
+          settings: settings,
+          module: module,
+        ),
+      ),
+    );
   }
 }

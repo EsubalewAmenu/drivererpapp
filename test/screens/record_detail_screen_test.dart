@@ -18,6 +18,7 @@ void main() {
         primaryColor: Colors.blue,
         title: 'Test',
         detailTemplate: template,
+        tab: TabConfig(id: 't1', label: 'Test', columns: columns),
       ),
     );
   }
@@ -146,6 +147,7 @@ void main() {
         primaryColor: Colors.blue,
         title: 'Default',
         detailTemplate: template,
+        tab: TabConfig(id: 't1', label: 'Test', columns: cols),
       ),
     ));
     await tester.pumpAndSettle();
@@ -169,6 +171,7 @@ void main() {
         primaryColor: Colors.blue,
         title: 'Default',
         detailTemplate: template,
+        tab: TabConfig(id: 't1', label: 'Test', columns: cols),
       ),
     ));
     await tester.pumpAndSettle();
@@ -207,6 +210,7 @@ void main() {
         primaryColor: Colors.blue,
         title: 'Default',
         detailTemplate: template,
+        tab: TabConfig(id: 't1', label: 'Test', columns: []),
       ),
     ));
     await tester.pumpAndSettle();

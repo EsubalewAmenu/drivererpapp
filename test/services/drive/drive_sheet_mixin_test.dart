@@ -429,5 +429,33 @@ void main() {
         final decodedUrl = Uri.decodeFull(capturedUrl!);
         expect(decodedUrl, contains("lower(A) ends with '@gmail.com'"));
     });
+
+    test('DriveSheetMixin saveRecord updates existing record if record_id matches', () async {
+      // Mock headers
+      when(() => mockValues.get(any(), 'Sheet1!1:1'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['record_id', 'name']]));
+      
+      // Mock finding the record ID in the sheet
+      // Headers are at row 1. record_id 'r1' is at row 2.
+      when(() => mockValues.get(any(), 'Sheet1!A:A'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['record_id'], ['r1']]));
+
+      when(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW'))
+          .thenAnswer((_) async => sheets.UpdateValuesResponse());
+
+      final data = {'record_id': 'r1', 'name': 'Updated Name'};
+      
+      await service.saveRecord('f1', 's1', 'Sheet1', data);
+
+      // Verify update was called instead of append
+      verify(() => mockValues.update(
+        any(), 
+        any(), 
+        'Sheet1!2:2', 
+        valueInputOption: 'RAW'
+      )).called(1);
+      
+      verifyNever(() => mockValues.append(any(), any(), any(), valueInputOption: 'RAW'));
+    });
   });
 }
