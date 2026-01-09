@@ -265,7 +265,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Note: removed full-screen loading check to allow shell to render
+    // Listen to SchemaProvider for the most up-to-date configuration
+    final latestModule = context.watch<SchemaProvider>().getFromMemory(widget.module?.id ?? '');
+    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == widget.tab.id, orElse: () => widget.tab) ?? widget.tab;
 
     final theme = Theme.of(context);
 
@@ -299,9 +301,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       backgroundColor: Colors.transparent,
       body: Column(
         children: [
-          _buildSearchBar(),
-          _buildQuickFilters(),
-          Expanded(child: _buildListView()),
+          _buildSearchBar(currentTab),
+          _buildQuickFilters(currentTab),
+          Expanded(child: _buildListView(currentTab)),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -312,7 +314,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             context,
             MaterialPageRoute(
               builder: (context) => DynamicFormScreen(
-                tab: widget.tab,
+                tab: currentTab,
                 primaryColor: widget.primaryColor,
                 settings: widget.settings,
                 module: widget.module,
@@ -326,7 +328,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     );
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(TabConfig tab) {
     final theme = Theme.of(context);
     
     return Padding(
@@ -338,7 +340,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               controller: _searchController,
               style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
               decoration: InputDecoration(
-                hintText: 'Search ${widget.tab.label.toLowerCase()}...',
+                hintText: 'Search ${tab.label.toLowerCase()}...',
                 hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
                 prefixIcon: Icon(Icons.search_rounded, color: theme.textTheme.bodyMedium?.color),
                 filled: true,
@@ -413,10 +415,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       // Always get the latest module from memory to avoid stale data
       final currentModule = schemaProvider.getFromMemory(widget.module!.id) ?? widget.module!;
       
-      final updatedTab = TabConfig(
-        id: widget.tab.id,
-        label: widget.tab.label,
-        columns: widget.tab.columns,
+      final updatedTab = widget.tab.copyWith(
         quickFilters: filters,
         enableCustomFilters: enableFilters,
         listTemplate: listTemplate,
@@ -470,7 +469,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     }
   }
 
-  Widget _buildQuickFilters() {
+  Widget _buildQuickFilters(TabConfig tab) {
     if (!_showFilters || _activeFilters.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -545,7 +544,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     ); 
   }
 
-  Widget _buildListView() {
+  Widget _buildListView(TabConfig tab) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -605,11 +604,11 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           }
           final item = _filteredData[index];
           
-          final template = widget.tab.listTemplate?.template ?? 'high_density';
+          final template = tab.listTemplate?.template ?? 'high_density';
           if (template == 'standard') {
-            return _buildStandardCard(item);
+            return _buildStandardCard(item, tab);
           }
-          return _buildHighDensityCard(item);
+          return _buildHighDensityCard(item, tab);
         },
       ),
     );
@@ -638,23 +637,23 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     return (key != null && data.containsKey(key)) ? data[key] : null;
   }
 
-  String _resolveTitle(Map<String, dynamic> item, ListTemplateConfig? config) {
+  String _resolveTitle(Map<String, dynamic> item, ListTemplateConfig? config, TabConfig tab) {
     final logicValue = _getValueFromLogic(item, config?.titleLogic);
     if (logicValue != null) return logicValue.toString();
 
-    final titleKey = config?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
+    final titleKey = config?.titleKey ?? (tab.columns.isNotEmpty ? tab.columns[0].key : '');
     return item[titleKey]?.toString() ?? '';
   }
 
-  String _resolveSubtitle(Map<String, dynamic> item, ListTemplateConfig? config) {
+  String _resolveSubtitle(Map<String, dynamic> item, ListTemplateConfig? config, TabConfig tab) {
     final logicValue = _getValueFromLogic(item, config?.subtitleLogic);
     if (logicValue != null) return logicValue.toString();
 
-    final subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '');
+    final subtitleKey = config?.subtitleKey ?? (tab.columns.length > 1 ? tab.columns[1].key : '');
     return item[subtitleKey]?.toString() ?? '';
   }
 
-  String _resolveTrailing(Map<String, dynamic> item, ListTemplateConfig? config) {
+  String _resolveTrailing(Map<String, dynamic> item, ListTemplateConfig? config, TabConfig tab) {
     final logicValue = _getValueFromLogic(item, config?.trailingLogic);
     if (logicValue != null) return logicValue.toString();
 
@@ -663,13 +662,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     return item[trailingKey]?.toString() ?? '';
   }
 
-  Widget _buildStandardCard(Map<String, dynamic> item) {
+  Widget _buildStandardCard(Map<String, dynamic> item, TabConfig tab) {
     final theme = Theme.of(context);
-    final config = widget.tab.listTemplate;
+    final config = tab.listTemplate;
 
-    final title = _resolveTitle(item, config);
-    final subtitle = _resolveSubtitle(item, config);
-    final trailing = _resolveTrailing(item, config);
+    final title = _resolveTitle(item, config, tab);
+    final subtitle = _resolveSubtitle(item, config, tab);
+    final trailing = _resolveTrailing(item, config, tab);
 
     return Card(
       color: theme.cardTheme.color,
@@ -737,7 +736,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                   spacing: 16,
                   runSpacing: 8,
                   children: config.detailKeys!.map((key) {
-                    final col = widget.tab.columns.firstWhere((c) => c.key == key, orElse: () => widget.tab.columns.first);
+                    final col = tab.columns.firstWhere((c) => c.key == key, orElse: () => tab.columns.first);
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -791,12 +790,12 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     );
   }
 
-  Widget _buildHighDensityCard(Map<String, dynamic> item) {
+  Widget _buildHighDensityCard(Map<String, dynamic> item, TabConfig tab) {
     final theme = Theme.of(context);
-    final config = widget.tab.listTemplate;
+    final config = tab.listTemplate;
 
-    final title = _resolveTitle(item, config);
-    final subtitle = _resolveSubtitle(item, config);
+    final title = _resolveTitle(item, config, tab);
+    final subtitle = _resolveSubtitle(item, config, tab);
 
     return Card(
       color: theme.cardTheme.color,
