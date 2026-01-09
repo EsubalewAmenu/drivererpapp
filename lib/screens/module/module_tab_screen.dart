@@ -179,6 +179,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
     // Fetch fresh data from DriveService
     try {
+      QuickFilter? selectedFilter;
+      if (_activeFilter != null && _activeFilter != 'all') {
+        try {
+          selectedFilter = _activeFilters.firstWhere((f) => f.key == _activeFilter);
+        } catch (_) {}
+      }
+
       final fetchedData = await _driveService.fetchRecords(
         widget.module!.id, 
         widget.module!.name, 
@@ -188,6 +195,11 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         fetchSubTables: false, // Performance optimization for List View
         descending: true,
         searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
+        quickFilter: selectedFilter != null ? {
+          'field': selectedFilter.field,
+          'operator': selectedFilter.operator,
+          'value': selectedFilter.value,
+        } : null,
       );
       
       if (mounted) {
@@ -331,8 +343,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             onFilterChanged: (filterKey) {
               setState(() {
                 _activeFilter = filterKey;
-                _applyFilters();
               });
+              _loadData(refresh: true);
             },
             onOpenSettings: _openSettings,
           ),

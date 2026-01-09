@@ -327,6 +327,7 @@ mixin DriveSheetMixin {
       bool fetchSubTables = true,
       bool descending = false,
       String? searchQuery,
+      Map<String, dynamic>? quickFilter,
   }) async {
     try {
       // 1. Find Spreadsheet
@@ -353,21 +354,23 @@ mixin DriveSheetMixin {
       List<Map<String, dynamic>> finalRecords;
       
       bool isSearch = searchQuery != null && searchQuery.length >= 2;
+      bool hasQuickFilter = quickFilter != null && quickFilter['field'] != null && quickFilter['operator'] != null;
       
-      if (isSearch || descending) {
+      if (isSearch || descending || hasQuickFilter) {
         try {
-          // PERFORM SERVER-SIDE SEARCH or SORT using Google Visualization API
+          // PERFORM SERVER-SIDE SEARCH, FILTER or SORT using Google Visualization API
           finalRecords = await _fetchSheetDataSearch(
             spreadsheetId, 
             sheetTitle, 
             gid: gid,
             query: isSearch ? searchQuery : null,
+            filter: hasQuickFilter ? quickFilter : null,
             offset: offset,
             limit: limit ?? 20,
             descending: descending,
           );
         } catch (e) {
-          debugPrint('Server-side search/sort failed: $e. Falling back to local filter...');
+          debugPrint('Server-side search/filter/sort failed: $e. Falling back to local filter...');
           // Fallback to standard fetch
           finalRecords = await _fetchSheetData(
             spreadsheetId, 
@@ -383,6 +386,31 @@ mixin DriveSheetMixin {
                  val.toString().toLowerCase().contains(searchQuery.toLowerCase())
                )
              ).toList();
+          }
+
+          // Apply local quick filter if needed
+          if (hasQuickFilter) {
+            final field = quickFilter['field'] as String;
+            final op = quickFilter['operator'] as String;
+            final filterValue = quickFilter['value']?.toString().toLowerCase() ?? '';
+
+            finalRecords = finalRecords.where((item) {
+              final itemVal = item[field]?.toString().toLowerCase() ?? '';
+              if (op == '==' || op == '=') return itemVal == filterValue;
+              if (op == '!=') return itemVal != filterValue;
+              if (op == 'contains') return itemVal.contains(filterValue);
+              if (op == 'startsWith') return itemVal.startsWith(filterValue);
+              
+              final numItem = num.tryParse(itemVal);
+              final numFilter = num.tryParse(filterValue);
+              if (numItem != null && numFilter != null) {
+                if (op == '>') return numItem > numFilter;
+                if (op == '>=') return numItem >= numFilter;
+                if (op == '<') return numItem < numFilter;
+                if (op == '<=') return numItem <= numFilter;
+              }
+              return true;
+            }).toList();
           }
           
           // Apply local sort if descending
@@ -531,6 +559,7 @@ mixin DriveSheetMixin {
     String sheetTitle, {
     int? gid,
     String? query,
+    Map<String, dynamic>? filter, // { field: String, operator: String, value: dynamic }
     int offset = 0,
     int limit = 20,
     bool descending = false,
@@ -543,7 +572,9 @@ mixin DriveSheetMixin {
 
       // 2. Build Query
       String tq = "SELECT *";
+      final whereClauses = <String>[];
       
+      // Handle Search Query
       if (query != null && query.isNotEmpty) {
         final searchParts = <String>[];
         // Limit to first 50 columns to keep query string manageable
@@ -585,8 +616,48 @@ mixin DriveSheetMixin {
           }
         }
         if (searchParts.isNotEmpty) {
-          tq += " WHERE (${searchParts.join(' OR ')})";
+          whereClauses.add("(${searchParts.join(' OR ')})");
         }
+      }
+
+      // Handle Quick Filter
+      if (filter != null) {
+        final field = filter['field'] as String;
+        final op = filter['operator'] as String;
+        final val = filter['value'];
+        
+        final fieldIndex = headers.indexOf(field);
+        if (fieldIndex != -1) {
+          final col = _indexToColumn(fieldIndex);
+          String? clause;
+          
+          // Stringify value for Gviz
+          String gvizVal = val.toString();
+          bool isNumeric = num.tryParse(gvizVal) != null;
+          String escapedVal = gvizVal.replaceAll("'", "\\'");
+          
+          if (op == '==' || op == '=') {
+            clause = isNumeric ? "$col = $gvizVal" : "$col = '$escapedVal'";
+          } else if (op == '!=') {
+            clause = isNumeric ? "$col != $gvizVal" : "$col != '$escapedVal'";
+          } else if (op == 'contains') {
+            clause = "lower($col) contains '${escapedVal.toLowerCase()}'";
+          } else if (op == '>' || op == '>=' || op == '<' || op == '<=') {
+            clause = isNumeric ? "$col $op $gvizVal" : "$col $op '$escapedVal'";
+          } else if (op == 'startsWith' || op == 'startsWidth') {
+            clause = "lower($col) starts with '${escapedVal.toLowerCase()}'";
+          } else if (op == 'endsWith' || op == 'endsWidth') {
+            clause = "lower($col) ends with '${escapedVal.toLowerCase()}'";
+          }
+          
+          if (clause != null) {
+            whereClauses.add(clause);
+          }
+        }
+      }
+
+      if (whereClauses.isNotEmpty) {
+        tq += " WHERE ${whereClauses.join(' AND ')}";
       }
       
       final recordIdIndex = headers.indexOf('record_id');
