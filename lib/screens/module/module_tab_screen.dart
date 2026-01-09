@@ -266,14 +266,16 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
              final filterVal = filter.value.toString().toLowerCase();
              final itemValStr = itemValue?.toString().toLowerCase() ?? '';
 
-             if (filter.operator == '==') {
+             if (filter.operator == '==' || filter.operator == '=') {
                matchesQuickFilter = itemValStr == filterVal;
              } else if (filter.operator == '!=') { 
                matchesQuickFilter = itemValStr != filterVal;
              } else if (filter.operator == 'contains') {
                matchesQuickFilter = itemValStr.contains(filterVal);
-             } else if (filter.operator == 'startsWidth') {
+             } else if (filter.operator == 'startsWidth' || filter.operator == 'startsWith') {
                matchesQuickFilter = itemValStr.startsWith(filterVal);
+             } else if (filter.operator == 'endsWith') {
+               matchesQuickFilter = itemValStr.endsWith(filterVal);
              } else if (filter.operator == '>') {
                 // Try numeric comparison first
                 final numItem = num.tryParse(itemValStr);
@@ -283,6 +285,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 } else {
                   matchesQuickFilter = itemValStr.compareTo(filterVal) > 0;
                 }
+             } else if (filter.operator == '>=') {
+                final numItem = num.tryParse(itemValStr);
+                final numFilter = num.tryParse(filterVal);
+                if (numItem != null && numFilter != null) {
+                  matchesQuickFilter = numItem >= numFilter;
+                } else {
+                  matchesQuickFilter = itemValStr.compareTo(filterVal) >= 0;
+                }
              } else if (filter.operator == '<') {
                 final numItem = num.tryParse(itemValStr);
                 final numFilter = num.tryParse(filterVal);
@@ -290,6 +300,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                   matchesQuickFilter = numItem < numFilter;
                 } else {
                   matchesQuickFilter = itemValStr.compareTo(filterVal) < 0;
+                }
+             } else if (filter.operator == '<=') {
+                final numItem = num.tryParse(itemValStr);
+                final numFilter = num.tryParse(filterVal);
+                if (numItem != null && numFilter != null) {
+                  matchesQuickFilter = numItem <= numFilter;
+                } else {
+                  matchesQuickFilter = itemValStr.compareTo(filterVal) <= 0;
                 }
              }
            } catch (e) {

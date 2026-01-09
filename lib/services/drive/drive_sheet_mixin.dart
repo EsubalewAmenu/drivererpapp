@@ -645,12 +645,21 @@ mixin DriveSheetMixin {
           // Stringify value for Gviz
           String gvizVal = val.toString();
           bool isNumeric = num.tryParse(gvizVal) != null;
+          bool isBool = gvizVal.toLowerCase() == 'true' || gvizVal.toLowerCase() == 'false';
           String escapedVal = gvizVal.replaceAll("'", "\\'");
           
           if (op == '==' || op == '=') {
-            clause = isNumeric ? "$col = $gvizVal" : "$col = '$escapedVal'";
+            if (isNumeric || isBool) {
+              clause = "$col = $gvizVal";
+            } else {
+              clause = "$col = '$escapedVal'";
+            }
           } else if (op == '!=') {
-            clause = isNumeric ? "$col != $gvizVal" : "$col != '$escapedVal'";
+            if (isNumeric || isBool) {
+              clause = "$col != $gvizVal";
+            } else {
+              clause = "$col != '$escapedVal'";
+            }
           } else if (op == 'contains') {
             clause = "lower($col) contains '${escapedVal.toLowerCase()}'";
           } else if (op == '>' || op == '>=' || op == '<' || op == '<=') {
