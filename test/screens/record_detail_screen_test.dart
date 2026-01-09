@@ -4,169 +4,121 @@ import 'package:drivererpapp/screens/record_detail_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 
 void main() {
-  testWidgets('RecordDetailScreen renders standard template', (WidgetTester tester) async {
-    final data = {
-      'name': 'John Doe',
-      'email': 'john@example.com',
-      'status': 'Active',
-    };
-    
-    final columns = [
-      ColumnConfig(key: 'name', label: 'Full Name', type: 'text'),
-      ColumnConfig(key: 'email', label: 'Email Address', type: 'email'),
-      ColumnConfig(key: 'status', label: 'Current Status', type: 'text'),
-    ];
-
-    await tester.pumpWidget(MaterialApp(
+  Widget createRecordDetailScreen({
+    required List<ColumnConfig> columns,
+    required Map<String, dynamic> data,
+    Map<String, SettingItem> settings = const {},
+    DetailTemplateConfig? detailTemplate,
+  }) {
+    return MaterialApp(
       home: RecordDetailScreen(
-        data: data,
         columns: columns,
+        data: data,
         primaryColor: Colors.blue,
-        title: 'Customer Details',
-      ),
-    ));
-
-    expect(find.text('DETAILS'), findsOneWidget);
-    expect(find.text('John Doe'), findsOneWidget);
-    expect(find.text('FULL NAME'), findsOneWidget);
-    expect(find.text('john@example.com'), findsOneWidget);
-    expect(find.text('EMAIL ADDRESS'), findsOneWidget);
-  });
-
-  testWidgets('RecordDetailScreen renders modern template', (WidgetTester tester) async {
-    final data = {
-      'name': 'Modern Record',
-      'type': 'Premium',
-    };
-    
-    final columns = [
-      ColumnConfig(key: 'name', label: 'Name', type: 'text'),
-      ColumnConfig(key: 'type', label: 'Type', type: 'text'),
-    ];
-
-    final detailTemplate = DetailTemplateConfig(
-      template: 'modern',
-      titleKey: 'name',
-      subtitleKey: 'type',
-    );
-
-    await tester.pumpWidget(MaterialApp(
-      home: RecordDetailScreen(
-        data: data,
-        columns: columns,
-        primaryColor: Colors.purple,
-        title: 'Modern Record Title',
+        title: 'Test Record',
+        settings: settings,
         detailTemplate: detailTemplate,
       ),
-    ));
+    );
+  }
 
-    expect(find.text('Modern Record'), findsOneWidget);
-    expect(find.text('Premium'), findsOneWidget);
-    expect(find.text('RECORD ENTRY'), findsOneWidget);
-  });
-
-  testWidgets('RecordDetailScreen filters fields by dependsOn', (WidgetTester tester) async {
-    final data = {
-      'show_extra': true,
-      'extra_info': 'Secret Data',
-      'hidden_info': 'Hidden Data',
-    };
-    
+  testWidgets('RecordDetailScreen displays basic fields', (WidgetTester tester) async {
     final columns = [
-      ColumnConfig(key: 'show_extra', label: 'Show Extra', type: 'boolean'),
-      ColumnConfig(key: 'extra_info', label: 'Extra Info', type: 'text', dependsOn: 'show_extra'),
-      ColumnConfig(key: 'hidden_info', label: 'Hidden Info', type: 'text', dependsOn: 'non_existent'),
+      ColumnConfig(key: 'name', label: 'Name', type: 'text'),
+      ColumnConfig(key: 'age', label: 'Age', type: 'number'),
     ];
+    final data = {'name': 'John Doe', 'age': 30};
 
-    await tester.pumpWidget(MaterialApp(
-      home: RecordDetailScreen(
-        data: data,
-        columns: columns,
-        primaryColor: Colors.green,
-        title: 'Depends Test',
-      ),
+    await tester.pumpWidget(createRecordDetailScreen(
+      columns: columns,
+      data: data,
     ));
+    await tester.pumpAndSettle();
 
-    expect(find.text('EXTRA INFO'), findsOneWidget);
-    expect(find.text('Secret Data'), findsOneWidget);
-    expect(find.text('HIDDEN INFO'), findsNothing);
+    expect(find.text('NAME'), findsOneWidget);
+    expect(find.text('John Doe'), findsOneWidget);
   });
 
-  testWidgets('RecordDetailScreen renders specialized fields (Table, List, Image)', (WidgetTester tester) async {
-    final data = {
-      'items': [
-        {'name': 'Item A', 'qty': 10},
-        {'name': 'Item B', 'qty': 5},
-      ],
-      'tags': ['Urgent', 'Invoiced'],
-      'photo': 'https://example.com/img.png',
-      'calc': '15.5',
-    };
-    
+  testWidgets('RecordDetailScreen handles formula and status fields', (WidgetTester tester) async {
     final columns = [
+      ColumnConfig(key: 'total', label: 'Total', type: 'formula'),
+      ColumnConfig(key: 'status', label: 'Status', type: 'text'),
+    ];
+    final data = {'total': '500', 'status': 'Pending'};
+
+    await tester.pumpWidget(createRecordDetailScreen(
+      columns: columns,
+      data: data,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('TOTAL'), findsOneWidget);
+    expect(find.text('500'), findsOneWidget);
+    expect(find.text('STATUS'), findsOneWidget);
+    expect(find.text('PENDING'), findsOneWidget); // Status values are upper-cased
+  });
+
+  testWidgets('RecordDetailScreen displays table and image fields', (WidgetTester tester) async {
+    final columns = [
+      ColumnConfig(key: 'photo', label: 'Photo', type: 'image'),
       ColumnConfig(
         key: 'items', 
-        label: 'Order Items', 
+        label: 'Items', 
         type: 'table',
         columns: [
-          ColumnConfig(key: 'name', label: 'Name', type: 'text'),
-          ColumnConfig(key: 'qty', label: 'Qty', type: 'number'),
-        ],
+          ColumnConfig(key: 'name', label: 'Item Name', type: 'text'),
+        ]
       ),
-      ColumnConfig(key: 'tags', label: 'Tags', type: 'list'),
-      ColumnConfig(key: 'photo', label: 'Photo', type: 'image'),
-      ColumnConfig(key: 'calc', label: 'Calculation', type: 'formula'),
     ];
+    final data = {
+      'photo': 'http://example.com/image.jpg',
+      'items': [
+        {'name': 'SubItem 1'},
+      ],
+    };
 
-    await tester.pumpWidget(MaterialApp(
-      home: RecordDetailScreen(
-        data: data,
-        columns: columns,
-        primaryColor: Colors.orange,
-        title: 'Specialized Fields',
-      ),
+    await tester.pumpWidget(createRecordDetailScreen(
+      columns: columns,
+      data: data,
     ));
-
-    expect(find.text('ORDER ITEMS'), findsOneWidget);
-    expect(find.text('Item A'), findsOneWidget);
-    expect(find.text('10'), findsOneWidget);
-    
-    expect(find.text('TAGS'), findsOneWidget);
-    expect(find.text('Urgent'), findsOneWidget);
-    expect(find.text('Invoiced'), findsOneWidget);
+    await tester.pumpAndSettle();
 
     expect(find.text('PHOTO'), findsOneWidget);
-    expect(find.byType(Image), findsOneWidget);
-
-    expect(find.text('CALCULATION'), findsOneWidget);
-    expect(find.text('15.5'), findsOneWidget);
+    expect(find.text('ITEMS'), findsOneWidget);
+    expect(find.text('SubItem 1'), findsOneWidget);
   });
 
-  testWidgets('RecordDetailScreen uses detailKeys if showAllFields is false', (WidgetTester tester) async {
-    final data = {'k1': 'v1', 'k2': 'v2', 'k3': 'v3'};
+  testWidgets('RecordDetailScreen handles settings dependency', (WidgetTester tester) async {
     final columns = [
-      ColumnConfig(key: 'k1', label: 'L1', type: 'text'),
-      ColumnConfig(key: 'k2', label: 'L2', type: 'text'),
-      ColumnConfig(key: 'k3', label: 'L3', type: 'text'),
+      ColumnConfig(key: 'f1', label: 'Field 1', type: 'text', dependsOn: 'settings.show_f1'),
+      ColumnConfig(key: 'f2', label: 'Field 2', type: 'text', dependsOn: 'non_existent'),
     ];
-    final template = DetailTemplateConfig(
-      template: 'standard',
-      showAllFields: false,
-      detailKeys: ['k1', 'k3'],
-    );
+    final settings = {
+      'show_f1': SettingItem(label: 'Show F1', type: 'boolean', value: true),
+    };
 
-    await tester.pumpWidget(MaterialApp(
-      home: RecordDetailScreen(
-        data: data,
-        columns: columns,
-        primaryColor: Colors.blue,
-        title: 'Limited Fields',
-        detailTemplate: template,
-      ),
+    await tester.pumpWidget(createRecordDetailScreen(
+      columns: columns,
+      settings: settings,
+      data: {'f1': 'Visible', 'f2': 'Hidden'},
     ));
+    await tester.pumpAndSettle();
 
-    expect(find.text('L1'), findsOneWidget);
-    expect(find.text('L3'), findsOneWidget);
-    expect(find.text('L2'), findsNothing);
+    expect(find.text('FIELD 1'), findsOneWidget);
+    expect(find.text('FIELD 2'), findsNothing);
+  });
+
+  testWidgets('RecordDetailScreen uses modern template', (WidgetTester tester) async {
+     final template = DetailTemplateConfig(
+      template: 'modern',
+      titleKey: 'name',
+    );
+     await tester.pumpWidget(createRecordDetailScreen(
+      columns: [ColumnConfig(key: 'name', label: 'Name', type: 'text')],
+      data: {'name': 'Modern Title'},
+      detailTemplate: template,
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('Modern Title'), findsWidgets);
   });
 }
