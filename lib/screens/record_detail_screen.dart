@@ -534,7 +534,7 @@ class RecordDetailScreen extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: theme.cardTheme.color!.withValues(alpha: 0.5),
+            color: (theme.cardTheme.color ?? theme.cardColor).withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: borderColor.withValues(alpha: 0.1)),
           ),
