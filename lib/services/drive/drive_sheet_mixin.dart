@@ -416,9 +416,20 @@ mixin DriveSheetMixin {
           // Apply local sort if descending
           if (descending) {
             finalRecords.sort((a, b) {
-              final aId = a['record_id']?.toString() ?? '';
-              final bId = b['record_id']?.toString() ?? '';
-              return bId.compareTo(aId);
+              final aVal = a['record_id'];
+              final bVal = b['record_id'];
+              
+              // Numeric sort if possible
+              final aNum = num.tryParse(aVal?.toString() ?? '');
+              final bNum = num.tryParse(bVal?.toString() ?? '');
+              
+              if (aNum != null && bNum != null) {
+                return bNum.compareTo(aNum);
+              }
+              
+              final aStr = aVal?.toString() ?? '';
+              final bStr = bVal?.toString() ?? '';
+              return bStr.compareTo(aStr);
             });
           }
         }
@@ -713,7 +724,7 @@ mixin DriveSheetMixin {
       return results;
     } catch (e) {
       debugPrint('Error in server-side search: $e');
-      return [];
+      rethrow;
     }
   }
 

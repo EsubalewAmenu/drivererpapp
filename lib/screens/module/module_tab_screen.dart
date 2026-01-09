@@ -68,7 +68,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent * 0.9) {
+    if (_scrollController.hasClients && _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
       final isFilterEmpty = _activeFilter == null || _activeFilter == 'all';
       
       // Allow pagination if not loading, has more data, 
@@ -78,12 +78,10 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       bool isSearchRemote = _searchQuery.length >= 2;
 
       if (canLoadMore) {
-        if (isFilterEmpty) {
-          // If search is empty or search is remote (>=2), we can paginate from Googl Sheets
-          if (!isSearchActive || isSearchRemote) {
-            _loadData(refresh: false);
-          }
-        }
+        // ALWAYS allow pagination if not currently busy.
+        // If it's a short search (<2 chars), we fetch more unfiltered data 
+        // from the server and then apply the local filter to find more matches.
+        _loadData(refresh: false);
       }
     }
   }
@@ -303,13 +301,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         return matchesSearch && matchesQuickFilter;
       }).toList();
 
-      // Sort by record_id in descending order (newest first)
-      _filteredData.sort((a, b) {
-        final aId = a['record_id']?.toString() ?? '';
-        final bId = b['record_id']?.toString() ?? '';
-        // If record_id is missing, fallback to empty string
-        return bId.compareTo(aId);
-      });
+      // We rely on server-side sorting (record_id DESC) from Google Sheets/Gviz.
+      // Local sorting is only a fallback or for newly added items if any.
     });
   }
 
