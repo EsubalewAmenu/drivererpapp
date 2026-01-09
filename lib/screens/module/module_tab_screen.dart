@@ -8,6 +8,8 @@ import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
 import '../record_detail_screen.dart';
 import 'common/tab_settings_screen.dart';
+import 'widgets/module_filter_bar.dart';
+import 'widgets/module_list_item.dart';
 
 class ModuleTabScreen extends StatefulWidget {
   final TabConfig tab;
@@ -438,7 +440,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saving configuration...'), duration: Duration(seconds: 1)),
+        const SnackBar(content: Text('Saving configuration...'), duration: Duration(seconds: 5)),
       );
 
       await schemaProvider.service.saveModuleConfig(currentModule.id, updatedModule);
@@ -456,6 +458,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           _applyFilters();
         });
         
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Configuration saved')),
         );
