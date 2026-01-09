@@ -1,76 +1,86 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drivererpapp/providers/schema_provider.dart';
-import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/models/schema_models.dart';
+import 'package:drivererpapp/services/drive_service.dart';
 
 class MockDriveService extends Mock implements DriveService {}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
+  
   late SchemaProvider schemaProvider;
   late MockDriveService mockDriveService;
-
-  setUpAll(() {
-    registerFallbackValue(ModuleSchema(
-      id: 'fallback',
-      name: 'Fallback',
-      icon: 'help',
-      primaryColor: '#000000',
-      version: '1.0',
-      settings: {},
-      dashboard: DashboardConfig(cards: []),
-      tabs: [],
-    ));
-  });
 
   setUp(() {
     mockDriveService = MockDriveService();
     schemaProvider = SchemaProvider(driveService: mockDriveService, userEmail: 'test@example.com');
   });
 
-  group('SchemaProvider', () {
-    final module = ModuleSchema(
-      id: 'mod1',
-      name: 'Test Module',
-      icon: 'edit',
-      primaryColor: '#FF5722',
-      version: '1.2',
-      settings: {},
-      dashboard: DashboardConfig(cards: []),
-      tabs: [],
-    );
+  group('SchemaProvider Tests', () {
+    test('updateMemoryCache updates and notifies', () {
+      final module = ModuleSchema(
+        id: 'm1',
+        name: 'test',
+        icon: 'i',
+        primaryColor: 'c',
+        version: '1',
+        settings: {},
+        tabs: [],
+        dashboard: DashboardConfig(cards: []),
+      );
 
-    test('updateMemoryCache updates memory and notifies listeners', () {
       bool notified = false;
       schemaProvider.addListener(() {
         notified = true;
       });
 
-      schemaProvider.updateMemoryCache('mod1', module);
-      expect(schemaProvider.getFromMemory('mod1'), module);
+      schemaProvider.updateMemoryCache('m1', module);
+      expect(schemaProvider.getFromMemory('m1'), module);
       expect(notified, isTrue);
+
+      schemaProvider.updateMemoryCache('m1', null);
+      expect(schemaProvider.getFromMemory('m1'), isNull);
     });
 
-    test('saveConfig calls SchemaService (and DriveService) and updates memory', () async {
-      // Mock the DriveService calls that SchemaService.saveModuleConfig uses
-      when(() => mockDriveService.getOrCreateSubFolder(any(), any()))
-          .thenAnswer((_) async => 'folder_id');
-      when(() => mockDriveService.getFileId(any(), any()))
-          .thenAnswer((_) async => 'file_id');
-      when(() => mockDriveService.createModuleConfig(any(), any(), any()))
-          .thenAnswer((_) async => 'file_id');
-      when(() => mockDriveService.updateModuleConfig(any(), any()))
-          .thenAnswer((_) async => {});
-      when(() => mockDriveService.getFileModifiedTime(any()))
-          .thenAnswer((_) async => DateTime.now());
+    test('saveConfig success', () async {
+      final module = ModuleSchema(
+        id: 'm1',
+        name: 'test',
+        icon: 'i',
+        primaryColor: 'c',
+        version: '1',
+        settings: {},
+        tabs: [],
+        dashboard: DashboardConfig(cards: []),
+      );
 
-      final results = await schemaProvider.saveConfig(module);
-
-      expect(results, isTrue);
-      expect(schemaProvider.getFromMemory('mod1'), module);
+      when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'folder123');
+      when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
+      when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'new_file_id');
+      when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
       
-      // verify calls - depend on if it exists or not
-      // for newly created vs updated
+      final result = await schemaProvider.saveConfig(module);
+      expect(result, isTrue);
+      expect(schemaProvider.getFromMemory('m1'), module);
+    });
+
+    test('saveConfig failure returns false', () async {
+      when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenThrow(Exception('fail'));
+      final module = ModuleSchema(id: 'm1', name: 't', icon: 'i', primaryColor: 'c', version: '1', settings: {}, tabs: [], dashboard: DashboardConfig(cards: []));
+      final result = await schemaProvider.saveConfig(module);
+      expect(result, isFalse);
+    });
+
+    test('notifyUpdate notifies listeners', () {
+      bool notified = false;
+      schemaProvider.addListener(() {
+        notified = true;
+      });
+      schemaProvider.notifyUpdate();
+      expect(notified, isTrue);
     });
   });
 }
