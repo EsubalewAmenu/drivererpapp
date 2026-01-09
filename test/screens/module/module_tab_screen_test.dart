@@ -213,7 +213,9 @@ void main() {
     expect(find.text('Item 20'), findsOneWidget);
     
     // Scroll to the bottom to trigger load more
-    await tester.drag(find.byType(ListView), const Offset(0, -3000));
+    await tester.drag(find.byType(ListView), const Offset(0, -1000));
+    await tester.pump();
+    await tester.drag(find.byType(ListView), const Offset(0, -1000));
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
@@ -230,7 +232,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify item from second page exists
-    expect(find.text('Item 0'), findsWidgets);
+    expect(find.text('Item 0'), findsOneWidget);
   });
 
   testWidgets('ModuleTabScreen displays error and allows retry', (WidgetTester tester) async {
@@ -296,7 +298,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // Scroll to bottom
-    await tester.drag(find.byType(ListView), const Offset(0, -2000));
+    await tester.drag(find.byType(ListView), const Offset(0, -1000));
+    await tester.pump();
+    await tester.drag(find.byType(ListView), const Offset(0, -1000));
+    await tester.pump();
     await tester.pumpAndSettle();
 
     expect(find.text('Failed to load more records'), findsOneWidget);
@@ -309,12 +314,18 @@ void main() {
       descending: any(named: 'descending'),
     )).thenAnswer((_) async => [{'name': 'More Item', 'record_id': '100'}]);
 
-    // Use a more specific finder for the retry button in the list
+    // Manual scroll to finding the retry button to avoid "Too many elements" issues with scrollUntilVisible
+    for (int i = 0; i < 10; i++) {
+      await tester.drag(find.byType(ListView), const Offset(0, -200));
+      await tester.pump();
+      if (find.text('Retry').evaluate().isNotEmpty) break;
+    }
+
     final retryButton = find.descendant(
       of: find.byType(ListView),
       matching: find.text('Retry'),
-    );
-    await tester.ensureVisible(retryButton);
+    ).first;
+    
     await tester.tap(retryButton);
     await tester.pumpAndSettle();
 
@@ -395,10 +406,15 @@ void main() {
 
     clearInteractions(mockDriveService);
 
-    // Fling down from the middle of the list
-    await tester.fling(find.byType(ListView), const Offset(0.0, 500.0), 2000.0);
+    // Pull to refresh: Drag down significantly from the top
+    // Use a gesture to ensure we pull it far enough
+    final TestGesture gesture = await tester.startGesture(tester.getCenter(find.byType(ListView)));
+    await gesture.moveBy(const Offset(0.0, 400.0));
     await tester.pump();
-    await tester.pump(const Duration(seconds: 2)); // Wait for refresh indicator
+    await gesture.up();
+    
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
     verify(() => mockDriveService.fetchRecords(

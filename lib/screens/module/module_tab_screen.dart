@@ -560,43 +560,48 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       );
     }
 
-    return ListView.separated(
-      controller: _scrollController,
-      padding: const EdgeInsets.all(16),
-      itemCount: _filteredData.length + (_isLoadingMore || _hasErrorLoadingMore ? 1 : 0),
-      separatorBuilder: (context, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        if (index == _filteredData.length) {
-          if (_hasErrorLoadingMore) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  children: [
-                    Text('Failed to load more records', style: TextStyle(color: theme.colorScheme.error)),
-                    TextButton.icon(
-                      onPressed: () => _loadData(refresh: false),
-                      icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('Retry'),
-                    )
-                  ],
+    return RefreshIndicator(
+      onRefresh: () => _loadData(refresh: true),
+      color: widget.primaryColor,
+      child: ListView.separated(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        itemCount: _filteredData.length + (_isLoadingMore || _hasErrorLoadingMore ? 1 : 0),
+        separatorBuilder: (context, index) => const SizedBox(height: 12),
+        itemBuilder: (context, index) {
+          if (index == _filteredData.length) {
+            if (_hasErrorLoadingMore) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Text('Failed to load more records', style: TextStyle(color: theme.colorScheme.error)),
+                      TextButton.icon(
+                        onPressed: () => _loadData(refresh: false),
+                        icon: const Icon(Icons.refresh, size: 16),
+                        label: const Text('Retry'),
+                      )
+                    ],
+                  ),
                 ),
-              ),
-            );
+              );
+            }
+            return const Center(child: Padding(
+              padding: EdgeInsets.all(16.0),
+              child: CircularProgressIndicator(),
+            ));
           }
-          return const Center(child: Padding(
-            padding: EdgeInsets.all(16.0),
-            child: CircularProgressIndicator(),
-          ));
-        }
-        final item = _filteredData[index];
-        
-        final template = widget.tab.listTemplate?.template ?? 'high_density';
-        if (template == 'standard') {
-          return _buildStandardCard(item);
-        }
-        return _buildHighDensityCard(item);
-      },
+          final item = _filteredData[index];
+          
+          final template = widget.tab.listTemplate?.template ?? 'high_density';
+          if (template == 'standard') {
+            return _buildStandardCard(item);
+          }
+          return _buildHighDensityCard(item);
+        },
+      ),
     );
   }
 
