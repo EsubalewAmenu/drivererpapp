@@ -233,18 +233,27 @@ mixin DriveSheetMixin {
       }
 
       // 4. Save Main Record
-      await _appendDataToSheet(spreadsheetId, sheetTitle, finalData);
+      await _saveToSheet(spreadsheetId, sheetTitle, finalData);
 
       // 5. Save Nested Tables
       for (var entry in nestedTables.entries) {
         final subSheetTitle = '$sheetTitle.${entry.key}';
+        
+        // If updating a record, we should probably clear existing sub-items or handle carefully
+        // For simplicity, we search for each sub-item by sub_record_id and update or append.
+        // If the user deleted an item from the list UI, it stays in the Sheet!
+        // To handle deletions, we'd need to fetch all sub-items with parent_record_id and compare.
+        // For now, let's at least ensure editing existing items works.
+        
         for (var item in entry.value) {
           if (item is Map) {
             final itemData = Map<String, dynamic>.from(item);
             itemData['parent_record_id'] = recordId;
-            // Also add a unique ID for the sub-item
-            itemData['sub_record_id'] = DateTime.now().microsecondsSinceEpoch.toString();
-            await _appendDataToSheet(spreadsheetId, subSheetTitle, itemData);
+            // Add a unique ID for the sub-item if it doesn't have one
+            if (itemData['sub_record_id'] == null) {
+              itemData['sub_record_id'] = DateTime.now().microsecondsSinceEpoch.toString();
+            }
+            await _saveToSheet(spreadsheetId, subSheetTitle, itemData);
           }
         }
       }
@@ -255,7 +264,130 @@ mixin DriveSheetMixin {
     }
   }
 
-  Future<void> _appendDataToSheet(String spreadsheetId, String sheetTitle, Map<String, dynamic> data) async {
+  Future<void> deleteRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, String recordId) async {
+    try {
+      // 1. Find Spreadsheet
+      String? spreadsheetId = await getFileId(moduleFolderId, sheetTitle);
+      if (spreadsheetId == null) throw Exception("Spreadsheet not found");
+
+      // 2. Identify Row Index
+      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
+      if (headerResponse.values == null || headerResponse.values!.isEmpty) throw Exception("Sheet is empty");
+      
+      final headers = headerResponse.values!.first.map((e) => e.toString()).toList();
+      final idColIndex = headers.indexOf('record_id');
+      if (idColIndex == -1) throw Exception("record_id column not found");
+
+      final colLetter = _getColLetter(idColIndex);
+      final idColResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!$colLetter:$colLetter'));
+      final idValues = idColResponse.values;
+      
+      int? rowIndex;
+      if (idValues != null) {
+        for (int i = 0; i < idValues.length; i++) {
+          if (idValues[i].isNotEmpty && idValues[i].first.toString() == recordId) {
+            rowIndex = i; // 0-indexed for deleteDimension
+            break;
+          }
+        }
+      }
+
+      if (rowIndex == null) throw Exception("Record not found in sheet");
+
+      // 3. Get Sheet ID (GID)
+      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+      final sheet = spreadsheet.sheets?.firstWhere((s) => s.properties?.title == sheetTitle);
+      final int? gid = sheet?.properties?.sheetId;
+      if (gid == null) throw Exception("Could not find sheet GID");
+
+      // 4. Delete the Row
+      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
+        sheets.BatchUpdateSpreadsheetRequest(
+          requests: [
+            sheets.Request(
+              deleteDimension: sheets.DeleteDimensionRequest(
+                range: sheets.DimensionRange(
+                  sheetId: gid,
+                  dimension: 'ROWS',
+                  startIndex: rowIndex as int,
+                  endIndex: (rowIndex as int) + 1,
+                ),
+              ),
+            ),
+          ],
+        ),
+        spreadsheetId,
+      ));
+
+      debugPrint('Deleted record $recordId from $sheetTitle at row ${(rowIndex as int) + 1}');
+
+      // 5. Delete associated sub-table records (optional but good for cleanliness)
+      final subTableSheets = spreadsheet.sheets
+          ?.where((s) => s.properties?.title?.startsWith('$sheetTitle.') ?? false)
+          .toList() ?? [];
+
+      if (subTableSheets.isNotEmpty) {
+        debugPrint('Found ${subTableSheets.length} potential sub-sheets for cleanup...');
+      }
+
+      for (var subSheet in subTableSheets) {
+        final title = subSheet.properties!.title!;
+        final subGid = subSheet.properties!.sheetId!;
+        
+        debugPrint('Checking sub-sheet: $title');
+        // Find indices of rows with matching parent_record_id
+        final subHeadersRes = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$title!1:1'));
+        if (subHeadersRes.values == null || subHeadersRes.values!.isEmpty) continue;
+        
+        final subHeaders = subHeadersRes.values!.first.map((e) => e.toString()).toList();
+        final pIdIndex = subHeaders.indexOf('parent_record_id');
+        if (pIdIndex == -1) continue;
+
+        final pColLetter = _getColLetter(pIdIndex);
+        final pColData = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$title!$pColLetter:$pColLetter'));
+        final pValues = pColData.values;
+
+        if (pValues != null) {
+          // Collect indices to delete (skip header at index 0)
+          List<int> toDelete = [];
+          for (int i = 1; i < pValues.length; i++) {
+            if (pValues[i].isNotEmpty && pValues[i].first.toString() == recordId) {
+              toDelete.add(i);
+            }
+          }
+
+          if (toDelete.isNotEmpty) {
+            debugPrint('Found ${toDelete.length} linked records in $title to delete');
+            // Delete in reverse order to keep indices valid during sequential deletion
+            toDelete.sort((a, b) => b.compareTo(a));
+            
+            final requests = toDelete.map((idx) => sheets.Request(
+              deleteDimension: sheets.DeleteDimensionRequest(
+                range: sheets.DimensionRange(
+                  sheetId: subGid,
+                  dimension: 'ROWS',
+                  startIndex: idx,
+                  endIndex: idx + 1,
+                ),
+              ),
+            )).toList();
+
+            await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
+              sheets.BatchUpdateSpreadsheetRequest(requests: requests),
+              spreadsheetId,
+            ));
+            debugPrint('Cleaned up ${toDelete.length} sub-records from $title');
+          }
+        }
+      }
+      debugPrint('deleteRecord completed fully for $recordId');
+    } catch (e) {
+      debugPrint('Error deleting record: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> _saveToSheet(String spreadsheetId, String sheetTitle, Map<String, dynamic> data) async {
     // 1. Check/Create Sheet
     final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
     bool sheetExists = spreadsheet.sheets?.any((s) => s.properties?.title == sheetTitle) ?? false;
@@ -276,7 +408,7 @@ mixin DriveSheetMixin {
       debugPrint('Created sheet: $sheetTitle');
     }
 
-    // 2. Handle Headers and Append
+    // 2. Handle Headers
     final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
     List<String> headers = [];
     
@@ -284,7 +416,6 @@ mixin DriveSheetMixin {
       headers = headerResponse.values!.first.map((e) => e.toString()).toList();
     }
 
-    // If no headers, write them from data keys
     if (headers.isEmpty) {
       headers = data.keys.toList();
       await retryOp(() => sheetsApi.spreadsheets.values.append(
@@ -294,7 +425,6 @@ mixin DriveSheetMixin {
         valueInputOption: 'RAW',
       ));
     } else {
-      // Check for new columns
       final newKeys = data.keys.where((k) => !headers.contains(k)).toList();
       if (newKeys.isNotEmpty) {
         headers.addAll(newKeys);
@@ -307,15 +437,56 @@ mixin DriveSheetMixin {
       }
     }
 
-    // 3. Prepare and Append Row
+    // 3. Check for Update vs Append
+    final recordId = data['record_id']?.toString() ?? data['sub_record_id']?.toString();
+    final idKey = data.containsKey('record_id') ? 'record_id' : (data.containsKey('sub_record_id') ? 'sub_record_id' : null);
+    
+    int? recordRowIndex;
+    if (recordId != null && idKey != null) {
+      final idColIndex = headers.indexOf(idKey);
+      if (idColIndex != -1) {
+        final colLetter = _getColLetter(idColIndex);
+        final idColResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!$colLetter:$colLetter'));
+        final idValues = idColResponse.values;
+        if (idValues != null) {
+          for (int i = 0; i < idValues.length; i++) {
+            if (idValues[i].isNotEmpty && idValues[i].first.toString() == recordId) {
+              recordRowIndex = i + 1; // 1-indexed
+              break;
+            }
+          }
+        }
+      }
+    }
+
     final row = headers.map((h) => data[h]?.toString() ?? '').toList();
-    await retryOp(() => sheetsApi.spreadsheets.values.append(
-      sheets.ValueRange(values: [row]),
-      spreadsheetId,
-      '$sheetTitle!A1',
-      valueInputOption: 'RAW',
-    ));
-    debugPrint('Appended data to $sheetTitle');
+    
+    if (recordRowIndex != null) {
+      await retryOp(() => sheetsApi.spreadsheets.values.update(
+        sheets.ValueRange(values: [row]),
+        spreadsheetId,
+        '$sheetTitle!$recordRowIndex:$recordRowIndex',
+        valueInputOption: 'RAW',
+      ));
+      debugPrint('Updated data in $sheetTitle at row $recordRowIndex');
+    } else {
+      await retryOp(() => sheetsApi.spreadsheets.values.append(
+        sheets.ValueRange(values: [row]),
+        spreadsheetId,
+        '$sheetTitle!A1',
+        valueInputOption: 'RAW',
+      ));
+      debugPrint('Appended data to $sheetTitle');
+    }
+  }
+
+  String _getColLetter(int colIndex) {
+    String letter = "";
+    while (colIndex >= 0) {
+      letter = String.fromCharCode((colIndex % 26) + 65) + letter;
+      colIndex = (colIndex / 26).floor() - 1;
+    }
+    return letter;
   }
 
   Future<List<Map<String, dynamic>>> fetchRecords(

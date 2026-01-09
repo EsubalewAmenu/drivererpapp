@@ -1,15 +1,20 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
 import '../theme/app_theme.dart';
+import '../providers/drive_provider.dart';
+import 'dynamic_form_screen.dart';
 
-class RecordDetailScreen extends StatelessWidget {
+class RecordDetailScreen extends StatefulWidget {
   final Map<String, dynamic> data;
   final List<ColumnConfig> columns;
   final Color primaryColor;
   final String title;
   final Map<String, SettingItem> settings;
   final DetailTemplateConfig? detailTemplate;
+  final TabConfig tab;
+  final ModuleSchema? module;
 
   const RecordDetailScreen({
     super.key,
@@ -17,32 +22,56 @@ class RecordDetailScreen extends StatelessWidget {
     required this.columns,
     required this.primaryColor,
     required this.title,
+    required this.tab,
     this.settings = const {},
     this.detailTemplate,
+    this.module,
   });
 
+  @override
+  State<RecordDetailScreen> createState() => _RecordDetailScreenState();
+}
+
+class _RecordDetailScreenState extends State<RecordDetailScreen> {
+  late Map<String, dynamic> _currentData;
+  bool _wasEdited = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentData = Map<String, dynamic>.from(widget.data);
+  }
+
+  @override
+  void didUpdateWidget(RecordDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _currentData = Map<String, dynamic>.from(widget.data);
+    }
+  }
+
   String _resolveTitle() {
-    if (detailTemplate?.titleLogic != null) {
-      return _getValueFromLogic(detailTemplate!.titleLogic!);
+    if (widget.detailTemplate?.titleLogic != null) {
+      return _getValueFromLogic(widget.detailTemplate!.titleLogic!);
     }
-    if (detailTemplate?.titleKey != null) {
-      return data[detailTemplate!.titleKey]?.toString() ?? title;
+    if (widget.detailTemplate?.titleKey != null) {
+      return _currentData[widget.detailTemplate!.titleKey]?.toString() ?? widget.title;
     }
-    return title;
+    return widget.title;
   }
 
   String _resolveSubtitle() {
-    if (detailTemplate?.subtitleLogic != null) {
-      return _getValueFromLogic(detailTemplate!.subtitleLogic!);
+    if (widget.detailTemplate?.subtitleLogic != null) {
+      return _getValueFromLogic(widget.detailTemplate!.subtitleLogic!);
     }
-    if (detailTemplate?.subtitleKey != null) {
-      return data[detailTemplate!.subtitleKey]?.toString() ?? '';
+    if (widget.detailTemplate?.subtitleKey != null) {
+      return _currentData[widget.detailTemplate!.subtitleKey]?.toString() ?? '';
     }
     return '';
   }
 
   String _getValueFromLogic(ConditionalLogic logic) {
-    final conditionValue = data[logic.conditionKey];
+    final conditionValue = _currentData[logic.conditionKey];
     bool isTruthy = false;
 
     if (conditionValue is bool) {
@@ -59,47 +88,69 @@ class RecordDetailScreen extends StatelessWidget {
     }
 
     final resultKey = isTruthy ? logic.truthyKey : logic.falsyKey;
-    return (resultKey != null && data.containsKey(resultKey)) ? data[resultKey]?.toString() ?? '' : '';
+    return (resultKey != null && _currentData.containsKey(resultKey)) ? _currentData[resultKey]?.toString() ?? '' : '';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isModern = detailTemplate?.template == 'modern';
+    final isModern = widget.detailTemplate?.template == 'modern';
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      extendBodyBehindAppBar: isModern,
-      appBar: AppBar(
-        title: Text(
-          'DETAILS',
-          style: AppTheme.inter(
-            fontWeight: FontWeight.w900, 
-            letterSpacing: 1.0, 
-            fontSize: 16,
-            color: isModern ? Colors.white : theme.textTheme.titleMedium?.color,
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        Navigator.of(context).pop(_wasEdited);
+      },
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        extendBodyBehindAppBar: isModern,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(_wasEdited),
           ),
+          title: Text(
+            'DETAILS',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.0,
+              fontSize: 16,
+              color: isModern ? Colors.white : theme.textTheme.titleMedium?.color,
+            ),
+          ),
+          backgroundColor: isModern ? Colors.transparent : null,
+          elevation: 0,
+          iconTheme: IconThemeData(color: isModern ? Colors.white : theme.iconTheme.color),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: Icon(Icons.edit_outlined, color: isModern ? Colors.white : theme.iconTheme.color),
+              onPressed: () => _editRecord(context),
+            ),
+            IconButton(
+              icon: Icon(Icons.delete_outline_rounded, color: isModern ? Colors.white : Colors.redAccent),
+              onPressed: () => _confirmDelete(context),
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
-        backgroundColor: isModern ? Colors.transparent : null,
-        elevation: 0,
-        iconTheme: IconThemeData(color: isModern ? Colors.white : theme.iconTheme.color),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        top: !isModern,
-        child: SingleChildScrollView(
-          padding: isModern ? EdgeInsets.zero : const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isModern) _buildModernHeader(context) else _buildHeader(context),
-              const SizedBox(height: 32),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: _buildFieldsList(context),
-              ),
-              const SizedBox(height: 32),
-            ],
+        body: SafeArea(
+          top: !isModern,
+          child: SingleChildScrollView(
+            padding: isModern ? EdgeInsets.zero : const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isModern) _buildModernHeader(context) else _buildHeader(context),
+                const SizedBox(height: 32),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: _buildFieldsList(context),
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
       ),
@@ -111,14 +162,14 @@ class RecordDetailScreen extends StatelessWidget {
     
     final headerTitle = _resolveTitle();
     final headerSubtitle = _resolveSubtitle();
-    final imageUrl = detailTemplate?.imageKey != null ? (data[detailTemplate!.imageKey]?.toString() ?? '') : '';
+    final imageUrl = widget.detailTemplate?.imageKey != null ? (_currentData[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
     final hasImage = imageUrl.isNotEmpty && (imageUrl.startsWith('http') || imageUrl.contains('data:image'));
 
     return Container(
       width: double.infinity,
       height: 300,
       decoration: BoxDecoration(
-        color: primaryColor,
+        color: widget.primaryColor,
       ),
       child: Stack(
         fit: StackFit.expand,
@@ -194,13 +245,13 @@ class RecordDetailScreen extends StatelessWidget {
     
     final headerTitle = _resolveTitle();
     final headerSubtitle = _resolveSubtitle();
-    final imageUrl = detailTemplate?.imageKey != null ? (data[detailTemplate!.imageKey]?.toString() ?? '') : '';
+    final imageUrl = widget.detailTemplate?.imageKey != null ? (_currentData[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
 
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: primaryColor.withValues(alpha: 0.1)),
+        border: Border.all(color: widget.primaryColor.withValues(alpha: 0.1)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -217,8 +268,8 @@ class RecordDetailScreen extends StatelessWidget {
                 imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => Container(
-                  color: primaryColor.withValues(alpha: 0.05),
-                  child: Icon(Icons.broken_image_rounded, color: primaryColor.withValues(alpha: 0.4), size: 48),
+                  color: widget.primaryColor.withValues(alpha: 0.05),
+                  child: Icon(Icons.broken_image_rounded, color: widget.primaryColor.withValues(alpha: 0.4), size: 48),
                 ),
               ),
             ),
@@ -230,10 +281,10 @@ class RecordDetailScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: primaryColor.withValues(alpha: 0.1),
+                      color: widget.primaryColor.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.description_rounded, color: primaryColor, size: 32),
+                    child: Icon(Icons.description_rounded, color: widget.primaryColor, size: 32),
                   ),
                 if (imageUrl.isEmpty || !imageUrl.startsWith('http'))
                   const SizedBox(width: 24),
@@ -284,11 +335,11 @@ class RecordDetailScreen extends StatelessWidget {
     // 1. Determine which columns to show
     List<ColumnConfig> visibleColumns;
     
-    if (detailTemplate?.showAllFields ?? true) {
-      visibleColumns = columns;
+    if (widget.detailTemplate?.showAllFields ?? true) {
+      visibleColumns = widget.columns;
     } else {
-      final keys = detailTemplate?.detailKeys ?? [];
-      visibleColumns = columns.where((c) => keys.contains(c.key)).toList();
+      final keys = widget.detailTemplate?.detailKeys ?? [];
+      visibleColumns = widget.columns.where((c) => keys.contains(c.key)).toList();
     }
 
     // 2. Filter based on logic dependencies
@@ -296,17 +347,17 @@ class RecordDetailScreen extends StatelessWidget {
       if (col.hidden == true) return false;
       
       // Don't show header fields in the list if already in header
-      if (col.key == detailTemplate?.titleKey || col.key == detailTemplate?.subtitleKey || col.key == detailTemplate?.imageKey) {
+      if (col.key == widget.detailTemplate?.titleKey || col.key == widget.detailTemplate?.subtitleKey || col.key == widget.detailTemplate?.imageKey) {
         return false;
       }
 
       // Also hide fields used in conditional logic to avoid duplication
-      if (detailTemplate?.titleLogic != null) {
-        final logic = detailTemplate!.titleLogic!;
+      if (widget.detailTemplate?.titleLogic != null) {
+        final logic = widget.detailTemplate!.titleLogic!;
         if (col.key == logic.truthyKey || col.key == logic.falsyKey) return false;
       }
-      if (detailTemplate?.subtitleLogic != null) {
-        final logic = detailTemplate!.subtitleLogic!;
+      if (widget.detailTemplate?.subtitleLogic != null) {
+        final logic = widget.detailTemplate!.subtitleLogic!;
         if (col.key == logic.truthyKey || col.key == logic.falsyKey) return false;
       }
 
@@ -324,7 +375,7 @@ class RecordDetailScreen extends StatelessWidget {
         bool isTruthy = false;
         if (actualDependency.startsWith('settings.')) {
           final settingKey = actualDependency.replaceFirst('settings.', '');
-          final setting = settings[settingKey];
+          final setting = widget.settings[settingKey];
           if (setting != null) {
             final val = setting.value;
             if (val is bool) isTruthy = val;
@@ -333,7 +384,7 @@ class RecordDetailScreen extends StatelessWidget {
             else isTruthy = val != null;
           }
         } else {
-          final val = data[actualDependency];
+          final val = _currentData[actualDependency];
           if (val is bool) isTruthy = val;
           else if (val is String) isTruthy = val.isNotEmpty;
           else if (val is List) isTruthy = val.isNotEmpty;
@@ -352,7 +403,7 @@ class RecordDetailScreen extends StatelessWidget {
       separatorBuilder: (context, index) => const SizedBox(height: 24),
       itemBuilder: (context, index) {
         final col = filteredColumns[index];
-        final value = data[col.key];
+        final value = _currentData[col.key];
         
         if (col.type == 'table' && value is List) {
            return _buildTableField(col, value as List<Map<String, dynamic>>);
@@ -430,16 +481,16 @@ class RecordDetailScreen extends StatelessWidget {
             children: items.map((item) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: primaryColor.withValues(alpha: 0.1),
+                color: widget.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+                border: Border.all(color: widget.primaryColor.withValues(alpha: 0.3)),
               ),
               child: Text(
                 item,
                 style: AppTheme.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: primaryColor,
+                  color: widget.primaryColor,
                 ),
               ),
             )).toList(),
@@ -628,12 +679,6 @@ class RecordDetailScreen extends StatelessWidget {
   }
 
   Widget _buildTableField(ColumnConfig col, List<Map<String, dynamic>> items) {
-    // Need BuildContext but no clean way to get it inside map or without refactoring big chunks
-    // But this widget is called from _buildFieldsList(context), so we can pass context.
-    // However, _buildTableField signature in old code didn't have context.
-    // Actually, I can just use a Builder or pass context.
-    // Wait, I am editing the file, I can change the signature or rely on caller passing it.
-    // Let's rely on caller.
     return Builder(builder: (context) {
         final theme = Theme.of(context);
         final tableCols = col.columns ?? [];
@@ -718,5 +763,91 @@ class RecordDetailScreen extends StatelessWidget {
           ],
         );
     });
+  }
+
+  void _editRecord(BuildContext context) async {
+    final result = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DynamicFormScreen(
+          tab: widget.tab,
+          primaryColor: widget.primaryColor,
+          initialData: _currentData,
+          settings: widget.settings,
+          module: widget.module,
+        ),
+      ),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _currentData = result;
+        _wasEdited = true;
+      });
+    }
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Record'),
+        content: const Text('Are you sure you want to delete this record? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteRecord(context);
+            },
+            child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteRecord(BuildContext context) async {
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+    final recordId = _currentData['record_id']?.toString();
+    
+    // Capture states before async gaps
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    
+    if (recordId == null || widget.module == null) {
+      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Cannot delete: Record ID missing')));
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await driveProvider.driveService!.deleteRecord(
+        widget.module!.id,
+        widget.module!.name,
+        widget.tab.id,
+        recordId,
+      );
+
+      if (mounted) {
+        // Close loading dialog using the captured root navigator
+        rootNavigator.pop();
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Record deleted successfully')));
+        // Close detail screen using the captured local navigator
+        navigator.pop(true);
+      }
+    } catch (e) {
+      if (mounted) {
+        rootNavigator.pop();
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error deleting record: $e')));
+      }
+    }
   }
 }

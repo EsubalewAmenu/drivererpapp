@@ -429,5 +429,64 @@ void main() {
         final decodedUrl = Uri.decodeFull(capturedUrl!);
         expect(decodedUrl, contains("lower(A) ends with '@gmail.com'"));
     });
+
+    test('DriveSheetMixin saveRecord updates existing record if record_id matches', () async {
+      // Mock headers
+      when(() => mockValues.get(any(), 'Sheet1!1:1'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['record_id', 'name']]));
+      
+      // Mock finding the record ID in the sheet
+      // Headers are at row 1. record_id 'r1' is at row 2.
+      when(() => mockValues.get(any(), 'Sheet1!A:A'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['record_id'], ['r1']]));
+
+      when(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW'))
+          .thenAnswer((_) async => sheets.UpdateValuesResponse());
+
+      final data = {'record_id': 'r1', 'name': 'Updated Name'};
+      
+      await service.saveRecord('f1', 's1', 'Sheet1', data);
+
+      // Verify update was called instead of append
+      verify(() => mockValues.update(
+        any(), 
+        any(), 
+        'Sheet1!2:2', 
+        valueInputOption: 'RAW'
+      )).called(1);
+      
+      verifyNever(() => mockValues.append(any(), any(), any(), valueInputOption: 'RAW'));
+    });
+
+    test('DriveSheetMixin deleteRecord calls batchUpdate with deleteDimension', () async {
+      // Mock headers
+      when(() => mockValues.get(any(), 'Sheet1!1:1'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['record_id']]));
+      
+      // Mock finding IDs
+      when(() => mockValues.get(any(), any()))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['record_id'], ['r1'], ['r2']]));
+      
+      // Mock spreadsheet metadata for GID
+      when(() => mockSpreadsheets.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [
+          sheets.Sheet(properties: sheets.SheetProperties(title: 'Sheet1', sheetId: 100))
+        ]
+      ));
+
+      when(() => mockSpreadsheets.batchUpdate(any(), any()))
+          .thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
+
+      await service.deleteRecord('f1', 's1', 'Sheet1', 'r2');
+
+      // Index for r2 is 2 (3rd row including header, but 0-indexed index for list is 2)
+      verify(() => mockSpreadsheets.batchUpdate(
+        any(that: predicate<sheets.BatchUpdateSpreadsheetRequest>((req) {
+          final del = req.requests?.first.deleteDimension;
+          return del?.range?.startIndex == 2 && del?.range?.endIndex == 3 && del?.range?.sheetId == 100;
+        })), 
+        any()
+      )).called(1);
+    });
   });
 }

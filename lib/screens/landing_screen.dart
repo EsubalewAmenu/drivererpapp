@@ -241,6 +241,10 @@ class _LandingScreenState extends State<LandingScreen> {
   }
 
   Future<void> _handleGoogleSignIn(BuildContext context) async {
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final localNavigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
     try {
       showDialog(
         context: context,
@@ -252,17 +256,17 @@ class _LandingScreenState extends State<LandingScreen> {
       await authService.signIn();
 
       if (context.mounted) {
-        Navigator.pop(context); // Close loading dialog
+        rootNavigator.pop(); // Close loading dialog
         if (authService.isAuthenticated) {
-          Navigator.of(context).pushReplacement(
+          localNavigator.pushReplacement(
             MaterialPageRoute(builder: (_) => const SystemScanningScreen()),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
-        Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
+        rootNavigator.pop(); // Close loading dialog
+        scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('Sign in failed: $e')),
         );
       }

@@ -539,13 +539,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     );
   }
 
-  void _openRecordDetail(Map<String, dynamic> item) {
+  void _openRecordDetail(Map<String, dynamic> item) async {
     // Get the latest tab config from memory if available
     final latestModule = context.read<SchemaProvider>().getFromMemory(widget.module?.id ?? '');
     final currentTab = latestModule?.tabs.firstWhere((t) => t.id == widget.tab.id, orElse: () => widget.tab) ?? widget.tab;
 
     final titleKey = currentTab.detailTemplate?.titleKey ?? currentTab.listTemplate?.titleKey ?? (currentTab.columns.isNotEmpty ? currentTab.columns[0].key : '');
-    Navigator.push(
+    final refresh = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
         builder: (context) => RecordDetailScreen(
@@ -555,8 +555,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
           settings: widget.settings,
           detailTemplate: currentTab.detailTemplate,
+          tab: currentTab,
+          module: widget.module,
         ),
       ),
     );
+
+    if (refresh == true) {
+      _loadData(refresh: true);
+    }
   }
 }
