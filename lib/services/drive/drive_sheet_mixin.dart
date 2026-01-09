@@ -322,15 +322,19 @@ mixin DriveSheetMixin {
       debugPrint('Deleted record $recordId from $sheetTitle at row ${(rowIndex as int) + 1}');
 
       // 5. Delete associated sub-table records (optional but good for cleanliness)
-      // Find all sheets that start with "$sheetTitle."
       final subTableSheets = spreadsheet.sheets
           ?.where((s) => s.properties?.title?.startsWith('$sheetTitle.') ?? false)
           .toList() ?? [];
+
+      if (subTableSheets.isNotEmpty) {
+        debugPrint('Found ${subTableSheets.length} potential sub-sheets for cleanup...');
+      }
 
       for (var subSheet in subTableSheets) {
         final title = subSheet.properties!.title!;
         final subGid = subSheet.properties!.sheetId!;
         
+        debugPrint('Checking sub-sheet: $title');
         // Find indices of rows with matching parent_record_id
         final subHeadersRes = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$title!1:1'));
         if (subHeadersRes.values == null || subHeadersRes.values!.isEmpty) continue;
@@ -353,6 +357,7 @@ mixin DriveSheetMixin {
           }
 
           if (toDelete.isNotEmpty) {
+            debugPrint('Found ${toDelete.length} linked records in $title to delete');
             // Delete in reverse order to keep indices valid during sequential deletion
             toDelete.sort((a, b) => b.compareTo(a));
             
@@ -375,6 +380,7 @@ mixin DriveSheetMixin {
           }
         }
       }
+      debugPrint('deleteRecord completed fully for $recordId');
     } catch (e) {
       debugPrint('Error deleting record: $e');
       rethrow;

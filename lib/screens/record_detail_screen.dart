@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
 import 'dynamic_form_screen.dart';
 
-class RecordDetailScreen extends StatelessWidget {
+class RecordDetailScreen extends StatefulWidget {
   final Map<String, dynamic> data;
   final List<ColumnConfig> columns;
   final Color primaryColor;
@@ -28,28 +28,33 @@ class RecordDetailScreen extends StatelessWidget {
     this.module,
   });
 
+  @override
+  State<RecordDetailScreen> createState() => _RecordDetailScreenState();
+}
+
+class _RecordDetailScreenState extends State<RecordDetailScreen> {
   String _resolveTitle() {
-    if (detailTemplate?.titleLogic != null) {
-      return _getValueFromLogic(detailTemplate!.titleLogic!);
+    if (widget.detailTemplate?.titleLogic != null) {
+      return _getValueFromLogic(widget.detailTemplate!.titleLogic!);
     }
-    if (detailTemplate?.titleKey != null) {
-      return data[detailTemplate!.titleKey]?.toString() ?? title;
+    if (widget.detailTemplate?.titleKey != null) {
+      return widget.data[widget.detailTemplate!.titleKey]?.toString() ?? widget.title;
     }
-    return title;
+    return widget.title;
   }
 
   String _resolveSubtitle() {
-    if (detailTemplate?.subtitleLogic != null) {
-      return _getValueFromLogic(detailTemplate!.subtitleLogic!);
+    if (widget.detailTemplate?.subtitleLogic != null) {
+      return _getValueFromLogic(widget.detailTemplate!.subtitleLogic!);
     }
-    if (detailTemplate?.subtitleKey != null) {
-      return data[detailTemplate!.subtitleKey]?.toString() ?? '';
+    if (widget.detailTemplate?.subtitleKey != null) {
+      return widget.data[widget.detailTemplate!.subtitleKey]?.toString() ?? '';
     }
     return '';
   }
 
   String _getValueFromLogic(ConditionalLogic logic) {
-    final conditionValue = data[logic.conditionKey];
+    final conditionValue = widget.data[logic.conditionKey];
     bool isTruthy = false;
 
     if (conditionValue is bool) {
@@ -66,13 +71,13 @@ class RecordDetailScreen extends StatelessWidget {
     }
 
     final resultKey = isTruthy ? logic.truthyKey : logic.falsyKey;
-    return (resultKey != null && data.containsKey(resultKey)) ? data[resultKey]?.toString() ?? '' : '';
+    return (resultKey != null && widget.data.containsKey(resultKey)) ? widget.data[resultKey]?.toString() ?? '' : '';
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isModern = detailTemplate?.template == 'modern';
+    final isModern = widget.detailTemplate?.template == 'modern';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -129,14 +134,14 @@ class RecordDetailScreen extends StatelessWidget {
     
     final headerTitle = _resolveTitle();
     final headerSubtitle = _resolveSubtitle();
-    final imageUrl = detailTemplate?.imageKey != null ? (data[detailTemplate!.imageKey]?.toString() ?? '') : '';
+    final imageUrl = widget.detailTemplate?.imageKey != null ? (widget.data[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
     final hasImage = imageUrl.isNotEmpty && (imageUrl.startsWith('http') || imageUrl.contains('data:image'));
 
     return Container(
       width: double.infinity,
       height: 300,
       decoration: BoxDecoration(
-        color: primaryColor,
+        color: widget.primaryColor,
       ),
       child: Stack(
         fit: StackFit.expand,
@@ -212,13 +217,13 @@ class RecordDetailScreen extends StatelessWidget {
     
     final headerTitle = _resolveTitle();
     final headerSubtitle = _resolveSubtitle();
-    final imageUrl = detailTemplate?.imageKey != null ? (data[detailTemplate!.imageKey]?.toString() ?? '') : '';
+    final imageUrl = widget.detailTemplate?.imageKey != null ? (widget.data[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
 
     return Container(
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: primaryColor.withValues(alpha: 0.1)),
+        border: Border.all(color: widget.primaryColor.withValues(alpha: 0.1)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -235,8 +240,8 @@ class RecordDetailScreen extends StatelessWidget {
                 imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => Container(
-                  color: primaryColor.withValues(alpha: 0.05),
-                  child: Icon(Icons.broken_image_rounded, color: primaryColor.withValues(alpha: 0.4), size: 48),
+                  color: widget.primaryColor.withValues(alpha: 0.05),
+                  child: Icon(Icons.broken_image_rounded, color: widget.primaryColor.withValues(alpha: 0.4), size: 48),
                 ),
               ),
             ),
@@ -248,10 +253,10 @@ class RecordDetailScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: primaryColor.withValues(alpha: 0.1),
+                      color: widget.primaryColor.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(Icons.description_rounded, color: primaryColor, size: 32),
+                    child: Icon(Icons.description_rounded, color: widget.primaryColor, size: 32),
                   ),
                 if (imageUrl.isEmpty || !imageUrl.startsWith('http'))
                   const SizedBox(width: 24),
@@ -302,11 +307,11 @@ class RecordDetailScreen extends StatelessWidget {
     // 1. Determine which columns to show
     List<ColumnConfig> visibleColumns;
     
-    if (detailTemplate?.showAllFields ?? true) {
-      visibleColumns = columns;
+    if (widget.detailTemplate?.showAllFields ?? true) {
+      visibleColumns = widget.columns;
     } else {
-      final keys = detailTemplate?.detailKeys ?? [];
-      visibleColumns = columns.where((c) => keys.contains(c.key)).toList();
+      final keys = widget.detailTemplate?.detailKeys ?? [];
+      visibleColumns = widget.columns.where((c) => keys.contains(c.key)).toList();
     }
 
     // 2. Filter based on logic dependencies
@@ -314,17 +319,17 @@ class RecordDetailScreen extends StatelessWidget {
       if (col.hidden == true) return false;
       
       // Don't show header fields in the list if already in header
-      if (col.key == detailTemplate?.titleKey || col.key == detailTemplate?.subtitleKey || col.key == detailTemplate?.imageKey) {
+      if (col.key == widget.detailTemplate?.titleKey || col.key == widget.detailTemplate?.subtitleKey || col.key == widget.detailTemplate?.imageKey) {
         return false;
       }
 
       // Also hide fields used in conditional logic to avoid duplication
-      if (detailTemplate?.titleLogic != null) {
-        final logic = detailTemplate!.titleLogic!;
+      if (widget.detailTemplate?.titleLogic != null) {
+        final logic = widget.detailTemplate!.titleLogic!;
         if (col.key == logic.truthyKey || col.key == logic.falsyKey) return false;
       }
-      if (detailTemplate?.subtitleLogic != null) {
-        final logic = detailTemplate!.subtitleLogic!;
+      if (widget.detailTemplate?.subtitleLogic != null) {
+        final logic = widget.detailTemplate!.subtitleLogic!;
         if (col.key == logic.truthyKey || col.key == logic.falsyKey) return false;
       }
 
@@ -342,7 +347,7 @@ class RecordDetailScreen extends StatelessWidget {
         bool isTruthy = false;
         if (actualDependency.startsWith('settings.')) {
           final settingKey = actualDependency.replaceFirst('settings.', '');
-          final setting = settings[settingKey];
+          final setting = widget.settings[settingKey];
           if (setting != null) {
             final val = setting.value;
             if (val is bool) isTruthy = val;
@@ -351,7 +356,7 @@ class RecordDetailScreen extends StatelessWidget {
             else isTruthy = val != null;
           }
         } else {
-          final val = data[actualDependency];
+          final val = widget.data[actualDependency];
           if (val is bool) isTruthy = val;
           else if (val is String) isTruthy = val.isNotEmpty;
           else if (val is List) isTruthy = val.isNotEmpty;
@@ -370,7 +375,7 @@ class RecordDetailScreen extends StatelessWidget {
       separatorBuilder: (context, index) => const SizedBox(height: 24),
       itemBuilder: (context, index) {
         final col = filteredColumns[index];
-        final value = data[col.key];
+        final value = widget.data[col.key];
         
         if (col.type == 'table' && value is List) {
            return _buildTableField(col, value as List<Map<String, dynamic>>);
@@ -448,16 +453,16 @@ class RecordDetailScreen extends StatelessWidget {
             children: items.map((item) => Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: primaryColor.withValues(alpha: 0.1),
+                color: widget.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+                border: Border.all(color: widget.primaryColor.withValues(alpha: 0.3)),
               ),
               child: Text(
                 item,
                 style: AppTheme.inter(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: primaryColor,
+                  color: widget.primaryColor,
                 ),
               ),
             )).toList(),
@@ -646,12 +651,6 @@ class RecordDetailScreen extends StatelessWidget {
   }
 
   Widget _buildTableField(ColumnConfig col, List<Map<String, dynamic>> items) {
-    // Need BuildContext but no clean way to get it inside map or without refactoring big chunks
-    // But this widget is called from _buildFieldsList(context), so we can pass context.
-    // However, _buildTableField signature in old code didn't have context.
-    // Actually, I can just use a Builder or pass context.
-    // Wait, I am editing the file, I can change the signature or rely on caller passing it.
-    // Let's rely on caller.
     return Builder(builder: (context) {
         final theme = Theme.of(context);
         final tableCols = col.columns ?? [];
@@ -743,11 +742,11 @@ class RecordDetailScreen extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (context) => DynamicFormScreen(
-          tab: tab,
-          primaryColor: primaryColor,
-          initialData: data,
-          settings: settings,
-          module: module,
+          tab: widget.tab,
+          primaryColor: widget.primaryColor,
+          initialData: widget.data,
+          settings: widget.settings,
+          module: widget.module,
         ),
       ),
     );
@@ -774,37 +773,45 @@ class RecordDetailScreen extends StatelessWidget {
   }
 
   Future<void> _deleteRecord(BuildContext context) async {
-    final driveProvider = context.read<DriveProvider>();
-    final recordId = data['record_id']?.toString();
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+    final recordId = widget.data['record_id']?.toString();
     
-    if (recordId == null || module == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot delete: Record ID missing')));
+    // Capture states before async gaps
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    
+    if (recordId == null || widget.module == null) {
+      scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Cannot delete: Record ID missing')));
       return;
     }
 
-    try {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      useRootNavigator: true,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
 
+    try {
       await driveProvider.driveService!.deleteRecord(
-        module!.id,
-        module!.name,
-        tab.id,
+        widget.module!.id,
+        widget.module!.name,
+        widget.tab.id,
         recordId,
       );
 
-      if (context.mounted) {
-        Navigator.pop(context); // Pop loading
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record deleted successfully')));
-        Navigator.pop(context, true); // Pop RecordDetail with refresh signal
+      if (mounted) {
+        // Close loading dialog using the captured root navigator
+        rootNavigator.pop();
+        scaffoldMessenger.showSnackBar(const SnackBar(content: Text('Record deleted successfully')));
+        // Close detail screen using the captured local navigator
+        navigator.pop(true);
       }
     } catch (e) {
-      if (context.mounted) {
-        Navigator.pop(context); // Pop loading
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error deleting record: $e')));
+      if (mounted) {
+        rootNavigator.pop();
+        scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error deleting record: $e')));
       }
     }
   }
