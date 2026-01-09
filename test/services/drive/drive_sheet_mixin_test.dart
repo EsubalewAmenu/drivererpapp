@@ -36,6 +36,21 @@ class TestDriveService with DriveSheetMixin {
   Future<String?> getFileId(String folderId, String fileName) async => 'mock_file_id';
 }
 
+class TestDriveService2 with DriveSheetMixin {
+  @override
+  final drive.DriveApi driveApi;
+  @override
+  final sheets.SheetsApi sheetsApi;
+  
+  TestDriveService2(this.driveApi, this.sheetsApi);
+
+  @override
+  Future<T> retryOp<T>(Future<T> Function() action, {int retries = 3}) async => await action();
+
+  @override
+  Future<String?> getFileId(String folderId, String fileName) async => null;
+}
+
 void main() {
   late MockDriveApi mockDriveApi;
   late MockFilesResource mockFiles;
@@ -192,6 +207,89 @@ void main() {
         'metadata': <String, dynamic>{}
       });
       verify(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW')).called(greaterThan(0));
+    });
+
+    test('saveRecord creates new spreadsheet if not exists', () async {
+      // Create a service that returns null for getFileId
+      final mockDriveApi2 = MockDriveApi();
+      final mockFiles2 = MockFilesResource();
+      final mockSheetsApi2 = MockSheetsApi();
+      final mockSpreadsheets2 = MockSpreadsheetsResource();
+      final mockValues2 = MockValuesResource();
+      
+      when(() => mockDriveApi2.files).thenReturn(mockFiles2);
+      when(() => mockSheetsApi2.spreadsheets).thenReturn(mockSpreadsheets2);
+      when(() => mockSpreadsheets2.values).thenReturn(mockValues2);
+
+      final service2 = TestDriveService2(mockDriveApi2, mockSheetsApi2);
+
+      when(() => mockSpreadsheets2.create(any())).thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'new_sid'));
+      when(() => mockFiles2.get(any(), $fields: any(named: '\$fields'))).thenAnswer((_) async => drive.File(id: 'new_sid', parents: []));
+      when(() => mockFiles2.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.File());
+      // For appendDataToSheet
+      when(() => mockSpreadsheets2.get(any())).thenAnswer((_) async => sheets.Spreadsheet(sheets: []));
+      when(() => mockSpreadsheets2.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
+      when(() => mockValues2.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(values: []));
+      when(() => mockValues2.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+          .thenAnswer((_) async => sheets.AppendValuesResponse());
+
+      await service2.saveRecord('folderId', 'spreadsheetName', 'Sheet1', {'a': 1});
+
+      verify(() => mockSpreadsheets2.create(any())).called(1);
+      verify(() => mockFiles2.update(any(), 'new_sid', addParents: 'folderId', $fields: any(named: '\$fields'))).called(1);
+    });
+
+    test('fetchRecords handles descending sort and pagination', () async {
+      when(() => mockSpreadsheets.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'Main'))]
+      ));
+
+      when(() => mockValues.get(any(), any())).thenAnswer((inv) async {
+        final range = inv.positionalArguments[1] as String;
+        if (range.contains('1:1')) return sheets.ValueRange(values: [['record_id', 'val']]);
+        return sheets.ValueRange(values: [
+          ['100', 'v100'],
+          ['101', 'v101'],
+          ['102', 'v102'],
+        ]);
+      });
+
+      // Descending should sort by record_id (strings)
+      final results = await service.fetchRecords('folderId', 'Spreadsheet', 'Main', descending: true, offset: 1, limit: 1);
+      
+      expect(results.length, 1);
+      expect(results.first['record_id'], '101'); // 102, 101, 100 -> skip 1 -> 101
+    });
+
+    test('_fetchSheetData handles empty rows and mismatched columns', () async {
+      when(() => mockValues.get(any(), any())).thenAnswer((inv) async {
+        final range = inv.positionalArguments[1] as String;
+        if (range.contains('1:1')) return sheets.ValueRange(values: [['h1', 'h2']]);
+        return sheets.ValueRange(values: [
+          ['v1', 'v2'],
+          ['v3'], // missing column
+          ['', ''], // empty row
+        ]);
+      });
+
+      final results = await service.fetchRecords('folderId', 'Spreadsheet', 'Main', fetchSubTables: false);
+      expect(results.length, 2);
+      expect(results[1]['h2'], isNull);
+    });
+
+    test('_readMapFromSheet handles various row lengths and errors', () async {
+      when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(
+        values: [
+          ['key1', '"val1"'],
+          ['key2'], // too short
+          ['key3', '"val3"', 'extra'] 
+        ]
+      ));
+
+      final config = await service.readModuleConfig('fileId');
+      // key2 should be ignored because it has < 2 elements
+      expect(config['settings'].length, 2); 
     });
 
     test('retryOp fails after retries', () async {

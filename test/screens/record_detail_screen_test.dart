@@ -74,4 +74,37 @@ void main() {
     ));
     await tester.pumpAndSettle();
   });
+
+  testWidgets('RecordDetailScreen handles negation dependsOn', (tester) async {
+    final cols = [
+      ColumnConfig(key: 'individual', label: 'Individual Only', type: 'text', dependsOn: 'is_individual'),
+      ColumnConfig(key: 'company', label: 'Company Only', type: 'text', dependsOn: '!is_individual'),
+    ];
+
+    // Case 1: is_individual is true
+    final dataIndividual = {
+      'is_individual': true,
+      'individual': 'John Doe',
+      'company': 'ACME Corp',
+    };
+
+    await tester.pumpWidget(createScreen(columns: cols, data: dataIndividual));
+    await tester.pumpAndSettle();
+
+    expect(find.text('INDIVIDUAL ONLY'), findsOneWidget);
+    expect(find.text('COMPANY ONLY'), findsNothing);
+
+    // Case 2: is_individual is false
+    final dataCompany = {
+      'is_individual': false,
+      'individual': 'John Doe',
+      'company': 'ACME Corp',
+    };
+
+    await tester.pumpWidget(createScreen(columns: cols, data: dataCompany));
+    await tester.pumpAndSettle();
+
+    expect(find.text('INDIVIDUAL ONLY'), findsNothing);
+    expect(find.text('COMPANY ONLY'), findsOneWidget);
+  });
 }

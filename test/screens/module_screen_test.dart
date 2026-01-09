@@ -116,4 +116,94 @@ void main() {
     }
     await tester.pumpAndSettle();
   });
+
+  testWidgets('ModuleScreen handles asset fallback', (WidgetTester tester) async {
+    final module = ModuleSchema(
+      id: 'm_fallback',
+      name: 'NonExistentModule',
+      icon: 'inventory',
+      primaryColor: '#F59E0B',
+      version: '1.0.0',
+      settings: {},
+      tabs: [],
+      dashboard: DashboardConfig(cards: []),
+    );
+
+    when(() => mockSchemaService.getCachedConfig('m_fallback')).thenAnswer((_) async => null);
+    when(() => mockSchemaService.syncConfig('m_fallback')).thenAnswer((_) async => null);
+
+    await tester.pumpWidget(createModuleScreen(module));
+    await tester.pump(); // Start _loadSchema
+    
+    // Wait for the sync and asset check to complete
+    await tester.pump(const Duration(seconds: 1)); 
+    await tester.pumpAndSettle();
+
+    // Should have navigated to editor because of asset fallback
+    expect(find.text('COMPLETE SETUP'), findsWidgets);
+  });
+
+  testWidgets('ModuleScreen handles cache load and background sync', (WidgetTester tester) async {
+     final module = ModuleSchema(
+      id: 'm_cache',
+      name: 'Cached Module',
+      icon: 'inventory',
+      primaryColor: '#F59E0B',
+      version: '1.0.0',
+      settings: {'name': SettingItem(label: 'Name', type: 'text', value: 'Cached Module')},
+      tabs: [TabConfig(id: 't1', label: 'Tab 1', columns: [])],
+      dashboard: DashboardConfig(cards: []),
+    );
+
+    final configJson = module.toJson();
+    when(() => mockSchemaService.getCachedConfig('m_cache')).thenAnswer((_) async => configJson);
+    when(() => mockSchemaService.syncConfig('m_cache')).thenAnswer((_) async => configJson);
+
+    await tester.pumpWidget(createModuleScreen(module));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2)); // Wait for delayed background sync
+    await tester.pumpAndSettle();
+
+    verify(() => mockSchemaService.syncConfig('m_cache')).called(1);
+  });
+
+  testWidgets('ModuleScreen handles parsing errors', (WidgetTester tester) async {
+    final module = ModuleSchema(
+      id: 'm_err',
+      name: 'Err Module',
+      icon: 'inventory',
+      primaryColor: '#F59E0B',
+      version: '1.0.0',
+      settings: {},
+      tabs: [],
+      dashboard: DashboardConfig(cards: []),
+    );
+
+    final configJson = {
+      'settings': {
+        'name': {'value': 'Broken Module'}, // Missing label/type -> SettingItem.fromJson fails
+        'options_list': {'label': 'L', 'type': 'l', 'value': ['A', 'B']},
+      },
+      'tabs': [
+        {'id': 't1'}, // Missing label/columns -> TabConfig.fromJson fails
+        {
+          'id': 't2', 
+          'label': 'Tab 2', 
+          'columns': [
+            {'key': 'c1', 'label': 'C1', 'type': 'select', 'options': 'settings.options_list'}
+          ]
+        }
+      ]
+    };
+
+    when(() => mockSchemaService.getCachedConfig('m_err')).thenAnswer((_) async => configJson);
+
+    await tester.pumpWidget(createModuleScreen(module));
+    await tester.pump(); // Start _loadSchema
+    await tester.pump(const Duration(seconds: 2)); // Wait for cache load and sync timer
+    await tester.pumpAndSettle();
+
+    expect(find.text('ERROR TAB'), findsOneWidget);
+    expect(find.text('TAB 2'), findsOneWidget);
+  });
 }

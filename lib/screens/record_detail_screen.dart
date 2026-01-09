@@ -260,17 +260,36 @@ class RecordDetailScreen extends StatelessWidget {
       }
 
       if (col.dependsOn != null && col.dependsOn!.isNotEmpty) {
-        final dep = col.dependsOn!;
-        if (dep.startsWith('settings.')) {
-          final settingKey = dep.replaceFirst('settings.', '');
-          final setting = settings[settingKey];
-          if (setting == null) return true;
-          final val = setting.value;
-          if (val == null || val == false || (val is String && val.isEmpty) || (val is List && val.isEmpty)) return false;
-        } else {
-          final val = data[dep];
-          if (val == null || val == false || (val is String && val.isEmpty) || (val is List && val.isEmpty)) return false;
+        final dependency = col.dependsOn!;
+        
+        // Check for negation
+        bool expectedValue = true;
+        String actualDependency = dependency;
+        if (dependency.startsWith('!')) {
+          expectedValue = false;
+          actualDependency = dependency.substring(1);
         }
+
+        bool isTruthy = false;
+        if (actualDependency.startsWith('settings.')) {
+          final settingKey = actualDependency.replaceFirst('settings.', '');
+          final setting = settings[settingKey];
+          if (setting != null) {
+            final val = setting.value;
+            if (val is bool) isTruthy = val;
+            else if (val is String) isTruthy = val.isNotEmpty;
+            else if (val is List) isTruthy = val.isNotEmpty;
+            else isTruthy = val != null;
+          }
+        } else {
+          final val = data[actualDependency];
+          if (val is bool) isTruthy = val;
+          else if (val is String) isTruthy = val.isNotEmpty;
+          else if (val is List) isTruthy = val.isNotEmpty;
+          else isTruthy = val != null;
+        }
+
+        if (isTruthy != expectedValue) return false;
       }
       return true;
     }).toList();
