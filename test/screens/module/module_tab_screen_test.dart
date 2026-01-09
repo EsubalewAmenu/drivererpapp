@@ -75,6 +75,7 @@ void main() {
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
       searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => [
       {'name': 'Record 1', 'record_id': '100'},
       {'name': 'Record 2', 'record_id': '200'},
@@ -193,6 +194,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => List.generate(20, (i) => {'name': 'Item ${20-i}', 'record_id': '${1020-i}'}));
 
     // Second page (1 item)
@@ -204,6 +207,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => [{'name': 'Item 0', 'record_id': '1000'}]);
 
     await tester.pumpWidget(createModuleTabScreen());
@@ -227,6 +232,8 @@ void main() {
       limit: any(named: 'limit'), 
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).called(greaterThanOrEqualTo(1));
 
     await tester.pumpAndSettle();
@@ -241,6 +248,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenThrow(Exception('Failed to load'));
 
     await tester.pumpWidget(createModuleTabScreen());
@@ -255,6 +264,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => [{'name': 'Retried Record', 'record_id': '300'}]);
 
     await tester.tap(find.text('Retry'));
@@ -269,6 +280,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenThrow(Exception('SocketException: failed host lookup'));
 
     await tester.pumpWidget(createModuleTabScreen());
@@ -284,6 +297,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => List.generate(20, (i) => {'name': 'Item $i', 'record_id': '$i'}));
 
     // Second page fails
@@ -292,6 +307,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenThrow(Exception('Load more failed'));
 
     await tester.pumpWidget(createModuleTabScreen());
@@ -312,6 +329,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => [{'name': 'More Item', 'record_id': '100'}]);
 
     // Manual scroll to finding the retry button to avoid "Too many elements" issues with scrollUntilVisible
@@ -359,6 +378,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     ));
   });
 
@@ -433,6 +454,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).called(greaterThanOrEqualTo(1));
   });
 
@@ -462,6 +485,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      quickFilter: any(named: 'quickFilter'),
+      searchQuery: any(named: 'searchQuery'),
     )).thenAnswer((_) async => [
       {'name': 'Record 1', 'age': '10', 'record_id': '100'},
       {'name': 'Record 2', 'age': '30', 'record_id': '200'},
@@ -564,6 +589,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => []);
 
     // Update the widget with a new tab
@@ -593,6 +620,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).called(1);
   });
 
@@ -619,6 +648,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => [
       {'name': 'Expensive Item', 'status': 'Available', 'price': '\$100', 'record_id': '500'},
     ]);

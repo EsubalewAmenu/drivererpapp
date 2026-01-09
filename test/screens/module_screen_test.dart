@@ -40,8 +40,10 @@ void main() {
       offset: any(named: 'offset'), 
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
-      descending: any(named: 'descending'))
-    ).thenAnswer((_) async => <Map<String, dynamic>>[]);
+      descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
+    )).thenAnswer((_) async => <Map<String, dynamic>>[]);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'mock_file_id');
     when(() => mockDriveService.getFileRevisions(any())).thenAnswer((_) async => []);
   });

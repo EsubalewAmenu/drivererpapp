@@ -57,6 +57,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => [
       {'name': 'John Doe'},
       {'name': 'Jane Doe'},
@@ -120,6 +122,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => [
       {'name': 'Engineer 1', 'selected_dept': 'Engineering'},
       {'name': 'Sales 1', 'selected_dept': 'Sales'},

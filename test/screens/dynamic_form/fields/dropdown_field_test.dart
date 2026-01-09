@@ -118,6 +118,8 @@ void main() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => [
       {'name': 'Parent Item 1', 'allowed_values': '[Alpha, Beta]'},
       {'name': 'Parent Item 2', 'allowed_values': '[Gamma]'},
@@ -177,7 +179,11 @@ void main() {
       tabs: [tab1, tab2]
     );
 
-    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', descending: any(named: 'descending')))
+    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', 
+      descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
+    ))
         .thenAnswer((_) async => [
           {'name': 'Parent Item 1', 'custom_label': 'Category Selector', 'allowed_values': '[A, B]'},
         ]);
@@ -228,7 +234,11 @@ void main() {
     );
 
     // Case 1: is_active is false
-    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', descending: any(named: 'descending')))
+    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', 
+      descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
+    ))
         .thenAnswer((_) async => [
           {'name': 'Parent Item 1', 'is_active': false, 'allowed_values': '[A, B]'},
         ]);
@@ -248,7 +258,11 @@ void main() {
     expect(find.byType(DropdownButtonFormField<String>), findsNothing);
 
     // Case 2: is_active is true
-    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', descending: any(named: 'descending')))
+    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', 
+      descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
+    ))
         .thenAnswer((_) async => [
           {'name': 'Parent Item 1', 'is_active': true, 'allowed_values': '[A, B]'},
         ]);
