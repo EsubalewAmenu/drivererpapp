@@ -135,7 +135,15 @@ DetailTemplateConfig _$DetailTemplateConfigFromJson(
 ) => DetailTemplateConfig(
   template: json['template'] as String? ?? 'standard',
   titleKey: json['title_key'] as String?,
+  titleLogic: json['title_logic'] == null
+      ? null
+      : ConditionalLogic.fromJson(json['title_logic'] as Map<String, dynamic>),
   subtitleKey: json['subtitle_key'] as String?,
+  subtitleLogic: json['subtitle_logic'] == null
+      ? null
+      : ConditionalLogic.fromJson(
+          json['subtitle_logic'] as Map<String, dynamic>,
+        ),
   imageKey: json['image_key'] as String?,
   showAllFields: json['show_all_fields'] as bool? ?? true,
   detailKeys: (json['detail_keys'] as List<dynamic>?)
@@ -148,11 +156,27 @@ Map<String, dynamic> _$DetailTemplateConfigToJson(
 ) => <String, dynamic>{
   'template': instance.template,
   'title_key': instance.titleKey,
+  'title_logic': instance.titleLogic?.toJson(),
   'subtitle_key': instance.subtitleKey,
+  'subtitle_logic': instance.subtitleLogic?.toJson(),
   'image_key': instance.imageKey,
   'show_all_fields': instance.showAllFields,
   'detail_keys': instance.detailKeys,
 };
+
+ConditionalLogic _$ConditionalLogicFromJson(Map<String, dynamic> json) =>
+    ConditionalLogic(
+      conditionKey: json['condition_key'] as String,
+      truthyKey: json['truthy_key'] as String,
+      falsyKey: json['falsy_key'] as String,
+    );
+
+Map<String, dynamic> _$ConditionalLogicToJson(ConditionalLogic instance) =>
+    <String, dynamic>{
+      'condition_key': instance.conditionKey,
+      'truthy_key': instance.truthyKey,
+      'falsy_key': instance.falsyKey,
+    };
 
 QuickFilter _$QuickFilterFromJson(Map<String, dynamic> json) => QuickFilter(
   label: json['label'] as String,

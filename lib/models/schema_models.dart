@@ -136,8 +136,12 @@ class DetailTemplateConfig {
   final String template; // 'standard', 'modern'
   @JsonKey(name: 'title_key')
   final String? titleKey;
+  @JsonKey(name: 'title_logic')
+  final ConditionalLogic? titleLogic;
   @JsonKey(name: 'subtitle_key')
   final String? subtitleKey;
+  @JsonKey(name: 'subtitle_logic')
+  final ConditionalLogic? subtitleLogic;
   @JsonKey(name: 'image_key')
   final String? imageKey;
   @JsonKey(name: 'show_all_fields')
@@ -148,7 +152,9 @@ class DetailTemplateConfig {
   DetailTemplateConfig({
     this.template = 'standard',
     this.titleKey,
+    this.titleLogic,
     this.subtitleKey,
+    this.subtitleLogic,
     this.imageKey,
     this.showAllFields = true,
     this.detailKeys,
@@ -156,6 +162,25 @@ class DetailTemplateConfig {
 
   factory DetailTemplateConfig.fromJson(Map<String, dynamic> json) => _$DetailTemplateConfigFromJson(json);
   Map<String, dynamic> toJson() => _$DetailTemplateConfigToJson(this);
+}
+
+@JsonSerializable(explicitToJson: true)
+class ConditionalLogic {
+  @JsonKey(name: 'condition_key')
+  final String conditionKey;
+  @JsonKey(name: 'truthy_key')
+  final String truthyKey;
+  @JsonKey(name: 'falsy_key')
+  final String falsyKey;
+
+  ConditionalLogic({
+    required this.conditionKey,
+    required this.truthyKey,
+    required this.falsyKey,
+  });
+
+  factory ConditionalLogic.fromJson(Map<String, dynamic> json) => _$ConditionalLogicFromJson(json);
+  Map<String, dynamic> toJson() => _$ConditionalLogicToJson(this);
 }
 
 @JsonSerializable(explicitToJson: true)

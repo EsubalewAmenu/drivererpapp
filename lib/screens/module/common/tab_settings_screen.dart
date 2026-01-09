@@ -39,6 +39,17 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
   late bool _detailShowAll;
   List<String> _detailFields = [];
 
+  // Conditional Logic State
+  bool _useConditionalTitle = false;
+  String? _titleLogicCondition;
+  String? _titleLogicTruthy;
+  String? _titleLogicFalsy;
+
+  bool _useConditionalSubtitle = false;
+  String? _subtitleLogicCondition;
+  String? _subtitleLogicTruthy;
+  String? _subtitleLogicFalsy;
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +86,20 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
     
     _detailShowAll = detailConfig?.showAllFields ?? true;
     _detailFields = List.from(detailConfig?.detailKeys ?? []);
+
+    // Initialize logic
+    if (detailConfig?.titleLogic != null) {
+      _useConditionalTitle = true;
+      _titleLogicCondition = detailConfig!.titleLogic!.conditionKey;
+      _titleLogicTruthy = detailConfig.titleLogic!.truthyKey;
+      _titleLogicFalsy = detailConfig.titleLogic!.falsyKey;
+    }
+    if (detailConfig?.subtitleLogic != null) {
+      _useConditionalSubtitle = true;
+      _subtitleLogicCondition = detailConfig!.subtitleLogic!.conditionKey;
+      _subtitleLogicTruthy = detailConfig.subtitleLogic!.truthyKey;
+      _subtitleLogicFalsy = detailConfig.subtitleLogic!.falsyKey;
+    }
   }
 
   @override
@@ -96,8 +121,22 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
       ),
       'detailTemplate': DetailTemplateConfig(
         template: _selectedDetailTemplate,
-        titleKey: _detailTitleKey,
-        subtitleKey: _detailSubtitleKey,
+        titleKey: _useConditionalTitle ? null : _detailTitleKey,
+        titleLogic: _useConditionalTitle && _titleLogicCondition != null 
+          ? ConditionalLogic(
+              conditionKey: _titleLogicCondition!, 
+              truthyKey: _titleLogicTruthy ?? '', 
+              falsyKey: _titleLogicFalsy ?? ''
+            ) 
+          : null,
+        subtitleKey: _useConditionalSubtitle ? null : _detailSubtitleKey,
+        subtitleLogic: _useConditionalSubtitle && _subtitleLogicCondition != null
+          ? ConditionalLogic(
+              conditionKey: _subtitleLogicCondition!, 
+              truthyKey: _subtitleLogicTruthy ?? '', 
+              falsyKey: _subtitleLogicFalsy ?? ''
+            )
+          : null,
         imageKey: _detailImageKey,
         showAllFields: _detailShowAll,
         detailKeys: _detailFields,
@@ -239,10 +278,56 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
           
           Text('HEADER CONFIGURATION', style: _sectionHeaderStyle(theme)),
           const SizedBox(height: 16),
-          _buildColumnDropdown('Main Title', _detailTitleKey, (val) => setState(() => _detailTitleKey = val)),
-          const SizedBox(height: 16),
-          _buildColumnDropdown('Subtitle', _detailSubtitleKey, (val) => setState(() => _detailSubtitleKey = val), isOptional: true),
-          const SizedBox(height: 16),
+          
+          // Conditional Title
+          SwitchListTile(
+            title: const Text('Conditional Title'),
+            subtitle: const Text('Change title based on record data'),
+            value: _useConditionalTitle,
+            activeColor: widget.primaryColor,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (val) => setState(() => _useConditionalTitle = val),
+          ),
+          if (_useConditionalTitle) ...[
+            const SizedBox(height: 8),
+            _buildColumnDropdown('Condition (e.g. Is Individual?)', _titleLogicCondition, (val) => setState(() => _titleLogicCondition = val)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _buildColumnDropdown('If True', _titleLogicTruthy, (val) => setState(() => _titleLogicTruthy = val))),
+                const SizedBox(width: 12),
+                Expanded(child: _buildColumnDropdown('If False', _titleLogicFalsy, (val) => setState(() => _titleLogicFalsy = val))),
+              ],
+            ),
+          ] else
+            _buildColumnDropdown('Main Title', _detailTitleKey, (val) => setState(() => _detailTitleKey = val)),
+          
+          const SizedBox(height: 24),
+          
+          // Conditional Subtitle
+          SwitchListTile(
+            title: const Text('Conditional Subtitle'),
+            subtitle: const Text('Change subtitle based on record data'),
+            value: _useConditionalSubtitle,
+            activeColor: widget.primaryColor,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (val) => setState(() => _useConditionalSubtitle = val),
+          ),
+          if (_useConditionalSubtitle) ...[
+            const SizedBox(height: 8),
+            _buildColumnDropdown('Condition Column', _subtitleLogicCondition, (val) => setState(() => _subtitleLogicCondition = val)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: _buildColumnDropdown('If True', _subtitleLogicTruthy, (val) => setState(() => _subtitleLogicTruthy = val))),
+                const SizedBox(width: 12),
+                Expanded(child: _buildColumnDropdown('If False', _subtitleLogicFalsy, (val) => setState(() => _subtitleLogicFalsy = val))),
+              ],
+            ),
+          ] else
+            _buildColumnDropdown('Subtitle', _detailSubtitleKey, (val) => setState(() => _detailSubtitleKey = val), isOptional: true),
+          
+          const SizedBox(height: 24),
           _buildColumnDropdown('Header Image', _detailImageKey, (val) => setState(() => _detailImageKey = val), isOptional: true),
           
           const SizedBox(height: 32),

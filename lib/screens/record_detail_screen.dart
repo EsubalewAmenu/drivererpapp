@@ -21,6 +21,43 @@ class RecordDetailScreen extends StatelessWidget {
     this.detailTemplate,
   });
 
+  String _resolveTitle() {
+    if (detailTemplate?.titleLogic != null) {
+      return _getValueFromLogic(detailTemplate!.titleLogic!);
+    }
+    if (detailTemplate?.titleKey != null) {
+      return data[detailTemplate!.titleKey]?.toString() ?? title;
+    }
+    return title;
+  }
+
+  String _resolveSubtitle() {
+    if (detailTemplate?.subtitleLogic != null) {
+      return _getValueFromLogic(detailTemplate!.subtitleLogic!);
+    }
+    if (detailTemplate?.subtitleKey != null) {
+      return data[detailTemplate!.subtitleKey]?.toString() ?? '';
+    }
+    return '';
+  }
+
+  String _getValueFromLogic(ConditionalLogic logic) {
+    final conditionVal = data[logic.conditionKey];
+    bool isTruthy = false;
+    if (conditionVal is bool) {
+      isTruthy = conditionVal;
+    } else if (conditionVal is String) {
+      isTruthy = conditionVal.isNotEmpty;
+    } else if (conditionVal is List) {
+      isTruthy = conditionVal.isNotEmpty;
+    } else {
+      isTruthy = conditionVal != null;
+    }
+
+    final resultKey = isTruthy ? logic.truthyKey : logic.falsyKey;
+    return data[resultKey]?.toString() ?? '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -68,8 +105,8 @@ class RecordDetailScreen extends StatelessWidget {
   Widget _buildModernHeader(BuildContext context) {
     final theme = Theme.of(context);
     
-    final headerTitle = detailTemplate?.titleKey != null ? (data[detailTemplate!.titleKey]?.toString() ?? title) : title;
-    final headerSubtitle = detailTemplate?.subtitleKey != null ? (data[detailTemplate!.subtitleKey]?.toString() ?? '') : '';
+    final headerTitle = _resolveTitle();
+    final headerSubtitle = _resolveSubtitle();
     final imageUrl = detailTemplate?.imageKey != null ? (data[detailTemplate!.imageKey]?.toString() ?? '') : '';
     final hasImage = imageUrl.isNotEmpty && (imageUrl.startsWith('http') || imageUrl.contains('data:image'));
 
@@ -151,8 +188,8 @@ class RecordDetailScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final cardColor = theme.cardTheme.color;
     
-    final headerTitle = detailTemplate?.titleKey != null ? (data[detailTemplate!.titleKey]?.toString() ?? title) : title;
-    final headerSubtitle = detailTemplate?.subtitleKey != null ? (data[detailTemplate!.subtitleKey]?.toString() ?? '') : '';
+    final headerTitle = _resolveTitle();
+    final headerSubtitle = _resolveSubtitle();
     final imageUrl = detailTemplate?.imageKey != null ? (data[detailTemplate!.imageKey]?.toString() ?? '') : '';
 
     return Container(
@@ -257,6 +294,16 @@ class RecordDetailScreen extends StatelessWidget {
       // Don't show header fields in the list if already in header
       if (col.key == detailTemplate?.titleKey || col.key == detailTemplate?.subtitleKey || col.key == detailTemplate?.imageKey) {
         return false;
+      }
+
+      // Also hide fields used in conditional logic to avoid duplication
+      if (detailTemplate?.titleLogic != null) {
+        final logic = detailTemplate!.titleLogic!;
+        if (col.key == logic.truthyKey || col.key == logic.falsyKey) return false;
+      }
+      if (detailTemplate?.subtitleLogic != null) {
+        final logic = detailTemplate!.subtitleLogic!;
+        if (col.key == logic.truthyKey || col.key == logic.falsyKey) return false;
       }
 
       if (col.dependsOn != null && col.dependsOn!.isNotEmpty) {
