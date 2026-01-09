@@ -25,12 +25,25 @@ class ColumnListItem extends StatelessWidget {
           Icon(_getIconForType(column.type), size: 16, color: theme.textTheme.bodyMedium?.color ?? Colors.grey),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              column.label, 
-              style: AppTheme.inter(
-                color: isHidden ? (theme.textTheme.bodyMedium?.color ?? Colors.grey) : (theme.textTheme.bodyLarge?.color),
-                decoration: isHidden ? TextDecoration.lineThrough : null,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  column.label, 
+                  style: AppTheme.inter(
+                    color: isHidden ? (theme.textTheme.bodyMedium?.color ?? Colors.grey) : (theme.textTheme.bodyLarge?.color),
+                    decoration: isHidden ? TextDecoration.lineThrough : null,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  column.key,
+                  style: AppTheme.sourceCodePro(
+                    fontSize: 10,
+                    color: (theme.textTheme.bodyMedium?.color ?? Colors.grey).withValues(alpha: 0.6),
+                  ),
+                ),
+              ],
             ),
           ),
           if (isHidden)

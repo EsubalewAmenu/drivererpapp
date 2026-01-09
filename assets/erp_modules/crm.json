@@ -22,14 +22,23 @@
       "label": "Contact Directory",
       "enable_custom_filters": true,
       "list_template": {
-        "template": "high_density",
-        "title_key": "name",
+        "template": "standard",
+        "title_logic": {
+          "condition_key": "is_individual",
+          "truthy_key": "name",
+          "falsy_key": "company_name"
+        },
         "subtitle_key": "type",
-        "trailing_key": "balance"
+        "trailing_key": "balance",
+        "detail_keys": ["email", "phone"]
       },
       "detail_template": {
         "template": "standard",
-        "title_key": "name",
+        "title_logic": {
+          "condition_key": "is_individual",
+          "truthy_key": "name",
+          "falsy_key": "company_name"
+        },
         "subtitle_key": "type",
         "show_all_fields": true
       },
@@ -39,8 +48,26 @@
         { "label": "Suppliers", "key": "suppliers", "field": "type", "operator": "==", "value": "SUPPLIER" },
         { "label": "Overdue", "key": "overdue", "field": "balance", "operator": ">", "value": 0 }
       ],
+      "initial_data": [
+        {
+          "is_individual": true,
+          "name": "Oliver A.",
+          "email": "esubalewbusiness@gmail.com",
+          "phone": "+971551266787",
+          "type": "SUPPLIER",
+          "notes": "Software and mobile apps developer"
+        },
+        {
+          "is_individual": false,
+          "company_name": "DataScience Private Limited",
+          "email": "datascienceplc@gmail.com",
+          "company_tin": "0104111145",
+          "phone": "+251923481783",
+          "type": "SUPPLIER",
+          "notes": "Official Website: datascienceplc.com"
+        }
+      ],
       "columns": [
-        { "key": "uuid", "label": "ID", "type": "text", "hidden": true },
         { "key": "is_individual", "label": "Is individual?", "type": "boolean" },
         { "key": "name", "label": "Full Name", "type": "text", "depends_on": "is_individual", "required": true },
         { "key": "company_name", "label": "Company Name", "type": "text", "depends_on": "!is_individual", "required": true },

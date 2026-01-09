@@ -22,6 +22,7 @@ class EditColumnDialog extends StatefulWidget {
 
 class _EditColumnDialogState extends State<EditColumnDialog> {
   late TextEditingController _labelController;
+  late TextEditingController _keyController;
   late String _currentType;
   String? _currentDependsOn;
   late bool _isHidden;
@@ -36,6 +37,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
   void initState() {
     super.initState();
     _labelController = TextEditingController(text: widget.column.label);
+    _keyController = TextEditingController(text: widget.column.key);
     _currentType = widget.column.type;
     _currentDependsOn = widget.column.dependsOn;
     _isHidden = widget.column.hidden ?? false;
@@ -53,6 +55,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
   @override
   void dispose() {
     _labelController.dispose();
+    _keyController.dispose();
     super.dispose();
   }
 
@@ -110,6 +113,15 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               controller: _labelController,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(labelText: 'Column Name'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _keyController,
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+              decoration: const InputDecoration(
+                labelText: 'Column Key',
+                helperText: 'Unique ID used in spreadsheet and formulas.',
+              ),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
@@ -274,7 +286,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
         TextButton(
           onPressed: () {
             final newCol = ColumnConfig(
-              key: widget.column.key,
+              key: _keyController.text,
               label: _labelController.text,
               type: _currentType,
               dependsOn: _currentDependsOn,

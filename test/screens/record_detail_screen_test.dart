@@ -74,4 +74,106 @@ void main() {
     ));
     await tester.pumpAndSettle();
   });
+
+  testWidgets('RecordDetailScreen handles negation dependsOn', (tester) async {
+    final cols = [
+      ColumnConfig(key: 'individual', label: 'Individual Only', type: 'text', dependsOn: 'is_individual'),
+      ColumnConfig(key: 'company', label: 'Company Only', type: 'text', dependsOn: '!is_individual'),
+    ];
+
+    // Case 1: is_individual is true
+    final dataIndividual = {
+      'is_individual': true,
+      'individual': 'John Doe',
+      'company': 'ACME Corp',
+    };
+
+    await tester.pumpWidget(createScreen(columns: cols, data: dataIndividual));
+    await tester.pumpAndSettle();
+
+    expect(find.text('INDIVIDUAL ONLY'), findsOneWidget);
+    expect(find.text('COMPANY ONLY'), findsNothing);
+
+    // Case 2: is_individual is false
+    final dataCompany = {
+      'is_individual': false,
+      'individual': 'John Doe',
+      'company': 'ACME Corp',
+    };
+
+    await tester.pumpWidget(createScreen(columns: cols, data: dataCompany));
+    await tester.pumpAndSettle();
+
+    expect(find.text('INDIVIDUAL ONLY'), findsNothing);
+    expect(find.text('COMPANY ONLY'), findsOneWidget);
+  });
+
+  testWidgets('RecordDetailScreen handles conditional title logic', (tester) async {
+    final cols = [
+      ColumnConfig(key: 'full_name', label: 'FullName', type: 'text'),
+      ColumnConfig(key: 'company_name', label: 'CompanyName', type: 'text'),
+    ];
+
+    final logic = ConditionalLogic(
+      conditionKey: 'is_individual',
+      truthyKey: 'full_name',
+      falsyKey: 'company_name',
+    );
+
+    final template = DetailTemplateConfig(
+      template: 'standard',
+      titleLogic: logic,
+      subtitleLogic: ConditionalLogic(
+        conditionKey: 'has_dept',
+        truthyKey: 'dept',
+        falsyKey: 'city',
+      ),
+    );
+
+    // Case 1: Individual
+    final data1 = {
+      'is_individual': true,
+      'full_name': 'Alice Smith',
+      'company_name': 'Alice Corp',
+      'has_dept': false,
+      'city': 'New York',
+    };
+
+    await tester.pumpWidget(MaterialApp(
+      home: RecordDetailScreen(
+        data: data1,
+        columns: cols,
+        primaryColor: Colors.blue,
+        title: 'Default',
+        detailTemplate: template,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Alice Smith'), findsOneWidget);
+    expect(find.text('New York'), findsOneWidget);
+
+    // Case 2: Company
+    final data2 = {
+      'is_individual': false,
+      'full_name': 'Bob Smith',
+      'company_name': 'Bob Corp',
+      'has_dept': true,
+      'dept': 'Sales',
+    };
+
+    await tester.pumpWidget(MaterialApp(
+      home: RecordDetailScreen(
+        data: data2,
+        columns: cols,
+        primaryColor: Colors.blue,
+        title: 'Default',
+        detailTemplate: template,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bob Corp'), findsOneWidget);
+    expect(find.text('Sales'), findsOneWidget);
+  });
 }

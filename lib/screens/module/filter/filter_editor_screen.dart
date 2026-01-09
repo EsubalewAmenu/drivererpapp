@@ -118,12 +118,19 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: theme.dividerColor)),
               ),
-              items: widget.columns.map((col) {
-                return DropdownMenuItem(
-                  value: col.key,
-                  child: Text(col.label, overflow: TextOverflow.ellipsis),
-                );
-              }).toList(),
+              items: [
+                ...widget.columns.map((col) {
+                  return DropdownMenuItem(
+                    value: col.key,
+                    child: Text(col.label, overflow: TextOverflow.ellipsis),
+                  );
+                }),
+                if (_selectedColumnKey != null && !widget.columns.any((c) => c.key == _selectedColumnKey))
+                  DropdownMenuItem(
+                    value: _selectedColumnKey,
+                    child: Text('$_selectedColumnKey (Missing)', style: const TextStyle(color: Colors.red)),
+                  ),
+              ],
               onChanged: (val) {
                 setState(() => _selectedColumnKey = val);
               },

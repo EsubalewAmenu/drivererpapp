@@ -67,7 +67,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
           } catch (e) {
             debugPrint('Asset not found for $fileName');
             assetJson = {
-              'settings': {'name': {'value': widget.module.name}},
+              'settings': {
+                'name': {'label': 'Name', 'type': 'text', 'value': widget.module.name}
+              },
               'dashboard': {'cards': []},
               'tabs': []
             };
@@ -99,93 +101,119 @@ class _ModuleScreenState extends State<ModuleScreen> {
   void _processJson(Map<String, dynamic> jsonMap, {bool isAssetFallback = false}) {
     if (!mounted) return;
     
-    // Parse JSON to ModuleSchema
-    final settingsMap = (jsonMap['settings'] as Map<String, dynamic>?) ?? {};
-    final name = settingsMap['name']?['value'] ?? widget.module.name;
-    
-    final icon = settingsMap['icon']?['value'] ?? jsonMap['icon'] ?? widget.module.icon;
-    final primaryColor = settingsMap['primaryColor']?['value'] ?? jsonMap['primaryColor'] ?? widget.module.primaryColor;
-    final version = settingsMap['version']?['value'] ?? jsonMap['version'] ?? widget.module.version;
-    
-    final dashboard = jsonMap['dashboard'] != null 
-        ? DashboardConfig.fromJson(jsonMap['dashboard'])
-        : DashboardConfig(cards: []);
-    
-    final tabsList = (jsonMap['tabs'] as List?) ?? [];
-    
-    // Pre-process tabs
-    for (var tab in tabsList) {
-      if (tab['columns'] != null) {
-        for (var col in tab['columns']) {
-          if (col['options'] is String && (col['options'] as String).startsWith('settings.')) {
+    try {
+      // Parse JSON to ModuleSchema
+      final settingsMap = (jsonMap['settings'] as Map<String, dynamic>?) ?? {};
+      final name = settingsMap['name']?['value']?.toString() ?? widget.module.name;
+      
+      final icon = settingsMap['icon']?['value']?.toString() ?? jsonMap['icon']?.toString() ?? widget.module.icon;
+      final primaryColor = settingsMap['primaryColor']?['value']?.toString() ?? jsonMap['primaryColor']?.toString() ?? widget.module.primaryColor;
+      final version = settingsMap['version']?['value']?.toString() ?? jsonMap['version']?.toString() ?? widget.module.version;
+      
+      final dashboardJson = jsonMap['dashboard'] as Map<String, dynamic>?;
+      final dashboard = (dashboardJson != null && dashboardJson['cards'] != null)
+          ? DashboardConfig.fromJson(dashboardJson)
+          : DashboardConfig(cards: []);
+      
+      final tabsList = List<dynamic>.from((jsonMap['tabs'] as List?) ?? []);
+      
+      // Pre-process tabs
+      for (var i = 0; i < tabsList.length; i++) {
+        final tab = Map<String, dynamic>.from(tabsList[i] as Map);
+        if (tab['columns'] == null) {
+          tab['columns'] = [];
+        }
+        
+        final columns = List<dynamic>.from(tab['columns'] as List);
+        for (var j = 0; j < columns.length; j++) {
+          final col = columns[j];
+          if (col is Map && col['options'] is String && (col['options'] as String).startsWith('settings.')) {
             final path = (col['options'] as String).split('.');
             if (path.length == 2) {
               final settingKey = path[1];
               final settingValue = settingsMap[settingKey]?['value'];
+              
+              final colMap = Map<String, dynamic>.from(col);
               if (settingValue is List) {
-                col['options'] = settingValue;
+                colMap['options'] = settingValue;
               } else {
-                col['options'] = [];
+                colMap['options'] = [];
               }
+              columns[j] = colMap;
             }
           }
         }
+        tab['columns'] = columns;
+        tabsList[i] = tab;
       }
-    }
 
-    final tabs = (tabsList as List).map((t) {
-      try {
-        final parsed = TabConfig.fromJson(t as Map<String, dynamic>);
-        debugPrint('Loaded tab: ${parsed.label}');
-        return parsed;
-      } catch (e) {
-        debugPrint('Error parsing tab: $e');
-        return TabConfig(id: 'err', label: 'Error Tab', columns: []);
-      }
-    }).toList();
-
-    final settingsItems = <String, SettingItem>{};
-    settingsMap.forEach((k, v) {
-      if (v != null) {
+      final tabs = (tabsList as List).map((t) {
         try {
-          settingsItems[k] = SettingItem.fromJson(v as Map<String, dynamic>);
+          final parsed = TabConfig.fromJson(t as Map<String, dynamic>);
+          debugPrint('Loaded tab: ${parsed.label}');
+          return parsed;
         } catch (e) {
-          debugPrint('Error parsing setting $k: $e');
+          debugPrint('Error parsing tab: $e');
+          return TabConfig(id: 'err', label: 'Error Tab', columns: []);
         }
-      }
-    });
+      }).toList();
 
-    final loadedModule = ModuleSchema(
-      id: widget.module.id,
-      name: name,
-      icon: icon,
-      primaryColor: primaryColor,
-      version: version,
-      settings: settingsItems,
-      dashboard: dashboard,
-      tabs: tabs,
-    );
-
-    // Update memory cache for instant access next time
-    Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(widget.module.id, loadedModule);
-
-    setState(() {
-      _fullModule = loadedModule;
-      _isLoadingSchema = false;
-    });
-
-    // If it was an asset fallback, navigate to Editor
-    if (isAssetFallback) {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => SchemaEditorScreen(
-            module: loadedModule,
-            isNewSetup: true,
-          ),
-        ),
-      ).then((_) {
-        _loadSchema();
+      final settingsItems = <String, SettingItem>{};
+      settingsMap.forEach((k, v) {
+        if (v != null && v is Map<String, dynamic>) {
+          try {
+            settingsItems[k] = SettingItem.fromJson(v);
+          } catch (e) {
+            debugPrint('Error parsing setting $k: $e');
+          }
+        }
       });
+
+      final loadedModule = ModuleSchema(
+        id: widget.module.id,
+        name: name,
+        icon: icon,
+        primaryColor: primaryColor,
+        version: version,
+        settings: settingsItems,
+        dashboard: dashboard,
+        tabs: tabs,
+      );
+
+      // Update memory cache for instant access next time
+      Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(widget.module.id, loadedModule);
+
+      if (mounted) {
+        setState(() {
+          _fullModule = loadedModule;
+          _isLoadingSchema = false;
+        });
+      }
+
+      // If it was an asset fallback, navigate to Editor
+      if (isAssetFallback && mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => SchemaEditorScreen(
+              module: loadedModule,
+              isNewSetup: true,
+            ),
+          ),
+        ).then((_) {
+          _loadSchema();
+        });
+      }
+    } catch (e, stack) {
+      debugPrint('Error in _processJson: $e');
+      debugPrint('Stack: $stack');
+      if (mounted) {
+        setState(() {
+          _isLoadingSchema = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading blueprint: $e')),
+        );
+      }
     }
   }
 

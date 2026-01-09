@@ -120,12 +120,7 @@ class TabEditorCard extends StatelessWidget {
 
     if (newCol != null) {
       final newColumns = List<ColumnConfig>.from(tab.columns)..add(newCol);
-      final newTab = TabConfig(
-        id: tab.id,
-        label: tab.label,
-        columns: newColumns,
-        quickFilters: tab.quickFilters,
-      );
+      final newTab = tab.copyWith(columns: newColumns);
       onTabChanged(newTab);
     }
   }
@@ -150,12 +145,7 @@ class TabEditorCard extends StatelessWidget {
       final index = newColumns.indexOf(oldColumn);
       if (index != -1) {
         newColumns[index] = newColumn;
-        final newTab = TabConfig(
-          id: tab.id,
-          label: tab.label,
-          columns: newColumns,
-          quickFilters: tab.quickFilters,
-        );
+        final newTab = tab.copyWith(columns: newColumns);
         onTabChanged(newTab);
       }
   }
@@ -173,12 +163,7 @@ class TabEditorCard extends StatelessWidget {
           TextButton(
             onPressed: () {
               final newColumns = List<ColumnConfig>.from(tab.columns)..remove(col);
-              final newTab = TabConfig(
-                id: tab.id,
-                label: tab.label,
-                columns: newColumns,
-                quickFilters: tab.quickFilters,
-              );
+              final newTab = tab.copyWith(columns: newColumns);
               onTabChanged(newTab);
               Navigator.pop(context);
             },

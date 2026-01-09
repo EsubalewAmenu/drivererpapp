@@ -8,6 +8,9 @@ import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
 import '../record_detail_screen.dart';
 import 'common/tab_settings_screen.dart';
+import 'widgets/module_filter_bar.dart';
+import 'widgets/module_list_item.dart';
+import 'widgets/module_status_views.dart';
 
 class ModuleTabScreen extends StatefulWidget {
   final TabConfig tab;
@@ -265,33 +268,17 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Note: removed full-screen loading check to allow shell to render
+    // Listen to SchemaProvider for the most up-to-date configuration
+    final latestModule = context.watch<SchemaProvider>().getFromMemory(widget.module?.id ?? '');
+    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == widget.tab.id, orElse: () => widget.tab) ?? widget.tab;
 
     final theme = Theme.of(context);
 
     if (_errorMessage != null && _allData.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.cloud_off_rounded, size: 48, color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
-            const SizedBox(height: 16),
-            Text(
-              _errorMessage!,
-              style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () => _loadData(refresh: true), 
-              icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Retry'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: widget.primaryColor,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
+      return ModuleErrorView(
+        message: _errorMessage!,
+        primaryColor: widget.primaryColor,
+        onRetry: () => _loadData(refresh: true),
       );
     }
 
@@ -299,9 +286,22 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       backgroundColor: Colors.transparent,
       body: Column(
         children: [
-          _buildSearchBar(),
-          _buildQuickFilters(),
-          Expanded(child: _buildListView()),
+          ModuleFilterBar(
+            tab: currentTab,
+            primaryColor: widget.primaryColor,
+            searchController: _searchController,
+            activeFilter: _activeFilter,
+            activeFilters: _activeFilters,
+            showFilters: _showFilters,
+            onFilterChanged: (filterKey) {
+              setState(() {
+                _activeFilter = filterKey;
+                _applyFilters();
+              });
+            },
+            onOpenSettings: _openSettings,
+          ),
+          Expanded(child: _buildListView(currentTab)),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -312,7 +312,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             context,
             MaterialPageRoute(
               builder: (context) => DynamicFormScreen(
-                tab: widget.tab,
+                tab: currentTab,
                 primaryColor: widget.primaryColor,
                 settings: widget.settings,
                 module: widget.module,
@@ -322,49 +322,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           // Refresh data on return
           if (_currentOffset == 0) _loadData(refresh: true);
         },
-      ),
-    );
-  }
-
-  Widget _buildSearchBar() {
-    final theme = Theme.of(context);
-    
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
-              decoration: InputDecoration(
-                hintText: 'Search ${widget.tab.label.toLowerCase()}...',
-                hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color),
-                prefixIcon: Icon(Icons.search_rounded, color: theme.textTheme.bodyMedium?.color),
-                filled: true,
-                fillColor: theme.cardTheme.color,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          InkWell(
-            onTap: _openSettings,
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.cardTheme.color,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.tune_rounded, color: widget.primaryColor),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -413,10 +370,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       // Always get the latest module from memory to avoid stale data
       final currentModule = schemaProvider.getFromMemory(widget.module!.id) ?? widget.module!;
       
-      final updatedTab = TabConfig(
-        id: widget.tab.id,
-        label: widget.tab.label,
-        columns: widget.tab.columns,
+      final updatedTab = widget.tab.copyWith(
         quickFilters: filters,
         enableCustomFilters: enableFilters,
         listTemplate: listTemplate,
@@ -439,7 +393,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Saving configuration...'), duration: Duration(seconds: 1)),
+        const SnackBar(content: Text('Saving configuration...'), duration: Duration(seconds: 5)),
       );
 
       await schemaProvider.service.saveModuleConfig(currentModule.id, updatedModule);
@@ -457,6 +411,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           _applyFilters();
         });
         
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Configuration saved')),
         );
@@ -470,94 +425,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     }
   }
 
-  Widget _buildQuickFilters() {
-    if (!_showFilters || _activeFilters.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    
-    final theme = Theme.of(context);
-
-    // Filter Chips Row logic needs to handle scrolling and selection
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        scrollDirection: Axis.horizontal,
-        itemCount: _activeFilters.length + 1, // +1 for "All"
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            // "All" Chip
-            final isSelected = _activeFilter == null || _activeFilter == 'all';
-             return FilterChip(
-              label: const Text('All'),
-              selected: isSelected,
-              onSelected: (_) {
-                setState(() {
-                  _activeFilter = 'all';
-                  _applyFilters();
-                });
-              },
-              backgroundColor: theme.cardTheme.color,
-              selectedColor: widget.primaryColor.withValues(alpha: 0.2),
-              labelStyle: TextStyle(
-                color: isSelected ? widget.primaryColor : theme.textTheme.bodyMedium?.color,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-                side: BorderSide(
-                  color: isSelected ? widget.primaryColor : Colors.transparent,
-                ),
-              ),
-              showCheckmark: false,
-            );
-          }
-          
-          final filter = _activeFilters[index - 1];
-          final isSelected = _activeFilter == filter.key;
-
-          return FilterChip(
-            label: Text(filter.label),
-            selected: isSelected,
-            onSelected: (_) {
-              setState(() {
-                _activeFilter = filter.key;
-                _applyFilters();
-              });
-            },
-            backgroundColor: theme.cardTheme.color,
-            selectedColor: widget.primaryColor.withValues(alpha: 0.2),
-            labelStyle: TextStyle(
-              color: isSelected ? widget.primaryColor : theme.textTheme.bodyMedium?.color,
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(
-                color: isSelected ? widget.primaryColor : Colors.transparent,
-              ),
-            ),
-            showCheckmark: false,
-          );
-        },
-      ),
-    ); 
-  }
-
-  Widget _buildListView() {
+  Widget _buildListView(TabConfig tab) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     final theme = Theme.of(context);
     if (_filteredData.isEmpty) {
-      return Center(
-        child: Text(
-          'No items found',
-          style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
-        ),
-      );
+      return const ModuleEmptyView();
     }
 
     return RefreshIndicator(
@@ -595,119 +470,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           }
           final item = _filteredData[index];
           
-          final template = widget.tab.listTemplate?.template ?? 'high_density';
-          if (template == 'standard') {
-            return _buildStandardCard(item);
-          }
-          return _buildHighDensityCard(item);
+          return ModuleListItem(
+            item: item,
+            tab: tab,
+            primaryColor: widget.primaryColor,
+            onTap: () => _openRecordDetail(item),
+          );
         },
-      ),
-    );
-  }
-
-  Widget _buildStandardCard(Map<String, dynamic> item) {
-    final theme = Theme.of(context);
-    final config = widget.tab.listTemplate;
-    
-    final titleKey = config?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
-    final subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '');
-    final trailingKey = config?.trailingKey;
-
-    return Card(
-      color: theme.cardTheme.color,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: InkWell(
-        onTap: () => _openRecordDetail(item),
-        borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (titleKey.isNotEmpty)
-                          Text(
-                            item[titleKey]?.toString() ?? '',
-                            style: AppTheme.inter(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
-                              color: theme.textTheme.bodyLarge?.color,
-                            ),
-                          ),
-                        if (subtitleKey.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            item[subtitleKey]?.toString() ?? '',
-                            style: AppTheme.inter(
-                              fontSize: 14,
-                              color: theme.textTheme.bodyMedium?.color,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  if (trailingKey != null && item[trailingKey] != null)
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: widget.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        item[trailingKey].toString(),
-                        style: AppTheme.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: widget.primaryColor,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              if (config?.detailKeys != null && config!.detailKeys!.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Divider(height: 1),
-                const SizedBox(height: 12),
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  children: config.detailKeys!.map((key) {
-                    final col = widget.tab.columns.firstWhere((c) => c.key == key, orElse: () => widget.tab.columns.first);
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          col.label.toUpperCase(),
-                          style: AppTheme.inter(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6),
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        Text(
-                          item[key]?.toString() ?? '-',
-                          style: AppTheme.inter(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: theme.textTheme.bodyLarge?.color,
-                          ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              ],
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -728,64 +497,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           title: titleKey.isNotEmpty ? (item[titleKey]?.toString() ?? 'Details') : 'Details',
           settings: widget.settings,
           detailTemplate: currentTab.detailTemplate,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHighDensityCard(Map<String, dynamic> item) {
-    final theme = Theme.of(context);
-    final config = widget.tab.listTemplate;
-
-    final titleKey = config?.titleKey ?? (widget.tab.columns.isNotEmpty ? widget.tab.columns[0].key : '');
-    final subtitleKey = config?.subtitleKey ?? (widget.tab.columns.length > 1 ? widget.tab.columns[1].key : '');
-
-    return Card(
-      color: theme.cardTheme.color,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: () => _openRecordDetail(item),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Container(
-                width: 4,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: widget.primaryColor,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (titleKey.isNotEmpty)
-                      Text(
-                        item[titleKey]?.toString() ?? '',
-                        style: AppTheme.inter(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: theme.textTheme.bodyLarge?.color,
-                        ),
-                      ),
-                    if (subtitleKey.isNotEmpty)
-                      Text(
-                        item[subtitleKey]?.toString() ?? '',
-                        style: AppTheme.inter(
-                          fontSize: 14,
-                          color: theme.textTheme.bodyMedium?.color,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: theme.textTheme.bodyMedium?.color),
-            ],
-          ),
         ),
       ),
     );

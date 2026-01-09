@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
@@ -16,6 +18,27 @@ class ModuleDetailsScreen extends StatefulWidget {
 
 class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
   bool _isActivating = false;
+  Map<String, dynamic>? _moduleJson;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadModuleConfig();
+  }
+
+  Future<void> _loadModuleConfig() async {
+    try {
+      final fileName = widget.moduleInfo['name']!.toLowerCase();
+      final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
+      if (mounted) {
+        setState(() {
+          _moduleJson = jsonDecode(jsonString);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading module config in details: $e');
+    }
+  }
 
   Future<void> _activateModule() async {
     setState(() => _isActivating = true);
@@ -34,8 +57,35 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       final moduleName = widget.moduleInfo['name']!;
 
       // Create the module folder in Drive
-      await driveService.createWorkspace(workspaceId, moduleName);
-      
+      final createdModule = await driveService.createWorkspace(workspaceId, moduleName);
+      final moduleFolderId = createdModule.id!;
+
+      // Auto-seed Initial Data
+      if (_moduleJson != null && _moduleJson!['tabs'] != null) {
+        final tabs = _moduleJson!['tabs'] as List;
+        for (var tab in tabs) {
+          if (tab is Map && tab['initial_data'] != null) {
+            final initialData = tab['initial_data'] as List;
+            final tabId = tab['id'];
+
+            for (var record in initialData) {
+              if (record is Map<String, dynamic>) {
+                try {
+                  await driveService.saveRecord(
+                    moduleFolderId,
+                    moduleName,
+                    tabId,
+                    record,
+                  );
+                } catch (e) {
+                  debugPrint('Error seeding record for $tabId: $e');
+                }
+              }
+            }
+          }
+        }
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$moduleName activated successfully!')),

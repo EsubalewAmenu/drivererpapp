@@ -37,9 +37,10 @@
       "label": "Stock Entries",
       "enable_custom_filters": true,
       "list_template": {
-        "template": "high_density",
+        "template": "standard",
         "title_key": "entry_date",
-        "subtitle_key": "warehouse"
+        "subtitle_key": "warehouse",
+        "detail_keys": ["item_sku", "batch"]
       },
       "detail_template": {
         "template": "standard",
@@ -89,14 +90,22 @@
       "list_template": {
         "template": "standard",
         "title_key": "item_name",
-        "subtitle_key": "barcode_sku",
+        "subtitle_logic": {
+          "condition_key": "is_item_variants",
+          "truthy_key": "variant_name",
+          "falsy_key": "barcode_sku"
+        },
         "trailing_key": "min_stock_alerts",
         "detail_keys": ["is_item_variants"]
       },
       "detail_template": {
         "template": "modern",
         "title_key": "item_name",
-        "subtitle_key": "barcode_sku",
+        "subtitle_logic": {
+          "condition_key": "is_item_variants",
+          "truthy_key": "variant_name",
+          "falsy_key": "barcode_sku"
+        },
         "image_key": "item_image",
         "show_all_fields": true
       },

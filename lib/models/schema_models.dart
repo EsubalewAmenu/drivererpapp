@@ -92,6 +92,8 @@ class TabConfig {
   final ListTemplateConfig? listTemplate;
   @JsonKey(name: 'detail_template')
   final DetailTemplateConfig? detailTemplate;
+  @JsonKey(name: 'initial_data')
+  final List<Map<String, dynamic>>? initialData;
 
   TabConfig({
     required this.id,
@@ -101,7 +103,30 @@ class TabConfig {
     this.enableCustomFilters = true,
     this.listTemplate,
     this.detailTemplate,
+    this.initialData,
   });
+
+  TabConfig copyWith({
+    String? id,
+    String? label,
+    List<ColumnConfig>? columns,
+    List<QuickFilter>? quickFilters,
+    bool? enableCustomFilters,
+    ListTemplateConfig? listTemplate,
+    DetailTemplateConfig? detailTemplate,
+    List<Map<String, dynamic>>? initialData,
+  }) {
+    return TabConfig(
+      id: id ?? this.id,
+      label: label ?? this.label,
+      columns: columns ?? this.columns,
+      quickFilters: quickFilters ?? this.quickFilters,
+      enableCustomFilters: enableCustomFilters ?? this.enableCustomFilters,
+      listTemplate: listTemplate ?? this.listTemplate,
+      detailTemplate: detailTemplate ?? this.detailTemplate,
+      initialData: initialData ?? this.initialData,
+    );
+  }
 
   factory TabConfig.fromJson(Map<String, dynamic> json) => _$TabConfigFromJson(json);
   Map<String, dynamic> toJson() => _$TabConfigToJson(this);
@@ -112,20 +137,51 @@ class ListTemplateConfig {
   final String template; // 'high_density', 'standard'
   @JsonKey(name: 'title_key')
   final String? titleKey;
+  @JsonKey(name: 'title_logic')
+  final ConditionalLogic? titleLogic;
   @JsonKey(name: 'subtitle_key')
   final String? subtitleKey;
+  @JsonKey(name: 'subtitle_logic')
+  final ConditionalLogic? subtitleLogic;
   @JsonKey(name: 'trailing_key')
   final String? trailingKey;
+  @JsonKey(name: 'trailing_logic')
+  final ConditionalLogic? trailingLogic;
   @JsonKey(name: 'detail_keys')
   final List<String>? detailKeys;
 
   ListTemplateConfig({
     this.template = 'high_density',
     this.titleKey,
+    this.titleLogic,
     this.subtitleKey,
+    this.subtitleLogic,
     this.trailingKey,
+    this.trailingLogic,
     this.detailKeys,
   });
+
+  ListTemplateConfig copyWith({
+    String? template,
+    String? titleKey,
+    ConditionalLogic? titleLogic,
+    String? subtitleKey,
+    ConditionalLogic? subtitleLogic,
+    String? trailingKey,
+    ConditionalLogic? trailingLogic,
+    List<String>? detailKeys,
+  }) {
+    return ListTemplateConfig(
+      template: template ?? this.template,
+      titleKey: titleKey ?? this.titleKey,
+      titleLogic: titleLogic ?? this.titleLogic,
+      subtitleKey: subtitleKey ?? this.subtitleKey,
+      subtitleLogic: subtitleLogic ?? this.subtitleLogic,
+      trailingKey: trailingKey ?? this.trailingKey,
+      trailingLogic: trailingLogic ?? this.trailingLogic,
+      detailKeys: detailKeys ?? this.detailKeys,
+    );
+  }
 
   factory ListTemplateConfig.fromJson(Map<String, dynamic> json) => _$ListTemplateConfigFromJson(json);
   Map<String, dynamic> toJson() => _$ListTemplateConfigToJson(this);
@@ -136,8 +192,12 @@ class DetailTemplateConfig {
   final String template; // 'standard', 'modern'
   @JsonKey(name: 'title_key')
   final String? titleKey;
+  @JsonKey(name: 'title_logic')
+  final ConditionalLogic? titleLogic;
   @JsonKey(name: 'subtitle_key')
   final String? subtitleKey;
+  @JsonKey(name: 'subtitle_logic')
+  final ConditionalLogic? subtitleLogic;
   @JsonKey(name: 'image_key')
   final String? imageKey;
   @JsonKey(name: 'show_all_fields')
@@ -148,14 +208,57 @@ class DetailTemplateConfig {
   DetailTemplateConfig({
     this.template = 'standard',
     this.titleKey,
+    this.titleLogic,
     this.subtitleKey,
+    this.subtitleLogic,
     this.imageKey,
     this.showAllFields = true,
     this.detailKeys,
   });
 
+  DetailTemplateConfig copyWith({
+    String? template,
+    String? titleKey,
+    ConditionalLogic? titleLogic,
+    String? subtitleKey,
+    ConditionalLogic? subtitleLogic,
+    String? imageKey,
+    bool? showAllFields,
+    List<String>? detailKeys,
+  }) {
+    return DetailTemplateConfig(
+      template: template ?? this.template,
+      titleKey: titleKey ?? this.titleKey,
+      titleLogic: titleLogic ?? this.titleLogic,
+      subtitleKey: subtitleKey ?? this.subtitleKey,
+      subtitleLogic: subtitleLogic ?? this.subtitleLogic,
+      imageKey: imageKey ?? this.imageKey,
+      showAllFields: showAllFields ?? this.showAllFields,
+      detailKeys: detailKeys ?? this.detailKeys,
+    );
+  }
+
   factory DetailTemplateConfig.fromJson(Map<String, dynamic> json) => _$DetailTemplateConfigFromJson(json);
   Map<String, dynamic> toJson() => _$DetailTemplateConfigToJson(this);
+}
+
+@JsonSerializable(explicitToJson: true)
+class ConditionalLogic {
+  @JsonKey(name: 'condition_key')
+  final String conditionKey;
+  @JsonKey(name: 'truthy_key')
+  final String truthyKey;
+  @JsonKey(name: 'falsy_key')
+  final String falsyKey;
+
+  ConditionalLogic({
+    required this.conditionKey,
+    required this.truthyKey,
+    required this.falsyKey,
+  });
+
+  factory ConditionalLogic.fromJson(Map<String, dynamic> json) => _$ConditionalLogicFromJson(json);
+  Map<String, dynamic> toJson() => _$ConditionalLogicToJson(this);
 }
 
 @JsonSerializable(explicitToJson: true)
@@ -212,6 +315,36 @@ class ColumnConfig {
     this.isRequired,
     this.currencySymbol,
   });
+
+  ColumnConfig copyWith({
+    String? key,
+    String? label,
+    String? type,
+    dynamic options,
+    String? formula,
+    String? dependsOn,
+    dynamic defaultValue,
+    List<ColumnConfig>? columns,
+    bool? hidden,
+    String? dynamicLabel,
+    bool? isRequired,
+    String? currencySymbol,
+  }) {
+    return ColumnConfig(
+      key: key ?? this.key,
+      label: label ?? this.label,
+      type: type ?? this.type,
+      options: options ?? this.options,
+      formula: formula ?? this.formula,
+      dependsOn: dependsOn ?? this.dependsOn,
+      defaultValue: defaultValue ?? this.defaultValue,
+      columns: columns ?? this.columns,
+      hidden: hidden ?? this.hidden,
+      dynamicLabel: dynamicLabel ?? this.dynamicLabel,
+      isRequired: isRequired ?? this.isRequired,
+      currencySymbol: currencySymbol ?? this.currencySymbol,
+    );
+  }
 
   factory ColumnConfig.fromJson(Map<String, dynamic> json) => _$ColumnConfigFromJson(json);
   Map<String, dynamic> toJson() => _$ColumnConfigToJson(this);

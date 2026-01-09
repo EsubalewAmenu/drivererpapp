@@ -21,6 +21,47 @@ class RecordDetailScreen extends StatelessWidget {
     this.detailTemplate,
   });
 
+  String _resolveTitle() {
+    if (detailTemplate?.titleLogic != null) {
+      return _getValueFromLogic(detailTemplate!.titleLogic!);
+    }
+    if (detailTemplate?.titleKey != null) {
+      return data[detailTemplate!.titleKey]?.toString() ?? title;
+    }
+    return title;
+  }
+
+  String _resolveSubtitle() {
+    if (detailTemplate?.subtitleLogic != null) {
+      return _getValueFromLogic(detailTemplate!.subtitleLogic!);
+    }
+    if (detailTemplate?.subtitleKey != null) {
+      return data[detailTemplate!.subtitleKey]?.toString() ?? '';
+    }
+    return '';
+  }
+
+  String _getValueFromLogic(ConditionalLogic logic) {
+    final conditionValue = data[logic.conditionKey];
+    bool isTruthy = false;
+
+    if (conditionValue is bool) {
+      isTruthy = conditionValue;
+    } else if (conditionValue is String) {
+      final s = conditionValue.toLowerCase().trim();
+      isTruthy = s.isNotEmpty && s != 'false' && s != '0';
+    } else if (conditionValue is List) {
+      isTruthy = conditionValue.isNotEmpty;
+    } else if (conditionValue is num) {
+      isTruthy = conditionValue != 0;
+    } else if (conditionValue != null) {
+      isTruthy = true;
+    }
+
+    final resultKey = isTruthy ? logic.truthyKey : logic.falsyKey;
+    return (resultKey != null && data.containsKey(resultKey)) ? data[resultKey]?.toString() ?? '' : '';
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -68,8 +109,8 @@ class RecordDetailScreen extends StatelessWidget {
   Widget _buildModernHeader(BuildContext context) {
     final theme = Theme.of(context);
     
-    final headerTitle = detailTemplate?.titleKey != null ? (data[detailTemplate!.titleKey]?.toString() ?? title) : title;
-    final headerSubtitle = detailTemplate?.subtitleKey != null ? (data[detailTemplate!.subtitleKey]?.toString() ?? '') : '';
+    final headerTitle = _resolveTitle();
+    final headerSubtitle = _resolveSubtitle();
     final imageUrl = detailTemplate?.imageKey != null ? (data[detailTemplate!.imageKey]?.toString() ?? '') : '';
     final hasImage = imageUrl.isNotEmpty && (imageUrl.startsWith('http') || imageUrl.contains('data:image'));
 
@@ -151,8 +192,8 @@ class RecordDetailScreen extends StatelessWidget {
     final theme = Theme.of(context);
     final cardColor = theme.cardTheme.color;
     
-    final headerTitle = detailTemplate?.titleKey != null ? (data[detailTemplate!.titleKey]?.toString() ?? title) : title;
-    final headerSubtitle = detailTemplate?.subtitleKey != null ? (data[detailTemplate!.subtitleKey]?.toString() ?? '') : '';
+    final headerTitle = _resolveTitle();
+    final headerSubtitle = _resolveSubtitle();
     final imageUrl = detailTemplate?.imageKey != null ? (data[detailTemplate!.imageKey]?.toString() ?? '') : '';
 
     return Container(
@@ -259,18 +300,47 @@ class RecordDetailScreen extends StatelessWidget {
         return false;
       }
 
+      // Also hide fields used in conditional logic to avoid duplication
+      if (detailTemplate?.titleLogic != null) {
+        final logic = detailTemplate!.titleLogic!;
+        if (col.key == logic.truthyKey || col.key == logic.falsyKey) return false;
+      }
+      if (detailTemplate?.subtitleLogic != null) {
+        final logic = detailTemplate!.subtitleLogic!;
+        if (col.key == logic.truthyKey || col.key == logic.falsyKey) return false;
+      }
+
       if (col.dependsOn != null && col.dependsOn!.isNotEmpty) {
-        final dep = col.dependsOn!;
-        if (dep.startsWith('settings.')) {
-          final settingKey = dep.replaceFirst('settings.', '');
-          final setting = settings[settingKey];
-          if (setting == null) return true;
-          final val = setting.value;
-          if (val == null || val == false || (val is String && val.isEmpty) || (val is List && val.isEmpty)) return false;
-        } else {
-          final val = data[dep];
-          if (val == null || val == false || (val is String && val.isEmpty) || (val is List && val.isEmpty)) return false;
+        final dependency = col.dependsOn!;
+        
+        // Check for negation
+        bool expectedValue = true;
+        String actualDependency = dependency;
+        if (dependency.startsWith('!')) {
+          expectedValue = false;
+          actualDependency = dependency.substring(1);
         }
+
+        bool isTruthy = false;
+        if (actualDependency.startsWith('settings.')) {
+          final settingKey = actualDependency.replaceFirst('settings.', '');
+          final setting = settings[settingKey];
+          if (setting != null) {
+            final val = setting.value;
+            if (val is bool) isTruthy = val;
+            else if (val is String) isTruthy = val.isNotEmpty;
+            else if (val is List) isTruthy = val.isNotEmpty;
+            else isTruthy = val != null;
+          }
+        } else {
+          final val = data[actualDependency];
+          if (val is bool) isTruthy = val;
+          else if (val is String) isTruthy = val.isNotEmpty;
+          else if (val is List) isTruthy = val.isNotEmpty;
+          else isTruthy = val != null;
+        }
+
+        if (isTruthy != expectedValue) return false;
       }
       return true;
     }).toList();

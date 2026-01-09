@@ -336,7 +336,7 @@ void main() {
 
       final config = await driveService.readModuleConfig('sheet123');
 
-      expect(config['settings'], isMap);
+      expect(config!['settings'], isMap);
       expect(config['settings']['appName'], 'Test App');
       expect(config['settings']['darkMode'], true);
       
