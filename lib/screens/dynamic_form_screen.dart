@@ -185,7 +185,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record saved successfully')));
-          Navigator.pop(context);
+          Navigator.pop(context, _formData);
         }
       } catch (e) {
         debugPrint('Error saving record: $e');

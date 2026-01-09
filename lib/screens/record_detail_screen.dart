@@ -33,12 +33,29 @@ class RecordDetailScreen extends StatefulWidget {
 }
 
 class _RecordDetailScreenState extends State<RecordDetailScreen> {
+  late Map<String, dynamic> _currentData;
+  bool _wasEdited = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentData = Map<String, dynamic>.from(widget.data);
+  }
+
+  @override
+  void didUpdateWidget(RecordDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _currentData = Map<String, dynamic>.from(widget.data);
+    }
+  }
+
   String _resolveTitle() {
     if (widget.detailTemplate?.titleLogic != null) {
       return _getValueFromLogic(widget.detailTemplate!.titleLogic!);
     }
     if (widget.detailTemplate?.titleKey != null) {
-      return widget.data[widget.detailTemplate!.titleKey]?.toString() ?? widget.title;
+      return _currentData[widget.detailTemplate!.titleKey]?.toString() ?? widget.title;
     }
     return widget.title;
   }
@@ -48,13 +65,13 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       return _getValueFromLogic(widget.detailTemplate!.subtitleLogic!);
     }
     if (widget.detailTemplate?.subtitleKey != null) {
-      return widget.data[widget.detailTemplate!.subtitleKey]?.toString() ?? '';
+      return _currentData[widget.detailTemplate!.subtitleKey]?.toString() ?? '';
     }
     return '';
   }
 
   String _getValueFromLogic(ConditionalLogic logic) {
-    final conditionValue = widget.data[logic.conditionKey];
+    final conditionValue = _currentData[logic.conditionKey];
     bool isTruthy = false;
 
     if (conditionValue is bool) {
@@ -71,7 +88,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
 
     final resultKey = isTruthy ? logic.truthyKey : logic.falsyKey;
-    return (resultKey != null && widget.data.containsKey(resultKey)) ? widget.data[resultKey]?.toString() ?? '' : '';
+    return (resultKey != null && _currentData.containsKey(resultKey)) ? _currentData[resultKey]?.toString() ?? '' : '';
   }
 
   @override
@@ -79,50 +96,61 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     final theme = Theme.of(context);
     final isModern = widget.detailTemplate?.template == 'modern';
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      extendBodyBehindAppBar: isModern,
-      appBar: AppBar(
-        title: Text(
-          'DETAILS',
-          style: AppTheme.inter(
-            fontWeight: FontWeight.w900, 
-            letterSpacing: 1.0, 
-            fontSize: 16,
-            color: isModern ? Colors.white : theme.textTheme.titleMedium?.color,
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (didPop) return;
+        Navigator.of(context).pop(_wasEdited);
+      },
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor,
+        extendBodyBehindAppBar: isModern,
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.of(context).pop(_wasEdited),
           ),
+          title: Text(
+            'DETAILS',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w900,
+              letterSpacing: 1.0,
+              fontSize: 16,
+              color: isModern ? Colors.white : theme.textTheme.titleMedium?.color,
+            ),
+          ),
+          backgroundColor: isModern ? Colors.transparent : null,
+          elevation: 0,
+          iconTheme: IconThemeData(color: isModern ? Colors.white : theme.iconTheme.color),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              icon: Icon(Icons.edit_outlined, color: isModern ? Colors.white : theme.iconTheme.color),
+              onPressed: () => _editRecord(context),
+            ),
+            IconButton(
+              icon: Icon(Icons.delete_outline_rounded, color: isModern ? Colors.white : Colors.redAccent),
+              onPressed: () => _confirmDelete(context),
+            ),
+            const SizedBox(width: 8),
+          ],
         ),
-        backgroundColor: isModern ? Colors.transparent : null,
-        elevation: 0,
-        iconTheme: IconThemeData(color: isModern ? Colors.white : theme.iconTheme.color),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.edit_outlined, color: isModern ? Colors.white : theme.iconTheme.color),
-            onPressed: () => _editRecord(context),
-          ),
-          IconButton(
-            icon: Icon(Icons.delete_outline_rounded, color: isModern ? Colors.white : Colors.redAccent),
-            onPressed: () => _confirmDelete(context),
-          ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: SafeArea(
-        top: !isModern,
-        child: SingleChildScrollView(
-          padding: isModern ? EdgeInsets.zero : const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isModern) _buildModernHeader(context) else _buildHeader(context),
-              const SizedBox(height: 32),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                child: _buildFieldsList(context),
-              ),
-              const SizedBox(height: 32),
-            ],
+        body: SafeArea(
+          top: !isModern,
+          child: SingleChildScrollView(
+            padding: isModern ? EdgeInsets.zero : const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (isModern) _buildModernHeader(context) else _buildHeader(context),
+                const SizedBox(height: 32),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: _buildFieldsList(context),
+                ),
+                const SizedBox(height: 32),
+              ],
+            ),
           ),
         ),
       ),
@@ -134,7 +162,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     
     final headerTitle = _resolveTitle();
     final headerSubtitle = _resolveSubtitle();
-    final imageUrl = widget.detailTemplate?.imageKey != null ? (widget.data[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
+    final imageUrl = widget.detailTemplate?.imageKey != null ? (_currentData[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
     final hasImage = imageUrl.isNotEmpty && (imageUrl.startsWith('http') || imageUrl.contains('data:image'));
 
     return Container(
@@ -217,7 +245,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     
     final headerTitle = _resolveTitle();
     final headerSubtitle = _resolveSubtitle();
-    final imageUrl = widget.detailTemplate?.imageKey != null ? (widget.data[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
+    final imageUrl = widget.detailTemplate?.imageKey != null ? (_currentData[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
 
     return Container(
       decoration: BoxDecoration(
@@ -356,7 +384,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             else isTruthy = val != null;
           }
         } else {
-          final val = widget.data[actualDependency];
+          final val = _currentData[actualDependency];
           if (val is bool) isTruthy = val;
           else if (val is String) isTruthy = val.isNotEmpty;
           else if (val is List) isTruthy = val.isNotEmpty;
@@ -375,7 +403,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       separatorBuilder: (context, index) => const SizedBox(height: 24),
       itemBuilder: (context, index) {
         final col = filteredColumns[index];
-        final value = widget.data[col.key];
+        final value = _currentData[col.key];
         
         if (col.type == 'table' && value is List) {
            return _buildTableField(col, value as List<Map<String, dynamic>>);
@@ -737,19 +765,26 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     });
   }
 
-  void _editRecord(BuildContext context) {
-    Navigator.push(
+  void _editRecord(BuildContext context) async {
+    final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
         builder: (context) => DynamicFormScreen(
           tab: widget.tab,
           primaryColor: widget.primaryColor,
-          initialData: widget.data,
+          initialData: _currentData,
           settings: widget.settings,
           module: widget.module,
         ),
       ),
     );
+
+    if (result != null && mounted) {
+      setState(() {
+        _currentData = result;
+        _wasEdited = true;
+      });
+    }
   }
 
   void _confirmDelete(BuildContext context) {
@@ -774,7 +809,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
   Future<void> _deleteRecord(BuildContext context) async {
     final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-    final recordId = widget.data['record_id']?.toString();
+    final recordId = _currentData['record_id']?.toString();
     
     // Capture states before async gaps
     final scaffoldMessenger = ScaffoldMessenger.of(context);
