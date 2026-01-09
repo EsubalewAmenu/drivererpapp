@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
 import '../theme/app_theme.dart';
+import '../providers/drive_provider.dart';
 import 'dynamic_form_screen.dart';
 
 class RecordDetailScreen extends StatelessWidget {
@@ -93,6 +95,10 @@ class RecordDetailScreen extends StatelessWidget {
           IconButton(
             icon: Icon(Icons.edit_outlined, color: isModern ? Colors.white : theme.iconTheme.color),
             onPressed: () => _editRecord(context),
+          ),
+          IconButton(
+            icon: Icon(Icons.delete_outline_rounded, color: isModern ? Colors.white : Colors.redAccent),
+            onPressed: () => _confirmDelete(context),
           ),
           const SizedBox(width: 8),
         ],
@@ -745,5 +751,61 @@ class RecordDetailScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  void _confirmDelete(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Record'),
+        content: const Text('Are you sure you want to delete this record? This action cannot be undone.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteRecord(context);
+            },
+            child: const Text('DELETE', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteRecord(BuildContext context) async {
+    final driveProvider = context.read<DriveProvider>();
+    final recordId = data['record_id']?.toString();
+    
+    if (recordId == null || module == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot delete: Record ID missing')));
+      return;
+    }
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      await driveProvider.driveService!.deleteRecord(
+        module!.id,
+        module!.name,
+        tab.id,
+        recordId,
+      );
+
+      if (context.mounted) {
+        Navigator.pop(context); // Pop loading
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record deleted successfully')));
+        Navigator.pop(context, true); // Pop RecordDetail with refresh signal
+      }
+    } catch (e) {
+      if (context.mounted) {
+        Navigator.pop(context); // Pop loading
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error deleting record: $e')));
+      }
+    }
   }
 }

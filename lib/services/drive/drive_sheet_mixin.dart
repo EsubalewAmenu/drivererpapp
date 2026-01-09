@@ -264,6 +264,123 @@ mixin DriveSheetMixin {
     }
   }
 
+  Future<void> deleteRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, String recordId) async {
+    try {
+      // 1. Find Spreadsheet
+      String? spreadsheetId = await getFileId(moduleFolderId, sheetTitle);
+      if (spreadsheetId == null) throw Exception("Spreadsheet not found");
+
+      // 2. Identify Row Index
+      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
+      if (headerResponse.values == null || headerResponse.values!.isEmpty) throw Exception("Sheet is empty");
+      
+      final headers = headerResponse.values!.first.map((e) => e.toString()).toList();
+      final idColIndex = headers.indexOf('record_id');
+      if (idColIndex == -1) throw Exception("record_id column not found");
+
+      final colLetter = _getColLetter(idColIndex);
+      final idColResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!$colLetter:$colLetter'));
+      final idValues = idColResponse.values;
+      
+      int? rowIndex;
+      if (idValues != null) {
+        for (int i = 0; i < idValues.length; i++) {
+          if (idValues[i].isNotEmpty && idValues[i].first.toString() == recordId) {
+            rowIndex = i; // 0-indexed for deleteDimension
+            break;
+          }
+        }
+      }
+
+      if (rowIndex == null) throw Exception("Record not found in sheet");
+
+      // 3. Get Sheet ID (GID)
+      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+      final sheet = spreadsheet.sheets?.firstWhere((s) => s.properties?.title == sheetTitle);
+      final int? gid = sheet?.properties?.sheetId;
+      if (gid == null) throw Exception("Could not find sheet GID");
+
+      // 4. Delete the Row
+      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
+        sheets.BatchUpdateSpreadsheetRequest(
+          requests: [
+            sheets.Request(
+              deleteDimension: sheets.DeleteDimensionRequest(
+                range: sheets.DimensionRange(
+                  sheetId: gid,
+                  dimension: 'ROWS',
+                  startIndex: rowIndex as int,
+                  endIndex: (rowIndex as int) + 1,
+                ),
+              ),
+            ),
+          ],
+        ),
+        spreadsheetId,
+      ));
+
+      debugPrint('Deleted record $recordId from $sheetTitle at row ${(rowIndex as int) + 1}');
+
+      // 5. Delete associated sub-table records (optional but good for cleanliness)
+      // Find all sheets that start with "$sheetTitle."
+      final subTableSheets = spreadsheet.sheets
+          ?.where((s) => s.properties?.title?.startsWith('$sheetTitle.') ?? false)
+          .toList() ?? [];
+
+      for (var subSheet in subTableSheets) {
+        final title = subSheet.properties!.title!;
+        final subGid = subSheet.properties!.sheetId!;
+        
+        // Find indices of rows with matching parent_record_id
+        final subHeadersRes = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$title!1:1'));
+        if (subHeadersRes.values == null || subHeadersRes.values!.isEmpty) continue;
+        
+        final subHeaders = subHeadersRes.values!.first.map((e) => e.toString()).toList();
+        final pIdIndex = subHeaders.indexOf('parent_record_id');
+        if (pIdIndex == -1) continue;
+
+        final pColLetter = _getColLetter(pIdIndex);
+        final pColData = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$title!$pColLetter:$pColLetter'));
+        final pValues = pColData.values;
+
+        if (pValues != null) {
+          // Collect indices to delete (skip header at index 0)
+          List<int> toDelete = [];
+          for (int i = 1; i < pValues.length; i++) {
+            if (pValues[i].isNotEmpty && pValues[i].first.toString() == recordId) {
+              toDelete.add(i);
+            }
+          }
+
+          if (toDelete.isNotEmpty) {
+            // Delete in reverse order to keep indices valid during sequential deletion
+            toDelete.sort((a, b) => b.compareTo(a));
+            
+            final requests = toDelete.map((idx) => sheets.Request(
+              deleteDimension: sheets.DeleteDimensionRequest(
+                range: sheets.DimensionRange(
+                  sheetId: subGid,
+                  dimension: 'ROWS',
+                  startIndex: idx,
+                  endIndex: idx + 1,
+                ),
+              ),
+            )).toList();
+
+            await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
+              sheets.BatchUpdateSpreadsheetRequest(requests: requests),
+              spreadsheetId,
+            ));
+            debugPrint('Cleaned up ${toDelete.length} sub-records from $title');
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error deleting record: $e');
+      rethrow;
+    }
+  }
+
   Future<void> _saveToSheet(String spreadsheetId, String sheetTitle, Map<String, dynamic> data) async {
     // 1. Check/Create Sheet
     final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));

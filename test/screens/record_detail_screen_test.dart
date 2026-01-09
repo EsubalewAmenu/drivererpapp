@@ -1,24 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:provider/provider.dart';
 import 'package:drivererpapp/screens/record_detail_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
+import 'package:drivererpapp/providers/drive_provider.dart';
+
+import 'package:drivererpapp/services/drive_service.dart';
+
+class MockDriveProvider extends Mock implements DriveProvider {}
+class MockDriveService extends Mock implements DriveService {}
 
 void main() {
+  late MockDriveProvider mockDrive;
+  late MockDriveService mockService;
+
+  setUp(() {
+    mockDrive = MockDriveProvider();
+    mockService = MockDriveService();
+    when(() => mockDrive.driveService).thenReturn(mockService);
+    when(() => mockService.deleteRecord(any(), any(), any(), any())).thenAnswer((_) async => {});
+  });
+
   Widget createScreen({
     required List<ColumnConfig> columns,
     required Map<String, dynamic> data,
     Map<String, SettingItem> settings = const {},
     DetailTemplateConfig? template,
+    ModuleSchema? module,
   }) {
-    return MaterialApp(
-      home: RecordDetailScreen(
-        columns: columns,
-        data: data,
-        settings: settings,
-        primaryColor: Colors.blue,
-        title: 'Test',
-        detailTemplate: template,
-        tab: TabConfig(id: 't1', label: 'Test', columns: columns),
+    return ChangeNotifierProvider<DriveProvider>.value(
+      value: mockDrive,
+      child: MaterialApp(
+        home: RecordDetailScreen(
+          columns: columns,
+          data: data,
+          settings: settings,
+          primaryColor: Colors.blue,
+          title: 'Test',
+          detailTemplate: template,
+          tab: TabConfig(id: 't1', label: 'Test', columns: columns),
+          module: module,
+        ),
       ),
     );
   }
@@ -276,5 +299,51 @@ void main() {
 
     expect(find.text('EDIT TEST'), findsOneWidget);
     expect(find.text('Alice'), findsOneWidget);
+  });
+
+  testWidgets('RecordDetailScreen deletion flow', (tester) async {
+    final module = ModuleSchema(
+      id: 'm1',
+      name: 'M1',
+      icon: 'box',
+      primaryColor: '#000000',
+      version: '1.0.0',
+      settings: {},
+      dashboard: DashboardConfig(cards: []),
+      tabs: [],
+    );
+    final data = {'record_id': 'r1', 'name': 'Item 1'};
+    final cols = [ColumnConfig(key: 'name', label: 'Name', type: 'text')];
+
+    await tester.pumpWidget(createScreen(
+      columns: cols,
+      data: data,
+      module: module,
+    ));
+    await tester.pumpAndSettle();
+
+    // Find delete button - usually it's an IconButton in the AppBar
+    final deleteButton = find.byIcon(Icons.delete_outline_rounded);
+    expect(deleteButton, findsOneWidget);
+
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+
+    // Should see confirmation dialog
+    expect(find.text('Delete Record'), findsOneWidget);
+    expect(find.text('Are you sure you want to delete this record? This action cannot be undone.'), findsOneWidget);
+
+    // Cancel deletion
+    await tester.tap(find.text('CANCEL'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete Record'), findsNothing);
+
+    // Confirm deletion
+    await tester.tap(deleteButton);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DELETE'));
+    await tester.pumpAndSettle();
+
+    verify(() => mockService.deleteRecord('m1', 'M1', 't1', 'r1')).called(1);
   });
 }

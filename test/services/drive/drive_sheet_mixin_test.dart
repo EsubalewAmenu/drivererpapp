@@ -457,5 +457,36 @@ void main() {
       
       verifyNever(() => mockValues.append(any(), any(), any(), valueInputOption: 'RAW'));
     });
+
+    test('DriveSheetMixin deleteRecord calls batchUpdate with deleteDimension', () async {
+      // Mock headers
+      when(() => mockValues.get(any(), 'Sheet1!1:1'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['record_id']]));
+      
+      // Mock finding IDs
+      when(() => mockValues.get(any(), any()))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['record_id'], ['r1'], ['r2']]));
+      
+      // Mock spreadsheet metadata for GID
+      when(() => mockSpreadsheets.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [
+          sheets.Sheet(properties: sheets.SheetProperties(title: 'Sheet1', sheetId: 100))
+        ]
+      ));
+
+      when(() => mockSpreadsheets.batchUpdate(any(), any()))
+          .thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
+
+      await service.deleteRecord('f1', 's1', 'Sheet1', 'r2');
+
+      // Index for r2 is 2 (3rd row including header, but 0-indexed index for list is 2)
+      verify(() => mockSpreadsheets.batchUpdate(
+        any(that: predicate<sheets.BatchUpdateSpreadsheetRequest>((req) {
+          final del = req.requests?.first.deleteDimension;
+          return del?.range?.startIndex == 2 && del?.range?.endIndex == 3 && del?.range?.sheetId == 100;
+        })), 
+        any()
+      )).called(1);
+    });
   });
 }
