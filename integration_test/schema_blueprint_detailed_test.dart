@@ -139,7 +139,7 @@ void main() {
     await tester.pumpAndSettle();
     
     // Select Template
-    await tester.tap(find.text('Summation'));
+    await tester.tap(find.text('Number'));
     await tester.pumpAndSettle();
 
     // Toggle to Custom Mode
