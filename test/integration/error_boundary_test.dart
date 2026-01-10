@@ -63,10 +63,6 @@ void main() {
   }
 
   testWidgets('Comprehensive Error Handling: Dashboard and Module Loading Failures', (tester) async {
-    // Set screen size correctly for integration tests
-    await tester.binding.setSurfaceSize(const Size(1200, 1600));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
     final workspaceFile = drive.File()
       ..id = 'ws1'
       ..name = 'Faulty ERP';
@@ -102,10 +98,13 @@ void main() {
     await tester.pumpAndSettle();
 
     // Tap the broken module
-    await tester.tap(find.text('HR'));
-    // Wait for sync error
-    for(int i=0; i<5; i++) {
-       await tester.pump(const Duration(milliseconds: 200));
+    final hrModule = find.text('HR');
+    await tester.ensureVisible(hrModule);
+    await tester.tap(hrModule);
+    
+    // ModuleScreen starts sync, wait for it to fail and show error body
+    for(int i=0; i<10; i++) {
+       await tester.pump(const Duration(milliseconds: 300));
     }
     await tester.pumpAndSettle();
 

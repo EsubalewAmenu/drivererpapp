@@ -33,7 +33,7 @@ void main() {
 
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
-    // AppTheme.useGoogleFonts = false;
+    AppTheme.useGoogleFonts = false;
   });
 
   setUp(() {
@@ -42,6 +42,7 @@ void main() {
 
     when(() => mockAuthService.isAuthenticated).thenReturn(true);
     when(() => mockAuthService.currentUser).thenReturn(null);
+    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
   });
 
   Widget createTestWidget({
@@ -106,7 +107,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // Tap the broken module
-    await tester.tap(find.text('HR'));
+    final hrModule = find.text('HR');
+    await tester.ensureVisible(hrModule);
+    await tester.tap(hrModule);
     
     // ModuleScreen starts sync, wait for it to fail and show error body
     for(int i=0; i<10; i++) {

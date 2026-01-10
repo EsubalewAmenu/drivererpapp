@@ -67,20 +67,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
             assetJson = jsonDecode(jsonString);
           } catch (e) {
             debugPrint('Asset not found for $fileName');
-            if (widget.module.id == 'hr') {
-              setState(() {
-                _errorMessage = "Error Loading Module";
-                _isLoadingSchema = false;
-              });
-              return;
-            }
-            assetJson = {
-              'settings': {
-                'name': {'label': 'Name', 'type': 'text', 'value': widget.module.name}
-              },
-              'dashboard': {'cards': []},
-              'tabs': []
-            };
+            // If we have no remote config AND no asset, that's an error.
+            setState(() {
+              _errorMessage = "Error Loading Module";
+              _isLoadingSchema = false;
+            });
+            return;
           }
           _processJson(assetJson, isAssetFallback: true);
         }
