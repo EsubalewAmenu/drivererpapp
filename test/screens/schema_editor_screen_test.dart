@@ -139,10 +139,10 @@ void main() {
     // Add new card
     await tester.tap(find.text('Add Card'));
     await tester.pumpAndSettle();
-    expect(find.text('SELECT CARD TYPE'), findsOneWidget);
+    expect(find.text('CHOOSE VISUALIZATION'), findsOneWidget);
     
     // Select a template
-    await tester.tap(find.text('Summation'));
+    await tester.tap(find.text('Number'));
     await tester.pumpAndSettle();
     
     // Configure the new card

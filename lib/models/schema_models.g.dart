@@ -69,6 +69,8 @@ DashboardCard _$DashboardCardFromJson(Map<String, dynamic> json) =>
       label: json['label'] as String,
       formula: json['formula'] as String,
       format: json['format'] as String,
+      type: json['type'] as String? ?? 'kpi',
+      config: json['config'] as Map<String, dynamic>?,
     );
 
 Map<String, dynamic> _$DashboardCardToJson(DashboardCard instance) =>
@@ -76,6 +78,8 @@ Map<String, dynamic> _$DashboardCardToJson(DashboardCard instance) =>
       'label': instance.label,
       'formula': instance.formula,
       'format': instance.format,
+      'type': instance.type,
+      'config': instance.config,
     };
 
 TabConfig _$TabConfigFromJson(Map<String, dynamic> json) => TabConfig(

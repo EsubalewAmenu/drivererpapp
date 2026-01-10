@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:fl_chart/fl_chart.dart';
 import '../../theme/app_theme.dart';
 import '../../models/schema_models.dart';
 import '../../providers/drive_provider.dart';
@@ -17,6 +18,7 @@ class ModuleDashboard extends StatefulWidget {
 
 class _ModuleDashboardState extends State<ModuleDashboard> {
   final Map<String, String> _cardValues = {};
+  final Map<String, List<Map<String, dynamic>>> _chartDataMap = {};
   final Map<String, bool> _loadingMap = {};
   final Map<String, String?> _errorMap = {};
   
@@ -64,14 +66,68 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
       }
 
       try {
-        // Parse Formula: =FUNCTION(sheet!Col:Col, args)
         final formula = card.formula;
         if (!formula.startsWith('=')) {
-          // Static value or invalid
            _updateCardValue(card, formula);
            continue;
         }
+        
+        // Handle Charts (Line, Bar, Pie)
+        if (card.type != 'kpi') {
+           // For charts, we expect formula to be custom or parsed differently later.
+           // For now, let's assume valid SQL: =QUERY(sheet, "SELECT A, B")
+           // Or simplified: =CHART(sheet!A:B) -> SELECT A, B
+           
+           // Simple parsing for =CHART(sheet!A:B) or just use custom query if it starts with SELECT inside
+           // For MVP, let's support: =CHART(sheet!A:B) which implies fetch first two cols in range
+           
+           String sheetName = "";
+           String query = "";
+           
+           if (formula.startsWith('=CHART(')) {
+              final content = formula.substring(7, formula.length - 1);
+              final parts = content.split('!');
+              if (parts.length == 2) {
+                sheetName = parts[0];
+                final range = parts[1]; // A:B
+                final cols = range.split(':');
+                if (cols.length == 2) {
+                   // e.g. A and B
+                   final col1 = cols[0].replaceAll(RegExp(r'[^A-Z]'), '');
+                   final col2 = cols[1].replaceAll(RegExp(r'[^A-Z]'), '');
+                   // If range is same letter (A:A), fetch A. If A:B, fetch A, B
+                   if (col1 == col2) {
+                     query = "SELECT $col1";
+                   } else {
+                     query = "SELECT $col1, $col2";
+                   }
+                }
+              }
+           } else if (formula.contains('SELECT')) {
+             // Custom Query: =QUERY(sheet, "SELECT...") ? Too complex to parse reliably without strict format
+             // Let's stick to the =CHART(sheet!A:B) format for the builder, 
+             // or reuse existing parser structure if possible.
+             throw Exception("Use =CHART(sheet!A:B) format");
+           }
+           
+           if (sheetName.isNotEmpty && query.isNotEmpty) {
+              final results = await driveService.executeGvizTableQuery(
+                widget.module.id,
+                sheetName,
+                query
+              );
+              
+              if (mounted) {
+                setState(() {
+                  _chartDataMap[card.label] = results ?? [];
+                  _loadingMap[card.label] = false;
+                });
+              }
+           }
+           continue; 
+        }
 
+        // ... Existing KPI Logic ...
         final content = formula.substring(1); // Remove =
         final openParen = content.indexOf('(');
         final closeParen = content.lastIndexOf(')');
@@ -230,6 +286,10 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
   }
 
   Widget _buildCard(BuildContext context, DashboardCard card) {
+    if (['line', 'bar', 'pie', 'progress', 'list'].contains(card.type)) {
+       return _buildChartCard(context, card);
+    }
+  
     final theme = Theme.of(context);
     final value = _cardValues[card.label];
     final isLoading = _loadingMap[card.label] ?? true;
@@ -321,4 +381,261 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
       ),
     );
   }
+
+  Widget _buildChartCard(BuildContext context, DashboardCard card) {
+    final theme = Theme.of(context);
+    final data = _chartDataMap[card.label];
+    final isLoading = _loadingMap[card.label] ?? true;
+    
+    // 1. Parse Data (Generic for all charts)
+    // We assume data is List<Map<String, dynamic>> where keys are "ColA", "ColB" etc.
+    // We generally treat:
+    // - 1st Axis/Col: Label/Category (String)
+    // - 2nd Axis/Col: Value (Number)
+    List<String> labels = [];
+    List<double> values = [];
+    List<List<String>> rawTable = []; // for LIST view
+    List<String> headers = [];
+
+    if (data != null && data.isNotEmpty) {
+       // Try to extract headers from keys of first row
+       headers = data.first.keys.toList();
+       
+       for (var row in data) {
+         // Convert all values to string for table view
+         rawTable.add(row.values.map((e) => e.toString()).toList());
+         
+         final rowVals = row.values.toList();
+         if (rowVals.isNotEmpty) {
+            // Label
+            labels.add(rowVals[0].toString());
+            
+            // Value
+            if (rowVals.length > 1) {
+              final val = rowVals[1];
+              double? parsed;
+              if (val is num) {
+                 parsed = val.toDouble();
+              } else if (val is String) {
+                 parsed = double.tryParse(val.replaceAll(RegExp(r'[^0-9.-]'), ''));
+              }
+              values.add(parsed ?? 0.0);
+            } else {
+              values.add(0.0);
+            }
+         }
+       }
+    }
+
+    Widget content;
+    
+    if (isLoading) {
+      content = const Center(child: CircularProgressIndicator());
+    } else if (data == null || data.isEmpty) {
+      content = Center(
+        child: Text(
+          'No Data Available',
+          style: AppTheme.inter(color: theme.disabledColor),
+        ),
+      );
+    } else {
+      switch (card.type) {
+        case 'bar':
+          content = BarChart(
+            BarChartData(
+              gridData: FlGridData(show: false),
+              borderData: FlBorderData(show: false),
+              titlesData: FlTitlesData(
+                leftTitles: AxisTitles(
+                  sideTitles: SideTitles(showTitles: true, reservedSize: 40, getTitlesWidget: (v, m) => Text(NumberFormat.compact().format(v), style: const TextStyle(fontSize: 10)))
+                ),
+                bottomTitles: AxisTitles(
+                  sideTitles: SideTitles(
+                    showTitles: true,
+                    getTitlesWidget: (val, meta) {
+                      final idx = val.toInt();
+                      if (idx >= 0 && idx < labels.length) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(labels[idx].length > 4 ? "${labels[idx].substring(0,3)}." : labels[idx], style: const TextStyle(fontSize: 10)),
+                        );
+                      }
+                      return const SizedBox();
+                    }
+                  )
+                ),
+                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              ),
+              barGroups: List.generate(values.length, (i) {
+                return BarChartGroupData(
+                  x: i,
+                  barRods: [
+                    BarChartRodData(
+                      toY: values[i],
+                      color: widget.primaryColor,
+                      width: 16, 
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(4))
+                    )
+                  ]
+                );
+              }),
+            )
+          );
+          break;
+          
+        case 'pie':
+          content = PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: 40,
+              sections: List.generate(values.length, (i) {
+                // Generate varied colors based on primary color
+                final opacity = (1.0 - (i * 0.15)).clamp(0.2, 1.0);
+                return PieChartSectionData(
+                  value: values[i],
+                  title: labels[i],
+                  color: widget.primaryColor.withValues(alpha: opacity),
+                  radius: 50,
+                  titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+                );
+              }),
+            )
+          );
+          break;
+          
+        case 'progress':
+            // Assume first value is current, 2nd value (if exists) is Max. 
+            // Or assume value is Percentage (0-100 or 0-1)
+            double current = values.isNotEmpty ? values.first : 0;
+            double max = 100;
+            // Scan for max in headers or assumptions? For now, if val <= 1 assume ratio.
+            if (current <= 1.0) {
+               max = 1.0; 
+            }
+            double percent = (current / max).clamp(0.0, 1.0);
+            
+            content = Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                   Row(
+                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                     children: [
+                        Text(labels.isNotEmpty ? labels.first : "", style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text("${(percent * 100).toInt()}%", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                     ],
+                   ),
+                   const SizedBox(height: 12),
+                   LinearProgressIndicator(
+                     value: percent,
+                     color: widget.primaryColor,
+                     backgroundColor: widget.primaryColor.withValues(alpha: 0.1),
+                     minHeight: 12,
+                     borderRadius: BorderRadius.circular(6),
+                   ),
+                   const SizedBox(height: 8),
+                   Text("${current.toStringAsFixed(1)} / ${max.toStringAsFixed(1)}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                ],
+              ),
+            );
+            break;
+            
+        case 'list':
+          content = SingleChildScrollView(
+            scrollDirection: Axis.vertical,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowHeight: 32,
+                dataRowMinHeight: 32,
+                dataRowMaxHeight: 48,
+                columns: headers.map((h) => DataColumn(label: Text(h, style: const TextStyle(fontWeight: FontWeight.bold)))).toList(),
+                rows: rawTable.map((row) {
+                  return DataRow(cells: row.map((cell) => DataCell(Text(cell))).toList());
+                }).toList(),
+              ),
+            ),
+          );
+          break;
+          
+        case 'line':
+        default:
+          content = LineChart(
+             LineChartData(
+                gridData: FlGridData(show: false),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(showTitles: true, reservedSize: 40, getTitlesWidget: (v, m) => Text(NumberFormat.compact().format(v), style: const TextStyle(fontSize: 10)))
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (val, meta) {
+                        final idx = val.toInt();
+                        if (idx >= 0 && idx < labels.length) {
+                          // thinning
+                          if (labels.length > 6 && idx % 2 != 0) return const SizedBox();
+                          return Padding(
+                             padding: const EdgeInsets.only(top: 8),
+                             child: Text(labels[idx].length > 4 ? "${labels[idx].substring(0,3)}." : labels[idx], style: const TextStyle(fontSize: 10)),
+                          );
+                        }
+                        return const SizedBox();
+                      }
+                    )
+                  ),
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: List.generate(values.length, (i) => FlSpot(i.toDouble(), values[i])),
+                    isCurved: true,
+                    color: widget.primaryColor,
+                    barWidth: 3,
+                    dotData: FlDotData(show: false),
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: widget.primaryColor.withValues(alpha: 0.1),
+                    ),
+                  ),
+                ],
+              ),
+          );
+          break;
+      }
+    }
+
+    return Container(
+      height: 300,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: widget.primaryColor.withValues(alpha: 0.1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+            Text(
+              card.label.toUpperCase(),
+              style: AppTheme.inter(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: theme.textTheme.bodyMedium?.color,
+                letterSpacing: 1.0,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Expanded(
+              child: content,
+            ),
+        ],
+      ),
+    );
+  }
 }
+
