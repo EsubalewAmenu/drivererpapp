@@ -52,7 +52,7 @@ class DashboardCardSelectionScreen extends StatelessWidget {
 
           // 4. Pie Chart
           _buildGridOption(context, 'Distribution', 'Pie Chart', DashboardCard(
-            label: 'Expense Mix', formula: '=CHART(sheet!A:B)', format: 'percent', type: 'pie'
+            label: 'Partner Roles', formula: '=CHART(contact_directory!E:E)', format: 'percent', type: 'pie'
           )),
 
           // 5. Progress

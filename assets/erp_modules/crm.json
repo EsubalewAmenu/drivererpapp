@@ -11,8 +11,14 @@
     "cards": [
       {
         "label": "Total AR",
-        "formula": "=SUMIF(contact_directory!F:F, \">0\")",
+        "formula": "=SUM(contact_directory!G:G)",
         "format": "currency"
+      },
+      {
+        "label": "Partner Roles",
+        "formula": "=CHART(contact_directory!E:E)",
+        "format": "percent",
+        "type": "pie"
       }
     ]
   },
@@ -55,7 +61,8 @@
           "email": "esubalewbusiness@gmail.com",
           "phone": "+971551266787",
           "type": "SUPPLIER",
-          "notes": "Software and mobile apps developer"
+          "notes": "Software and mobile apps developer",
+          "balance":"0"
         },
         {
           "is_individual": false,
@@ -64,7 +71,8 @@
           "company_tin": "0104111145",
           "phone": "+251923481783",
           "type": "SUPPLIER",
-          "notes": "Official Website: datascienceplc.com"
+          "notes": "Official Website: datascienceplc.com",
+          "balance":"0"
         }
       ],
       "columns": [
