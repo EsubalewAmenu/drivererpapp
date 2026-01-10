@@ -28,6 +28,10 @@ void main() {
 
     when(() => mockThemeProvider.themeMode).thenReturn(ThemeMode.light);
     when(() => mockThemeProvider.isDarkMode).thenReturn(false);
+    when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
+    when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'w1'..name = 'My Workspace');
+    when(() => mockWorkspaceProvider.hasWorkspace).thenReturn(true);
+    when(() => mockWorkspaceProvider.companies).thenReturn([]);
     
     when(() => mockAccount.displayName).thenReturn('Test User');
     when(() => mockAccount.email).thenReturn('test@example.com');

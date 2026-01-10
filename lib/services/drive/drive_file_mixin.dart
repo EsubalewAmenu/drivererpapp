@@ -56,26 +56,31 @@ mixin DriveFileMixin {
 
   /// Creates a file in a folder with the given content.
   Future<String> createFile(String folderId, String fileName, String content) async {
+    return uploadFile(folderId, fileName, utf8.encode(content), mimeType: 'application/json');
+  }
+
+  /// Uploads a file (binary or text) to a folder.
+  Future<String> uploadFile(String folderId, String fileName, List<int> bytes, {String mimeType = 'application/octet-stream'}) async {
     try {
       final file = drive.File()
         ..name = fileName
         ..parents = [folderId]
-        ..mimeType = 'application/json';
+        ..mimeType = mimeType;
 
-      final bytes = utf8.encode(content);
       final media = drive.Media(
         Stream.value(bytes),
         bytes.length,
       );
 
-      final createdFile = await driveApi.files.create(
+      final createdFile = await retryOp(() => driveApi.files.create(
         file,
         uploadMedia: media,
-      );
-      debugPrint('Created file: ${createdFile.name} (${createdFile.id})');
+      ));
+      
+      debugPrint('Uploaded file: ${createdFile.name} (${createdFile.id})');
       return createdFile.id!;
     } catch (e) {
-      debugPrint('Error creating file: $e');
+      debugPrint('Error uploading file: $e');
       rethrow;
     }
   }
@@ -99,6 +104,17 @@ mixin DriveFileMixin {
       debugPrint('Updated file: $fileId');
     } catch (e) {
       debugPrint('Error updating file: $e');
+      rethrow;
+    }
+  }
+
+  /// Deletes a file.
+  Future<void> deleteFile(String fileId) async {
+    try {
+      await retryOp(() => driveApi.files.delete(fileId));
+      debugPrint('Deleted file: $fileId');
+    } catch (e) {
+      debugPrint('Error deleting file: $e');
       rethrow;
     }
   }

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import '../models/company_model.dart';
 import '../theme/app_theme.dart';
 import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
@@ -193,6 +196,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildCompanyCard() {
     final theme = Theme.of(context);
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context);
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -203,30 +208,162 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           TextField(
             controller: _companyNameController,
-            enabled: false, // Workspace renaming logic pending
+            enabled: !workspaceProvider.isLoading,
             style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
             decoration: _inputDecoration('Company Name (Workspace)'),
           ),
-          const SizedBox(height: 16),
-          // Upload Logo is just a placeholder for now
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border.all(color: theme.textTheme.bodyMedium!.color!.withValues(alpha: 0.3), style: BorderStyle.solid),
-              borderRadius: BorderRadius.circular(12),
+          const SizedBox(height: 24),
+          if (workspaceProvider.isLoading)
+            const CircularProgressIndicator()
+          else
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saveCompanyName,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text('SAVE CHANGES', style: AppTheme.inter(fontWeight: FontWeight.w700)),
+              ),
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(Icons.upload_rounded, color: theme.textTheme.bodyMedium?.color),
-                const SizedBox(width: 8),
-                Text('Upload Logo (Coming Soon)', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600)),
-              ],
+          const SizedBox(height: 24),
+          // Upload Logo Section
+          InkWell(
+            onTap: workspaceProvider.isLoading ? null : _pickAndUploadLogo,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: theme.primaryColor.withValues(alpha: 0.3), 
+                  style: BorderStyle.solid
+                ),
+                borderRadius: BorderRadius.circular(12),
+                color: theme.primaryColor.withValues(alpha: 0.05),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.add_photo_alternate_rounded, color: theme.primaryColor, size: 24),
+                  const SizedBox(width: 12),
+                  Text(
+                    'REPLACE COMPANY LOGO', 
+                    style: AppTheme.inter(
+                      color: theme.primaryColor, 
+                      fontWeight: FontWeight.w700, 
+                      fontSize: 13,
+                      letterSpacing: 0.5
+                    )
+                  ),
+                ],
+              ),
             ),
           ),
+          if (workspaceProvider.currentWorkspace != null) ...[
+            const SizedBox(height: 16),
+            Consumer<WorkspaceProvider>(
+              builder: (context, wp, _) {
+                if (wp.companies.isEmpty || wp.currentWorkspace == null) {
+                  return const SizedBox.shrink();
+                }
+
+                Company? company;
+                try {
+                  company = wp.companies.firstWhere(
+                    (c) => c.folderId == wp.currentWorkspace!.id
+                  );
+                } catch (_) {
+                  company = null;
+                }
+                
+                if (company == null || company.logoUrl == null || company.logoUrl!.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    company.logoUrl!,
+                    height: 100,
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => Container(
+                      height: 100,
+                      color: theme.scaffoldBackgroundColor,
+                      child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                    ),
+                  ),
+                );
+              }
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  Future<void> _pickAndUploadLogo() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 85,
+    );
+
+    if (image == null) return;
+
+    try {
+      final bytes = await image.readAsBytes();
+      final extension = image.path.split('.').last.toLowerCase();
+      
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Uploading new logo...'), duration: Duration(seconds: 2)),
+      );
+
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      await workspaceProvider.updateCompanyLogo(bytes, extension);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Logo updated successfully!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to upload logo: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveCompanyName() async {
+    final newName = _companyNameController.text.trim();
+    if (newName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company name cannot be empty.')));
+      return;
+    }
+
+    try {
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      await workspaceProvider.updateCompanyName(newName);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company name updated successfully!')));
+        // Unfocus to hide keyboard
+        FocusScope.of(context).unfocus();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update company name: $e')));
+      }
+    }
   }
 
   Widget _buildStorageCard() {

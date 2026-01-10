@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../models/company_model.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../providers/workspace_provider.dart';
@@ -62,7 +63,9 @@ class AppDrawer extends StatelessWidget {
   }
 
   Widget _buildWorkspaceSwitcher(BuildContext context) {
-    final workspace = Provider.of<WorkspaceProvider>(context).currentWorkspace;
+    final provider = Provider.of<WorkspaceProvider>(context);
+    final workspace = provider.currentWorkspace;
+    final company = provider.currentCompany;
     final workspaceName = workspace?.name ?? 'Select Workspace';
     final initial = workspaceName.isNotEmpty ? workspaceName[0].toUpperCase() : '?';
     final theme = Theme.of(context);
@@ -86,11 +89,19 @@ class AppDrawer extends StatelessWidget {
           },
           child: Row(
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: Colors.blueGrey,
-                child: Text(initial, style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.white, fontSize: 12)),
-              ),
+              if (company?.logoUrl != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    company!.logoUrl!,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => _buildFallbackAvatar(initial),
+                  ),
+                )
+              else
+                _buildFallbackAvatar(initial),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
@@ -106,6 +117,14 @@ class AppDrawer extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildFallbackAvatar(String initial) {
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor: Colors.blueGrey,
+      child: Text(initial, style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.white, fontSize: 12)),
     );
   }
 
