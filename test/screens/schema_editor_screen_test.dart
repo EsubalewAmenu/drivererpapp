@@ -130,19 +130,25 @@ void main() {
     // Edit existing card
     await tester.tap(find.byIcon(Icons.edit_rounded));
     await tester.pumpAndSettle();
-    expect(find.text('Edit Card'), findsOneWidget);
+    expect(find.text('CONFIGURE CARD'), findsOneWidget);
     await tester.enterText(find.byType(TextField).at(0), 'New KPI Name');
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text('DONE'));
     await tester.pumpAndSettle();
     expect(find.text('New KPI Name'), findsOneWidget);
 
     // Add new card
     await tester.tap(find.text('Add Card'));
     await tester.pumpAndSettle();
-    expect(find.text('Add Card'), findsNWidgets(2)); // Title and Button
+    expect(find.text('SELECT CARD TYPE'), findsOneWidget);
+    
+    // Select a template
+    await tester.tap(find.text('Summation'));
+    await tester.pumpAndSettle();
+    
+    // Configure the new card
+    expect(find.text('CONFIGURE CARD'), findsOneWidget);
     await tester.enterText(find.byType(TextField).at(0), 'Fresh Card');
-    await tester.enterText(find.byType(TextField).at(1), '=SUM(A:A)');
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.text('DONE'));
     await tester.pumpAndSettle();
     expect(find.text('Fresh Card'), findsOneWidget);
 

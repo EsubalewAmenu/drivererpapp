@@ -7,7 +7,8 @@ import '../theme/app_theme.dart';
 import 'schema_editor/structure_editor.dart';
 import 'schema_editor/dashboard_editor.dart';
 import 'schema_editor/settings_editor.dart';
-import 'schema_editor/dialogs/edit_card_dialog.dart';
+import 'schema_editor/dashboard_card_selection_screen.dart';
+import 'schema_editor/dashboard_card_edit_screen.dart';
 
 class SchemaEditorScreen extends StatefulWidget {
   final ModuleSchema module;
@@ -205,22 +206,39 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
   }
 
   Future<void> _showAddCardDialog() async {
-    final newCard = await showDialog<DashboardCard>(
-      context: context,
-      builder: (context) => const EditCardDialog(),
+    final template = await Navigator.push<DashboardCard>(
+      context,
+      MaterialPageRoute(builder: (context) => const DashboardCardSelectionScreen()),
     );
 
-    if (newCard != null) {
+    if (template == null) return;
+
+    if (!mounted) return;
+    // Chain directly to the Edit/Configuration Screen
+    final configuredCard = await Navigator.push<DashboardCard>(
+      context,
+      MaterialPageRoute(builder: (context) => DashboardCardEditScreen(
+        card: template,
+        module: widget.module,
+        index: -1,
+      )),
+    );
+
+    if (configuredCard != null) {
       setState(() {
-        _cards.add(newCard);
+        _cards.add(configuredCard);
       });
     }
   }
 
   Future<void> _showEditCardDialog(int index, DashboardCard card) async {
-    final updatedCard = await showDialog<DashboardCard>(
-      context: context,
-      builder: (context) => EditCardDialog(card: card),
+    final updatedCard = await Navigator.push<DashboardCard>(
+      context,
+      MaterialPageRoute(builder: (context) => DashboardCardEditScreen(
+        card: card,
+        module: widget.module,
+        index: index,
+      )),
     );
 
     if (updatedCard != null) {

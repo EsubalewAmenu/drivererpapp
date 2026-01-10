@@ -488,5 +488,34 @@ void main() {
         any()
       )).called(1);
     });
+
+    test('executeGvizQuery returns scalar value', () async {
+      when(() => mockHttpClient.get(any())).thenAnswer((_) async {
+        return http.Response(
+            'google.visualization.Query.setResponse({"version":"0.6","status":"ok","table":{"cols":[{"id":"count","label":"count","type":"number"}],"rows":[{"c":[{"v":42.0}]}]}});', 
+            200
+        );
+      });
+
+      final result = await service.executeGvizQuery('folder', 'File', 'SELECT count(A)');
+      
+      expect(result, 42.0);
+      
+      verify(() => mockHttpClient.get(
+        any(that: predicate<Uri>((uri) => uri.toString().contains('tq=SELECT%20count(A)')))
+      )).called(1);
+    });
+
+    test('executeGvizQuery returns null on empty rows', () async {
+      when(() => mockHttpClient.get(any())).thenAnswer((_) async {
+        return http.Response(
+            'google.visualization.Query.setResponse({"version":"0.6","status":"ok","table":{"cols":[],"rows":[]}});', 
+            200
+        );
+      });
+
+      final result = await service.executeGvizQuery('folder', 'File', 'SELECT count(A)');
+      expect(result, isNull);
+    });
   });
 }
