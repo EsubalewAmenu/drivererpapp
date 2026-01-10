@@ -32,7 +32,7 @@ void main() {
 
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
-    // AppTheme.useGoogleFonts = false;
+    AppTheme.useGoogleFonts = false;
   });
 
   setUp(() {
@@ -75,6 +75,10 @@ void main() {
   }
 
   testWidgets('Navigation and Theme Integration Test', (tester) async {
+    // Set a standard mobile surface size for consistent hit-testing
+    await tester.binding.setSurfaceSize(const Size(1080, 1920));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
     final workspaceFile = drive.File()
       ..id = 'ws1'
       ..name = 'ERP Lab';
@@ -126,7 +130,7 @@ void main() {
     await tester.tap(switchWorkspaceFinder);
     await tester.pumpAndSettle();
 
-    expect(find.text('SYSTEM SCANNING'), findsOneWidget);
+    expect(find.text('AVAILABLE ENVIRONMENTS'), findsOneWidget);
   });
 }
 

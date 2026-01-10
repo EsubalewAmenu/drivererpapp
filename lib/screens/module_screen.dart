@@ -66,13 +66,15 @@ class _ModuleScreenState extends State<ModuleScreen> {
             final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
             assetJson = jsonDecode(jsonString);
           } catch (e) {
-            debugPrint('Asset not found for $fileName');
-            // If we have no remote config AND no asset, that's an error.
-            setState(() {
-              _errorMessage = "Error Loading Module";
-              _isLoadingSchema = false;
-            });
-            return;
+            debugPrint('Asset not found for $fileName, using default template');
+            // If no remote config AND no asset, use a basic template and go to editor
+            assetJson = {
+              'settings': {
+                'name': {'label': 'Name', 'type': 'text', 'value': widget.module.name}
+              },
+              'dashboard': {'cards': []},
+              'tabs': [],
+            };
           }
           _processJson(assetJson, isAssetFallback: true);
         }
@@ -211,11 +213,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
       debugPrint('Stack: $stack');
       if (mounted) {
         setState(() {
+          _errorMessage = "Error parsing blueprint: $e";
           _isLoadingSchema = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading blueprint: $e')),
-        );
       }
     }
   }

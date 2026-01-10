@@ -1,0 +1,32 @@
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "expenses" },
+    "icon": { "label": "Icon", "type": "icon", "value": "receipt_long" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#EF4444" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Expenses" }
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Total Spend",
+        "formula": "=SUM(expense_entries!E:E)",
+        "format": "currency"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "expense_entries",
+      "label": "Expense Entries",
+      "columns": [
+        { "key": "date", "label": "Date", "type": "date", "required": true },
+        { "key": "category", "label": "Category", "type": "select", "options": ["Rent", "Utilities", "Payroll", "Marketing", "Travel", "Other"] },
+        { "key": "vendor", "label": "Vendor", "type": "text" },
+        { "key": "amount", "label": "Amount", "type": "currency", "required": true },
+        { "key": "receipt", "label": "Receipt Image", "type": "image" },
+        { "key": "payment_status", "label": "Status", "type": "select", "options": ["Paid", "Unpaid"] }
+      ]
+    }
+  ]
+}

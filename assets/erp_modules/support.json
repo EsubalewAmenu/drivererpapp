@@ -1,0 +1,26 @@
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "support" },
+    "icon": { "label": "Icon", "type": "icon", "value": "support_agent" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#F97316" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Support" }
+  },
+  "dashboard": {
+    "cards": [
+      { "label": "Open Tickets", "formula": "=COUNTIF(tickets!C:C, \"Open\")", "format": "number" }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "tickets",
+      "label": "Support Tickets",
+      "columns": [
+        { "key": "id", "label": "Ticket #", "type": "text" },
+        { "key": "subject", "label": "Subject", "type": "text" },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Open", "In Progress", "Resolved"] },
+        { "key": "priority", "label": "Priority", "type": "select", "options": ["Low", "Medium", "High"] }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "analytics" },
+    "icon": { "label": "Icon", "type": "icon", "value": "analytics" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#06B6D4" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Analytics" }
+  },
+  "dashboard": {
+    "cards": [
+      { "label": "System Efficiency", "formula": "=rand()*100", "format": "percentage" }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "metrics",
+      "label": "Metrics",
+      "columns": [
+        { "key": "metric", "label": "Key Performance Indicator", "type": "text" },
+        { "key": "value", "label": "Current Value", "type": "number" },
+        { "key": "target", "label": "Target Value", "type": "number" }
+      ]
+    }
+  ]
+}

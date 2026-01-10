@@ -34,7 +34,7 @@ void main() {
 
   setUpAll(() {
     SharedPreferences.setMockInitialValues({});
-    // AppTheme.useGoogleFonts = false;
+    AppTheme.useGoogleFonts = false;
   });
 
   setUp(() {
@@ -237,12 +237,13 @@ void main() {
     expect(find.text('Widget A'), findsNothing);
 
     // 10. Test Search Functionality in the list
-    final searchIcon = find.byIcon(Icons.search);
-    await tester.tap(searchIcon);
-    await tester.pumpAndSettle();
-
+    // In ModuleFilterBar, search is a TextField always visible
     final searchField = find.byType(TextField);
     await tester.enterText(searchField, 'Updated');
+    await tester.pumpAndSettle();
+    
+    // Search has a debounce of 600ms
+    await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
     
     // The sync logic might call fetchRecords with searchQuery
@@ -252,29 +253,9 @@ void main() {
       offset: any(named: 'offset'),
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
-    )).called(atLeast(1));
-  });
-}
-    when(() => mockDriveService.fetchRecords(
-          any(), any(), any(), 
-          offset: any(named: 'offset'), 
-          limit: any(named: 'limit'), 
-          fetchSubTables: any(named: 'fetchSubTables'), 
-          descending: any(named: 'descending'),
-          searchQuery: any(named: 'searchQuery'),
-          quickFilter: any(named: 'quickFilter'),
-        )).thenAnswer((_) async => List<Map<String, dynamic>>.from(updatedRecords));
-
-    await tester.tap(find.byIcon(Icons.arrow_back));
-    await tester.pumpAndSettle();
-    
-    // Wait for the list refresh delay in ModuleTabScreen
-    for(int i=0; i<5; i++) {
-       await tester.pump(const Duration(milliseconds: 300));
-    }
-    await tester.pumpAndSettle();
-
-    expect(find.text('Widget Updated'), findsAtLeast(1));
+      descending: any(named: 'descending'),
+      quickFilter: any(named: 'quickFilter'),
+    )).called(greaterThanOrEqualTo(1));
   });
 }
 

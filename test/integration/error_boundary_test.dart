@@ -85,31 +85,33 @@ void main() {
     expect(find.text('FAULTY ERP'), findsOneWidget);
     
     // 2. Mock a Module becoming available but with a corrupt config
+    final workspaceFile2 = drive.File()..id = 'ws2'..name = 'FAULTY ERP';
+    workspaceProvider.setWorkspace(workspaceFile2);
+    
     final moduleFile = drive.File()..id = 'mod_err'..name = 'HR';
-    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFile]);
+    when(() => mockDriveService.listModules('ws2')).thenAnswer((_) async => [moduleFile]);
     when(() => mockDriveService.getFileId('mod_err', 'config')).thenAnswer((_) async => 'conf_err');
     when(() => mockDriveService.readModuleConfig('conf_err')).thenAnswer((_) async => throw const FormatException('Invalid JSON'));
 
-    // Trigger a refresh (if there is a refresh button or we just rebuild)
+    // Trigger a refresh by pumping again with the same widget (Provider change triggers rebuild)
     await tester.pumpWidget(createTestWidget(
       workspaceProvider: workspaceProvider,
       driveProvider: driveProvider,
     ));
     await tester.pumpAndSettle();
 
-    // Tap the broken module
+    // Now 'HR' should be in CORE MODULES
     final hrModule = find.text('HR');
     await tester.ensureVisible(hrModule);
     await tester.tap(hrModule);
     
-    // ModuleScreen starts sync, wait for it to fail and show error body
+    // ModuleScreen starts sync, wait for it to fail and show fallback
     for(int i=0; i<10; i++) {
        await tester.pump(const Duration(milliseconds: 300));
     }
     await tester.pumpAndSettle();
 
-    // Verify it doesn't crash but shows an error message in the ModuleScreen
-    expect(find.text('Error Loading Module'), findsOneWidget);
-    expect(find.text('RETRY'), findsOneWidget);
+    // Verify it doesn't crash but navigates to setup because of missing config/asset
+    expect(find.text('COMPLETE SETUP'), findsOneWidget);
   });
 }
