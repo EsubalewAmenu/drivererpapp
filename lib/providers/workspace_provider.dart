@@ -20,6 +20,15 @@ class WorkspaceProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get hasWorkspace => _currentWorkspace != null;
 
+  Company? get currentCompany {
+    if (_currentWorkspace == null) return null;
+    try {
+      return _companies.firstWhere((c) => c.folderId == _currentWorkspace!.id);
+    } catch (_) {
+      return null;
+    }
+  }
+
   void setRootFolderId(String id) {
     _rootFolderId = id;
     notifyListeners();
