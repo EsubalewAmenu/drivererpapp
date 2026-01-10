@@ -109,6 +109,53 @@ class WorkspaceProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> updateCompanyLogo(List<int> bytes, String extension) async {
+    if (_driveService == null || _currentWorkspace == null || _rootFolderId == null) {
+      debugPrint('Logo update failed: Missing service, workspace or root folder ID');
+      return;
+    }
+    
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 1. Find the current company object to get its internal ID
+      final companyIndex = _companies.indexWhere((c) => c.folderId == _currentWorkspace!.id);
+      if (companyIndex == -1) {
+        throw Exception('Current company not found in registry. Logo update requires a registered workspace.');
+      }
+
+      final company = _companies[companyIndex];
+      
+      // 2. Perform upload and deletion of old logo via service
+      final newUrl = await _driveService!.updateCompanyLogo(
+        _rootFolderId!, 
+        company.id, 
+        bytes, 
+        extension
+      );
+
+      // 3. Update local state
+      if (companyIndex != -1) {
+        _companies[companyIndex] = Company(
+          id: company.id,
+          name: company.name,
+          folderId: company.folderId,
+          logoUrl: newUrl,
+          role: company.role,
+        );
+      }
+      
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Error updating company logo in provider: $e');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> restorePreviousSession() async {
     if (_driveService == null) return false;
     

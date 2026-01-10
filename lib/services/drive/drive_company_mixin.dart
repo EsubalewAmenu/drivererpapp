@@ -8,6 +8,8 @@ mixin DriveCompanyMixin {
   sheets.SheetsApi get sheetsApi;
   Future<String?> getFileId(String folderId, String fileName);
   Future<T> retryOp<T>(Future<T> Function() action, {int retries = 3});
+  Future<String> uploadFile(String folderId, String fileName, List<int> bytes, {String mimeType});
+  Future<void> deleteFile(String fileId);
 
   static const String _registryFileName = 'companies';
 
@@ -180,6 +182,63 @@ mixin DriveCompanyMixin {
       debugPrint('Updated company in registry and folder name: ${company.name}');
     } catch (e) {
       debugPrint('Error updating company: $e');
+      rethrow;
+    }
+  }
+
+  /// Replaces the company logo in Drive and updates the registry.
+  Future<String> updateCompanyLogo(String rootFolderId, String companyId, List<int> bytes, String extension) async {
+    try {
+      // 1. Get companies to find the folderId and current logoUrl
+      final companies = await getCompanies(rootFolderId);
+      final company = companies.firstWhere((c) => c.id == companyId);
+      
+      // 2. Locate and delete previous logo file if it exists
+      if (company.logoUrl != null && company.logoUrl!.isNotEmpty) {
+        try {
+          // Extract file ID from URL if it contains one, or try to find by pattern
+          // url format usually: https://drive.google.com/uc?export=view&id=FILE_ID
+          final uri = Uri.parse(company.logoUrl!);
+          final prevFileId = uri.queryParameters['id'];
+          if (prevFileId != null) {
+            await deleteFile(prevFileId);
+            debugPrint('Deleted old logo: $prevFileId');
+          }
+        } catch (e) {
+          debugPrint('Could not delete old logo (might have been removed already): $e');
+        }
+      }
+
+      // 3. Upload new logo to company folder
+      final fileName = 'logo_${DateTime.now().millisecondsSinceEpoch}.$extension';
+      final mimeType = extension == 'png' ? 'image/png' : 'image/jpeg';
+      
+      final newFileId = await uploadFile(company.folderId, fileName, bytes, mimeType: mimeType);
+
+      // 4. Make it public so NetworkImage can use it
+      await driveApi.permissions.create(
+        drive.Permission()
+          ..role = 'reader'
+          ..type = 'anyone',
+        newFileId,
+      );
+
+      final newUrl = 'https://drive.google.com/uc?export=view&id=$newFileId';
+
+      // 5. Update registry
+      final updatedCompany = Company(
+        id: company.id,
+        name: company.name,
+        folderId: company.folderId,
+        logoUrl: newUrl,
+        role: company.role,
+      );
+      
+      await updateCompany(rootFolderId, updatedCompany);
+
+      return newUrl;
+    } catch (e) {
+      debugPrint('Error updating company logo: $e');
       rethrow;
     }
   }
