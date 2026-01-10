@@ -225,6 +225,23 @@ void main() {
     await tester.tap(find.text('Save Item'));
     await safePumpAndSettle();
 
+    // Verify Photo Field Interaction
+    final photoLabel = find.text('PHOTO');
+    await tester.dragUntilVisible(photoLabel, find.byType(SingleChildScrollView).first, const Offset(0, -300));
+    await safePumpAndSettle();
+    
+    await tester.tap(find.text('Tap to pick or capture image'));
+    await safePumpAndSettle();
+    
+    expect(find.text('Select Image Source'), findsOneWidget);
+    expect(find.text('Camera'), findsOneWidget);
+    expect(find.text('Gallery'), findsOneWidget);
+    
+    // Dismiss the bottom sheet by tapping the scrim (top-left)
+    await tester.tapAt(const Offset(20, 20));
+    await safePumpAndSettle();
+
+    await tester.dragUntilVisible(find.text('BARCODE'), find.byType(SingleChildScrollView).first, const Offset(0, -300));
     await tester.enterText(find.widgetWithText(TextFormField, 'Scan or enter code'), 'SN123456');
 
     debugPrint('TEST: Saving form...');
