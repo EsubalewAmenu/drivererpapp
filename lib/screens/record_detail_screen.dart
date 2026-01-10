@@ -70,6 +70,15 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     return '';
   }
 
+  String _resolveImageUrl(String? rawValue) {
+    if (rawValue == null || rawValue.isEmpty) return '';
+    if (rawValue.startsWith('http') || rawValue.contains('data:image')) {
+      return rawValue;
+    }
+    // Assume it's a Drive File ID
+    return 'https://drive.google.com/uc?export=view&id=$rawValue';
+  }
+
   String _getValueFromLogic(ConditionalLogic logic) {
     final conditionValue = _currentData[logic.conditionKey];
     bool isTruthy = false;
@@ -162,8 +171,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     
     final headerTitle = _resolveTitle();
     final headerSubtitle = _resolveSubtitle();
-    final imageUrl = widget.detailTemplate?.imageKey != null ? (_currentData[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
-    final hasImage = imageUrl.isNotEmpty && (imageUrl.startsWith('http') || imageUrl.contains('data:image'));
+    final rawImage = widget.detailTemplate?.imageKey != null ? (_currentData[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
+    final imageUrl = _resolveImageUrl(rawImage);
+    final hasImage = imageUrl.isNotEmpty;
 
     return Container(
       width: double.infinity,
@@ -245,7 +255,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     
     final headerTitle = _resolveTitle();
     final headerSubtitle = _resolveSubtitle();
-    final imageUrl = widget.detailTemplate?.imageKey != null ? (_currentData[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
+    final rawImage = widget.detailTemplate?.imageKey != null ? (_currentData[widget.detailTemplate!.imageKey]?.toString() ?? '') : '';
+    final imageUrl = _resolveImageUrl(rawImage);
 
     return Container(
       decoration: BoxDecoration(
@@ -257,7 +268,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (imageUrl.isNotEmpty && (imageUrl.startsWith('http') || imageUrl.contains('data:image'))) 
+          if (imageUrl.isNotEmpty) 
             Container(
               height: 200,
               width: double.infinity,
@@ -277,7 +288,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             padding: const EdgeInsets.all(24),
             child: Row(
               children: [
-                if (imageUrl.isEmpty || !imageUrl.startsWith('http'))
+                if (imageUrl.isEmpty)
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -585,9 +596,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     );
   }
 
-  Widget _buildImageField(BuildContext context, String label, String url) {
+  Widget _buildImageField(BuildContext context, String label, String rawValue) {
     final theme = Theme.of(context);
     final borderColor = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
+
+    final url = _resolveImageUrl(rawValue);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -611,7 +624,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             border: Border.all(color: borderColor.withValues(alpha: 0.2)),
           ),
           clipBehavior: Clip.antiAlias,
-          child: url.startsWith('http') 
+          child: url.isNotEmpty
             ? Image.network(
                 url, 
                 fit: BoxFit.cover,

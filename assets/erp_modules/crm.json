@@ -76,6 +76,7 @@
         { "key": "phone", "label": "Phone", "type": "phone" },
         { "key": "email", "label": "Email", "type": "email" },
         { "key": "balance", "label": "Ledger Balance", "type": "currency" },
+        { "key": "photo", "label": "Photo", "type": "image" },
         { "key": "notes", "label": "Intelligence", "type": "text" }
       ]
     }

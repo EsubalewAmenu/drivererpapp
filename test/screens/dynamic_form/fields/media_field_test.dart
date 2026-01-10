@@ -20,11 +20,13 @@ void main() {
     ));
 
     expect(find.text('PHOTO'), findsOneWidget);
-    expect(find.byIcon(Icons.camera_alt_rounded), findsOneWidget);
+    expect(find.byIcon(Icons.add_a_photo_rounded), findsOneWidget);
     
-    await tester.tap(find.text('Tap to capture'));
-    await tester.pump();
-    expect(find.byType(SnackBar), findsOneWidget);
+    await tester.tap(find.text('Tap to pick or capture image'));
+    await tester.pumpAndSettle();
+    
+    expect(find.text('Select Image Source'), findsOneWidget);
+    expect(find.text('Camera'), findsOneWidget);
   });
 
   testWidgets('DynamicMediaField handles scanner type', (WidgetTester tester) async {
