@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../../theme/app_theme.dart';
 import '../../models/schema_models.dart';
 import '../../providers/drive_provider.dart';
@@ -51,18 +52,134 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
   }
 
   Future<void> _fetchDashboardValues() async {
-    // TODO: Implement fetching calculated values from Spreadsheet (Dashboard Sheet)
-    // For now, we simulate fetching or show placeholder as we moved calculation to spreadsheet
-    
+    final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+    if (driveService == null) return;
+
     for (var card in widget.module.dashboard.cards) {
-       // Loop and set dummy for now, or fetch if service ready
-       if (mounted) {
-         setState(() {
-           _cardValues[card.label] = "Syncing..."; // Placeholder
-           _loadingMap[card.label] = false;
-         });
-       }
+      if (mounted) {
+        setState(() {
+          _loadingMap[card.label] = true;
+          _errorMap[card.label] = null;
+        });
+      }
+
+      try {
+        // Parse Formula: =FUNCTION(sheet!Col:Col, args)
+        final formula = card.formula;
+        if (!formula.startsWith('=')) {
+          // Static value or invalid
+           _updateCardValue(card, formula);
+           continue;
+        }
+
+        final content = formula.substring(1); // Remove =
+        final openParen = content.indexOf('(');
+        final closeParen = content.lastIndexOf(')');
+        
+        if (openParen == -1 || closeParen == -1) {
+          throw Exception('Invalid Format');
+        }
+
+        final func = content.substring(0, openParen).toUpperCase();
+        final argsStr = content.substring(openParen + 1, closeParen);
+        final args = argsStr.split(',').map((e) => e.trim()).toList();
+        
+        if (args.isEmpty) throw Exception('No arguments');
+
+        // Parse Range: sheet!A:A or sheet!A
+        final rangePart = args[0];
+        final rangeSplit = rangePart.split('!');
+        if (rangeSplit.length != 2) throw Exception('Invalid Range');
+        
+        final sheetName = rangeSplit[0]; // e.g. "stocks"
+        final colRange = rangeSplit[1];   // e.g. "B:B" or "B"
+        final colLetter = colRange.split(':')[0].replaceAll(RegExp(r'[^A-Z]'), '');
+
+        String query = "";
+        
+        if (func == 'COUNTIF' && args.length >= 2) {
+          // =COUNTIF(sheet!B:B, "<10")
+          var criteria = args[1];
+          // Remove quotes
+          if (criteria.startsWith('"') && criteria.endsWith('"')) {
+            criteria = criteria.substring(1, criteria.length - 1);
+          }
+          else if (criteria.startsWith("'") && criteria.endsWith("'")) {
+             criteria = criteria.substring(1, criteria.length - 1);
+          }
+
+          // Build Where Clause
+          String where = "";
+          if (criteria.startsWith('<') || criteria.startsWith('>')) {
+            where = "$colLetter $criteria";
+          } else {
+             // Exact match string or number
+             final isNum = double.tryParse(criteria) != null;
+             if (isNum) {
+               where = "$colLetter = $criteria";
+             } else {
+               where = "$colLetter = '$criteria'";
+             }
+          }
+          query = "SELECT count($colLetter) WHERE $where";
+
+        } else if (func == 'SUM') {
+           query = "SELECT sum($colLetter)";
+        } else if (func == 'AVERAGE') {
+           query = "SELECT avg($colLetter)";
+        } else if (func == 'COUNTA' || func == 'COUNT') {
+           query = "SELECT count($colLetter)";
+        } else {
+           throw Exception('Unknown Function: $func');
+        }
+
+        // Execute
+        final result = await driveService.executeGvizQuery(
+          widget.module.id, // Module folder ID
+          sheetName,        // Spreadsheet Name (Tab ID)
+          query
+        );
+
+        if (mounted) {
+          if (result != null) {
+            _updateCardValue(card, result.toString());
+          } else {
+             _updateCardValue(card, "0"); // Default to 0 if null (e.g. empty sheet)
+          }
+        }
+
+      } catch (e) {
+        debugPrint('Error calculating ${card.label}: $e');
+        _setCardError(card, 'Error');
+      }
     }
+  }
+
+  void _updateCardValue(DashboardCard card, String rawValue) {
+    if (!mounted) return;
+    
+    String formatted = rawValue;
+    final numVal = double.tryParse(rawValue);
+    
+    if (numVal != null) {
+      if (card.format == 'currency') {
+        formatted = NumberFormat.simpleCurrency(decimalDigits: 0).format(numVal);
+      } else if (card.format == 'percent') {
+        formatted = "${(numVal).toStringAsFixed(1)}%";
+      } else {
+        // Number
+        if (numVal % 1 == 0) {
+          formatted = numVal.toInt().toString();
+        } else {
+          formatted = numVal.toStringAsFixed(2);
+        }
+      }
+    }
+
+    setState(() {
+      _cardValues[card.label] = formatted;
+      _loadingMap[card.label] = false;
+    });
   }
 
   /* 
