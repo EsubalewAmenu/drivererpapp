@@ -193,6 +193,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildCompanyCard() {
     final theme = Theme.of(context);
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context);
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -203,30 +205,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           TextField(
             controller: _companyNameController,
-            enabled: false, // Workspace renaming logic pending
+            enabled: !workspaceProvider.isLoading,
             style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
             decoration: _inputDecoration('Company Name (Workspace)'),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+          if (workspaceProvider.isLoading)
+            const CircularProgressIndicator()
+          else
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _saveCompanyName,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text('SAVE CHANGES', style: AppTheme.inter(fontWeight: FontWeight.w700)),
+              ),
+            ),
+          const SizedBox(height: 24),
           // Upload Logo is just a placeholder for now
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              border: Border.all(color: theme.textTheme.bodyMedium!.color!.withValues(alpha: 0.3), style: BorderStyle.solid),
+              border: Border.all(color: theme.textTheme.bodyMedium!.color!.withValues(alpha: 0.2), style: BorderStyle.solid),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.upload_rounded, color: theme.textTheme.bodyMedium?.color),
+                Icon(Icons.upload_rounded, color: theme.textTheme.bodyMedium?.color, size: 20),
                 const SizedBox(width: 8),
-                Text('Upload Logo (Coming Soon)', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600)),
+                Text('Upload Logo (Coming Soon)', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color, fontWeight: FontWeight.w600, fontSize: 13)),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _saveCompanyName() async {
+    final newName = _companyNameController.text.trim();
+    if (newName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company name cannot be empty.')));
+      return;
+    }
+
+    try {
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      await workspaceProvider.updateCompanyName(newName);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company name updated successfully!')));
+        // Unfocus to hide keyboard
+        FocusScope.of(context).unfocus();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update company name: $e')));
+      }
+    }
   }
 
   Widget _buildStorageCard() {

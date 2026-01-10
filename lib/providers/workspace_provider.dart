@@ -8,19 +8,27 @@ class WorkspaceProvider extends ChangeNotifier {
   final DriveService? _driveService;
   
   drive.File? _currentWorkspace;
+  String? _rootFolderId;
   List<Company> _companies = [];
   bool _isLoading = false;
 
   WorkspaceProvider({DriveService? driveService}) : _driveService = driveService;
 
   drive.File? get currentWorkspace => _currentWorkspace;
+  String? get rootFolderId => _rootFolderId;
   List<Company> get companies => _companies;
   bool get isLoading => _isLoading;
   bool get hasWorkspace => _currentWorkspace != null;
 
+  void setRootFolderId(String id) {
+    _rootFolderId = id;
+    notifyListeners();
+  }
+
   Future<void> loadCompanies(String rootFolderId) async {
     if (_driveService == null) return;
     
+    _rootFolderId = rootFolderId;
     _isLoading = true;
     notifyListeners();
 
@@ -41,6 +49,7 @@ class WorkspaceProvider extends ChangeNotifier {
   Future<void> registerNewCompany(String rootFolderId, Company company) async {
     if (_driveService == null) return;
     
+    _rootFolderId = rootFolderId;
     _isLoading = true;
     notifyListeners();
 
@@ -49,6 +58,50 @@ class WorkspaceProvider extends ChangeNotifier {
       _companies.add(company);
     } catch (e) {
       debugPrint('Error registering company: $e');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateCompanyName(String newName) async {
+    if (_driveService == null || _currentWorkspace == null || _rootFolderId == null) {
+      debugPrint('Update failed: Missing service, workspace or root folder ID');
+      return;
+    }
+    
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 1. Find the current company object
+      final companyIndex = _companies.indexWhere((c) => c.folderId == _currentWorkspace!.id);
+      if (companyIndex == -1) throw Exception('Current company not found in registry');
+
+      final current = _companies[companyIndex];
+      final updated = Company(
+        id: current.id,
+        name: newName,
+        folderId: current.folderId,
+        logoUrl: current.logoUrl,
+        role: current.role,
+      );
+
+      // 2. Update via DriveService (spreadsheet)
+      await _driveService!.updateCompany(_rootFolderId!, updated);
+
+      // 3. Update local state
+      _companies[companyIndex] = updated;
+      
+      // Update the currentWorkspace file object as well so the UI reflects it immediately
+      final updatedFile = drive.File()
+        ..id = _currentWorkspace!.id
+        ..name = newName;
+      _currentWorkspace = updatedFile;
+
+    } catch (e) {
+      debugPrint('Error updating company name: $e');
       rethrow;
     } finally {
       _isLoading = false;
@@ -68,6 +121,7 @@ class WorkspaceProvider extends ChangeNotifier {
     try {
       // 1. Find Root Folder (needed for registry)
       final rootId = await _driveService!.checkRootFolder();
+      _rootFolderId = rootId;
       
       if (rootId != null) {
         // 2. Try to fetch from registry to get the CORRECT name
@@ -75,6 +129,7 @@ class WorkspaceProvider extends ChangeNotifier {
           // Temporarily ensure registry exists (lightweight check inside mixin)
           // We don't call ensureCompanyRegistry here to avoid write ops during read
           final companies = await _driveService!.getCompanies(rootId);
+          _companies = companies; // Cache these
           
           try {
             final match = companies.firstWhere((c) => c.folderId == lastId);

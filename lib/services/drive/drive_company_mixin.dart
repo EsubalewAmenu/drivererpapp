@@ -129,4 +129,52 @@ mixin DriveCompanyMixin {
       rethrow;
     }
   }
+
+  /// Updates an existing company in the registry.
+  Future<void> updateCompany(String rootFolderId, Company company) async {
+    try {
+      final fileId = await getFileId(rootFolderId, _registryFileName);
+      if (fileId == null) throw Exception('Company registry not found');
+
+      // 1. Fetch current values to find the row
+      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(fileId, 'companies!A2:E'));
+      final values = response.values;
+
+      if (values == null || values.isEmpty) throw Exception('No companies found in registry');
+
+      int rowIndex = -1;
+      for (int i = 0; i < values.length; i++) {
+        if (values[i].isNotEmpty && values[i][0] == company.id) {
+          rowIndex = i + 2; // +1 for 1-based, +1 for header
+          break;
+        }
+      }
+
+      if (rowIndex == -1) throw Exception('Company with ID ${company.id} not found');
+
+      // 2. Prepare updated row
+      final row = [
+        company.id,
+        company.name,
+        company.folderId,
+        company.logoUrl ?? '',
+        company.role ?? 'owner',
+      ];
+
+      final valueRange = sheets.ValueRange(values: [row]);
+      
+      // 3. Update the specific row
+      await retryOp(() => sheetsApi.spreadsheets.values.update(
+        valueRange,
+        fileId,
+        'companies!A$rowIndex:E$rowIndex',
+        valueInputOption: 'RAW',
+      ));
+      
+      debugPrint('Updated company in registry: ${company.name}');
+    } catch (e) {
+      debugPrint('Error updating company: $e');
+      rethrow;
+    }
+  }
 }
