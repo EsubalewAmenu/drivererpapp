@@ -7,7 +7,6 @@ import '../theme/app_theme.dart';
 import 'schema_editor/structure_editor.dart';
 import 'schema_editor/dashboard_editor.dart';
 import 'schema_editor/settings_editor.dart';
-import 'schema_editor/dialogs/edit_card_dialog.dart';
 import 'schema_editor/dashboard_card_selection_screen.dart';
 import 'schema_editor/dashboard_card_edit_screen.dart';
 

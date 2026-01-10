@@ -28,12 +28,15 @@ void main() {
       settings: {},
       tabs: [],
       dashboard: DashboardConfig(cards: [
-        DashboardCard(label: 'Total Sales', formula: 'SUM(A:A)', format: 'currency'),
-        DashboardCard(label: 'Active Users', formula: 'COUNT(B:B)', format: 'number'),
+        DashboardCard(label: 'Total Sales', formula: '=SUM(sheet1!A:A)', format: 'currency'),
+        DashboardCard(label: 'Active Users', formula: '=COUNT(sheet1!B:B)', format: 'number'),
       ]),
     );
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    // Mock the Gviz response
+    when(() => mockDriveService.executeGvizQuery(any(), any(), any()))
+        .thenAnswer((_) async => 1000); // Default return 1000 for everything
   });
 
   Widget createModuleDashboard() {
@@ -59,11 +62,16 @@ void main() {
     expect(find.text('Total Sales'.toUpperCase()), findsOneWidget);
     expect(find.text('Active Users'.toUpperCase()), findsOneWidget);
 
-    // Initial state shows placeholder/syncing
+    // Initial state shows placeholder/syncing then updates
     await tester.pump(); // Start animations
     await tester.pump(const Duration(milliseconds: 300)); // Delay in initState
     await tester.pump(); // Final setState
 
-    expect(find.text('Syncing...'), findsAtLeastNWidgets(2));
+    // Sales: Currency format of 1000 -> $1,000 (roughly, depending on locale but simpleCurrency usually $)
+    // Users: Number format of 1000 -> 1000
+    
+    // Check if we found the formatted strings
+    // Note: The exact string depends on locale, but checking for "1,000" or similar
+    expect(find.textContaining('1,000'), findsAtLeastNWidgets(1)); 
   });
 }
