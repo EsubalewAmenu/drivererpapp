@@ -32,8 +32,17 @@ mixin DriveSheetMixin {
       // or we can fetch metadata to be safe.
       // Copy logic from fetchRecords:
       final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
-      // Usually the data sheet has the same name as the file or is the first one.
-      final int gid = spreadsheet.sheets?.first.properties?.sheetId ?? 0;
+      
+      // Look for a tab with the exact name, or default to the first used tab
+      // This fixes issues where the data is on a specific tab (e.g. 'Stocks') but 'Sheet1' is the first tab
+      int gid = 0;
+      if (spreadsheet.sheets != null && spreadsheet.sheets!.isNotEmpty) {
+        final exactMatch = spreadsheet.sheets!.firstWhere(
+          (s) => s.properties?.title == sheetName,
+          orElse: () => spreadsheet.sheets!.first,
+        );
+        gid = exactMatch.properties?.sheetId ?? 0;
+      }
 
       // 3. Construct URL
       final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=0&gid=$gid';
