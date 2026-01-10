@@ -1,0 +1,41 @@
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "sales" },
+    "icon": { "label": "Icon", "type": "icon", "value": "shopping_cart" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#10B981" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Sales" }
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Monthly Revenue",
+        "formula": "=SUM(orders!G:G)",
+        "format": "currency"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "orders",
+      "label": "Orders",
+      "columns": [
+        { "key": "order_id", "label": "Order ID", "type": "text", "required": true },
+        { "key": "customer", "label": "Customer", "type": "text", "required": true },
+        { "key": "date", "label": "Order Date", "type": "date" },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Pending", "Shipped", "Delivered", "Cancelled"] },
+        { "key": "total", "label": "Total Amount", "type": "currency" }
+      ]
+    },
+    {
+      "id": "products",
+      "label": "Product Catalog",
+      "columns": [
+        { "key": "sku", "label": "SKU", "type": "text" },
+        { "key": "name", "label": "Product Name", "type": "text" },
+        { "key": "price", "label": "Unit Price", "type": "currency" },
+        { "key": "category", "label": "Category", "type": "text" }
+      ]
+    }
+  ]
+}

@@ -124,4 +124,32 @@ void main() {
     
     expect(find.byType(WorkspaceSelectorScreen), findsOneWidget);
   });
+
+  testWidgets('AppDrawer displays company logo when available', (WidgetTester tester) async {
+    final company = Company(id: 'c1', name: 'Logo Co', folderId: 'ws123', logoUrl: 'https://example.com/logo.png');
+    when(() => mockWorkspaceProvider.currentCompany).thenReturn(company);
+    
+    await tester.pumpWidget(createDrawer());
+    
+    final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold));
+    scaffoldState.openDrawer();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Image), findsOneWidget);
+    // Note: CircleAvatar might be found if Image.network calls errorBuilder in tests
+  });
+
+  testWidgets('AppDrawer displays fallback avatar when no logo available', (WidgetTester tester) async {
+    when(() => mockWorkspaceProvider.currentCompany).thenReturn(null);
+    
+    await tester.pumpWidget(createDrawer());
+    
+    final scaffoldState = tester.state<ScaffoldState>(find.byType(Scaffold));
+    scaffoldState.openDrawer();
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Image), findsNothing);
+    expect(find.byType(CircleAvatar), findsOneWidget);
+    expect(find.text('T'), findsOneWidget); // Initial of 'Test Workspace'
+  });
 }

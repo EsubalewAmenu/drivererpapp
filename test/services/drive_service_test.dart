@@ -14,6 +14,7 @@ class MockSheetsApi extends Mock implements sheets.SheetsApi {}
 // Mock Resources
 class MockDriveFilesResource extends Mock implements drive.FilesResource {}
 class MockDriveRevisionsResource extends Mock implements drive.RevisionsResource {}
+class MockPermissionsResource extends Mock implements drive.PermissionsResource {}
 class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
 class MockSpreadsheetsValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 
@@ -24,6 +25,7 @@ void main() {
   late MockSheetsApi mockSheetsApi;
   late MockDriveFilesResource mockFilesResource;
   late MockDriveRevisionsResource mockRevisionsResource;
+  late MockPermissionsResource mockPermissionsResource;
   late MockSpreadsheetsResource mockSpreadsheetsResource;
   late MockSpreadsheetsValuesResource mockValuesResource;
 
@@ -35,6 +37,7 @@ void main() {
     registerFallbackValue(drive.Media(Stream.empty(), 0));
     registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
     registerFallbackValue(Uri());
+    registerFallbackValue(drive.Permission());
   });
 
   setUp(() {
@@ -44,12 +47,14 @@ void main() {
     
     mockFilesResource = MockDriveFilesResource();
     mockRevisionsResource = MockDriveRevisionsResource();
+    mockPermissionsResource = MockPermissionsResource();
     mockSpreadsheetsResource = MockSpreadsheetsResource();
     mockValuesResource = MockSpreadsheetsValuesResource();
 
     // Hook up resources
     when(() => mockDriveApi.files).thenReturn(mockFilesResource);
     when(() => mockDriveApi.revisions).thenReturn(mockRevisionsResource);
+    when(() => mockDriveApi.permissions).thenReturn(mockPermissionsResource);
     when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheetsResource);
     when(() => mockSpreadsheetsResource.values).thenReturn(mockValuesResource);
 
@@ -583,6 +588,94 @@ void main() {
         'companies!A1',
         valueInputOption: 'RAW',
         insertDataOption: 'INSERT_ROWS',
+      )).called(1);
+    });
+
+    test('updateCompany updates row in registry and renames folder', () async {
+      // 1. Find registry ID
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
+
+      // 2. Mock finding the row
+      when(() => mockValuesResource.get('sheet123', 'companies!A2:E'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['target_id', 'Old Name', 'folder123']]));
+
+      // 3. Mock update row
+      when(() => mockValuesResource.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+          .thenAnswer((_) async => sheets.UpdateValuesResponse());
+
+      // 4. Mock folder rename
+      when(() => mockFilesResource.update(any(), any(), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.File());
+
+      final updated = Company(id: 'target_id', name: 'Updated Co', folderId: 'folder123');
+      await driveService.updateCompany('root123', updated);
+
+      // Verify spreadsheet update at target row (index 0 -> row 2)
+      verify(() => mockValuesResource.update(
+        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first[1], 'name', 'Updated Co')),
+        'sheet123',
+        'companies!A2:E2',
+        valueInputOption: 'RAW',
+      )).called(1);
+
+      // Verify folder rename
+      verify(() => mockFilesResource.update(
+        any(that: isA<drive.File>().having((f) => f.name, 'name', 'Updated Co')),
+        'folder123',
+      )).called(1);
+    });
+
+    test('updateCompanyLogo uploads, deletes old, and updates registry', () async {
+      final oldLogoId = 'old_logo_id';
+      final newLogoId = 'new_logo_id';
+      final rootId = 'root123';
+      final companyId = 'c1';
+      final folderId = 'f1';
+
+      // 1. Mock getCompanies (to find folder and old logo)
+      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
+      when(() => mockValuesResource.get('sheet123', 'companies!A2:E')) // From getCompanies
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            [companyId, 'My Co', folderId, 'https://drive.google.com/uc?export=view&id=$oldLogoId', 'owner']
+          ]));
+
+      // 2. Mock delete old logo
+      when(() => mockFilesResource.delete(oldLogoId)).thenAnswer((_) async => null);
+
+      // 3. Mock upload new logo
+      when(() => mockFilesResource.create(any(), uploadMedia: any(named: 'uploadMedia')))
+          .thenAnswer((_) async => drive.File()..id = newLogoId..name = 'logo.png');
+
+      // 4. Mock permissions
+      when(() => mockPermissionsResource.create(any(), any())).thenAnswer((_) async => drive.Permission());
+
+      // 5. Mock registry update (search then update)
+      when(() => mockValuesResource.get('sheet123', 'companies!A2:E')) // Both getCompanies and updateCompany search
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            [companyId, 'My Co', folderId, 'https://drive.google.com/uc?export=view&id=$oldLogoId', 'owner']
+          ]));
+      when(() => mockValuesResource.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+          .thenAnswer((_) async => sheets.UpdateValuesResponse());
+      
+      // 6. Mock folder rename (inside updateCompany)
+      when(() => mockFilesResource.update(any(), any(), $fields: any(named: '\$fields')))
+          .thenAnswer((_) async => drive.File());
+
+      final newUrl = await driveService.updateCompanyLogo(rootId, companyId, [1, 2, 3], 'png');
+
+      expect(newUrl, contains(newLogoId));
+      verify(() => mockFilesResource.delete(any())).called(1);
+      verify(() => mockFilesResource.create(any(), uploadMedia: any(named: 'uploadMedia'))).called(1);
+      verify(() => mockPermissionsResource.create(any(), any())).called(1);
+      
+      // Verify registry update contains new URL
+      verify(() => mockValuesResource.update(
+        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first[3], 'logoUrl', newUrl)),
+        'sheet123',
+        'companies!A2:E2',
+        valueInputOption: 'RAW',
       )).called(1);
     });
   });

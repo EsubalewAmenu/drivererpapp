@@ -1,0 +1,53 @@
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "hr" },
+    "icon": { "label": "Icon", "type": "icon", "value": "badge" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#8B5CF6" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "HR" }
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Active Employees",
+        "formula": "=COUNTIF(employees!F:F, \"Active\")",
+        "format": "number"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "employees",
+      "label": "Employees",
+      "columns": [
+        { "key": "id", "label": "Employee ID", "type": "text", "required": true },
+        { "key": "name", "label": "Full Name", "type": "text", "required": true },
+        { "key": "position", "label": "Position", "type": "text" },
+        { "key": "department", "label": "Department", "type": "select", "options": ["Operations", "Sales", "IT", "HR", "Finance"] },
+        { "key": "email", "label": "Work Email", "type": "email" },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Active", "On Leave", "Terminated"], "required": true }
+      ],
+      "initial_data": [
+        {
+          "id": "EMP001",
+          "name": "Jane Doe",
+          "position": "Manager",
+          "department": "Operations",
+          "email": "jane.doe@example.com",
+          "status": "Active"
+        }
+      ]
+    },
+    {
+      "id": "leave_requests",
+      "label": "Leave Requests",
+      "columns": [
+        { "key": "employee", "label": "Employee", "type": "text" },
+        { "key": "type", "label": "Type", "type": "select", "options": ["Annual", "Sick", "Unpaid"] },
+        { "key": "start_date", "label": "Start Date", "type": "date" },
+        { "key": "end_date", "label": "End Date", "type": "date" },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Pending", "Approved", "Rejected"] }
+      ]
+    }
+  ]
+}
