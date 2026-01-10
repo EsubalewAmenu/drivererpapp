@@ -170,8 +170,14 @@ mixin DriveCompanyMixin {
         'companies!A$rowIndex:E$rowIndex',
         valueInputOption: 'RAW',
       ));
+
+      // 4. Update the actual Drive Folder name for consistency
+      await retryOp(() => driveApi.files.update(
+        drive.File(name: company.name),
+        company.folderId,
+      ));
       
-      debugPrint('Updated company in registry: ${company.name}');
+      debugPrint('Updated company in registry and folder name: ${company.name}');
     } catch (e) {
       debugPrint('Error updating company: $e');
       rethrow;
