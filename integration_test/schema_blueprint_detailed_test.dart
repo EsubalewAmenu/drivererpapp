@@ -105,6 +105,7 @@ void main() {
     // 1. Add a Tab
     final addTabButton = find.text('Add New Tab');
     await tester.ensureVisible(addTabButton);
+    await tester.pumpAndSettle(); // Allow scroll to settle
     await tester.tap(addTabButton);
     await tester.pumpAndSettle();
     
@@ -137,9 +138,19 @@ void main() {
     await tester.tap(addCardButton);
     await tester.pumpAndSettle();
     
-    await tester.enterText(find.widgetWithText(TextField, 'Label'), 'Total Items');
-    await tester.enterText(find.widgetWithText(TextField, 'Spreadsheet Formula'), '=SUM(A:A)');
-    await tester.tap(find.text('Save'));
+    // Select Template
+    await tester.tap(find.text('Summation'));
+    await tester.pumpAndSettle();
+
+    // Toggle to Custom Mode
+    await tester.tap(find.text('Use Formula Builder')); 
+    await tester.pumpAndSettle();
+
+    // Edit Fields
+    await tester.enterText(find.byType(TextField).at(0), 'Total Items');
+    await tester.enterText(find.byType(TextField).at(1), '=SUM(A:A)');
+    
+    await tester.tap(find.text('DONE'));
     await tester.pumpAndSettle();
     
     expect(find.text('Total Items'), findsOneWidget);
