@@ -47,6 +47,7 @@ void main() {
     when(() => mockAccount.email).thenReturn('test@example.com');
     
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
+    when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'module_subfolder');
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
     
     AppTheme.useGoogleFonts = false;

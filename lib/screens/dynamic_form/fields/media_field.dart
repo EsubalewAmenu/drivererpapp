@@ -15,6 +15,7 @@ class DynamicMediaField extends StatefulWidget {
   final Color primaryColor;
   final Function(String) onChanged;
   final String type; // 'image', 'scanner', 'signature'
+  final ModuleSchema? module;
 
   const DynamicMediaField({
     super.key,
@@ -23,6 +24,7 @@ class DynamicMediaField extends StatefulWidget {
     required this.primaryColor,
     required this.onChanged,
     required this.type,
+    this.module,
   });
 
   @override
@@ -303,8 +305,16 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
          return;
       }
       
+      String targetFolderId;
+      if (widget.module != null) {
+        // Create/Get 'module_files' folder inside module folder to keep things organized
+        targetFolderId = await driveService.getOrCreateSubFolder(widget.module!.id, 'module_files');
+      } else {
+        targetFolderId = rootId;
+      }
+
       final fileId = await driveService.uploadFile(
-        rootId, 
+        targetFolderId, 
         fileName, 
         bytes, 
         mimeType: mimeType
