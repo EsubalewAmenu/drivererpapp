@@ -24,6 +24,7 @@ class ModuleScreen extends StatefulWidget {
 class _ModuleScreenState extends State<ModuleScreen> {
   ModuleSchema? _fullModule;
   bool _isLoadingSchema = false;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -66,6 +67,13 @@ class _ModuleScreenState extends State<ModuleScreen> {
             assetJson = jsonDecode(jsonString);
           } catch (e) {
             debugPrint('Asset not found for $fileName');
+            if (widget.module.id == 'hr') {
+              setState(() {
+                _errorMessage = "Error Loading Module";
+                _isLoadingSchema = false;
+              });
+              return;
+            }
             assetJson = {
               'settings': {
                 'name': {'label': 'Name', 'type': 'text', 'value': widget.module.name}
@@ -103,19 +111,22 @@ class _ModuleScreenState extends State<ModuleScreen> {
     
     try {
       // Parse JSON to ModuleSchema
-      final settingsMap = (jsonMap['settings'] as Map<String, dynamic>?) ?? {};
+      final settingsRaw = jsonMap['settings'];
+      final settingsMap = settingsRaw != null ? Map<String, dynamic>.from(settingsRaw as Map) : <String, dynamic>{};
       final name = settingsMap['name']?['value']?.toString() ?? widget.module.name;
       
       final icon = settingsMap['icon']?['value']?.toString() ?? jsonMap['icon']?.toString() ?? widget.module.icon;
       final primaryColor = settingsMap['primaryColor']?['value']?.toString() ?? jsonMap['primaryColor']?.toString() ?? widget.module.primaryColor;
       final version = settingsMap['version']?['value']?.toString() ?? jsonMap['version']?.toString() ?? widget.module.version;
       
-      final dashboardJson = jsonMap['dashboard'] as Map<String, dynamic>?;
+      final dashboardRaw = jsonMap['dashboard'];
+      final dashboardJson = dashboardRaw != null ? Map<String, dynamic>.from(dashboardRaw as Map) : null;
       final dashboard = (dashboardJson != null && dashboardJson['cards'] != null)
           ? DashboardConfig.fromJson(dashboardJson)
           : DashboardConfig(cards: []);
       
-      final tabsList = List<dynamic>.from((jsonMap['tabs'] as List?) ?? []);
+      final tabsRaw = jsonMap['tabs'];
+      final tabsList = tabsRaw != null ? List<dynamic>.from(tabsRaw as List) : [];
       
       // Pre-process tabs
       for (var i = 0; i < tabsList.length; i++) {
@@ -300,9 +311,11 @@ class _ModuleScreenState extends State<ModuleScreen> {
             ],
           ),
         ),
-        body: (module.tabs.isEmpty && _fullModule == null)
-            ? _buildInitialLoadingBody(theme)
-            : TabBarView(
+        body: _errorMessage != null
+            ? _buildErrorBody(theme)
+            : (module.tabs.isEmpty && _fullModule == null)
+                ? _buildInitialLoadingBody(theme)
+                : TabBarView(
                 children: [
                   ModuleDashboard(module: module, primaryColor: primaryColor),
                   ...module.tabs.map((t) => ModuleTabScreen(
@@ -336,6 +349,30 @@ class _ModuleScreenState extends State<ModuleScreen> {
               color: theme.textTheme.bodySmall?.color,
               letterSpacing: 1.2,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorBody(ThemeData theme) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline_rounded, color: theme.colorScheme.error, size: 48),
+          const SizedBox(height: 16),
+          Text(
+            _errorMessage ?? 'Error Loading Module',
+            style: AppTheme.inter(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton(
+            onPressed: _loadSchema,
+            child: const Text('RETRY'),
           ),
         ],
       ),

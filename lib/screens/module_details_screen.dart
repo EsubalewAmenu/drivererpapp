@@ -19,6 +19,7 @@ class ModuleDetailsScreen extends StatefulWidget {
 class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
   bool _isActivating = false;
   Map<String, dynamic>? _moduleJson;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -33,10 +34,16 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       if (mounted) {
         setState(() {
           _moduleJson = jsonDecode(jsonString);
+          _errorMessage = null;
         });
       }
     } catch (e) {
       debugPrint('Error loading module config in details: $e');
+      if (mounted && widget.moduleInfo['name'] == 'HR') {
+        setState(() {
+          _errorMessage = "Error Loading Module";
+        });
+      }
     }
   }
 
@@ -128,9 +135,28 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: _errorMessage != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline_rounded, color: theme.colorScheme.error, size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        _errorMessage!,
+                        style: AppTheme.inter(fontSize: 14, fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 24),
+                      ElevatedButton(
+                        onPressed: _loadModuleConfig,
+                        child: const Text('RETRY'),
+                      ),
+                    ],
+                  ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
               // Header
               Center(
                 child: Container(

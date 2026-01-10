@@ -187,5 +187,66 @@ void main() {
       await expectLater(nullServiceProv.registerNewCompany('id', Company(id: '1', name: 'X', folderId: 'Y')), 
           completes);
     });
+
+    test('currentCompany returns matching company or null', () async {
+      final companies = [
+        Company(id: 'c1', name: 'Co 1', folderId: 'f1'),
+        Company(id: 'c2', name: 'Co 2', folderId: 'f2'),
+      ];
+      
+      // Inject companies
+      when(() => mockDriveService.ensureCompanyRegistry(any())).thenAnswer((_) async => 'reg');
+      when(() => mockDriveService.getCompanies(any())).thenAnswer((_) async => companies);
+      
+      await workspaceProvider.loadCompanies('root');
+      
+      // No workspace set
+      expect(workspaceProvider.currentCompany, isNull);
+
+      // Set workspace matching f2
+      workspaceProvider.setWorkspace(drive.File()..id = 'f2'..name = 'Co 2');
+      expect(workspaceProvider.currentCompany?.id, 'c2');
+
+      // Set workspace with no match
+      workspaceProvider.setWorkspace(drive.File()..id = 'f3');
+      expect(workspaceProvider.currentCompany, isNull);
+    });
+
+    test('updateCompanyName updates registry and currentWorkspace', () async {
+      final initialCompany = Company(id: 'c1', name: 'Old', folderId: 'f1');
+      
+      // Setup mock state manually
+      when(() => mockDriveService.ensureCompanyRegistry(any())).thenAnswer((_) async => 'reg');
+      when(() => mockDriveService.getCompanies(any())).thenAnswer((_) async => [initialCompany]);
+      await workspaceProvider.loadCompanies('rootId');
+      
+      workspaceProvider.setWorkspace(drive.File()..id = 'f1'..name = 'Old');
+
+      when(() => mockDriveService.updateCompany(any(), any())).thenAnswer((_) async => null);
+
+      await workspaceProvider.updateCompanyName('New Name');
+
+      expect(workspaceProvider.companies.first.name, 'New Name');
+      expect(workspaceProvider.currentWorkspace?.name, 'New Name');
+      verify(() => mockDriveService.updateCompany('rootId', any(that: isA<Company>().having((c) => c.name, 'name', 'New Name')))).called(1);
+    });
+
+    test('updateCompanyLogo updates registry and fetches new URL', () async {
+      final initialCompany = Company(id: 'c1', name: 'My Co', folderId: 'f1', logoUrl: 'old');
+      
+      when(() => mockDriveService.ensureCompanyRegistry(any())).thenAnswer((_) async => 'reg');
+      when(() => mockDriveService.getCompanies(any())).thenAnswer((_) async => [initialCompany]);
+      await workspaceProvider.loadCompanies('rootId');
+      
+      workspaceProvider.setWorkspace(drive.File()..id = 'f1'..name = 'My Co');
+
+      when(() => mockDriveService.updateCompanyLogo(any(), any(), any(), any()))
+          .thenAnswer((_) async => 'new_logo_url');
+
+      await workspaceProvider.updateCompanyLogo([1, 2], 'png');
+
+      expect(workspaceProvider.companies.first.logoUrl, 'new_logo_url');
+      verify(() => mockDriveService.updateCompanyLogo('rootId', 'c1', [1, 2], 'png')).called(1);
+    });
   });
 }

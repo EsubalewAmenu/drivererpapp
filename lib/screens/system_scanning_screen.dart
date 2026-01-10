@@ -208,7 +208,7 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
 
               // Terminal-style output
               Text(
-                'SYSTEM INITIALIZATION',
+                'SYSTEM SCANNING',
                 style: AppTheme.inter(
                   color: theme.textTheme.bodyMedium?.color,
                   fontSize: 12,
