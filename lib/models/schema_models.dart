@@ -68,11 +68,17 @@ class DashboardCard {
   final String label;
   final String formula;
   final String format;
+  final String type; // 'kpi', 'line', 'bar', 'pie'
+  
+  // Optional config for charts (e.g. {xAxisLabel: 'Date', yAxisLabel: 'Sales'})
+  final Map<String, dynamic>? config; 
 
   DashboardCard({
     required this.label,
     required this.formula,
     required this.format,
+    this.type = 'kpi',
+    this.config,
   });
 
   factory DashboardCard.fromJson(Map<String, dynamic> json) => _$DashboardCardFromJson(json);

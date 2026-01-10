@@ -63,6 +63,12 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
     // Basic heuristics to pre-fill builder UI
     // Example: =COUNTIF(stocks!D:D, "<10")
     
+    // Charts default to custom for now
+    if (widget.card.type != 'kpi') {
+      _mode = 'custom';
+      return;
+    }
+
     _mode = 'builder'; // Default
     try {
       if (formula.startsWith('=COUNTIF(')) {
@@ -155,6 +161,8 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
                 label: _labelController.text,
                 formula: _mode == 'builder' ? _generateFormula() : _customFormulaController.text,
                 format: _format,
+                type: widget.card.type, // Preserve Type
+                config: widget.card.config,
               ));
             },
             child: Text('DONE', style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.primaryColor)),
@@ -218,7 +226,7 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
                 child: DropdownButton<String>(
                   value: _format,
                   isExpanded: true,
-                  items: ['number', 'currency', 'percent'].map((f) {
+                  items: ['number', 'currency', 'percent', 'text'].map((f) {
                     return DropdownMenuItem(value: f, child: Text(f.toUpperCase()));
                   }).toList(),
                   onChanged: (val) => setState(() => _format = val!),

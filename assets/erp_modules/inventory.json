@@ -21,13 +21,19 @@
     "cards": [
       {
         "label": "Stock Worth",
-        "formula": "=SUMPRODUCT(stock_ledger!E:E, stock_ledger!D:D)", 
+        "formula": "=SUMPRODUCT(stock_ledger!G:G, stock_ledger!F:F)", 
         "format": "currency"
       },
       {
         "label": "Shortages",
-        "formula": "=COUNTIF(stock_ledger!D:D, \"<10\")",
+        "formula": "=COUNTIF(stock_ledger!G:G, \"<10\")",
         "format": "number"
+      },
+      {
+        "label": "Warehouse Activity",
+        "formula": "=CHART(stock_ledger!C:C)",
+        "format": "text",
+        "type": "bar"
       }
     ]
   },
@@ -51,6 +57,27 @@
       "quick_filters": [
         { "label": "All", "key": "all", "field": "warehouse", "operator": "contains", "value": "" },
         { "label": "Main Warehouse", "key": "main_warehouse", "field": "warehouse", "operator": "==", "value": "Main Warehouse" }
+      ],
+      "initial_data": [
+        {
+          "entry_date": "2024-03-20",
+          "item_sku": "INIT-001",
+          "warehouse": "Main Warehouse",
+          "batch": "Initial Stock",
+          "items": [
+            { "item_ref": "DriverERP License", "qty": 100, "cost_price": 50 },
+            { "item_ref": "DataScience Service", "qty": 50, "cost_price": 200 }
+          ]
+        },
+        {
+          "entry_date": "2024-03-21",
+          "item_sku": "INIT-002",
+          "warehouse": "Main Warehouse",
+          "batch": "Q1 Supply",
+          "items": [
+            { "item_ref": "DriverERP License", "qty": 50, "cost_price": 50 }
+          ]
+        }
       ],
       "columns": [
         { "key": "entry_date", "label": "Date", "type": "date", "required": true },
@@ -92,7 +119,7 @@
         "title_key": "item_name",
         "subtitle_logic": {
           "condition_key": "is_item_variants",
-          "truthy_key": "variant_name",
+       "truthy_key": "variant_name",
           "falsy_key": "barcode_sku"
         },
         "trailing_key": "min_stock_alerts",
@@ -112,6 +139,22 @@
       "quick_filters": [
         { "label": "All", "key": "all", "field": "item_name", "operator": "contains", "value": "" },
         { "label": "Low stock", "key": "low_stock", "field": "min_stock_alerts", "operator": "<", "value": "10" }
+      ],
+      "initial_data": [
+        {
+          "item_name": "DriverERP License",
+          "barcode_sku": "ERP-LIC-001",
+          "is_item_variants": false,
+          "min_stock_alerts": 10
+        },
+        {
+          "item_name": "DataScience Service",
+          "barcode_sku": "DS-SRV-001",
+          "is_item_variants": true,
+          "variant_name": "Tier",
+          "variants": ["Standard", "Premium"],
+          "min_stock_alerts": 5
+        }
       ],
       "columns": [
         { "key": "item_image", "label": "Photo", "type": "image" },

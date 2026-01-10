@@ -154,4 +154,12 @@ void main() {
 
     expect(find.text('=COUNTIF(stocks!B:B, "<10")'), findsOneWidget);
   });
+
+  testWidgets('DashboardCardEditScreen supports text format without crashing', (WidgetTester tester) async {
+    final card = DashboardCard(label: 'Comparison', formula: '=CHART(sheet!A:B)', format: 'text', type: 'list');
+    await tester.pumpWidget(createSubject(card));
+    
+    // Expect "TEXT" to be visible (uppercase in dropdown)
+    expect(find.text('TEXT'), findsOneWidget);
+  });
 }

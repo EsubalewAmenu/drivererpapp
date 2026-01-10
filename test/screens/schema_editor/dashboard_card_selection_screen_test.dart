@@ -12,14 +12,20 @@ void main() {
     );
   }
 
-  testWidgets('DashboardCardSelectionScreen renders all 5 options', (WidgetTester tester) async {
+  testWidgets('DashboardCardSelectionScreen renders all 6 options', (WidgetTester tester) async {
     await tester.pumpWidget(createSubject());
 
-    expect(find.text('Simple Counter'), findsOneWidget);
-    expect(find.text('Conditional Count'), findsOneWidget);
-    expect(find.text('Summation'), findsOneWidget);
-    expect(find.text('Average'), findsOneWidget);
-    expect(find.text('Status Tracker'), findsOneWidget);
+    expect(find.text('Number'), findsOneWidget);
+    expect(find.text('Trends'), findsOneWidget);
+    expect(find.text('Comparison'), findsOneWidget);
+    expect(find.text('Distribution'), findsOneWidget);
+    
+    // Scroll to find bottom elements if necessary
+    await tester.drag(find.text('Number'), const Offset(0, -500));
+    await tester.pumpAndSettle();
+    
+    expect(find.text('Goal Status'), findsOneWidget);
+    expect(find.text('Leaderboard'), findsOneWidget);
   });
 
   testWidgets('Tapping on an option returns the correct DashboardCard', (WidgetTester tester) async {
@@ -49,16 +55,17 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify we are on the selection screen
-    expect(find.text('SELECT CARD TYPE'), findsOneWidget);
+    expect(find.text('CHOOSE VISUALIZATION'), findsOneWidget);
 
-    // Tap "Summation" option
-    await tester.tap(find.text('Summation'));
+    // Tap "Trends" (Line Chart) option
+    await tester.tap(find.text('Trends'));
     await tester.pumpAndSettle();
 
     // Verify result
     expect(result, isNotNull);
-    expect(result!.label, equals('Total Value'));
-    expect(result!.formula, equals('=SUM(sheet!C:C)'));
-    expect(result!.format, equals('currency'));
+    expect(result!.label, equals('Revenue Trend'));
+    expect(result!.type, equals('line'));
+    expect(result!.formula, equals('=CHART(sheet!A:B)'));
+    expect(result!.format, equals('number'));
   });
 }

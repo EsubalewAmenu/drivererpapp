@@ -517,5 +517,22 @@ void main() {
       final result = await service.executeGvizQuery('folder', 'File', 'SELECT count(A)');
       expect(result, isNull);
     });
+
+    test('executeGvizTableQuery returns list of maps', () async {
+      when(() => mockHttpClient.get(any())).thenAnswer((_) async {
+        return http.Response(
+            'google.visualization.Query.setResponse({"version":"0.6","status":"ok","table":{"cols":[{"label":"Date"},{"label":"Value"}],"rows":[{"c":[{"v":"Jan"},{"v":100}]},{"c":[{"v":"Feb"},{"v":200}]}]}});', 
+            200
+        );
+      });
+
+      final result = await service.executeGvizTableQuery('folder', 'File', 'SELECT A, B');
+      
+      expect(result, isNotNull);
+      expect(result!.length, 2);
+      expect(result[0]['Date'], 'Jan');
+      expect(result[0]['Value'], 100);
+      expect(result[1]['Value'], 200);
+    });
   });
 }
