@@ -75,10 +75,6 @@ void main() {
   }
 
   testWidgets('Navigation and Theme Integration Test', (tester) async {
-    // Set a standard mobile surface size for consistent hit-testing
-    await tester.binding.setSurfaceSize(const Size(1080, 1920));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
     final workspaceFile = drive.File()
       ..id = 'ws1'
       ..name = 'ERP Lab';
