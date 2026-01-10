@@ -59,8 +59,8 @@ class _EditCardDialogState extends State<EditCardDialog> {
               controller: _formulaController,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(
-                labelText: 'Spreadsheet Formula',
-                helperText: 'e.g. =SUM(A:A)',
+                labelText: 'Rule / Formula',
+                helperText: 'e.g. =COUNTIF(sheet!A:A, "<5")',
               ),
             ),
             const SizedBox(height: 16),

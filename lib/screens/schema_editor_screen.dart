@@ -8,6 +8,7 @@ import 'schema_editor/structure_editor.dart';
 import 'schema_editor/dashboard_editor.dart';
 import 'schema_editor/settings_editor.dart';
 import 'schema_editor/dialogs/edit_card_dialog.dart';
+import 'schema_editor/dashboard_card_selection_screen.dart';
 
 class SchemaEditorScreen extends StatefulWidget {
   final ModuleSchema module;
@@ -205,9 +206,9 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
   }
 
   Future<void> _showAddCardDialog() async {
-    final newCard = await showDialog<DashboardCard>(
-      context: context,
-      builder: (context) => const EditCardDialog(),
+    final newCard = await Navigator.push<DashboardCard>(
+      context,
+      MaterialPageRoute(builder: (context) => const DashboardCardSelectionScreen()),
     );
 
     if (newCard != null) {
