@@ -116,7 +116,10 @@ void main() {
     expect(find.text('Observations'), findsOneWidget);
 
     // 2. Add a Column to the Tab
-    await tester.tap(find.text('Observations'));
+    final observationsTab = find.text('Observations');
+    await tester.ensureVisible(observationsTab);
+    await tester.pumpAndSettle();
+    await tester.tap(observationsTab);
     await tester.pumpAndSettle();
     
     await tester.tap(find.text('Add Column'));
@@ -130,16 +133,23 @@ void main() {
     expect(find.text('TEXT'), findsOneWidget);
 
     // 3. Add a KPI Card
-    await tester.tap(find.text('DASHBOARD'));
+    final dashboardTab = find.text('DASHBOARD');
+    await tester.ensureVisible(dashboardTab);
+    await tester.pumpAndSettle();
+    await tester.tap(dashboardTab);
     await tester.pumpAndSettle();
     
     final addCardButton = find.text('Add Card');
     await tester.ensureVisible(addCardButton);
+    await tester.pumpAndSettle();
     await tester.tap(addCardButton);
     await tester.pumpAndSettle();
     
     // Select Template
-    await tester.tap(find.text('Number'));
+    final numberCard = find.text('Number');
+    await tester.ensureVisible(numberCard);
+    await tester.pumpAndSettle();
+    await tester.tap(numberCard);
     await tester.pumpAndSettle();
 
     // Toggle to Custom Mode
