@@ -5,172 +5,250 @@
     "primaryColor": { "label": "Primary Color", "type": "color", "value": "#2196F3" },
     "version": { "label": "Version", "type": "text", "value": "1.0" },
     "name": { "label": "Name", "type": "text", "value": "Inventory" },
-    "has_multiple_warehouses": { 
-      "label": "Do you have multiple warehouses?", 
+    
+    "enable_variants": { 
+      "label": "Product Variants (Size/Color)?", 
+      "type": "boolean", 
+      "value": true 
+    },
+    "enable_multi_warehouse": { 
+      "label": "Enable Multi-Warehouse?", 
       "type": "boolean", 
       "value": false 
     },
-    "warehouses": { 
-      "label": "Warehouses", 
-      "type": "list", 
-      "value": ["Main Warehouse"],
-      "depends_on": "has_multiple_warehouses" 
+    "enable_procurement": { 
+      "label": "Enable Procurement?", 
+      "type": "boolean", 
+      "value": true 
     }
+
   },
-  "dashboard": {
-    "cards": [
+  "dashboard": {"cards": [
       {
-        "label": "Stock Worth",
-        "formula": "=SUMPRODUCT(stock_ledger!G:G, stock_ledger!F:F)", 
+        "label": "Total Stock Value",
+        "formula": "=SUMPRODUCT(variants!G:G, variants!H:H)", 
         "format": "currency"
       },
       {
-        "label": "Shortages",
-        "formula": "=COUNTIF(stock_ledger!G:G, \"<10\")",
-        "format": "number"
-      },
-      {
-        "label": "Warehouse Activity",
-        "formula": "=CHART(stock_ledger!C:C)",
-        "format": "text",
-        "type": "bar"
+        "label": "Low Stock Alerts",
+        "formula": "=COUNTIF(variants!G:G, \"<10\")",
+        "format": "number",
+        "color": "#F44336"
       }
     ]
   },
   "tabs": [
-    {
-      "id": "stock_ledger",
-      "label": "Stock Entries",
-      "enable_custom_filters": true,
+      {
+        "id": "products",
+        "label": "Product Families",
+        "columns": [
+          { "key": "name", "label": "Product Name", "type": "text", "required": true },
+          { "key": "category", "label": "Category", "type": "select", "options": ["Computers", "Accessories"] },
+          { "key": "brand", "label": "Brand", "type": "text" },
+          { "key": "has_variants", "label": "Has Variants?", "type": "boolean", "default": false }
+        ],
+        "initial_data": [
+          {
+            "record_id": 1,
+            "name": "MacBook Pro M3",
+            "category": "Computers",
+            "brand": "Apple",
+            "has_variants": true
+          },
+          {
+            "record_id": 2,
+            "name": "Aluminum Laptop Stand",
+            "category": "Accessories",
+            "brand": "Rain Design",
+            "has_variants": false
+          }
+        ]
+      },
+      {
+        "id": "variants",
+        "label": "Items / SKUs",
+        "list_template": {
+          "template": "standard",
+          "title_key": "full_name",
+          "subtitle_key": "sku",
+          "trailing_key": "qty_on_hand"
+        },
+        "columns": [
+          { "key": "parent_product", "label": "Product Family", "type": "relation", "options": "products", "display_field": "name", "required": true },
+          { "key": "size", "label": "Size", "type": "select", "options": ["14-inch", "16-inch"], "depends_on": "parent_product.has_variants", "depends_value": true },
+          { "key": "color", "label": "Color", "type": "select", "options": ["Space Gray", "Silver"], "depends_on": "parent_product.has_variants", "depends_value": true },
+          { 
+            "key": "full_name", 
+            "label": "Item Name", 
+            "type": "formula", 
+            "formula": "=IF(parent_product.has_variants, parent_product.name & \" - \" & color & \"/\" & size, parent_product.name)" 
+          },
+          { "key": "sku", "label": "SKU", "type": "scanner", "required": true },
+          { "key": "price", "label": "Selling Price", "type": "currency" },
+          { "key": "qty_on_hand", "label": "Stock", "type": "number", "readonly": true }
+        ],
+        "initial_data": [
+          {
+            "record_id": 101,
+            "parent_product": 1, 
+            "size": "14-inch",
+            "color": "Space Gray",
+            "full_name": "MacBook Pro M3 - Space Gray/14-inch",
+            "sku": "MBP-14-SG",
+            "price": 1599,
+            "qty_on_hand": 10
+          },
+          {
+            "record_id": 102,
+            "parent_product": 1,
+            "size": "16-inch",
+            "color": "Silver",
+            "full_name": "MacBook Pro M3 - Silver/16-inch",
+            "sku": "MBP-16-SL",
+            "price": 2499,
+            "qty_on_hand": 5
+          },
+          {
+            "record_id": 103,
+            "parent_product": 2,
+            "size": "", 
+            "color": "", 
+            "full_name": "Aluminum Laptop Stand", 
+            "sku": "ACC-STD-001",
+            "price": 49.99,
+            "qty_on_hand": 50
+          }
+        ]
+      },
+      {
+        "id": "stock_ledger",
+        "label": "Stock Adjustment",
+        "columns": [
+          { "key": "date", "label": "Date", "type": "date" },
+          { "key": "type", "label": "Type", "type": "select", "options": ["In", "Out"] },
+          { "key": "item_ref", "label": "Item", "type": "relation", "options": "variants", "display_field": "full_name" },
+          { "key": "qty", "label": "Qty", "type": "number" },
+          { "key": "notes", "label": "Note", "type": "text" }
+        ],
+        "initial_data": [
+          {
+            "record_id": 1,
+            "date": "2024-03-01",
+            "type": "In",
+            "item_ref": 101,
+            "qty": 10,
+            "notes": "Initial Apple Shipment"
+          },
+          {
+            "record_id": 2,
+            "date": "2024-03-01",
+            "type": "In",
+            "item_ref": 102,
+            "qty": 5,
+            "notes": "Initial Apple Shipment"
+          },
+          {
+            "record_id": 3,
+            "date": "2024-03-05",
+            "type": "In",
+            "item_ref": 103,
+            "qty": 50,
+            "notes": "Accessory Restock"
+          }
+        ]
+      },
+      {
+      "id": "purchase_orders",
+      "label": "Purchase Orders",
+      "depends_on": "settings.enable_procurement",
       "list_template": {
         "template": "standard",
-        "title_key": "entry_date",
-        "subtitle_key": "warehouse",
-        "detail_keys": ["item_sku", "batch"]
+        "title_key": "po_number",
+        "subtitle_key": "supplier",
+        "trailing_key": "status"
       },
-      "detail_template": {
-        "template": "standard",
-        "title_key": "entry_date",
-        "subtitle_key": "warehouse",
-        "show_all_fields": true
-      },
-      "quick_filters": [
-        { "label": "All", "key": "all", "field": "warehouse", "operator": "contains", "value": "" },
-        { "label": "Main Warehouse", "key": "main_warehouse", "field": "warehouse", "operator": "==", "value": "Main Warehouse" }
-      ],
-      "initial_data": [
-        {
-          "entry_date": "2024-03-20",
-          "item_sku": "INIT-001",
-          "warehouse": "Main Warehouse",
-          "batch": "Initial Stock",
-          "items": [
-            { "item_ref": "DriverERP License", "qty": 100, "cost_price": 50 },
-            { "item_ref": "DataScience Service", "qty": 50, "cost_price": 200 }
-          ]
-        },
-        {
-          "entry_date": "2024-03-21",
-          "item_sku": "INIT-002",
-          "warehouse": "Main Warehouse",
-          "batch": "Q1 Supply",
-          "items": [
-            { "item_ref": "DriverERP License", "qty": 50, "cost_price": 50 }
-          ]
-        }
-      ],
       "columns": [
-        { "key": "entry_date", "label": "Date", "type": "date", "required": true },
-        { "key": "item_sku", "label": "Item SKU", "type": "scanner" },
+        { "key": "po_number", "label": "PO #", "type": "text", "required": true },
         { 
-          "key": "warehouse", 
-          "label": "Warehouse", 
-          "type": "select",
-          "options": "settings.warehouses",
-          "depends_on": "settings.has_multiple_warehouses"
+          "key": "supplier", 
+          "label": "Supplier", 
+          "type": "relation", 
+          "options": "crm.contacts", 
+          "display_field": "name" 
         },
-        { "key": "batch", "label": "Batch Name", "type": "text" },
+        { "key": "date", "label": "Order Date", "type": "date" },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Draft", "Ordered", "Received", "Cancelled"] },
         { 
           "key": "items", 
-          "label": "Items", 
-          "type": "table", 
+          "label": "Order Items", 
+          "type": "table",
           "columns": [
-             { "key": "item_ref", "label": "Select Item", "type": "relation", "options": "items" },
-             { 
-               "key": "variant", 
-               "label": "Variant", 
-               "type": "select", 
-               "options": "item_ref.variants",
-               "depends_on": "item_ref",
-               "dynamic_label": "item_ref.variant_name"
-             },
-             { "key": "qty", "label": "Quantity", "type": "number" },
-             { "key": "cost_price", "label": "Unit Cost", "type": "currency" }
+            { 
+              "key": "sku_ref", 
+              "label": "Item", 
+              "type": "relation", 
+              "options": "variants", 
+              "display_field": "full_name" 
+            },
+            { "key": "qty", "label": "Qty", "type": "number" },
+            { "key": "cost", "label": "Unit Cost", "type": "currency" },
+            { 
+              "key": "line_total", 
+              "label": "Total", 
+              "type": "formula", 
+              "formula": "=qty * cost" 
+            }
           ]
+        },
+        {
+          "key": "grand_total",
+          "label": "Grand Total",
+          "type": "rollup",
+          "source_tab": "self.items",
+          "source_field": "line_total",
+          "function": "sum"
         }
-      ]
-    },
-    {
-      "id": "items",
-      "label": "Item Catalog",
-      "enable_custom_filters": true,
-      "list_template": {
-        "template": "standard",
-        "title_key": "item_name",
-        "subtitle_logic": {
-          "condition_key": "is_item_variants",
-       "truthy_key": "variant_name",
-          "falsy_key": "barcode_sku"
-        },
-        "trailing_key": "min_stock_alerts",
-        "detail_keys": ["is_item_variants"]
-      },
-      "detail_template": {
-        "template": "modern",
-        "title_key": "item_name",
-        "subtitle_logic": {
-          "condition_key": "is_item_variants",
-          "truthy_key": "variant_name",
-          "falsy_key": "barcode_sku"
-        },
-        "image_key": "item_image",
-        "show_all_fields": true
-      },
-      "quick_filters": [
-        { "label": "All", "key": "all", "field": "item_name", "operator": "contains", "value": "" },
-        { "label": "Low stock", "key": "low_stock", "field": "min_stock_alerts", "operator": "<", "value": "10" }
       ],
       "initial_data": [
         {
-          "item_name": "DriverERP License",
-          "barcode_sku": "ERP-LIC-001",
-          "is_item_variants": false,
-          "min_stock_alerts": 10
+          "record_id": 501,
+          "po_number": "PO-2024-APPLE-01",
+          "supplier": 1,
+          "date": "2024-03-01",
+          "status": "Received",
+          "items": [
+            {
+              "sku_ref": 101,
+              "qty": 10,
+              "cost": 1200,
+              "line_total": 12000
+            },
+            {
+              "sku_ref": 102,
+              "qty": 5,
+              "cost": 2100,
+              "line_total": 10500
+            }
+          ],
+          "grand_total": 22500
         },
         {
-          "item_name": "DataScience Service",
-          "barcode_sku": "DS-SRV-001",
-          "is_item_variants": true,
-          "variant_name": "Tier",
-          "variants": ["Standard", "Premium"],
-          "min_stock_alerts": 5
+          "record_id": 502,
+          "po_number": "PO-2024-ACC-02",
+          "supplier": 1,
+          "date": "2024-03-10",
+          "status": "Ordered",
+          "items": [
+            {
+              "sku_ref": 103,
+              "qty": 50,
+              "cost": 25,
+              "line_total": 1250
+            }
+          ],
+          "grand_total": 1250
         }
-      ],
-      "columns": [
-        { "key": "item_image", "label": "Photo", "type": "image" },
-        { "key": "item_name", "label": "Item Name", "type": "text", "required": true },
-        { "key": "barcode_sku", "label": "SKU", "type": "scanner" },
-        { "key": "is_item_variants", "label": "Does it have variants?", "type": "boolean" },
-        { "key": "variant_name", "label": "Variant Name", "type": "text", "depends_on": "is_item_variants" },
-        { 
-          "key": "variants", 
-          "label": "Variants", 
-          "type": "list",
-          "depends_on": "is_item_variants",
-          "default": ["Small", "Big"]
-        },
-        { "key": "min_stock_alerts", "label": "Minimum Stock Alerts", "type": "number" }
       ]
-    }
-  ]
+      }
+    ]
 }
