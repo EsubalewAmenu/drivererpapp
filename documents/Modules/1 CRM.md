@@ -84,12 +84,12 @@ Here is the production-ready JSON. It includes the **Settings** to toggle the ex
     
     // --- FEATURE TOGGLES ---
     "enable_sales": { 
-      "label": "Enable Sales Pipeline?", 
+      "label": "Sales Pipeline", 
       "type": "boolean", 
       "value": true 
     },
     "enable_support": { 
-      "label": "Enable Helpdesk?", 
+      "label": "Helpdesk", 
       "type": "boolean", 
       "value": false 
     }

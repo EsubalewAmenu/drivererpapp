@@ -5,87 +5,101 @@
     "icon": { "label": "Icon", "type": "icon", "value": "people" },
     "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
     "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "CRM" }
+    "name": { "label": "Name", "type": "text", "value": "CRM" },
+  
+    "enable_sales": { 
+      "label": "Sales Pipeline", 
+      "type": "boolean", 
+      "value": true 
+    },
+    "enable_support": { 
+      "label": "Helpdesk", 
+      "type": "boolean", 
+      "value": false 
+    }
+
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Total AR",
-        "formula": "=SUM(contact_directory!G:G)",
+        "label": "Total Customers",
+        "formula": "=COUNTIF(contacts!D:D, \"Customer\")",
+        "format": "number"
+      },
+
+      {
+        "label": "Pipeline Value",
+        "formula": "=SUM(deals!D:D)", 
         "format": "currency"
       },
       {
-        "label": "Partner Roles",
-        "formula": "=CHART(contact_directory!E:E)",
-        "format": "percent",
-        "type": "pie"
+        "label": "Open Tickets",
+        "formula": "=COUNTIF(tickets!C:C, \"Open\")",
+        "format": "number"
       }
     ]
   },
   "tabs": [
     {
-      "id": "contact_directory",
-      "label": "Contact Directory",
+      "id": "contacts",
+      "label": "Directory",
       "enable_custom_filters": true,
       "list_template": {
         "template": "standard",
-        "title_logic": {
-          "condition_key": "is_individual",
-          "truthy_key": "name",
-          "falsy_key": "company_name"
-        },
-        "subtitle_key": "type",
-        "trailing_key": "balance",
+        "title_key": "name",
+        "subtitle_key": "company_name",
+        "trailing_key": "type",
         "detail_keys": ["email", "phone"]
       },
       "detail_template": {
         "template": "standard",
-        "title_logic": {
-          "condition_key": "is_individual",
-          "truthy_key": "name",
-          "falsy_key": "company_name"
-        },
+        "title_key": "name",
         "subtitle_key": "type",
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "All Contacts", "key": "all", "field": "type", "operator": "contains", "value": "" },
-        { "label": "Clients", "key": "clients", "field": "type", "operator": "==", "value": "CLIENT" },
-        { "label": "Suppliers", "key": "suppliers", "field": "type", "operator": "==", "value": "SUPPLIER" },
-        { "label": "Overdue", "key": "overdue", "field": "balance", "operator": ">", "value": 0 }
+        { "label": "Individuals", "key": "individuals", "field": "type", "operator": "==", "value": "Individual" },
+        { "label": "Companies", "key": "companies", "field": "type", "operator": "==", "value": "Company" },
+        { "label": "Customers", "key": "customer", "field": "status", "operator": "==", "value": "Customer" },
+        { "label": "Lead", "key": "lead", "field": "status", "operator": "==", "value": "Lead" },
+        { "label": "Suppliers", "key": "supplier", "field": "status", "operator": "==", "value": "Supplier" }
       ],
       "initial_data": [
         {
-          "is_individual": true,
+          "type": "Individual",
           "name": "Oliver A.",
+          "tin": "N/A",
+          "company": "171234343",
+          "status": "Supplier",
           "email": "esubalewbusiness@gmail.com",
           "phone": "+971551266787",
-          "type": "SUPPLIER",
-          "notes": "Software and mobile apps developer",
-          "balance":"0"
+          "photo": "",
+          "website": "",
+          "notes": "Software and mobile apps developer"
         },
         {
-          "is_individual": false,
-          "company_name": "DataScience Private Limited",
+          "type": "Company",
+          "name": "DataScience Private Limited",
+          "tin": "0104111145",
+          "company": "",
+          "status": "Supplier",
           "email": "datascienceplc@gmail.com",
-          "company_tin": "0104111145",
           "phone": "+251923481783",
-          "type": "SUPPLIER",
-          "notes": "Official Website: datascienceplc.com",
-          "balance":"0"
+          "website": "https://datascienceplc.com",
+          "notes": "Software development and data analysis services provider"
         }
       ],
       "columns": [
-        { "key": "is_individual", "label": "Is individual?", "type": "boolean" },
-        { "key": "name", "label": "Full Name", "type": "text", "depends_on": "is_individual", "required": true },
-        { "key": "company_name", "label": "Company Name", "type": "text", "depends_on": "!is_individual", "required": true },
-        { "key": "company_tin", "label": "Company TIN", "type": "text", "depends_on": "!is_individual" },
-        { "key": "type", "label": "Business Role", "type": "select", "options": ["CLIENT", "SUPPLIER", "BOTH"], "required": true },
-        { "key": "phone", "label": "Phone", "type": "phone" },
+        { "key": "type", "label": "Type", "type": "select", "options": ["Individual", "Company"], "default": "Individual" },
+        { "key": "name", "label": "Name", "type": "text", "required": true },
+        { "key": "tin", "label": "TIN", "type": "text"},
+        { "key": "company", "label": "Company", "type": "relation", "depends_on": "type", "depends_value": "Individual", "options": "contacts" },
+        { "key": "status", "label": "Stage", "type": "select", "options": ["Lead", "Customer", "Supplier"] },
         { "key": "email", "label": "Email", "type": "email" },
-        { "key": "balance", "label": "Ledger Balance", "type": "currency" },
+        { "key": "phone", "label": "Phone", "type": "phone" },
+        { "key": "website", "label": "Website", "type": "text" },
         { "key": "photo", "label": "Photo", "type": "image" },
-        { "key": "notes", "label": "Intelligence", "type": "text" }
+        { "key": "notes", "label": "Note", "type": "text" }
       ]
     }
   ]
