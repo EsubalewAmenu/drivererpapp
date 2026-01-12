@@ -46,7 +46,7 @@ void main() {
 
   testWidgets('DashboardScreen renders KPIs and modules', (WidgetTester tester) async {
     final mockFile = MockDriveFile();
-    when(() => mockFile.name).thenReturn('Sales');
+    when(() => mockFile.name).thenReturn('HR');
     when(() => mockFile.id).thenReturn('mod123');
 
     when(() => mockDriveService.listModules('ws123'))
@@ -60,7 +60,7 @@ void main() {
     expect(find.text('NET PROFIT ENGINE'), findsOneWidget);
     expect(find.text('CORE MODULES'), findsOneWidget);
     
-    expect(find.text('Sales'), findsAtLeastNWidgets(1));
+    expect(find.text('HR'), findsAtLeastNWidgets(1));
   });
 
   testWidgets('DashboardScreen period selection changes KPIs', (WidgetTester tester) async {

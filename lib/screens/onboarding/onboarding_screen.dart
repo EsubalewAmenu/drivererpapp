@@ -205,7 +205,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildToolkitStep(ThemeData theme) {
-    final modules = ['Inventory', 'CRM', 'HR', 'Accounting', 'Sales'];
+    final modules = ['Inventory', 'CRM', 'HR', 'Finance', 'Deals'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
