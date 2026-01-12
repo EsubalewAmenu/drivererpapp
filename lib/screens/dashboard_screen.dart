@@ -26,6 +26,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   
   final List<Map<String, String>> _catalog = [
     {'name': 'CRM', 'icon': 'people', 'desc': 'Customer Relationship Management', 'color': '#3B82F6'}, // Blue
+    {'name': 'Deals', 'icon': 'people', 'desc': 'CRM extenssion - Sales Pipeline', 'color': '#3B82F6'}, // Blue
     {'name': 'Inventory', 'icon': 'inventory', 'desc': 'Stock & Warehouse', 'color': '#F59E0B'}, // Amber
     {'name': 'HR', 'icon': 'badge', 'desc': 'Human Resources', 'color': '#8B5CF6'}, // Violet
     {'name': 'Sales', 'icon': 'shopping_cart', 'desc': 'Orders & Invoices', 'color': '#10B981'}, // Emerald

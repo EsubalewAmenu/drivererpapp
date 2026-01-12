@@ -66,18 +66,6 @@
       ],
       "initial_data": [
         {
-          "type": "Individual",
-          "name": "Oliver A.",
-          "tin": "N/A",
-          "company": "171234343",
-          "status": "Supplier",
-          "email": "esubalewbusiness@gmail.com",
-          "phone": "+971551266787",
-          "photo": "",
-          "website": "",
-          "notes": "Software and mobile apps developer"
-        },
-        {
           "type": "Company",
           "name": "DataScience Private Limited",
           "tin": "0104111145",
@@ -86,7 +74,21 @@
           "email": "datascienceplc@gmail.com",
           "phone": "+251923481783",
           "website": "https://datascienceplc.com",
-          "notes": "Software development and data analysis services provider"
+          "notes": "Software development and data analysis services provider",
+          "record_id": 1
+        },
+        {
+          "type": "Individual",
+          "name": "Oliver A.",
+          "tin": "",
+          "company": 1,
+          "status": "Supplier",
+          "email": "esubalewbusiness@gmail.com",
+          "phone": "+971551266787",
+          "photo": "",
+          "website": "",
+          "notes": "Software and mobile apps developer",
+          "record_id": 2
         }
       ],
       "columns": [
@@ -100,38 +102,6 @@
         { "key": "website", "label": "Website", "type": "text" },
         { "key": "photo", "label": "Photo", "type": "image" },
         { "key": "notes", "label": "Note", "type": "text" }
-      ]
-    },
-
-    {
-      "id": "deals",
-      "label": "Sales Pipeline",
-      "depends_on": "settings.enable_sales",
-      "list_template": {
-        "template": "kanban", 
-        "group_by": "stage",
-        "title_key": "deal_name",
-        "subtitle_key": "amount",
-        "trailing_key": "owner"
-      },
-      "columns": [
-        { "key": "deal_name", "label": "Deal Name", "type": "text", "required": true },
-        { 
-          "key": "related_contact", 
-          "label": "Customer", 
-          "type": "relation", 
-          "options": "contacts", 
-          "display_field": "name" 
-        },
-        { 
-          "key": "stage", 
-          "label": "Stage", 
-          "type": "select", 
-          "options": ["New", "Qualified", "Proposal", "Negotiation", "Won", "Lost"] 
-        },
-        { "key": "amount", "label": "Value", "type": "currency" },
-        { "key": "close_date", "label": "Expected Close", "type": "date" },
-        { "key": "owner", "label": "Owner", "type": "email", "default": "user.email", "readonly": true }
       ]
     }
   ]

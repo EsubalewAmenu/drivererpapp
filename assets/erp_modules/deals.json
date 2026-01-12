@@ -1,0 +1,66 @@
+
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "deals" },
+    "icon": { "label": "Icon", "type": "icon", "value": "people" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Deals" },
+  
+    "depends_on": ["crm"]
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Pipeline Value",
+        "formula": "=SUM(deals!D:D)", 
+        "format": "currency"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "deals",
+      "label": "Sales Pipeline",
+      "depends_on": "settings.enable_sales",
+      "list_template": {
+        "template": "kanban", 
+        "group_by": "stage",
+        "title_key": "deal_name",
+        "subtitle_key": "amount",
+        "trailing_key": "owner"
+      },
+
+      "initial_data": [
+        {
+          "deal_name": "Staff financing deal",
+          "related_contact": 2,
+          "stage": "New",
+          "amount": 120000,
+          "close_date": "2026-01-30",
+          "owner": "esubalewbusiness@gmail.com",
+          "record_id": 1
+        }
+      ],
+      "columns": [
+        { "key": "deal_name", "label": "Deal Name", "type": "text", "required": true },
+        { 
+          "key": "related_contact", 
+          "label": "Customer", 
+          "type": "relation", 
+          "options": "contacts", 
+          "display_field": "name" 
+        },
+        { 
+          "key": "stage", 
+          "label": "Stage", 
+          "type": "select", 
+          "options": ["New", "Qualified", "Proposal", "Negotiation", "Won", "Lost"] 
+        },
+        { "key": "amount", "label": "Value", "type": "currency" },
+        { "key": "close_date", "label": "Expected Close", "type": "date" },
+        { "key": "owner", "label": "Owner", "type": "email", "default": "user.email", "readonly": true }
+      ]
+    }
+  ]
+}
