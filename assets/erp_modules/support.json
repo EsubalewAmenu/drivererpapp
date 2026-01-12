@@ -1,25 +1,61 @@
+
 {
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "support" },
-    "icon": { "label": "Icon", "type": "icon", "value": "support_agent" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#F97316" },
+    "id": { "label": "Module ID", "type": "text", "value": "tickets" },
+    "icon": { "label": "Icon", "type": "icon", "value": "people" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
     "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Support" }
+    "name": { "label": "Name", "type": "text", "value": "Support Tickets" },
+  
+    "depends_on": ["crm"]
   },
   "dashboard": {
     "cards": [
-      { "label": "Open Tickets", "formula": "=COUNTIF(tickets!C:C, \"Open\")", "format": "number" }
+      {
+        "label": "Open Tickets",
+        "formula": "=COUNTIF(tickets!C:C, \"Open\")",
+        "format": "number"
+      }
     ]
   },
   "tabs": [
     {
       "id": "tickets",
       "label": "Support Tickets",
+      "enable_custom_filters": true,
+      "list_template": {
+        "template": "standard",
+        "title_key": "subject",
+        "subtitle_key": "status",
+        "trailing_key": "priority"
+      },
+      "quick_filters": [
+         { "label": "My Tickets", "key": "my_tickets", "field": "assigned_to", "operator": "==", "value": "user.email" },
+         { "label": "Critical", "key": "critical", "field": "priority", "operator": "==", "value": "Critical" }
+      ],
+      "initial_data": [
+        {
+          "subject": "Laptop not turning on",
+          "related_client": 1,
+          "priority": "Critical",
+          "status": "Open",
+          "description": "Client reports that their laptop is not powering on despite being charged.",
+          "assigned_to": "esubalewbusiness@gmail.com"
+        }
+      ],
       "columns": [
-        { "key": "id", "label": "Ticket #", "type": "text" },
-        { "key": "subject", "label": "Subject", "type": "text" },
+        { "key": "subject", "label": "Subject", "type": "text", "required": true },
+        { 
+          "key": "related_client", 
+          "label": "Client", 
+          "type": "relation", 
+          "options": "contacts",
+          "display_field": "name"
+        },
+        { "key": "priority", "label": "Priority", "type": "select", "options": ["Low", "Medium", "High", "Critical"] },
         { "key": "status", "label": "Status", "type": "select", "options": ["Open", "In Progress", "Resolved"] },
-        { "key": "priority", "label": "Priority", "type": "select", "options": ["Low", "Medium", "High"] }
+        { "key": "description", "label": "Details", "type": "long_text" },
+        { "key": "assigned_to", "label": "Assigned Agent", "type": "email" }
       ]
     }
   ]

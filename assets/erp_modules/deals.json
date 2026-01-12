@@ -22,7 +22,7 @@
     {
       "id": "deals",
       "label": "Sales Pipeline",
-      "depends_on": "settings.enable_sales",
+      "enable_custom_filters": true,
       "list_template": {
         "template": "kanban", 
         "group_by": "stage",
@@ -41,6 +41,10 @@
           "owner": "esubalewbusiness@gmail.com",
           "record_id": 1
         }
+      ],
+      "quick_filters": [
+         { "label": "My Deals", "key": "my_deals", "field": "owner", "operator": "==", "value": "user.email" },
+         { "label": "New", "key": "new_stage", "field": "stage", "operator": "==", "value": "New" }
       ],
       "columns": [
         { "key": "deal_name", "label": "Deal Name", "type": "text", "required": true },
