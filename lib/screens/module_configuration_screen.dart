@@ -428,7 +428,16 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
       final moduleName = _formValues['name'] ?? widget.moduleInfo['name']!;
 
       // Create the module folder in Drive
-      final createdModule = await driveService.createWorkspace(workspaceId, moduleName);
+      final _createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
+      dynamic createdModule;
+      if (_createdModuleRes is Future) {
+        createdModule = await _createdModuleRes;
+      } else {
+        createdModule = _createdModuleRes;
+      }
+      if (createdModule == null || createdModule.id == null) {
+        throw Exception('Failed to create module folder');
+      }
       final moduleFolderId = createdModule.id!;
       
       // Auto-seed Initial Data
@@ -442,12 +451,13 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
             for (var record in initialData) {
               if (record is Map<String, dynamic>) {
                 try {
-                  await driveService.saveRecord(
-                    moduleFolderId, 
-                    moduleName, 
-                    tabId, 
-                    record
+                  final res = (driveService as dynamic).saveRecord(
+                    moduleFolderId,
+                    moduleName,
+                    tabId,
+                    record,
                   );
+                  if (res is Future) await res;
                 } catch (e) {
                   debugPrint('Error seeding record for $tabId: $e');
                 }
@@ -455,7 +465,13 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
             }
               // After seeding, capture the created spreadsheet id and attach to the tab
               try {
-                final existingId = await driveService.getFileId(moduleFolderId, tabId);
+                final _existingIdRes = (driveService as dynamic).getFileId(moduleFolderId, tabId);
+                dynamic existingId;
+                if (_existingIdRes is Future) {
+                  existingId = await _existingIdRes;
+                } else {
+                  existingId = _existingIdRes;
+                }
                 if (existingId != null) {
                   tab['fileId'] = existingId;
                 }
@@ -469,12 +485,23 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
       // Create config folder and default config file now (so module has config immediately)
       try {
         if (_moduleJson != null) {
-          final configFolderId = await driveService.getOrCreateSubFolder(moduleFolderId, 'config');
+          final _configFolderRes = (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
+          dynamic configFolderId;
+          if (_configFolderRes is Future) {
+            configFolderId = await _configFolderRes;
+          } else {
+            configFolderId = _configFolderRes;
+          }
           final authService = Provider.of<AuthService>(context, listen: false);
           final userEmail = authService.currentUser?.email;
           final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}_config' : 'config';
           try {
-            await driveService.createModuleConfig(configFolderId, configFileName, _moduleJson!);
+            if (configFolderId != null) {
+              final _createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
+              if (_createCfgRes is Future) await _createCfgRes;
+            } else {
+              debugPrint('Config folder not created; skipping default config creation');
+            }
           } catch (e) {
             debugPrint('Failed to create default module config during activation: $e');
           }
@@ -496,9 +523,16 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
       }
       // Register the module in the company registry under 'modules' sheet.
       try {
-        final rootFolderId = workspaceProvider.rootFolderId ?? await driveService.checkRootFolder();
+        final _rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
+        dynamic rootFolderId;
+        if (_rootRes is Future) {
+          rootFolderId = await _rootRes;
+        } else {
+          rootFolderId = _rootRes;
+        }
         if (rootFolderId != null) {
-          await driveService.registerModule(rootFolderId, workspaceId, moduleName, moduleFolderId);
+          final _regRes = (driveService as dynamic).registerModule(rootFolderId, workspaceId, moduleName, moduleFolderId);
+          if (_regRes is Future) await _regRes;
         } else {
           debugPrint('Root folder id not available; skipping module registry write');
         }

@@ -174,12 +174,13 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         
         _updateStatus('Preparing data...');
 
-        await driveProvider.driveService!.saveRecord(
+        final res = (driveProvider.driveService as dynamic).saveRecord(
           widget.module!.id,
           widget.module!.name,
           widget.tab.id,
           _formData,
         );
+        if (res is Future) await res;
         
         _updateStatus('Done!');
         
