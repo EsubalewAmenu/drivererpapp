@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
 import '../providers/workspace_provider.dart';
@@ -91,6 +92,23 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
             }
           }
         }
+      }
+
+      // Create config folder and default config file now (so module has config immediately)
+      try {
+        if (_moduleJson != null) {
+          final configFolderId = await driveService.getOrCreateSubFolder(moduleFolderId, 'config');
+          final authService = Provider.of<AuthService>(context, listen: false);
+          final userEmail = authService.currentUser?.email;
+          final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}_config' : 'config';
+          try {
+            await driveService.createModuleConfig(configFolderId, configFileName, _moduleJson!);
+          } catch (e) {
+            debugPrint('Failed to create default module config during activation: $e');
+          }
+        }
+      } catch (e) {
+        debugPrint('Error ensuring config folder during activation: $e');
       }
 
       if (mounted) {

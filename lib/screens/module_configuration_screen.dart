@@ -457,6 +457,23 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         }
       }
 
+      // Create config folder and default config file now (so module has config immediately)
+      try {
+        if (_moduleJson != null) {
+          final configFolderId = await driveService.getOrCreateSubFolder(moduleFolderId, 'config');
+          final authService = Provider.of<AuthService>(context, listen: false);
+          final userEmail = authService.currentUser?.email;
+          final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}_config' : 'config';
+          try {
+            await driveService.createModuleConfig(configFolderId, configFileName, _moduleJson!);
+          } catch (e) {
+            debugPrint('Failed to create default module config during activation: $e');
+          }
+        }
+      } catch (e) {
+        debugPrint('Error ensuring config folder during activation: $e');
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$moduleName activated successfully!')),
