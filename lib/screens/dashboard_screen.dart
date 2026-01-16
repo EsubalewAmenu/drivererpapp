@@ -30,10 +30,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     {'name': 'Support', 'icon': 'support_agent', 'desc': 'Helpdesk & Tickets', 'color': '#F97316'}, // Orange
     {'name': 'Inventory', 'icon': 'inventory', 'desc': 'Stock & Warehouse', 'color': '#F59E0B'}, // Amber
     {'name': 'HR', 'icon': 'badge', 'desc': 'Human Resources', 'color': '#8B5CF6'}, // Violet
+    {'name': 'Finance', 'icon': 'account_balance', 'desc': 'Financial Records', 'color': '#6366F1'}, // Indigo
     // {'name': 'Marketing', 'icon': 'campaign', 'desc': 'Campaigns & Leads', 'color': '#EC4899'}, // Pink
     // {'name': 'Expenses', 'icon': 'receipt_long', 'desc': 'Cost Tracking', 'color': '#EF4444'}, // Red
     // {'name': 'Projects', 'icon': 'assignment', 'desc': 'Task Management', 'color': '#14B8A6'}, // Teal
-    // {'name': 'Finance', 'icon': 'account_balance', 'desc': 'Financial Records', 'color': '#6366F1'}, // Indigo
     // {'name': 'Analytics', 'icon': 'analytics', 'desc': 'Business Intelligence', 'color': '#06B6D4'}, // Cyan
   ];
   
