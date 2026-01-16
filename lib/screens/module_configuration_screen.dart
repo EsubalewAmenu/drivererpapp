@@ -453,6 +453,15 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                 }
               }
             }
+              // After seeding, capture the created spreadsheet id and attach to the tab
+              try {
+                final existingId = await driveService.getFileId(moduleFolderId, tabId);
+                if (existingId != null) {
+                  tab['fileId'] = existingId;
+                }
+              } catch (e) {
+                debugPrint('Error fetching fileId for $tabId after seeding: $e');
+              }
           }
         }
       }
