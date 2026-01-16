@@ -23,6 +23,7 @@ class ModuleScreen extends StatefulWidget {
 
 class _ModuleScreenState extends State<ModuleScreen> {
   ModuleSchema? _fullModule;
+  ModuleSchema? _baseModule;
   bool _isLoadingSchema = false;
   String? _errorMessage;
 
@@ -184,6 +185,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
         dashboard: dashboard,
         tabs: tabs,
       );
+
+      // Keep the original loaded module (without tabs merged from enabled modules)
+      _baseModule = loadedModule;
 
       // If settings enable other modules, load their tabs and append
       final combinedTabs = <TabConfig>[];
@@ -374,7 +378,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SchemaEditorScreen(module: module)),
+                  MaterialPageRoute(builder: (context) => SchemaEditorScreen(module: _baseModule ?? widget.module)),
                 ).then((_) {
                   // Reload the schema when callback from editor
                   _loadSchema();
