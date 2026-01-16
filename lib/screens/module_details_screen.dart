@@ -104,6 +104,17 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
           (route) => false,
         );
       }
+      // Register the module in the company registry under 'modules' sheet.
+      try {
+        final rootFolderId = workspaceProvider.rootFolderId ?? await driveService.checkRootFolder();
+        if (rootFolderId != null) {
+          await driveService.registerModule(rootFolderId, workspaceId, moduleName, moduleFolderId);
+        } else {
+          debugPrint('Root folder id not available; skipping module registry write');
+        }
+      } catch (e) {
+        debugPrint('Failed to register module in registry: $e');
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

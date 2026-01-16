@@ -31,7 +31,13 @@ mixin DriveCompanyMixin {
               title: 'companies',
               gridProperties: sheets.GridProperties(frozenRowCount: 1)
             ),
-          )
+          ),
+          sheets.Sheet(
+            properties: sheets.SheetProperties(
+              title: 'modules',
+              gridProperties: sheets.GridProperties(frozenRowCount: 1)
+            ),
+          ),
         ],
       );
 
@@ -50,14 +56,22 @@ mixin DriveCompanyMixin {
         $fields: 'id, parents',
       );
 
-      // 4. Add Headers
-      final headers = ['id', 'name', 'folderId', 'logoUrl', 'role'];
-      final valueRange = sheets.ValueRange(values: [headers]);
-      
+      // 4. Add Headers for both sheets
+      final companyHeaders = ['id', 'name', 'folderId', 'logoUrl', 'role'];
+      final modulesHeaders = ['moduleId', 'moduleName', 'workspaceId', 'folderId'];
+
+      // Write headers to companies and modules
       await retryOp(() => sheetsApi.spreadsheets.values.update(
-        valueRange,
+        sheets.ValueRange(values: [companyHeaders]),
         fileId!,
         'companies!A1',
+        valueInputOption: 'RAW',
+      ));
+
+      await retryOp(() => sheetsApi.spreadsheets.values.update(
+        sheets.ValueRange(values: [modulesHeaders]),
+        fileId!,
+        'modules!A1',
         valueInputOption: 'RAW',
       ));
 
@@ -65,6 +79,28 @@ mixin DriveCompanyMixin {
       return fileId;
     } catch (e) {
       debugPrint('Error ensuring company registry: $e');
+      rethrow;
+    }
+  }
+
+  /// Registers a module in the companies registry under the 'modules' sheet.
+  Future<void> registerModule(String rootFolderId, String workspaceId, String moduleName, String folderId) async {
+    try {
+      final fileId = await ensureCompanyRegistry(rootFolderId);
+      final row = [folderId, moduleName, workspaceId, folderId];
+      final valueRange = sheets.ValueRange(values: [row]);
+
+      await retryOp(() => sheetsApi.spreadsheets.values.append(
+        valueRange,
+        fileId,
+        'modules!A1',
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+      ));
+
+      debugPrint('Registered module $moduleName in modules sheet');
+    } catch (e) {
+      debugPrint('Error registering module in registry: $e');
       rethrow;
     }
   }
