@@ -69,13 +69,13 @@ void main() {
     debugPrint('TEST: Starting dashboard_interaction_test (Period & Navigation)');
     
     final workspace = drive.File()..id = 'ws1'..name = 'ERP Lab';
-    final moduleFile = drive.File()..id = 'mod1'..name = 'Sales';
+    final moduleFile = drive.File()..id = 'mod1'..name = 'CRM';
     
     when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFile]);
     when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_id');
     when(() => mockDriveService.readModuleConfig('config_id')).thenAnswer((_) async => <String, dynamic>{
       'id': 'mod1',
-      'name': 'Sales',
+      'name': 'CRM',
       'icon': 'trending_up',
       'primaryColor': '#4F46E5',
       'tabs': [],
@@ -106,12 +106,12 @@ void main() {
     expect(find.textContaining('7000'), findsOneWidget);
 
     // 3. Navigate to Module
-    final salesCard = find.text('Sales');
-    await tester.ensureVisible(salesCard);
-    await tester.tap(salesCard);
+    final crmCard = find.text('CRM');
+    await tester.ensureVisible(crmCard);
+    await tester.tap(crmCard);
     await tester.pumpAndSettle();
 
-    expect(find.text('SALES'), findsOneWidget);
+    expect(find.text('CRM'), findsOneWidget);
   });
 
   testWidgets('Dashboard: Workspace Switching via Drawer', (tester) async {
