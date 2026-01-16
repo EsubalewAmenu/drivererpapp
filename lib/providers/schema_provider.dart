@@ -26,6 +26,15 @@ class SchemaProvider extends ChangeNotifier {
     }
   }
 
+  /// Attempts to find a cached module that contains a tab with the given tab id.
+  ModuleSchema? findModuleByTabId(String tabId) {
+    try {
+      return _memoryCache.values.firstWhere((m) => m.tabs.any((t) => t.id == tabId));
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Updates the memory cache.
   void updateMemoryCache(String moduleId, ModuleSchema? schema) {
     if (schema == null) {

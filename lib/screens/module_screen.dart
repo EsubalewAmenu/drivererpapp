@@ -251,9 +251,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
                   }
                 }).toList();
 
-                // Prefix ids to avoid collisions and mark origin
+                // Prefix ids to avoid collisions and mark origin. Use the authoritative
+                // module id from the other module's settings if available (not the
+                // enable_ key), so tab ids remain consistent with the source config.
+                final authoritativeOtherId = otherSettingsMap['id']?['value']?.toString() ?? otherModuleId;
                 for (var ot in parsedOtherTabs) {
-                  final newId = '${otherModuleId}_${ot.id}';
+                  final newId = authoritativeOtherId == ot.id ? ot.id : '${authoritativeOtherId}_${ot.id}';
                   combinedTabs.add(ot.copyWith(id: newId));
                 }
 
@@ -264,8 +267,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
                   final otherIcon = otherSettingsMap['icon']?['value']?.toString() ?? '';
                   final otherPrimary = otherSettingsMap['primaryColor']?['value']?.toString() ?? '#2196F3';
                   final otherVersion = otherSettingsMap['version']?['value']?.toString() ?? '1.0';
+                  final authoritativeOtherId = otherSettingsMap['id']?['value']?.toString() ?? otherModuleId;
                   final otherModuleSchema = ModuleSchema(
-                    id: widget.module.id,
+                    id: authoritativeOtherId,
                     name: otherModuleName,
                     icon: otherIcon,
                     primaryColor: otherPrimary,
@@ -274,13 +278,14 @@ class _ModuleScreenState extends State<ModuleScreen> {
                     dashboard: DashboardConfig(cards: []),
                     tabs: parsedOtherTabs,
                   );
-                  Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(otherModuleId, otherModuleSchema);
+                  Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(authoritativeOtherId, otherModuleSchema);
                 } catch (_) {}
               }
             } else {
               // Append tabs from loaded otherModule
+              // Use the actual other module id when prefixing (this is authoritative)
               for (var ot in otherModule.tabs) {
-                final newId = '${otherModuleId}_${ot.id}';
+                final newId = otherModule.id == ot.id ? ot.id : '${otherModule.id}_${ot.id}';
                 combinedTabs.add(ot.copyWith(id: newId));
               }
             }
@@ -427,14 +432,26 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 children: [
                   ModuleDashboard(module: module, primaryColor: primaryColor),
                   ...module.tabs.map((t) {
-                    // Determine source module for this tab if prefixed like '{moduleId}_tabid'
+                    // Determine source module for this tab. Tabs may be prefixed
+                    // like '{moduleId}_tabid' or may use the authoritative tab id
+                    // (e.g. 'tickets') — attempt to resolve the real module from
+                    // the cache so data fetches use the external module's folder.
                     ModuleSchema sourceModule = module;
                     try {
                       final parts = t.id.split('_');
                       if (parts.length > 1) {
                         final prefix = parts[0];
                         final candidate = Provider.of<SchemaProvider>(context, listen: false).getFromMemory(prefix);
-                        if (candidate != null) sourceModule = candidate;
+                        if (candidate != null) {
+                          sourceModule = candidate;
+                        }
+                      }
+
+                      // If still unresolved (common when tab id is just 'tickets'),
+                      // search cached modules to find one that contains this tab id.
+                      if (sourceModule == module) {
+                        final byTab = Provider.of<SchemaProvider>(context, listen: false).findModuleByTabId(t.id);
+                        if (byTab != null) sourceModule = byTab;
                       }
                     } catch (_) {}
 
