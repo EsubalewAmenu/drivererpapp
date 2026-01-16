@@ -256,6 +256,26 @@ class _ModuleScreenState extends State<ModuleScreen> {
                   final newId = '${otherModuleId}_${ot.id}';
                   combinedTabs.add(ot.copyWith(id: newId));
                 }
+
+                // Cache a minimal ModuleSchema for the enabled module so later
+                // lookups by id/name resolve correctly when building tabs.
+                try {
+                  final otherModuleName = otherSettingsMap['name']?['value']?.toString() ?? otherModuleId;
+                  final otherIcon = otherSettingsMap['icon']?['value']?.toString() ?? '';
+                  final otherPrimary = otherSettingsMap['primaryColor']?['value']?.toString() ?? '#2196F3';
+                  final otherVersion = otherSettingsMap['version']?['value']?.toString() ?? '1.0';
+                  final otherModuleSchema = ModuleSchema(
+                    id: widget.module.id,
+                    name: otherModuleName,
+                    icon: otherIcon,
+                    primaryColor: otherPrimary,
+                    version: otherVersion,
+                    settings: {},
+                    dashboard: DashboardConfig(cards: []),
+                    tabs: parsedOtherTabs,
+                  );
+                  Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(otherModuleId, otherModuleSchema);
+                } catch (_) {}
               }
             } else {
               // Append tabs from loaded otherModule
