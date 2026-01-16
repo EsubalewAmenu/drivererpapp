@@ -10,7 +10,7 @@
     "enable_deals": { 
       "label": "Sales Pipeline", 
       "type": "boolean", 
-      "value": true 
+      "value": false 
     },
     "enable_support": { 
       "label": "Helpdesk", 
