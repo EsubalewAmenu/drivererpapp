@@ -25,23 +25,7 @@ class SchemaEditorScreen extends StatefulWidget {
 }
 
 class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTickerProviderStateMixin {
-    List<TabConfig> _getTabsWithExternal(BuildContext context) {
-      final tabs = List<TabConfig>.from(_tabs);
-      final settings = widget.module.settings;
-      for (final entry in settings.entries) {
-        final key = entry.key;
-        final setting = entry.value;
-        if (key.startsWith('enable_') && setting.value == true) {
-          final otherModuleId = key.substring('enable_'.length);
-          final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
-          final otherModule = schemaProvider.getFromMemory(otherModuleId);
-          if (otherModule != null) {
-            tabs.addAll(otherModule.tabs.map((t) => t.copyWith(id: '${otherModuleId}_${t.id}')));
-          }
-        }
-      }
-      return tabs;
-    }
+
   late TabController _tabController;
   
   // Editable State
@@ -126,7 +110,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
         controller: _tabController,
         children: [
           StructureEditor(
-            tabs: _getTabsWithExternal(context),
+            tabs: _tabs,
             rawSettings: _rawSettings,
             onTabsChanged: (newTabs) {
               setState(() {
