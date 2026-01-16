@@ -155,6 +155,7 @@
           "filter": { "key": "type", "value": "Expense" }
         },
         { "key": "amount", "label": "Amount", "type": "currency" },
+        { "key": "bill_date", "label": "Bill Date", "type": "date" },
         { "key": "status", "label": "Status", "type": "select", "options": ["Received", "Approved", "Paid"] },
         { "key": "receipt_image", "label": "Receipt Photo", "type": "image" }
       ],
