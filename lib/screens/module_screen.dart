@@ -44,7 +44,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final cachedJson = await schemaService.getCachedConfig(widget.module.id);
       if (cachedJson != null) {
         debugPrint('Loading module ${widget.module.id} from cache...');
-        _processJson(cachedJson);
+        await _processJson(cachedJson);
         
         // Background sync after UI settles
         Future.delayed(const Duration(milliseconds: 1500), () {
@@ -76,7 +76,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
               'tabs': [],
             };
           }
-          _processJson(assetJson, isAssetFallback: true);
+          await _processJson(assetJson, isAssetFallback: true);
         }
       });
 
@@ -91,7 +91,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final newJson = await schemaService.syncConfig(widget.module.id);
       if (newJson != null && mounted) {
         debugPrint('Module ${widget.module.id} schema updated from Drive.');
-        _processJson(newJson);
+        await _processJson(newJson);
       }
       return newJson;
     } catch (e) {
@@ -100,7 +100,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
     }
   }
 
-  void _processJson(Map<String, dynamic> jsonMap, {bool isAssetFallback = false}) {
+  Future<void> _processJson(Map<String, dynamic> jsonMap, {bool isAssetFallback = false}) async {
     if (!mounted) return;
     
     try {
@@ -185,12 +185,104 @@ class _ModuleScreenState extends State<ModuleScreen> {
         tabs: tabs,
       );
 
+      // If settings enable other modules, load their tabs and append
+      final combinedTabs = <TabConfig>[];
+      combinedTabs.addAll(tabs);
+
+      for (final entry in settingsItems.entries) {
+        final key = entry.key;
+        final setting = entry.value;
+        if (key.startsWith('enable_') && (setting.value is bool) && (setting.value == true)) {
+          final otherModuleId = key.substring('enable_'.length);
+          try {
+            ModuleSchema? otherModule = Provider.of<SchemaProvider>(context, listen: false).getFromMemory(otherModuleId);
+            Map<String, dynamic>? otherJson;
+            if (otherModule == null) {
+              // Try to load from assets by module id/name
+              try {
+                final jsonString = await rootBundle.loadString('assets/erp_modules/${otherModuleId.toLowerCase()}.json');
+                otherJson = jsonDecode(jsonString) as Map<String, dynamic>;
+              } catch (_) {
+                otherJson = null;
+              }
+
+              if (otherJson != null) {
+                // Parse the other module's tabs similarly to above
+                final otherSettingsRaw = otherJson['settings'];
+                final otherSettingsMap = otherSettingsRaw != null ? Map<String, dynamic>.from(otherSettingsRaw as Map) : <String, dynamic>{};
+                final otherTabsRaw = otherJson['tabs'];
+                final otherTabsList = otherTabsRaw != null ? List<dynamic>.from(otherTabsRaw as List) : [];
+
+                // Pre-process columns for options that reference settings
+                for (var i = 0; i < otherTabsList.length; i++) {
+                  final tab = Map<String, dynamic>.from(otherTabsList[i] as Map);
+                  if (tab['columns'] == null) tab['columns'] = [];
+                  final columns = List<dynamic>.from(tab['columns'] as List);
+                  for (var j = 0; j < columns.length; j++) {
+                    final col = columns[j];
+                    if (col is Map && col['options'] is String && (col['options'] as String).startsWith('settings.')) {
+                      final path = (col['options'] as String).split('.');
+                      if (path.length == 2) {
+                        final settingKey = path[1];
+                        final settingValue = otherSettingsMap[settingKey]?['value'];
+                        final colMap = Map<String, dynamic>.from(col);
+                        if (settingValue is List) {
+                          colMap['options'] = settingValue;
+                        } else {
+                          colMap['options'] = [];
+                        }
+                        columns[j] = colMap;
+                      }
+                    }
+                  }
+                  tab['columns'] = columns;
+                  otherTabsList[i] = tab;
+                }
+
+                final parsedOtherTabs = (otherTabsList as List).map((t) {
+                  try {
+                    return TabConfig.fromJson(t as Map<String, dynamic>);
+                  } catch (e) {
+                    return TabConfig(id: 'err', label: 'Error Tab', columns: []);
+                  }
+                }).toList();
+
+                // Prefix ids to avoid collisions and mark origin
+                for (var ot in parsedOtherTabs) {
+                  final newId = '${otherModuleId}_${ot.id}';
+                  combinedTabs.add(ot.copyWith(id: newId));
+                }
+              }
+            } else {
+              // Append tabs from loaded otherModule
+              for (var ot in otherModule.tabs) {
+                final newId = '${otherModuleId}_${ot.id}';
+                combinedTabs.add(ot.copyWith(id: newId));
+              }
+            }
+          } catch (e) {
+            debugPrint('Error loading enabled module $otherModuleId: $e');
+          }
+        }
+      }
+
+      final mergedModule = ModuleSchema(
+        id: loadedModule.id,
+        name: loadedModule.name,
+        icon: loadedModule.icon,
+        primaryColor: loadedModule.primaryColor,
+        version: loadedModule.version,
+        settings: loadedModule.settings,
+        dashboard: loadedModule.dashboard,
+        tabs: combinedTabs,
+      );
+
       // Update memory cache for instant access next time
-      Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(widget.module.id, loadedModule);
+      Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(widget.module.id, mergedModule);
 
       if (mounted) {
         setState(() {
-          _fullModule = loadedModule;
+          _fullModule = mergedModule;
           _isLoadingSchema = false;
         });
       }
@@ -247,7 +339,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
     final theme = Theme.of(context);
 
     return DefaultTabController(
-      key: ValueKey('module_tabs_${module.id}_${module.tabs.length}'), 
+      key: ValueKey('module_tabs_${module.id}_${module.tabs.length}'),
       length: (module.tabs.length) + 1, // +1 for Dashboard
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
@@ -291,7 +383,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             ),
           ],
           elevation: 0,
-          bottom: TabBar(
+            bottom: TabBar(
             isScrollable: true,
             indicatorColor: primaryColor,
             labelColor: primaryColor,
@@ -310,12 +402,25 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 : TabBarView(
                 children: [
                   ModuleDashboard(module: module, primaryColor: primaryColor),
-                  ...module.tabs.map((t) => ModuleTabScreen(
-                    tab: t, 
-                    primaryColor: primaryColor,
-                    settings: module.settings,
-                    module: module,
-                  )),
+                  ...module.tabs.map((t) {
+                    // Determine source module for this tab if prefixed like '{moduleId}_tabid'
+                    ModuleSchema sourceModule = module;
+                    try {
+                      final parts = t.id.split('_');
+                      if (parts.length > 1) {
+                        final prefix = parts[0];
+                        final candidate = Provider.of<SchemaProvider>(context, listen: false).getFromMemory(prefix);
+                        if (candidate != null) sourceModule = candidate;
+                      }
+                    } catch (_) {}
+
+                    return ModuleTabScreen(
+                      tab: t,
+                      primaryColor: primaryColor,
+                      settings: sourceModule.settings,
+                      module: sourceModule,
+                    );
+                  }),
                 ],
               ),
       ),
