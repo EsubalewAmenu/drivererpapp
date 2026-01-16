@@ -1063,4 +1063,119 @@ mixin DriveSheetMixin {
     }
     return res;
   }
+
+  /// Fetch records when you already have the spreadsheetId (fileId).
+  Future<List<Map<String, dynamic>>> fetchRecordsBySpreadsheetId(
+    String spreadsheetId,
+    String sheetTitle, {
+      int offset = 0,
+      int? limit,
+      bool fetchSubTables = true,
+      bool descending = false,
+      String? searchQuery,
+      Map<String, dynamic>? quickFilter,
+  }) async {
+    try {
+      // 1. Fetch Spreadsheet Metadata
+      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+      final allSheetTitles = spreadsheet.sheets?.map((s) => s.properties?.title ?? '').toList() ?? [];
+      final targetSheet = spreadsheet.sheets?.firstWhere((s) => s.properties?.title == sheetTitle);
+      final int? gid = targetSheet?.properties?.sheetId;
+
+      // 2. Fetch sub-tables if requested
+      List<String> subTableSheets = [];
+      if (fetchSubTables) {
+        subTableSheets = allSheetTitles.where((t) => t.startsWith('$sheetTitle.')).toList();
+      }
+
+      // 3. Fetch Records (reuse server-side search when appropriate)
+      bool isSearch = searchQuery != null && searchQuery.length >= 2;
+      bool hasQuickFilter = quickFilter != null && quickFilter['field'] != null && quickFilter['operator'] != null;
+
+      List<Map<String, dynamic>> finalRecords;
+      if (isSearch || descending || hasQuickFilter) {
+        try {
+          finalRecords = await _fetchSheetDataSearch(
+            spreadsheetId,
+            sheetTitle,
+            gid: gid,
+            query: isSearch ? searchQuery : null,
+            filter: hasQuickFilter ? quickFilter : null,
+            offset: offset,
+            limit: limit ?? 20,
+            descending: descending,
+          );
+        } catch (e) {
+          debugPrint('Server-side search/filter/sort failed for spreadsheetId $spreadsheetId: $e. Falling back to local fetch...');
+          finalRecords = await _fetchSheetData(spreadsheetId, sheetTitle, offset: offset, limit: limit);
+
+          if (isSearch) {
+            finalRecords = finalRecords.where((item) => item.values.any((val) => val.toString().toLowerCase().contains(searchQuery!.toLowerCase()))).toList();
+          }
+
+          if (hasQuickFilter) {
+            final field = quickFilter!['field'] as String;
+            final op = quickFilter['operator'] as String;
+            final filterValue = quickFilter['value']?.toString().toLowerCase() ?? '';
+
+            finalRecords = finalRecords.where((item) {
+              final itemVal = item[field]?.toString().toLowerCase() ?? '';
+              if (op == '==' || op == '=') return itemVal == filterValue;
+              if (op == '!=') return itemVal != filterValue;
+              if (op == 'contains') return itemVal.contains(filterValue);
+              if (op == 'startsWith') return itemVal.startsWith(filterValue);
+              final numItem = num.tryParse(itemVal);
+              final numFilter = num.tryParse(filterValue);
+              if (numItem != null && numFilter != null) {
+                if (op == '>') return numItem > numFilter;
+                if (op == '>=') return numItem >= numFilter;
+                if (op == '<') return numItem < numFilter;
+                if (op == '<=') return numItem <= numFilter;
+              }
+              return true;
+            }).toList();
+          }
+        }
+      } else {
+        finalRecords = await _fetchSheetData(spreadsheetId, sheetTitle, offset: offset, limit: limit);
+      }
+
+      // 4. If requested, fetch and attach nested sub-tables
+      if (fetchSubTables && finalRecords.isNotEmpty) {
+        // Build a map of parent record_id -> list of subs
+        final subTables = <String, List<Map<String, dynamic>>>{};
+        for (var sub in subTableSheets) {
+          try {
+            final subRecords = await _fetchSheetData(spreadsheetId, sub);
+            // Derive field name from sub-sheet title: sheet.subname -> subname
+            final parts = sub.split('.');
+            final fieldName = parts.length > 1 ? parts.sublist(1).join('.') : 'sub';
+
+            for (var s in subRecords) {
+              final parentId = s['parent_record_id']?.toString();
+              if (parentId != null) {
+                subTables[parentId] = subTables[parentId] ?? [];
+                subTables[parentId]!.add(s);
+              }
+            }
+
+            // Attach to main records
+            for (var main in finalRecords) {
+              final recordId = main['record_id']?.toString();
+              if (recordId != null) {
+                main[fieldName] = subTables[recordId] ?? [];
+              }
+            }
+          } catch (e) {
+            debugPrint('Error fetching sub-table $sub for spreadsheetId $spreadsheetId: $e');
+          }
+        }
+      }
+
+      return finalRecords;
+    } catch (e) {
+      debugPrint('Error fetching records by spreadsheetId $spreadsheetId: $e');
+      rethrow;
+    }
+  }
 }

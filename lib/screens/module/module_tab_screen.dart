@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
 import '../../providers/drive_provider.dart';
 import '../../providers/schema_provider.dart'; // Add this
+import '../../providers/workspace_provider.dart';
 import '../../services/drive_service.dart';
 import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
@@ -33,6 +34,40 @@ class ModuleTabScreen extends StatefulWidget {
 
 class _ModuleTabScreenState extends State<ModuleTabScreen> {
   late final DriveService _driveService;
+  
+  String _effectiveTabId() {
+    final tabId = widget.tab.id;
+    final modId = widget.module?.id;
+    if (modId != null && tabId.startsWith('${modId}_')) {
+      return tabId.substring(modId.length + 1);
+    }
+    // Handle cases where id was generated as `name_name` (e.g. deals_deals)
+    if (tabId.contains('_')) {
+      final parts = tabId.split('_');
+      // If all parts are identical (eg. ['deals','deals']) return single name
+      final allSame = parts.every((p) => p == parts[0]);
+      if (allSame) return parts.last;
+    }
+
+    return tabId;
+  }
+
+  String _sourceModuleId() {
+    final tabId = widget.tab.id;
+    if (tabId.contains('_')) {
+      final parts = tabId.split('_');
+      if (parts.isNotEmpty) {
+        final possibleMod = parts[0];
+        final provider = context.read<SchemaProvider>();
+        final mod = provider.findModuleByIdOrName(possibleMod);
+        if (mod != null) {
+          // Return the authoritative module id from cache when available.
+          return mod.id;
+        }
+      }
+    }
+    return widget.module?.id ?? '';
+  }
   
   List<Map<String, dynamic>> _allData = [];
   List<Map<String, dynamic>> _filteredData = [];
@@ -184,21 +219,246 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         } catch (_) {}
       }
 
-      final fetchedData = await _driveService.fetchRecords(
-        widget.module!.id, 
-        widget.module!.name, 
-        widget.tab.id,
-        offset: _currentOffset,
-        limit: _pageSize,
-        fetchSubTables: false, // Performance optimization for List View
-        descending: true,
-        searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
-        quickFilter: selectedFilter != null ? {
-          'field': selectedFilter.field,
-          'operator': selectedFilter.operator,
-          'value': selectedFilter.value,
-        } : null,
-      );
+      final rawEffectiveTab = _effectiveTabId();
+      var fetchModuleId = _sourceModuleId();
+      final schemaProvider = context.read<SchemaProvider>();
+      ModuleSchema? sourceModule = schemaProvider.getFromMemory(fetchModuleId);
+      String fetchModuleName = widget.module!.name;
+
+      // If we don't have a cached ModuleSchema for the resolved id, try a few
+      // fallbacks: cached config, workspace folder lookup, or cached short-key.
+      if (sourceModule == null) {
+        try {
+          // 1. Look for a locally cached config under fetchModuleId
+          final cachedConfig = await schemaProvider.service.getCachedConfig(fetchModuleId);
+          if (cachedConfig != null) {
+            fetchModuleName = cachedConfig['settings']?['name']?['value']?.toString() ?? fetchModuleName;
+          }
+
+          // 2. If fetchModuleId looks like a short key (not a Drive id), try resolving by listing workspace folders
+          if ((fetchModuleId.isEmpty || fetchModuleId.length < 15) && context.read<WorkspaceProvider>().currentWorkspace != null) {
+            final workspaceId = context.read<WorkspaceProvider>().currentWorkspace!.id!;
+            final modules = await _driveService.listModules(workspaceId);
+            var match;
+            for (var m in modules) {
+              final name = (m.name ?? '').toLowerCase();
+              if (name == fetchModuleId.toLowerCase() || name == fetchModuleName.toLowerCase()) {
+                match = m;
+                break;
+              }
+            }
+            if (match != null && match.id != null) {
+              fetchModuleId = match.id!;
+              // If we had an asset cached under the short key, map it to this drive id
+              final possibleMod = widget.tab.id.contains('_') ? widget.tab.id.split('_').first : '';
+              final cachedShort = schemaProvider.getFromMemory(possibleMod);
+              if (cachedShort != null) {
+                final mapped = ModuleSchema(
+                  id: fetchModuleId,
+                  name: cachedShort.name,
+                  icon: cachedShort.icon,
+                  primaryColor: cachedShort.primaryColor,
+                  version: cachedShort.version,
+                  settings: cachedShort.settings,
+                  dashboard: cachedShort.dashboard,
+                  tabs: cachedShort.tabs,
+                );
+                schemaProvider.updateMemoryCache(fetchModuleId, mapped);
+                sourceModule = mapped;
+                fetchModuleName = mapped.name;
+              } else {
+                // Try to get a cached ModuleSchema by the resolved folder id (maybe it exists)
+                sourceModule = schemaProvider.getFromMemory(fetchModuleId);
+                if (sourceModule != null) fetchModuleName = sourceModule.name;
+                else fetchModuleName = match.name ?? fetchModuleName;
+              }
+            }
+          }
+
+          // 3. If still null, try to find a cached module by the short key or name
+          if (sourceModule == null) {
+            final possibleMod = widget.tab.id.contains('_') ? widget.tab.id.split('_').first : '';
+            if (possibleMod.isNotEmpty) {
+              final byShort = schemaProvider.findModuleByIdOrName(possibleMod);
+              if (byShort != null) {
+                sourceModule = byShort;
+                fetchModuleId = byShort.id;
+                fetchModuleName = byShort.name;
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Error resolving module for tab ${widget.tab.id}: $e');
+        }
+      } else {
+        fetchModuleName = sourceModule.name;
+      }
+
+      // Prefer the tab id as defined in the module's config spreadsheet (cached),
+      // which is the authoritative source for the created sheet name/file.
+      // Fallback to the in-memory ModuleSchema if no config is available.
+      String fetchTabId = rawEffectiveTab;
+      try {
+        final schemaProvider = context.read<SchemaProvider>();
+        final cachedConfig = await schemaProvider.service.getCachedConfig(fetchModuleId);
+        if (cachedConfig != null && cachedConfig['tabs'] != null) {
+          final tabsRaw = List<dynamic>.from(cachedConfig['tabs'] as List);
+          for (var t in tabsRaw) {
+            if (t is Map) {
+              final tId = t['id']?.toString();
+              final tLabel = (t['label']?.toString() ?? '').toLowerCase();
+              if (tId == rawEffectiveTab || tLabel == rawEffectiveTab.toLowerCase()) {
+                if (tId != null && tId.isNotEmpty) fetchTabId = tId;
+                break;
+              }
+            }
+          }
+        } else if (sourceModule != null) {
+          TabConfig? found;
+          for (var t in sourceModule.tabs) {
+            final tId = t.id;
+            final tLabel = t.label.toLowerCase();
+            if (tId == rawEffectiveTab || tLabel == rawEffectiveTab.toLowerCase()) {
+              found = t;
+              break;
+            }
+          }
+          if (found != null) fetchTabId = found.id;
+        }
+      } catch (e) {
+        debugPrint('Error resolving authoritative fetchTabId from cached config: $e');
+      }
+
+      debugPrint('ModuleTabScreen: widgetTab=${widget.tab.id} rawEffective=$rawEffectiveTab resolvedTab=$fetchTabId');
+
+      // If fetchModuleId looks like a short placeholder (e.g. 'deals'), try to resolve
+      // to an actual Drive folder id by searching the current workspace folders.
+      if (fetchModuleId.length < 15) {
+        try {
+          final workspaceId = context.read<WorkspaceProvider>().currentWorkspace?.id;
+          if (workspaceId != null) {
+            final modules = await _driveService.listModules(workspaceId);
+            var match;
+            for (var m in modules) {
+              final name = (m.name ?? '').toLowerCase();
+              if (name == fetchModuleId.toLowerCase() || name == fetchModuleName.toLowerCase()) {
+                match = m;
+                break;
+              }
+            }
+            if (match != null && match.id != null) {
+              fetchModuleId = match.id!;
+              // update sourceModule if we have a cached module by that id
+              sourceModule = context.read<SchemaProvider>().getFromMemory(fetchModuleId) ?? sourceModule;
+
+              // If we still don't have a sourceModule but we have a cached
+              // asset entry under the short key (e.g. 'support'), map that
+              // cached ModuleSchema to the resolved Drive folder id so future
+              // lookups find it by folder id.
+              if (sourceModule == null) {
+                try {
+                  final provider = context.read<SchemaProvider>();
+                  final parts = widget.tab.id.split('_');
+                  final possibleMod = parts.isNotEmpty ? parts[0] : '';
+                  final cached = provider.getFromMemory(possibleMod);
+                  if (cached != null) {
+                    final mapped = ModuleSchema(
+                      id: fetchModuleId,
+                      name: cached.name,
+                      icon: cached.icon,
+                      primaryColor: cached.primaryColor,
+                      version: cached.version,
+                      settings: cached.settings,
+                      dashboard: cached.dashboard,
+                      tabs: cached.tabs,
+                    );
+                    provider.updateMemoryCache(fetchModuleId, mapped);
+                    sourceModule = mapped;
+                  }
+                } catch (e) {
+                  debugPrint('Error mapping cached module to folder id: $e');
+                }
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Error resolving module folder id for $fetchModuleId: $e');
+        }
+      }
+
+      debugPrint('ModuleTabScreen: fetchModuleId=$fetchModuleId fetchModuleName=$fetchModuleName fetchTabId=$fetchTabId');
+
+      List<Map<String, dynamic>> fetchedData = [];
+
+      // Try to prefer a direct fileId from cached config (if available)
+      try {
+        final schemaProvider = context.read<SchemaProvider>();
+        final cachedConfig = await schemaProvider.service.getCachedConfig(fetchModuleId);
+        String? tabFileId;
+        if (cachedConfig != null && cachedConfig['tabs'] != null) {
+          final tabsRaw = List<dynamic>.from(cachedConfig['tabs'] as List);
+          for (var t in tabsRaw) {
+            if (t is Map) {
+              final id = t['id']?.toString();
+              if (id == fetchTabId) {
+                tabFileId = t['fileId']?.toString();
+                break;
+              }
+            }
+          }
+        }
+
+        if (tabFileId != null && tabFileId.isNotEmpty) {
+          fetchedData = await _driveService.fetchRecordsBySpreadsheetId(
+            tabFileId,
+            fetchTabId,
+            offset: _currentOffset,
+            limit: _pageSize,
+            fetchSubTables: false,
+            descending: true,
+            searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
+            quickFilter: selectedFilter != null ? {
+              'field': selectedFilter.field,
+              'operator': selectedFilter.operator,
+              'value': selectedFilter.value,
+            } : null,
+          );
+        } else {
+          fetchedData = await _driveService.fetchRecords(
+            fetchModuleId,
+            fetchModuleName,
+            fetchTabId,
+            offset: _currentOffset,
+            limit: _pageSize,
+            fetchSubTables: false, // Performance optimization for List View
+            descending: true,
+            searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
+            quickFilter: selectedFilter != null ? {
+              'field': selectedFilter.field,
+              'operator': selectedFilter.operator,
+              'value': selectedFilter.value,
+            } : null,
+          );
+        }
+      } catch (e) {
+        debugPrint('Error trying fileId shortcut for $fetchTabId: $e');
+        // Fallback to normal fetch
+        fetchedData = await _driveService.fetchRecords(
+          fetchModuleId,
+          fetchModuleName,
+          fetchTabId,
+          offset: _currentOffset,
+          limit: _pageSize,
+          fetchSubTables: false, // Performance optimization for List View
+          descending: true,
+          searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
+          quickFilter: selectedFilter != null ? {
+            'field': selectedFilter.field,
+            'operator': selectedFilter.operator,
+            'value': selectedFilter.value,
+          } : null,
+        );
+      }
       
       if (mounted) {
         setState(() {
@@ -221,7 +481,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error fetching data for ${widget.tab.id}: $e');
+      debugPrint('Error fetching data for ${_effectiveTabId()} (module ${_sourceModuleId()}): $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -327,8 +587,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   @override
   Widget build(BuildContext context) {
     // Listen to SchemaProvider for the most up-to-date configuration
-    final latestModule = context.watch<SchemaProvider>().getFromMemory(widget.module?.id ?? '');
-    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == widget.tab.id, orElse: () => widget.tab) ?? widget.tab;
+    final latestModule = context.watch<SchemaProvider>().getFromMemory(_sourceModuleId());
+    final effectiveTabId = _effectiveTabId();
+    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == effectiveTabId, orElse: () => widget.tab) ?? widget.tab;
 
     final theme = Theme.of(context);
 
@@ -373,7 +634,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 tab: currentTab,
                 primaryColor: widget.primaryColor,
                 settings: widget.settings,
-                module: widget.module,
+                module: context.read<SchemaProvider>().getFromMemory(_sourceModuleId()) ?? widget.module,
               ),
             ),
           );
@@ -386,8 +647,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   void _openSettings() async {
     // Get latest tab configuration
-    final latestModule = context.read<SchemaProvider>().getFromMemory(widget.module?.id ?? '');
-    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == widget.tab.id, orElse: () => widget.tab) ?? widget.tab;
+    final latestModule = context.read<SchemaProvider>().getFromMemory(_sourceModuleId());
+    final effectiveTabId = _effectiveTabId();
+    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == effectiveTabId, orElse: () => widget.tab) ?? widget.tab;
 
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
@@ -424,9 +686,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }) async {
     try {
       final schemaProvider = context.read<SchemaProvider>();
-      
+
       // Always get the latest module from memory to avoid stale data
-      final currentModule = schemaProvider.getFromMemory(widget.module!.id) ?? widget.module!;
+      final currentModule = schemaProvider.getFromMemory(_sourceModuleId()) ?? widget.module!;
       
       final updatedTab = widget.tab.copyWith(
         quickFilters: filters,
@@ -435,8 +697,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         detailTemplate: detailTemplate,
       );
 
+      final effectiveTabId = _effectiveTabId();
       final updatedTabs = currentModule.tabs.map((t) {
-        return t.id == widget.tab.id ? updatedTab : t;
+        return t.id == effectiveTabId ? updatedTab : t;
       }).toList();
 
       final updatedModule = ModuleSchema(
@@ -541,14 +804,15 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   void _openRecordDetail(Map<String, dynamic> item) async {
     // Get the latest tab config from memory if available
-    final latestModule = context.read<SchemaProvider>().getFromMemory(widget.module?.id ?? '');
-    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == widget.tab.id, orElse: () => widget.tab) ?? widget.tab;
+    final latestModule = context.read<SchemaProvider>().getFromMemory(_sourceModuleId());
+    final effectiveTabId = _effectiveTabId();
+    final currentTab = latestModule?.tabs.firstWhere((t) => t.id == effectiveTabId, orElse: () => widget.tab) ?? widget.tab;
 
     final titleKey = currentTab.detailTemplate?.titleKey ?? currentTab.listTemplate?.titleKey ?? (currentTab.columns.isNotEmpty ? currentTab.columns[0].key : '');
     final refresh = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (context) => RecordDetailScreen(
+          builder: (context) => RecordDetailScreen(
           data: item,
           columns: currentTab.columns,
           primaryColor: widget.primaryColor,
@@ -556,7 +820,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           settings: widget.settings,
           detailTemplate: currentTab.detailTemplate,
           tab: currentTab,
-          module: widget.module,
+          module: latestModule ?? widget.module,
         ),
       ),
     );

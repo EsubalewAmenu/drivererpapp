@@ -15,6 +15,26 @@ class SchemaProvider extends ChangeNotifier {
   /// Returns a cached schema from memory if available.
   ModuleSchema? getFromMemory(String moduleId) => _memoryCache[moduleId];
 
+  /// Attempts to find a cached module by id or by name (case-insensitive).
+  ModuleSchema? findModuleByIdOrName(String idOrName) {
+    final byId = getFromMemory(idOrName);
+    if (byId != null) return byId;
+    try {
+      return _memoryCache.values.firstWhere((m) => m.name.toLowerCase() == idOrName.toLowerCase());
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /// Attempts to find a cached module that contains a tab with the given tab id.
+  ModuleSchema? findModuleByTabId(String tabId) {
+    try {
+      return _memoryCache.values.firstWhere((m) => m.tabs.any((t) => t.id == tabId));
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Updates the memory cache.
   void updateMemoryCache(String moduleId, ModuleSchema? schema) {
     if (schema == null) {

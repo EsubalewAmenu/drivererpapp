@@ -166,8 +166,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // Should be back in ModuleScreen, showing the tabs.
-    // Inventory asset has "Stock Entries" tab.
+    // Inventory asset has "Stock Adjustment" tab.
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('STOCK ENTRIES'), findsOneWidget);
+    expect(find.text('STOCK ADJUSTMENT'), findsOneWidget);
   });
 }
