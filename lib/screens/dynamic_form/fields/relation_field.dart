@@ -27,6 +27,47 @@ class DynamicRelationField extends StatefulWidget {
 }
 
 class _DynamicRelationFieldState extends State<DynamicRelationField> {
+  String? _displayLabel;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.value != null) {
+      // Try to resolve the label for the provided id
+      _resolveLabelForValue(widget.value);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant DynamicRelationField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value) {
+      _resolveLabelForValue(widget.value);
+    }
+  }
+
+  Future<void> _resolveLabelForValue(String? id) async {
+    if (id == null) return;
+    try {
+      final relatedTabId = widget.column.options is String ? widget.column.options as String : null;
+      if (relatedTabId == null) return;
+      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+      final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+      if (driveService == null) return;
+
+      // Try to find module that owns the tab
+      ModuleSchema? targetModule = schemaProvider.findModuleByTabId(relatedTabId) ?? schemaProvider.findModuleByIdOrName(relatedTabId);
+      if (targetModule != null) {
+        final records = await driveService.fetchRecords(targetModule.id, targetModule.name, relatedTabId);
+        final match = records.firstWhere((r) => (r['record_id']?.toString() == id.toString()) || (r['id']?.toString() == id.toString()), orElse: () => {});
+        if (match.isNotEmpty) {
+          final label = match['item_name']?.toString() ?? match['name']?.toString() ?? match.values.first.toString();
+          if (mounted) setState(() => _displayLabel = label);
+          return;
+        }
+      }
+    } catch (_) {}
+  }
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -92,7 +133,11 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                           final recordId = item['record_id']?.toString() ?? item['id']?.toString();
                           return ListTile(
                             title: Text(label),
-                            onTap: () => Navigator.pop(context, recordId ?? label),
+                            onTap: () {
+                              // Keep the human label in the UI but return the id to the form
+                              if (mounted) setState(() => _displayLabel = label);
+                              Navigator.pop(context, recordId ?? label);
+                            },
                           );
                         },
                       ),
@@ -195,7 +240,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                 Icon(Icons.link_rounded, color: theme.textTheme.bodyMedium?.color, size: 20),
                 const SizedBox(width: 12),
                 Text(
-                  widget.value?.toString() ?? 'Select ${widget.column.label}',
+                  _displayLabel ?? widget.value?.toString() ?? 'Select ${widget.column.label}',
                   style: AppTheme.inter(
                     color: widget.value != null ? theme.textTheme.bodyLarge?.color : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
                   ),
