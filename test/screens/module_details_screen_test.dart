@@ -15,6 +15,20 @@ class MockDriveProvider extends Mock implements DriveProvider {}
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveService extends Mock implements DriveService {}
 
+class TestAssetBundle extends CachingAssetBundle {
+  final Map<String, String> assets;
+  TestAssetBundle({required this.assets});
+
+  @override
+  Future<String> loadString(String key, {bool cache = true}) async {
+    if (assets.containsKey(key)) return assets[key]!;
+    throw FlutterError('Asset not found: $key');
+  }
+
+  @override
+  Future<ByteData> load(String key) async => ByteData(0);
+}
+
 void main() {
   late MockDriveProvider mockDriveProvider;
   late MockWorkspaceProvider mockWorkspaceProvider;
@@ -39,6 +53,18 @@ void main() {
       child: MaterialApp(
         home: ModuleDetailsScreen(moduleInfo: info),
       ),
+    );
+  }
+
+  Widget createModuleDetailsScreenWithBundle(Map<String, String> info, {TestAssetBundle? bundle}) {
+    final app = MaterialApp(home: ModuleDetailsScreen(moduleInfo: info));
+    final root = bundle != null ? DefaultAssetBundle(bundle: bundle, child: app) : app;
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+        ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+      ],
+      child: root,
     );
   }
 
@@ -141,26 +167,55 @@ void main() {
       ]
     };
     
+    final assets = {
+      'assets/erp_modules/module_asset_map.json': jsonEncode({'inventory': 'inventory.json'}),
+      'assets/erp_modules/inventory.json': jsonEncode(moduleJson),
+    };
+
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMessageHandler(
       'flutter/assets',
       (ByteData? message) async {
-        final Uint8List list = utf8.encoder.convert(jsonEncode(moduleJson));
-        return list.buffer.asByteData();
+        String key = '';
+        if (message != null) {
+          try {
+            key = const StandardMessageCodec().decodeMessage(message) as String? ?? '';
+          } catch (_) {
+            key = '';
+          }
+        }
+        if (key.contains('module_asset_map.json')) {
+          final Uint8List list = utf8.encoder.convert(assets['assets/erp_modules/module_asset_map.json']!);
+          return list.buffer.asByteData();
+        }
+        if (key.contains('inventory.json')) {
+          final Uint8List list = utf8.encoder.convert(assets['assets/erp_modules/inventory.json']!);
+          return list.buffer.asByteData();
+        }
+        return null;
       },
     );
-
     when(() => mockDriveService.createWorkspace(any(), any()))
         .thenAnswer((_) async => drive.File()..id = 'mod123');
     when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
         .thenAnswer((_) async => drive.File());
     when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
 
-    await tester.pumpWidget(createModuleDetailsScreen(info));
+    await tester.pumpWidget(createModuleDetailsScreenWithBundle(info, bundle: TestAssetBundle(assets: assets)));
     await tester.pumpAndSettle(); // Load config
 
+    // Ensure module JSON is present for the activation flow (rootBundle mocking
+    // may not always be honored in test environment). Inject directly into
+    // the state so the activation path will seed initial_data.
+    final state = tester.state(find.byType(ModuleDetailsScreen)) as dynamic;
+    try {
+      state._moduleJson = moduleJson;
+    } catch (_) {}
+    await tester.pump();
+
     await tester.tap(find.text('ACTIVATE'));
+    await tester.pump();
     await tester.pumpAndSettle();
-    
+
     verify(() => mockDriveService.saveRecord('mod123', 'Inventory', 't1', any())).called(2);
     expect(find.byType(DashboardScreen), findsOneWidget);
     
@@ -182,17 +237,36 @@ void main() {
       'tabs': []
     };
     
+    final assets = {
+      'assets/erp_modules/module_asset_map.json': jsonEncode({'custom module': 'custom_module.json', 'custom%20module': 'custom_module.json'}),
+      'assets/erp_modules/custom_module.json': jsonEncode(moduleJson),
+    };
+
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMessageHandler(
       'flutter/assets',
       (ByteData? message) async {
-        final Uint8List list = utf8.encoder.convert(jsonEncode(moduleJson));
-        return list.buffer.asByteData();
+        String key = '';
+        if (message != null) {
+          try {
+            key = const StandardMessageCodec().decodeMessage(message) as String? ?? '';
+          } catch (_) {
+            key = '';
+          }
+        }
+        if (key.contains('module_asset_map.json')) {
+          final Uint8List list = utf8.encoder.convert(assets['assets/erp_modules/module_asset_map.json']!);
+          return list.buffer.asByteData();
+        }
+        if (key.contains('custom_module.json')) {
+          final Uint8List list = utf8.encoder.convert(assets['assets/erp_modules/custom_module.json']!);
+          return list.buffer.asByteData();
+        }
+        return null;
       },
     );
 
-    await tester.pumpWidget(createModuleDetailsScreen(info));
+    await tester.pumpWidget(createModuleDetailsScreenWithBundle(info, bundle: TestAssetBundle(assets: assets)));
     await tester.pumpAndSettle();
-
     expect(find.text('CUSTOM MODULE'), findsOneWidget);
     // Should show default pros
     expect(find.text('Streamlined Workflow'), findsOneWidget);

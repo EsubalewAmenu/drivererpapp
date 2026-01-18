@@ -30,13 +30,23 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadModuleConfig();
+  }
+
+  bool _didLoadConfig = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didLoadConfig) {
+      _didLoadConfig = true;
+      _loadModuleConfig();
+    }
   }
 
   Future<void> _loadModuleConfig() async {
     try {
       final key = (widget.moduleInfo['id'] ?? widget.moduleInfo['name'])!.toString().toLowerCase().trim();
-      final jsonString = await SchemaService.tryLoadModuleAsset(key);
+      final jsonString = await SchemaService.tryLoadModuleAsset(key, bundle: DefaultAssetBundle.of(context));
       if (jsonString != null) {
         if (mounted) {
           setState(() {
@@ -89,6 +99,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
 
       // Auto-seed Initial Data
       if (_moduleJson != null && _moduleJson!['tabs'] != null) {
+        debugPrint('ModuleDetailsScreen: seeding initial data, tabs present=${_moduleJson!['tabs'] != null}');
         final tabs = _moduleJson!['tabs'] as List;
         for (var tab in tabs) {
           if (tab is Map && tab['initial_data'] != null) {
@@ -104,6 +115,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                     tabId,
                     record,
                   );
+                  debugPrint('ModuleDetailsScreen: saving record to $moduleFolderId/$moduleName/$tabId -> $record');
                   if (res is Future) await res;
                 } catch (e) {
                   debugPrint('Error seeding record for $tabId: $e');
