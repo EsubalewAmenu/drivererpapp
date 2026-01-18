@@ -556,6 +556,26 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 // module id from the other module's settings if available (not the
                 // display name), so tab ids remain consistent with the source config.
                 final authoritativeOtherId = otherSettingsMap['id']?['value']?.toString() ?? otherModuleId;
+
+                // If this extension is installed in the workspace, prefer the Drive folder id
+                String moduleIdForCache = authoritativeOtherId;
+                try {
+                  List<dynamic> _activeModules = [];
+                  final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+                  final driveService = driveProvider.driveService;
+                  final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
+                  if (driveService != null && workspaceId != null) {
+                    _activeModules = await driveService.listModules(workspaceId);
+                  }
+                  for (var m in _activeModules) {
+                    final mName = (m.name ?? '').toString().toLowerCase();
+                    if (mName == candidateName || mName == otherModuleId.toLowerCase()) {
+                      moduleIdForCache = m.id ?? authoritativeOtherId;
+                      break;
+                    }
+                  }
+                } catch (_) {}
+
                 for (var ot in parsedOtherTabs) {
                   final newId = authoritativeOtherId == ot.id ? ot.id : '${authoritativeOtherId}_${ot.id}';
                   combinedTabs.add(ot.copyWith(id: newId));
@@ -589,7 +609,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
                       : DashboardConfig(cards: []);
 
                   final otherModuleSchema = ModuleSchema(
-                    id: authoritativeOtherId,
+                    id: moduleIdForCache,
                     name: otherModuleName,
                     icon: otherIcon,
                     primaryColor: otherPrimary,
@@ -599,18 +619,49 @@ class _ModuleScreenState extends State<ModuleScreen> {
                     tabs: parsedOtherTabs,
                   );
                   final provider = Provider.of<SchemaProvider>(context, listen: false);
-                  provider.updateMemoryCache(authoritativeOtherId, otherModuleSchema);
+                  provider.updateMemoryCache(moduleIdForCache, otherModuleSchema);
 
                   // Cache the raw other module JSON so per-tab fileId entries (if any)
                   // are available to ModuleTabScreen when resolving fileIds later.
                   try {
-                    await provider.service.cacheConfig(authoritativeOtherId, otherJson);
+                    await provider.service.cacheConfig(moduleIdForCache, otherJson);
+                    // Also cache under the authoritative asset key for lookups by asset id
+                    if (moduleIdForCache != authoritativeOtherId) {
+                      await provider.service.cacheConfig(authoritativeOtherId, otherJson);
+                    }
                   } catch (_) {}
                 } catch (_) {}
               }
             } else {
               // Append tabs from loaded otherModule
               // Use the actual other module id when prefixing (this is authoritative)
+              String moduleIdForCache = otherModule.id;
+              try {
+                List<dynamic> _activeModules = [];
+                final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+                final driveService = driveProvider.driveService;
+                final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
+                if (driveService != null && workspaceId != null) {
+                  _activeModules = await driveService.listModules(workspaceId);
+                }
+                for (var m in _activeModules) {
+                  final mName = (m.name ?? '').toString().toLowerCase();
+                  if (mName == otherModule.name.toLowerCase() || mName == otherModule.id.toLowerCase()) {
+                    moduleIdForCache = m.id ?? otherModule.id;
+                    break;
+                  }
+                }
+              } catch (_) {}
+
+              // If the preferred id differs, update memory cache key so lookups use folder id
+              if (moduleIdForCache != otherModule.id) {
+                final provider = Provider.of<SchemaProvider>(context, listen: false);
+                provider.updateMemoryCache(moduleIdForCache, otherModule);
+                try {
+                  await provider.service.cacheConfig(moduleIdForCache, otherModule.toJson());
+                } catch (_) {}
+              }
+
               for (var ot in otherModule.tabs) {
                 final newId = otherModule.id == ot.id ? ot.id : '${otherModule.id}_${ot.id}';
                 combinedTabs.add(ot.copyWith(id: newId));
