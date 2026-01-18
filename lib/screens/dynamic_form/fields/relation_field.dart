@@ -89,9 +89,10 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                           } else if (item.containsKey('name')) {
                             label = item['name']?.toString() ?? label;
                           }
+                          final recordId = item['record_id']?.toString() ?? item['id']?.toString();
                           return ListTile(
                             title: Text(label),
-                            onTap: () => Navigator.pop(context, label),
+                            onTap: () => Navigator.pop(context, recordId ?? label),
                           );
                         },
                       ),
