@@ -571,14 +571,33 @@ class _ModuleScreenState extends State<ModuleScreen> {
                   final otherPrimary = otherSettingsMap['primaryColor']?['value']?.toString() ?? '#2196F3';
                   final otherVersion = otherSettingsMap['version']?['value']?.toString() ?? '1.0';
                   final authoritativeOtherId = otherSettingsMap['id']?['value']?.toString() ?? otherModuleId;
+                  // Normalize other module settings into SettingItem map
+                  final otherSettingsItems = <String, SettingItem>{};
+                  otherSettingsMap.forEach((k, v) {
+                    try {
+                      if (v != null && v is Map<String, dynamic>) {
+                        otherSettingsItems[k] = SettingItem.fromJson(v);
+                      } else if (v != null && v is List) {
+                        otherSettingsItems[k] = SettingItem(label: k, type: 'list', value: v);
+                      } else if (v != null) {
+                        otherSettingsItems[k] = SettingItem(label: k, type: 'text', value: v);
+                      }
+                    } catch (_) {}
+                  });
+
+                  final otherDashboardJson = otherJson['dashboard'] != null ? Map<String, dynamic>.from(otherJson['dashboard'] as Map) : null;
+                  final otherDashboard = (otherDashboardJson != null && otherDashboardJson['cards'] != null)
+                      ? DashboardConfig.fromJson(otherDashboardJson)
+                      : DashboardConfig(cards: []);
+
                   final otherModuleSchema = ModuleSchema(
                     id: authoritativeOtherId,
                     name: otherModuleName,
                     icon: otherIcon,
                     primaryColor: otherPrimary,
                     version: otherVersion,
-                    settings: {},
-                    dashboard: DashboardConfig(cards: []),
+                    settings: otherSettingsItems,
+                    dashboard: otherDashboard,
                     tabs: parsedOtherTabs,
                   );
                   final provider = Provider.of<SchemaProvider>(context, listen: false);
