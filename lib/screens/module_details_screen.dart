@@ -70,6 +70,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       final workspaceId = workspaceProvider.currentWorkspace!.id!;
       
       final moduleName = widget.moduleInfo['name']!;
+      final assetKey = (widget.moduleInfo['id'] ?? widget.moduleInfo['name'])!.toString().toLowerCase().trim();
 
       // Create the module folder in Drive
       final _createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
@@ -155,7 +156,13 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
             // Cache the created module JSON locally under the new module folder id
             try {
               final provider = Provider.of<SchemaProvider>(context, listen: false);
+              // Cache under the Drive folder id so lookups by folder find it
               await provider.service.cacheConfig(moduleFolderId, _moduleJson!);
+              // Also cache under the authoritative asset key (short key) so
+              // any code that looks up by the module asset id/name sees it immediately
+              try {
+                await provider.service.cacheConfig(assetKey, _moduleJson!);
+              } catch (_) {}
 
               // Also create an in-memory ModuleSchema so UI can pick it up immediately
               final settingsRaw = _moduleJson!['settings'];
@@ -199,7 +206,14 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               // "setState() or markNeedsBuild() called during build" errors).
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 try {
-                  if (mounted) provider.updateMemoryCache(moduleFolderId, moduleSchema);
+                  if (mounted) {
+                    provider.updateMemoryCache(moduleFolderId, moduleSchema);
+                    // Also make module available under the short asset key so
+                    // callers using the short key find it without restarting.
+                    try {
+                      provider.updateMemoryCache(assetKey, moduleSchema);
+                    } catch (_) {}
+                  }
                 } catch (e) {
                   debugPrint('Error updating memory cache post-frame: $e');
                 }
