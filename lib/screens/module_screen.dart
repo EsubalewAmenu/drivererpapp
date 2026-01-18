@@ -467,12 +467,14 @@ class _ModuleScreenState extends State<ModuleScreen> {
       }
 
       // Determine which extensions are activated in the current workspace so
-      // we only merge tabs from modules that are actually installed.
-      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-      final driveService = driveProvider.driveService;
-      final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
+      // we only merge tabs from modules that are actually installed. Wrap
+      // provider lookups in try/catch so isolated widget tests that don't
+      // provide Drive/Workspace providers don't crash.
       final installedNames = <String>{};
       try {
+        final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+        final driveService = driveProvider.driveService;
+        final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
         if (driveService != null && workspaceId != null) {
           final activeModules = await driveService.listModules(workspaceId);
           for (var m in activeModules) {
@@ -480,7 +482,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
             installedNames.add(name);
           }
         }
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Could not determine installed modules (missing providers?): $e');
+      }
 
       for (final otherModuleId in extensionKeys) {
           try {
