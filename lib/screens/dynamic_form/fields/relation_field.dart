@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/schema_models.dart';
 import '../../../providers/drive_provider.dart';
+import '../../../providers/schema_provider.dart';
+import '../../../providers/workspace_provider.dart';
 import '../../../theme/app_theme.dart';
 
 class DynamicRelationField extends StatefulWidget {
@@ -56,39 +58,19 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
               }
             }
 
-            // If we have a module and the column specifies a related tab (via options)
-            if (widget.module != null && widget.column.options is String) {
+            // If column.options is a String, interpret it as a related tab id or module key
+            if (widget.column.options is String) {
               final relatedTabId = widget.column.options as String;
-              final relatedTab = widget.module!.tabs.firstWhere(
-                (t) => t.id == relatedTabId, 
-                orElse: () => widget.module!.tabs.first
-              );
-              
-              // Fetch data for the related tab
               final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
-              if (driveService != null) {
-                // Show loading
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading items...'), duration: Duration(milliseconds: 500)));
-                
-                var items = await driveService.fetchRecords(widget.module!.id, widget.module!.name, relatedTabId);
-                
-                if (!mounted) return;
+              final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
 
-                // Filter items if dependency exists
-                if (widget.column.dependsOn != null && !widget.column.dependsOn!.startsWith('settings.')) {
-                   final parentKey = widget.column.dependsOn!;
-                   final parentValue = widget.data[parentKey];
-                   
-                   // Filter items where item[parentKey] == parentValue
-                   items = items.where((item) => item[parentKey]?.toString() == parentValue?.toString()).toList();
-                }
-
-                // Show selection dialog
+              // Helper to show items in dialog
+              Future<void> _showItemsDialog(List<Map<String, dynamic>> items, String title) async {
                 if (!mounted) return;
                 final selected = await showDialog<String>(
                   context: this.context,
                   builder: (context) => AlertDialog(
-                    title: Text('Select ${relatedTab.label}'),
+                    title: Text('Select $title'),
                     content: SizedBox(
                       width: double.maxFinite,
                       child: items.isEmpty 
@@ -101,15 +83,12 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                         itemCount: items.length,
                         itemBuilder: (context, index) {
                           final item = items[index];
-                          // Try to find a meaningful label (first text column)
                           String label = item.values.first.toString();
-                          // Or look for specific keys like 'name', 'item_name'
                           if (item.containsKey('item_name')) {
-                            label = item['item_name'];
+                            label = item['item_name']?.toString() ?? label;
                           } else if (item.containsKey('name')) {
-                            label = item['name'];
+                            label = item['name']?.toString() ?? label;
                           }
-                          
                           return ListTile(
                             title: Text(label),
                             onTap: () => Navigator.pop(context, label),
@@ -119,11 +98,85 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                     ),
                   ),
                 );
-                
-                if (selected != null && mounted) {
-                  widget.onChanged(selected);
+                if (selected != null && mounted) widget.onChanged(selected);
+              }
+
+              // First, try to resolve relatedTab within the current module (backwards compatible)
+              if (widget.module != null) {
+                try {
+                  final relatedTab = widget.module!.tabs.firstWhere((t) => t.id == relatedTabId);
+                  if (driveService != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading items...'), duration: Duration(milliseconds: 500)));
+                    var items = await driveService.fetchRecords(widget.module!.id, widget.module!.name, relatedTabId);
+                    if (!mounted) return;
+                    // apply dependency filter
+                    if (widget.column.dependsOn != null && !widget.column.dependsOn!.startsWith('settings.')) {
+                      final parentKey = widget.column.dependsOn!;
+                      final parentValue = widget.data[parentKey];
+                      items = items.where((item) => item[parentKey]?.toString() == parentValue?.toString()).toList();
+                    }
+                    await _showItemsDialog(items, relatedTab.label);
+                    return;
+                  }
+                } catch (_) {}
+              }
+
+              // Next, check cached schemas for a module that contains the tab or matches the name/key
+              try {
+                ModuleSchema? targetModule;
+                try {
+                  targetModule = schemaProvider.findModuleByTabId(relatedTabId);
+                } catch (_) {}
+                targetModule ??= schemaProvider.findModuleByIdOrName(relatedTabId);
+
+                if (targetModule != null && driveService != null) {
+                  // Determine tab label if available
+                  final tab = targetModule.tabs.firstWhere((t) => t.id == relatedTabId, orElse: () => targetModule!.tabs.first);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading items...'), duration: Duration(milliseconds: 500)));
+                  var items = await driveService.fetchRecords(targetModule.id, targetModule.name, tab.id);
+                  if (!mounted) return;
+                  if (widget.column.dependsOn != null && !widget.column.dependsOn!.startsWith('settings.')) {
+                    final parentKey = widget.column.dependsOn!;
+                    final parentValue = widget.data[parentKey];
+                    items = items.where((item) => item[parentKey]?.toString() == parentValue?.toString()).toList();
+                  }
+                  await _showItemsDialog(items, tab.label);
+                  return;
+                }
+              } catch (_) {}
+
+              // Finally, if we have workspace context, scan installed modules (Drive folders) to find a sheet with that name
+              if (driveService != null) {
+                final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+                final workspaceId = workspaceProvider.currentWorkspace?.id as String?;
+                if (workspaceId != null) {
+                  try {
+                    final modules = await driveService.listModules(workspaceId);
+                    for (var mod in modules) {
+                      try {
+                        final fileId = await driveService.getFileId(mod.id!, relatedTabId);
+                        if (fileId != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading items...'), duration: Duration(milliseconds: 500)));
+                          var items = await driveService.fetchRecords(mod.id!, mod.name ?? '', relatedTabId);
+                          if (widget.column.dependsOn != null && !widget.column.dependsOn!.startsWith('settings.')) {
+                            final parentKey = widget.column.dependsOn!;
+                            final parentValue = widget.data[parentKey];
+                            items = items.where((item) => item[parentKey]?.toString() == parentValue?.toString()).toList();
+                          }
+                          await _showItemsDialog(items, relatedTabId);
+                          return;
+                        }
+                      } catch (e) {
+                        // ignore and continue
+                      }
+                    }
+                  } catch (e) {
+                    debugPrint('Error scanning modules for related tab: $e');
+                  }
                 }
               }
+
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Entity lookup configuration missing or no data found')));
             } else {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Entity lookup configuration missing')));
             }
