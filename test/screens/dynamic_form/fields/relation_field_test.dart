@@ -6,6 +6,7 @@ import 'package:drivererpapp/screens/dynamic_form/fields/relation_field.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/providers/schema_provider.dart';
 
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
@@ -13,11 +14,14 @@ class MockDriveService extends Mock implements DriveService {}
 void main() {
   late MockDriveProvider mockDriveProvider;
   late MockDriveService mockDriveService;
+  late SchemaProvider schemaProvider;
   late ModuleSchema testModule;
 
   setUp(() {
     mockDriveProvider = MockDriveProvider();
     mockDriveService = MockDriveService();
+    // Use a real SchemaProvider and preload the test module into its memory cache.
+    schemaProvider = SchemaProvider();
 
     testModule = ModuleSchema(
       id: 'mod1',
@@ -36,6 +40,7 @@ void main() {
     );
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    schemaProvider.updateMemoryCache(testModule.id, testModule);
   });
 
   testWidgets('DynamicRelationField fetching and selecting items', (WidgetTester tester) async {
@@ -67,6 +72,7 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
+          ChangeNotifierProvider<SchemaProvider>.value(value: schemaProvider),
           ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ],
         child: MaterialApp(
@@ -91,8 +97,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
-    // Check if dialog is open with items
-    expect(find.text('Select Users'), findsOneWidget);
+    // Check if dialog is open then type to search (search-first behavior)
+    expect(find.text('Search users'), findsOneWidget);
+    await tester.enterText(find.byType(TextField), 'Jo');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    // Check items now appear
     expect(find.text('John Doe'), findsOneWidget);
 
     // Select John Doe
@@ -101,7 +113,7 @@ void main() {
 
     // Check if callback was called and dialog closed
     expect(selectedValue, 'John Doe');
-    expect(find.text('Select Users'), findsNothing);
+    expect(find.text('Search users'), findsNothing);
   });
 
   testWidgets('DynamicRelationField dependency filtering', (WidgetTester tester) async {
@@ -132,6 +144,7 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
+          ChangeNotifierProvider<SchemaProvider>.value(value: schemaProvider),
           ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ],
         child: MaterialApp(
@@ -154,6 +167,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
+    // Type to search (search-first behavior) then check dependency filter
+    await tester.enterText(find.byType(TextField), 'En');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
     // Should only see Engineer 1
     expect(find.text('Engineer 1'), findsOneWidget);
     expect(find.text('Sales 1'), findsNothing);
@@ -171,6 +190,7 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
+          ChangeNotifierProvider<SchemaProvider>.value(value: schemaProvider),
           ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ],
         child: MaterialApp(
@@ -192,6 +212,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Please select a value for selected_dept first'), findsOneWidget);
-    expect(find.text('Select Users'), findsNothing);
+    expect(find.text('Search users'), findsNothing);
   });
 }
