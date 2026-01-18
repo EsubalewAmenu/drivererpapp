@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/schema_models.dart';
 import '../../../providers/drive_provider.dart';
+import '../../../providers/schema_provider.dart';
+import '../../../providers/workspace_provider.dart';
 import '../../../theme/app_theme.dart';
 
 class DynamicRelationField extends StatefulWidget {
@@ -25,6 +28,47 @@ class DynamicRelationField extends StatefulWidget {
 }
 
 class _DynamicRelationFieldState extends State<DynamicRelationField> {
+  String? _displayLabel;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.value != null) {
+      // Try to resolve the label for the provided id
+      _resolveLabelForValue(widget.value);
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant DynamicRelationField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != oldWidget.value) {
+      _resolveLabelForValue(widget.value);
+    }
+  }
+
+  Future<void> _resolveLabelForValue(String? id) async {
+    if (id == null) return;
+    try {
+      final relatedTabId = widget.column.options is String ? widget.column.options as String : null;
+      if (relatedTabId == null) return;
+      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+      final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+      if (driveService == null) return;
+
+      // Try to find module that owns the tab
+      ModuleSchema? targetModule = schemaProvider.findModuleByTabId(relatedTabId) ?? schemaProvider.findModuleByIdOrName(relatedTabId);
+      if (targetModule != null) {
+        final records = await driveService.fetchRecords(targetModule.id, targetModule.name, relatedTabId);
+        final match = records.firstWhere((r) => (r['record_id']?.toString() == id.toString()) || (r['id']?.toString() == id.toString()), orElse: () => {});
+        if (match.isNotEmpty) {
+          final label = match['item_name']?.toString() ?? match['name']?.toString() ?? match.values.first.toString();
+          if (mounted) setState(() => _displayLabel = label);
+          return;
+        }
+      }
+    } catch (_) {}
+  }
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -56,74 +100,179 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
               }
             }
 
-            // If we have a module and the column specifies a related tab (via options)
-            if (widget.module != null && widget.column.options is String) {
+            // If column.options is a String, interpret it as a related tab id or module key
+            if (widget.column.options is String) {
               final relatedTabId = widget.column.options as String;
-              final relatedTab = widget.module!.tabs.firstWhere(
-                (t) => t.id == relatedTabId, 
-                orElse: () => widget.module!.tabs.first
-              );
-              
-              // Fetch data for the related tab
               final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
-              if (driveService != null) {
-                // Show loading
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Loading items...'), duration: Duration(milliseconds: 500)));
-                
-                var items = await driveService.fetchRecords(widget.module!.id, widget.module!.name, relatedTabId);
-                
-                if (!mounted) return;
+              final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
 
-                // Filter items if dependency exists
-                if (widget.column.dependsOn != null && !widget.column.dependsOn!.startsWith('settings.')) {
-                   final parentKey = widget.column.dependsOn!;
-                   final parentValue = widget.data[parentKey];
-                   
-                   // Filter items where item[parentKey] == parentValue
-                   items = items.where((item) => item[parentKey]?.toString() == parentValue?.toString()).toList();
+              // Show search dialog that queries when user types >=2 chars (limit 10)
+              Future<void> _showSearchDialog(String title, ModuleSchema? moduleHint, String tabId) async {
+                if (!mounted) return;
+                List<Map<String, dynamic>> results = [];
+                bool loading = false;
+                String query = '';
+
+                Future<void> doSearch() async {
+                  if (!mounted) return;
+                  if (query.length < 2) {
+                    // Use the StatefulBuilder's setState via closure below
+                    // but here we just ensure results cleared before showing dialog
+                    results = [];
+                    return;
+                  }
+                  loading = true;
+                  debugPrint('RelationField: searching "$query" for tab $tabId (hint ${moduleHint?.id})');
+                  try {
+                    List<Map<String, dynamic>> fetched = [];
+
+                    ModuleSchema? targetModule = moduleHint;
+
+                    // Try module hint first
+                    if (targetModule != null && driveService != null) {
+                      try {
+                        fetched = await driveService.fetchRecords(targetModule.id, targetModule.name, tabId, searchQuery: query, limit: 10);
+                      } catch (_) {
+                        fetched = [];
+                      }
+                    }
+
+                    // If none and we have cached schemas, try to find another module
+                    if ((fetched.isEmpty) && schemaProvider != null) {
+                      try {
+                        targetModule = schemaProvider.findModuleByTabId(tabId) ?? schemaProvider.findModuleByIdOrName(tabId);
+                        if (targetModule != null && driveService != null) {
+                          fetched = await driveService.fetchRecords(targetModule.id, targetModule.name, tabId, searchQuery: query, limit: 10);
+                        }
+                      } catch (_) {}
+                    }
+
+                    // Dependency filter
+                    if (fetched.isNotEmpty && widget.column.dependsOn != null && !widget.column.dependsOn!.startsWith('settings.')) {
+                      final parentKey = widget.column.dependsOn!;
+                      final parentValue = widget.data[parentKey];
+                      fetched = fetched.where((item) => item[parentKey]?.toString() == parentValue?.toString()).toList();
+                    }
+
+                    debugPrint('RelationField: fetched ${fetched.length} results for query "$query"');
+
+                    // Fallback: if server-side returned nothing, try a local fetch and client-side filter
+                    if (fetched.isEmpty) {
+                      try {
+                        ModuleSchema? fallbackModule;
+                        try {
+                          fallbackModule = schemaProvider.findModuleByTabId(tabId) ?? schemaProvider.findModuleByIdOrName(tabId);
+                        } catch (_) {}
+
+                        final useModule = fallbackModule ?? moduleHint;
+                        if (useModule != null && driveService != null) {
+                          debugPrint('RelationField: server search empty, performing local fallback fetch for tab $tabId');
+                          final local = await driveService.fetchRecords(useModule.id, useModule.name, tabId, limit: 200);
+                          final lowered = query.toLowerCase();
+                          final filtered = local.where((item) {
+                            try {
+                              if (item.containsKey('item_name') && item['item_name'] != null && item['item_name'].toString().toLowerCase().contains(lowered)) return true;
+                              if (item.containsKey('name') && item['name'] != null && item['name'].toString().toLowerCase().contains(lowered)) return true;
+                              return item.values.any((v) => v != null && v.toString().toLowerCase().contains(lowered));
+                            } catch (_) {
+                              return false;
+                            }
+                          }).toList();
+                          debugPrint('RelationField: fallback found ${filtered.length} items');
+                          fetched = filtered.take(10).toList();
+                        }
+                      } catch (e) {
+                        debugPrint('RelationField: fallback fetch error: $e');
+                      }
+                    }
+
+                    // update outer vars; the StatefulBuilder below will call setState to refresh UI
+                    results = fetched;
+                  } catch (e) {
+                    debugPrint('Search error: $e');
+                  } finally {
+                    loading = false;
+                  }
                 }
 
-                // Show selection dialog
-                if (!mounted) return;
-                final selected = await showDialog<String>(
-                  context: this.context,
-                  builder: (context) => AlertDialog(
-                    title: Text('Select ${relatedTab.label}'),
-                    content: SizedBox(
-                      width: double.maxFinite,
-                      child: items.isEmpty 
-                        ? const Padding(
-                            padding: EdgeInsets.all(16.0),
-                            child: Text('No items found matching selection'),
-                          )
-                        : ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: items.length,
-                        itemBuilder: (context, index) {
-                          final item = items[index];
-                          // Try to find a meaningful label (first text column)
-                          String label = item.values.first.toString();
-                          // Or look for specific keys like 'name', 'item_name'
-                          if (item.containsKey('item_name')) {
-                            label = item['item_name'];
-                          } else if (item.containsKey('name')) {
-                            label = item['name'];
-                          }
-                          
-                          return ListTile(
-                            title: Text(label),
-                            onTap: () => Navigator.pop(context, label),
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                );
-                
-                if (selected != null && mounted) {
-                  widget.onChanged(selected);
-                }
+                Timer? debounce;
+                await showDialog<String>(
+                  context: context,
+                  builder: (context) {
+                    return StatefulBuilder(builder: (context, setState) {
+
+                      // Build dialog UI
+                      return AlertDialog(
+                        title: Text('Search $title'),
+                        content: SizedBox(
+                          width: double.maxFinite,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextField(
+                                autofocus: true,
+                                decoration: const InputDecoration(hintText: 'Type to search (min 2 chars)'),
+                                onChanged: (v) {
+                                  query = v.trim();
+                                  // debounce user input before searching
+                                  try { debounce?.cancel(); } catch (_) {}
+                                  debounce = Timer(const Duration(milliseconds: 600), () async {
+                                    if (!mounted) return;
+                                    setState(() => loading = true);
+                                    await doSearch();
+                                    if (mounted) setState(() {});
+                                  });
+                                  setState(() {});
+                                },
+                              ),
+                              const SizedBox(height: 12),
+                              if (loading) const Center(child: Padding(padding: EdgeInsets.all(8.0), child: CircularProgressIndicator())),
+                              if (!loading && results.isEmpty) const Padding(padding: EdgeInsets.all(8.0), child: Text('No results')),
+                              if (results.isNotEmpty)
+                                Flexible(
+                                  child: ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: results.length,
+                                    itemBuilder: (context, idx) {
+                                      final item = results[idx];
+                                      String label = item.values.first.toString();
+                                      if (item.containsKey('item_name')) label = item['item_name']?.toString() ?? label;
+                                      else if (item.containsKey('name')) label = item['name']?.toString() ?? label;
+                                      final recordId = item['record_id']?.toString() ?? item['id']?.toString();
+                                      return ListTile(
+                                        title: Text(label),
+                                        onTap: () {
+                                          if (mounted) setState(() => _displayLabel = label);
+                                          Navigator.pop(context, recordId ?? label);
+                                        },
+                                      );
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+                        ],
+                      );
+                    });
+                  },
+                ).then((selected) {
+                  if (selected != null && mounted) widget.onChanged(selected);
+                }).whenComplete(() {
+                  try { debounce?.cancel(); } catch (_) {}
+                });
               }
+
+              // Determine a module hint (current module if it has the tab)
+              ModuleSchema? moduleHint;
+              try {
+                if (widget.module != null && widget.module!.tabs.any((t) => t.id == relatedTabId)) moduleHint = widget.module;
+              } catch (_) {}
+
+              // Launch search dialog with the hint
+              await _showSearchDialog(relatedTabId, moduleHint, relatedTabId);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Entity lookup configuration missing')));
             }
@@ -141,7 +290,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                 Icon(Icons.link_rounded, color: theme.textTheme.bodyMedium?.color, size: 20),
                 const SizedBox(width: 12),
                 Text(
-                  widget.value?.toString() ?? 'Select ${widget.column.label}',
+                  _displayLabel ?? widget.value?.toString() ?? 'Select ${widget.column.label}',
                   style: AppTheme.inter(
                     color: widget.value != null ? theme.textTheme.bodyLarge?.color : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
                   ),

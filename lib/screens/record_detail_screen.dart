@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
+import '../providers/schema_provider.dart';
 import 'dynamic_form_screen.dart';
 
 class RecordDetailScreen extends StatefulWidget {
@@ -35,11 +36,13 @@ class RecordDetailScreen extends StatefulWidget {
 class _RecordDetailScreenState extends State<RecordDetailScreen> {
   late Map<String, dynamic> _currentData;
   bool _wasEdited = false;
+  final Map<String, String> _relationLabels = {};
 
   @override
   void initState() {
     super.initState();
     _currentData = Map<String, dynamic>.from(widget.data);
+    _resolveRelationLabels();
   }
 
   @override
@@ -47,6 +50,62 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       _currentData = Map<String, dynamic>.from(widget.data);
+      _resolveRelationLabels();
+    }
+  }
+
+  void _resolveRelationLabels() {
+    // Resolve labels for relation columns asynchronously after build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final col in widget.columns) {
+        if (col.type == 'relation' && _currentData.containsKey(col.key) && _currentData[col.key] != null) {
+          final rawVal = _currentData[col.key];
+          final id = rawVal?.toString();
+          if (id != null && id.isNotEmpty) {
+            _resolveLabelForColumn(col, id);
+          }
+        }
+      }
+    });
+  }
+
+  Future<void> _resolveLabelForColumn(ColumnConfig col, String id) async {
+    try {
+      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+      final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+      if (driveService == null) return;
+
+      final relatedTabId = col.options is String ? col.options as String : null;
+      if (relatedTabId == null) return;
+
+      // Try current module first
+      ModuleSchema? targetModule;
+      if (widget.module != null) {
+        try {
+          final hasTab = widget.module!.tabs.any((t) => t.id == relatedTabId);
+          if (hasTab) targetModule = widget.module;
+        } catch (_) {}
+      }
+
+      // Try cached schemas
+      targetModule ??= schemaProvider.findModuleByTabId(relatedTabId) ?? schemaProvider.findModuleByIdOrName(relatedTabId);
+
+      if (targetModule != null) {
+        final tab = targetModule.tabs.firstWhere((t) => t.id == relatedTabId, orElse: () => targetModule!.tabs.first);
+        try {
+          final records = await driveService.fetchRecords(targetModule.id, targetModule.name, tab.id);
+          final match = records.firstWhere((r) => (r['record_id']?.toString() == id) || (r['id']?.toString() == id), orElse: () => {});
+          if (match.isNotEmpty) {
+            final label = match['item_name']?.toString() ?? match['name']?.toString() ?? match.values.first.toString();
+            if (mounted) setState(() => _relationLabels[col.key] = label);
+            return;
+          }
+        } catch (_) {}
+      }
+
+      // Fallback: do nothing (leave raw id shown)
+    } catch (e) {
+      debugPrint('Error resolving relation label for ${col.key}: $e');
     }
   }
 
@@ -415,14 +474,24 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       itemBuilder: (context, index) {
         final col = filteredColumns[index];
         final value = _currentData[col.key];
-        
+
         if (col.type == 'table' && value is List) {
            return _buildTableField(col, value as List<Map<String, dynamic>>);
         }
 
-        final displayValue = value?.toString() ?? 'N/A';
+        // Relation fields: prefer resolved human label when available
+        String displayValue;
+        if (col.type == 'relation') {
+          if (value == null) {
+            displayValue = 'N/A';
+          } else {
+            displayValue = _relationLabels[col.key] ?? value.toString();
+          }
+        } else {
+          displayValue = value?.toString() ?? 'N/A';
+        }
 
-        if (col.type == 'image' || col.key.toLowerCase().contains('image') || col.key.toLowerCase().contains('photo')) {
+          if (col.type == 'image' || col.key.toLowerCase().contains('image') || col.key.toLowerCase().contains('photo')) {
            return _buildImageField(context, col.label, displayValue);
         }
         
