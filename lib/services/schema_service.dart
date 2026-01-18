@@ -46,6 +46,17 @@ class SchemaService {
     }
   }
 
+  /// Removes a cached module configuration and its metadata.
+  Future<void> removeCachedConfig(String moduleId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('$_cachePrefix$moduleId');
+      await prefs.remove('$_metaPrefix$moduleId');
+    } catch (e) {
+      debugPrint('Error removing cached config: $e');
+    }
+  }
+
   /// Gets the cached metadata for a module.
   Future<Map<String, String>?> getCachedMeta(String moduleId) async {
     try {

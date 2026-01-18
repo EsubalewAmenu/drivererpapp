@@ -202,21 +202,37 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                 tabs: tabs,
               );
 
-              // Update memory cache after the current frame to avoid calling
-              // notifyListeners() during an ongoing build (which causes
-              // "setState() or markNeedsBuild() called during build" errors).
-              WidgetsBinding.instance.addPostFrameCallback((_) {
+              // After activation, clear local cached configs and in-memory
+              // entries for the extension (short key + folder id) and the
+              // host module so subsequent opens will fetch fresh data from
+              // Drive and avoid stale prefixed ids.
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
                 try {
-                  if (mounted) {
-                    provider.updateMemoryCache(moduleFolderId, moduleSchema);
-                    // Also make module available under the short asset key so
-                    // callers using the short key find it without restarting.
+                  if (!mounted) return;
+                  try {
+                    await provider.service.removeCachedConfig(assetKey);
+                  } catch (_) {}
+                  try {
+                    await provider.service.removeCachedConfig(moduleFolderId);
+                  } catch (_) {}
+                  if (widget.hostModuleId != null && widget.hostModuleId!.isNotEmpty) {
                     try {
-                      provider.updateMemoryCache(assetKey, moduleSchema);
+                      await provider.service.removeCachedConfig(widget.hostModuleId!);
                     } catch (_) {}
                   }
+
+                  // Clear in-memory entries so UI will re-resolve from Drive
+                  try {
+                    provider.updateMemoryCache(moduleFolderId, null);
+                    try { provider.updateMemoryCache(assetKey, null); } catch (_) {}
+                    if (widget.hostModuleId != null && widget.hostModuleId!.isNotEmpty) {
+                      try { provider.updateMemoryCache(widget.hostModuleId!, null); } catch (_) {}
+                    }
+                  } catch (e) {
+                    debugPrint('Error clearing in-memory cache post-activation: $e');
+                  }
                 } catch (e) {
-                  debugPrint('Error updating memory cache post-frame: $e');
+                  debugPrint('Error clearing local cache post-activation: $e');
                 }
               });
               // If this activation was started from within a host module view,
@@ -317,8 +333,14 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
 
                       try {
                         await provider.saveConfig(updatedHost);
-                        // Also update memory so UI reflects the change immediately
-                        provider.updateMemoryCache(updatedHost.id, updatedHost);
+                        // After persisting, remove the host's local cache so
+                        // the app reloads authoritative config from Drive.
+                        try {
+                          await provider.service.removeCachedConfig(updatedHost.id);
+                        } catch (_) {}
+                        try {
+                          provider.updateMemoryCache(updatedHost.id, null);
+                        } catch (_) {}
                       } catch (e) {
                         debugPrint('Failed to persist enabled extension on host module: $e');
                       }
