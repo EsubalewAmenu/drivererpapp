@@ -141,16 +141,27 @@ class SchemaService {
         
         fileId = await driveService!.getFileId(configFolderId, fileName);
         
-        // 2. Prepare config map
-        final configMap = config.toJson();
+          // 2. Prepare config map
+          final configMap = config.toJson();
 
-        if (fileId != null) {
-           // Update existing user config
-           await driveService!.updateModuleConfig(fileId, configMap);
-        } else {
-           // Create new user config
-           fileId = await driveService!.createModuleConfig(configFolderId, fileName, configMap);
-        }
+          // If module settings include an 'extensions' SettingItem, write it
+          // as a top-level `extensions` array to maintain the newer schema.
+          try {
+           if (config.settings.containsKey('extensions')) {
+            final ext = config.settings['extensions']?.value;
+            if (ext is List) {
+              configMap['extensions'] = ext;
+            }
+           }
+          } catch (_) {}
+
+          if (fileId != null) {
+            // Update existing user config
+            await driveService!.updateModuleConfig(fileId, configMap);
+          } else {
+            // Create new user config
+            fileId = await driveService!.createModuleConfig(configFolderId, fileName, configMap);
+          }
       } else {
         // Legacy/Fallback behavior: config in root
         fileId = await driveService!.getFileId(moduleId, 'config');

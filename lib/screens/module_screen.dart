@@ -190,11 +190,13 @@ class _ModuleScreenState extends State<ModuleScreen> {
     final result = <Map<String, dynamic>>[];
     try {
       final settings = module.settings;
-      final enabledKeys = settings.keys.where((k) => k.startsWith('enable_')).toList();
+      final extSetting = settings['extensions'];
+      final enabledKeys = <String>[];
+      if (extSetting != null && extSetting.value is List) {
+        enabledKeys.addAll((extSetting.value as List).map((e) => e.toString()));
+      }
       if (enabledKeys.isEmpty) return result;
 
-      // Capture providers and workspace id synchronously to avoid using
-      // `context` after async awaits which can cause "unmounted" errors.
       final driveProvider = Provider.of<DriveProvider>(context, listen: false);
       final driveService = driveProvider.driveService;
       final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
@@ -207,49 +209,54 @@ class _ModuleScreenState extends State<ModuleScreen> {
         }
       } catch (_) {}
 
-      for (var key in enabledKeys) {
-        final modId = key.substring('enable_'.length);
-        // Use cached schema provider instance captured earlier
-        final cached = schemaProvider.findModuleByIdOrName(modId);
-        String name = cached?.name ?? modId;
-        String icon = cached?.icon ?? '';
-        String desc = '';
-        String primaryColor = cached?.primaryColor ?? '#2196F3';
-
-        // Try load asset for nicer label using the authoritative asset map
+      for (var rawKey in enabledKeys) {
         try {
-          final jsonString = await SchemaService.tryLoadModuleAsset(modId);
-          if (jsonString != null) {
-            final parsed = jsonDecode(jsonString) as Map<String, dynamic>;
-            final settingsRaw = parsed['settings'] as Map<String, dynamic>?;
-            if (settingsRaw != null) {
-              name = settingsRaw['name']?['value']?.toString() ?? name;
-              icon = settingsRaw['icon']?['value']?.toString() ?? icon;
-              primaryColor = settingsRaw['primaryColor']?['value']?.toString() ?? primaryColor;
-            }
-            desc = parsed['desc']?.toString() ?? desc;
-          }
-        } catch (_) {}
+          final key = rawKey.toString();
+          final modId = key; // extensions list contains authoritative module asset keys
 
-        bool activated = false;
-        try {
-          for (var m in activeModules) {
-            final mName = (m.name ?? '').toString().toLowerCase();
-            if (mName == modId.toLowerCase() || mName == name.toLowerCase()) {
-              activated = true;
-              break;
-            }
-          }
-        } catch (_) {}
+          final cached = schemaProvider.findModuleByIdOrName(modId);
+          String name = cached?.name ?? modId;
+          String icon = cached?.icon ?? '';
+          String desc = '';
+          String primaryColor = cached?.primaryColor ?? '#2196F3';
 
-        result.add({
-          'id': modId,
-          'name': name,
-          'icon': icon,
-          'desc': desc,
-          'primaryColor': primaryColor,
-          'activated': activated,
-        });
+          try {
+            final jsonString = await SchemaService.tryLoadModuleAsset(modId);
+            if (jsonString != null) {
+              final parsed = jsonDecode(jsonString) as Map<String, dynamic>;
+              final settingsRaw = parsed['settings'] as Map<String, dynamic>?;
+              if (settingsRaw != null) {
+                name = settingsRaw['name']?['value']?.toString() ?? name;
+                icon = settingsRaw['icon']?['value']?.toString() ?? icon;
+                primaryColor = settingsRaw['primaryColor']?['value']?.toString() ?? primaryColor;
+              }
+              desc = parsed['desc']?.toString() ?? desc;
+            }
+          } catch (_) {}
+
+          var activated = false;
+          try {
+            for (var m in activeModules) {
+              final mName = (m.name ?? '').toString().toLowerCase();
+              if (mName == modId.toLowerCase() || mName == name.toLowerCase()) {
+                activated = true;
+                break;
+              }
+            }
+          } catch (_) {}
+
+          result.add({
+            'id': modId,
+            'name': name,
+            'icon': icon,
+            'desc': desc,
+            'primaryColor': primaryColor,
+            'activated': activated,
+          });
+        } catch (e) {
+          debugPrint('Error loading enabled module entry "${rawKey}": $e');
+          continue;
+        }
       }
     } catch (e) {
       debugPrint('Error loading enabled modules: $e');
@@ -415,14 +422,30 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
       final settingsItems = <String, SettingItem>{};
       settingsMap.forEach((k, v) {
-        if (v != null && v is Map<String, dynamic>) {
-          try {
+        try {
+          if (v != null && v is Map<String, dynamic>) {
             settingsItems[k] = SettingItem.fromJson(v);
-          } catch (e) {
-            debugPrint('Error parsing setting $k: $e');
+          } else if (v != null && v is List) {
+            // e.g. extensions defined inside 'settings' as a plain list
+            settingsItems[k] = SettingItem(label: k, type: 'list', value: v);
+          } else if (v != null) {
+            // Primitive value; wrap as a simple SettingItem
+            settingsItems[k] = SettingItem(label: k, type: 'text', value: v);
           }
+        } catch (e) {
+          debugPrint('Error parsing setting $k: $e');
         }
       });
+
+      // Read top-level extensions array (new format) and expose it via settings
+      // so existing UI helpers can read it.
+      try {
+        final extensionsRaw = jsonMap['extensions'];
+        if (extensionsRaw is List) {
+          final exList = extensionsRaw.map((e) => e.toString()).toList();
+          settingsItems['extensions'] = SettingItem(label: 'Extensions', type: 'list', value: exList);
+        }
+      } catch (_) {}
 
       final loadedModule = ModuleSchema(
         id: widget.module.id,
@@ -438,15 +461,34 @@ class _ModuleScreenState extends State<ModuleScreen> {
       // Keep the original loaded module (without tabs merged from enabled modules)
       _baseModule = loadedModule;
 
-      // If settings enable other modules, load their tabs and append
+      // If module lists extensions explicitly (preferred) use that list.
       final combinedTabs = <TabConfig>[];
       combinedTabs.addAll(tabs);
 
-      for (final entry in settingsItems.entries) {
-        final key = entry.key;
-        final setting = entry.value;
-        if (key.startsWith('enable_') && (setting.value is bool) && (setting.value == true)) {
-          final otherModuleId = key.substring('enable_'.length);
+      // Only use explicit `extensions` list
+      final List<String> extensionKeys = [];
+      final extSetting = settingsItems['extensions'];
+      if (extSetting != null && extSetting.value is List) {
+        extensionKeys.addAll((extSetting.value as List).map((e) => e.toString()));
+      }
+
+      // Determine which extensions are activated in the current workspace so
+      // we only merge tabs from modules that are actually installed.
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+      final driveService = driveProvider.driveService;
+      final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
+      final installedNames = <String>{};
+      try {
+        if (driveService != null && workspaceId != null) {
+          final activeModules = await driveService.listModules(workspaceId);
+          for (var m in activeModules) {
+            final name = (m.name ?? '').toString().toLowerCase();
+            installedNames.add(name);
+          }
+        }
+      } catch (_) {}
+
+      for (final otherModuleId in extensionKeys) {
           try {
             ModuleSchema? otherModule = Provider.of<SchemaProvider>(context, listen: false).getFromMemory(otherModuleId);
             Map<String, dynamic>? otherJson;
@@ -467,6 +509,14 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 // Parse the other module's tabs similarly to above
                 final otherSettingsRaw = otherJson['settings'];
                 final otherSettingsMap = otherSettingsRaw != null ? Map<String, dynamic>.from(otherSettingsRaw as Map) : <String, dynamic>{};
+
+                // Check activation: ensure this extension module is installed in
+                // the workspace before merging its tabs into the host module.
+                final candidateName = (otherSettingsMap['name']?['value']?.toString() ?? otherModuleId).toLowerCase();
+                if (!installedNames.contains(candidateName) && !installedNames.contains(otherModuleId.toLowerCase())) {
+                  // Not installed — skip merging tabs from this extension.
+                  continue;
+                }
                 final otherTabsRaw = otherJson['tabs'];
                 final otherTabsList = otherTabsRaw != null ? List<dynamic>.from(otherTabsRaw as List) : [];
 
@@ -506,7 +556,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
                 // Prefix ids to avoid collisions and mark origin. Use the authoritative
                 // module id from the other module's settings if available (not the
-                // enable_ key), so tab ids remain consistent with the source config.
+                // display name), so tab ids remain consistent with the source config.
                 final authoritativeOtherId = otherSettingsMap['id']?['value']?.toString() ?? otherModuleId;
                 for (var ot in parsedOtherTabs) {
                   final newId = authoritativeOtherId == ot.id ? ot.id : '${authoritativeOtherId}_${ot.id}';
@@ -552,7 +602,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
           } catch (e) {
             debugPrint('Error loading enabled module $otherModuleId: $e');
           }
-        }
       }
 
       final mergedModule = ModuleSchema(
