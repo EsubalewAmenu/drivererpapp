@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/schema_service.dart';
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
 import '../providers/workspace_provider.dart';
@@ -30,13 +31,17 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
 
   Future<void> _loadModuleConfig() async {
     try {
-      final fileName = widget.moduleInfo['name']!.toLowerCase();
-      final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
-      if (mounted) {
-        setState(() {
-          _moduleJson = jsonDecode(jsonString);
-          _errorMessage = null;
-        });
+      final key = (widget.moduleInfo['id'] ?? widget.moduleInfo['name'])!.toString().toLowerCase().trim();
+      final jsonString = await SchemaService.tryLoadModuleAsset(key);
+      if (jsonString != null) {
+        if (mounted) {
+          setState(() {
+            _moduleJson = jsonDecode(jsonString);
+            _errorMessage = null;
+          });
+        }
+      } else {
+        throw Exception('Module asset not found for key: $key');
       }
     } catch (e) {
       debugPrint('Error loading module config in details: $e');

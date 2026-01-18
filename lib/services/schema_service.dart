@@ -181,4 +181,41 @@ class SchemaService {
 
     return modules;
   }
-}
+
+  /// Attempts to load a module JSON asset by trying multiple filename variants.
+  /// Returns the raw JSON string if found, or null if none of the candidates exist.
+  static Future<String?> tryLoadModuleAsset(String key) async {
+    try {
+      final lookupKey = key.toLowerCase().trim();
+
+      // Strict mapping only: consult module_asset_map.json and return the mapped
+      // asset content if present. No fallbacks or normalization attempts beyond
+      // lowercasing/trim for the map lookup.
+      final mapStr = await rootBundle.loadString('assets/erp_modules/module_asset_map.json');
+      final Map<String, dynamic> mapJson = jsonDecode(mapStr) as Map<String, dynamic>;
+
+      // Build a normalized key map to allow map keys to be defined in any case/spacing,
+      // but require an explicit mapping entry.
+      final normalizedMap = <String, String>{};
+      for (final entry in mapJson.entries) {
+        final k = entry.key.toString().toLowerCase().trim();
+        final v = entry.value?.toString() ?? '';
+        if (v.isNotEmpty) normalizedMap[k] = v;
+      }
+
+      final mapped = normalizedMap[lookupKey];
+      if (mapped != null && mapped.isNotEmpty) {
+        try {
+          return await rootBundle.loadString('assets/erp_modules/$mapped');
+        } catch (e) {
+          debugPrint('Mapped asset found but failed to load $mapped: $e');
+          return null;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error trying to load module asset for $key: $e');
+    }
+    return null;
+  }
+
+          }

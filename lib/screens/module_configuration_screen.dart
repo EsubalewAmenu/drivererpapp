@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
+import '../services/schema_service.dart';
 import '../services/drive_service.dart';
 import '../providers/workspace_provider.dart';
 import '../providers/drive_provider.dart';
@@ -34,9 +35,10 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
 
   Future<void> _loadModuleConfig() async {
     try {
-      final fileName = widget.moduleInfo['name']!.toLowerCase();
-      // Try to load the specific JSON for the module
-      final jsonString = await DefaultAssetBundle.of(context).loadString('assets/erp_modules/$fileName.json');
+      final key = (widget.moduleInfo['id'] ?? widget.moduleInfo['name'])!.toString().toLowerCase().trim();
+      // Load module JSON using the asset map (authoritative)
+      final jsonString = await SchemaService.tryLoadModuleAsset(key);
+      if (jsonString == null) throw Exception('Module asset not found for key: $key');
       final json = jsonDecode(jsonString);
       
       setState(() {

@@ -11,6 +11,8 @@ import 'schema_editor_screen.dart';
 import 'module/module_dashboard.dart';
 import 'module/module_tab_screen.dart';
 import 'common/history_dialog.dart';
+import 'module_details_screen.dart';
+import 'package:drivererpapp/providers/workspace_provider.dart';
 
 class ModuleScreen extends StatefulWidget {
   final ModuleSchema module;
@@ -34,6 +36,190 @@ class _ModuleScreenState extends State<ModuleScreen> {
     _fullModule = schemaProvider.getFromMemory(widget.module.id);
     
     _loadSchema();
+  }
+
+  Widget _buildExtensionsTab(ModuleSchema module, Color primaryColor) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _loadEnabledModules(module),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final items = snapshot.data ?? [];
+        if (items.isEmpty) {
+          return Center(
+            child: Text('No extensions available', style: AppTheme.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: GridView.builder(
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 3 / 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final it = items[index];
+              final name = it['name'] as String? ?? it['id'] as String;
+              final iconName = it['icon'] as String? ?? '';
+              final activated = it['activated'] as bool? ?? false;
+              return Card(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: InkWell(
+                  onTap: () {
+                    if (activated) {
+                      // Open blueprint editor for activated module
+                      final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+                      final mod = schemaProvider.getFromMemory(it['id'] as String) ?? ModuleSchema(id: it['id'] as String, name: name, icon: iconName, primaryColor: '#2196F3', version: '1.0', settings: {}, dashboard: DashboardConfig(cards: []), tabs: []);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => SchemaEditorScreen(module: mod)),
+                      ).then((_) => _loadSchema());
+                    } else {
+                      // Go to activation/details page
+                      final info = {
+                        'id': it['id'] as String,
+                        'name': it['name'] as String? ?? it['id'] as String,
+                        'desc': it['desc'] as String? ?? '',
+                        'icon': it['icon'] as String? ?? '',
+                        'color': it['primaryColor'] as String? ?? '#2196F3',
+                      };
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => ModuleDetailsScreen(moduleInfo: Map<String,String>.from(info))),
+                      ).then((_) => _loadSchema());
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(12.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor: primaryColor.withOpacity(0.12),
+                                child: Icon(_getIconData(iconName), color: primaryColor),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(name, style: AppTheme.inter(fontWeight: FontWeight.w700)),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(activated ? 'Installed' : 'Install', style: AppTheme.inter(fontSize: 12, color: Colors.grey)),
+                            Icon(activated ? Icons.check_circle_rounded : Icons.download_rounded, color: activated ? Colors.green : Colors.grey)
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Future<List<Map<String, dynamic>>> _loadEnabledModules(ModuleSchema module) async {
+    final result = <Map<String, dynamic>>[];
+    try {
+      final settings = module.settings;
+      final enabledKeys = settings.keys.where((k) => k.startsWith('enable_')).toList();
+      if (enabledKeys.isEmpty) return result;
+
+      // Capture providers and workspace id synchronously to avoid using
+      // `context` after async awaits which can cause "unmounted" errors.
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+      final driveService = driveProvider.driveService;
+      final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
+      final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+
+      List<dynamic> activeModules = [];
+      try {
+        if (driveService != null && workspaceId != null) {
+          activeModules = await driveService.listModules(workspaceId);
+        }
+      } catch (_) {}
+
+      for (var key in enabledKeys) {
+        final modId = key.substring('enable_'.length);
+        // Use cached schema provider instance captured earlier
+        final cached = schemaProvider.findModuleByIdOrName(modId);
+        String name = cached?.name ?? modId;
+        String icon = cached?.icon ?? '';
+        String desc = '';
+        String primaryColor = cached?.primaryColor ?? '#2196F3';
+
+        // Try load asset for nicer label using the authoritative asset map
+        try {
+          final jsonString = await SchemaService.tryLoadModuleAsset(modId);
+          if (jsonString != null) {
+            final parsed = jsonDecode(jsonString) as Map<String, dynamic>;
+            final settingsRaw = parsed['settings'] as Map<String, dynamic>?;
+            if (settingsRaw != null) {
+              name = settingsRaw['name']?['value']?.toString() ?? name;
+              icon = settingsRaw['icon']?['value']?.toString() ?? icon;
+              primaryColor = settingsRaw['primaryColor']?['value']?.toString() ?? primaryColor;
+            }
+            desc = parsed['desc']?.toString() ?? desc;
+          }
+        } catch (_) {}
+
+        bool activated = false;
+        try {
+          for (var m in activeModules) {
+            final mName = (m.name ?? '').toString().toLowerCase();
+            if (mName == modId.toLowerCase() || mName == name.toLowerCase()) {
+              activated = true;
+              break;
+            }
+          }
+        } catch (_) {}
+
+        result.add({
+          'id': modId,
+          'name': name,
+          'icon': icon,
+          'desc': desc,
+          'primaryColor': primaryColor,
+          'activated': activated,
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading enabled modules: $e');
+    }
+    return result;
+  }
+
+  IconData _getIconData(String iconName) {
+    switch (iconName) {
+      case 'inventory': return Icons.inventory_2_rounded;
+      case 'people': return Icons.people_alt_rounded;
+      case 'shopping_cart': return Icons.shopping_cart_rounded;
+      case 'local_shipping': return Icons.local_shipping_rounded;
+      case 'payments': return Icons.payments_rounded;
+      case 'badge': return Icons.badge_rounded;
+      case 'campaign': return Icons.campaign_rounded;
+      case 'receipt_long': return Icons.receipt_long_rounded;
+      case 'assignment': return Icons.assignment_rounded;
+      case 'account_balance': return Icons.account_balance_rounded;
+      case 'analytics': return Icons.analytics_rounded;
+      case 'support_agent': return Icons.support_agent_rounded;
+      default: return Icons.widgets_rounded;
+    }
   }
 
   Future<void> _loadSchema() async {
@@ -63,10 +249,14 @@ class _ModuleScreenState extends State<ModuleScreen> {
           debugPrint('No remote config found for ${widget.module.id}, checking assets...');
           final fileName = widget.module.name.toLowerCase();
           Map<String, dynamic> assetJson;
-          try {
-            final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
-            assetJson = jsonDecode(jsonString);
-          } catch (e) {
+            try {
+                final jsonString = await SchemaService.tryLoadModuleAsset(fileName);
+                if (jsonString != null) {
+                  assetJson = jsonDecode(jsonString);
+                } else {
+                  throw Exception('Asset not found');
+                }
+              } catch (e) {
             debugPrint('Asset not found for $fileName, using default template');
             // If no remote config AND no asset, use a basic template and go to editor
             assetJson = {
@@ -204,8 +394,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
             if (otherModule == null) {
               // Try to load from assets by module id/name
               try {
-                final jsonString = await rootBundle.loadString('assets/erp_modules/${otherModuleId.toLowerCase()}.json');
-                otherJson = jsonDecode(jsonString) as Map<String, dynamic>;
+                final jsonString = await SchemaService.tryLoadModuleAsset(otherModuleId);
+                if (jsonString != null) {
+                  otherJson = jsonDecode(jsonString) as Map<String, dynamic>;
+                } else {
+                  otherJson = null;
+                }
               } catch (_) {
                 otherJson = null;
               }
@@ -369,7 +563,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
     return DefaultTabController(
       key: ValueKey('module_tabs_${module.id}_${module.tabs.length}'),
-      length: (module.tabs.length) + 1, // +1 for Dashboard
+      length: (module.tabs.length) + 2, // +1 for Dashboard, +1 for Extensions
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
@@ -421,6 +615,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             tabs: [
               const Tab(text: 'DASHBOARD'),
               ...module.tabs.map((t) => Tab(text: t.label.toUpperCase())),
+              const Tab(text: 'EXTENSIONS'),
             ],
           ),
         ),
@@ -462,6 +657,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
                       module: sourceModule,
                     );
                   }),
+                  _buildExtensionsTab(module, primaryColor),
                 ],
               ),
       ),
