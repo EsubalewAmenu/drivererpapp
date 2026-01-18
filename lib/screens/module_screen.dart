@@ -70,14 +70,67 @@ class _ModuleScreenState extends State<ModuleScreen> {
               return Card(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: InkWell(
-                  onTap: () {
+                  onTap: () async {
                     if (activated) {
                       // Open blueprint editor for activated module
                       final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
-                      final mod = schemaProvider.getFromMemory(it['id'] as String) ?? ModuleSchema(id: it['id'] as String, name: name, icon: iconName, primaryColor: '#2196F3', version: '1.0', settings: {}, dashboard: DashboardConfig(cards: []), tabs: []);
+                      ModuleSchema? mod = schemaProvider.getFromMemory(it['id'] as String);
+
+                      // If not cached, try to load authoritative asset (includes tabs)
+                      if (mod == null) {
+                        try {
+                          final jsonString = await SchemaService.tryLoadModuleAsset(it['id'] as String);
+                          if (jsonString != null) {
+                            final parsed = jsonDecode(jsonString) as Map<String, dynamic>;
+
+                            // Parse settings
+                            final settingsRaw = parsed['settings'];
+                            final settingsMap = <String, SettingItem>{};
+                            if (settingsRaw != null && settingsRaw is Map<String, dynamic>) {
+                              settingsRaw.forEach((k, v) {
+                                try {
+                                  settingsMap[k] = SettingItem.fromJson(Map<String, dynamic>.from(v as Map));
+                                } catch (_) {}
+                              });
+                            }
+
+                            // Parse dashboard
+                            final dashboardJson = parsed['dashboard'] != null ? Map<String, dynamic>.from(parsed['dashboard'] as Map) : null;
+                            final dashboard = (dashboardJson != null && dashboardJson['cards'] != null)
+                                ? DashboardConfig.fromJson(dashboardJson)
+                                : DashboardConfig(cards: []);
+
+                            // Parse tabs
+                            final tabsRaw = parsed['tabs'];
+                            final tabsList = tabsRaw != null ? List<dynamic>.from(tabsRaw as List) : [];
+                            final tabs = tabsList.map((t) {
+                              try {
+                                return TabConfig.fromJson(Map<String, dynamic>.from(t as Map));
+                              } catch (_) {
+                                return TabConfig(id: 'err', label: 'Error Tab', columns: []);
+                              }
+                            }).toList();
+
+                            mod = ModuleSchema(
+                              id: it['id'] as String,
+                              name: name,
+                              icon: iconName,
+                              primaryColor: _colorToHex(primaryColor),
+                              version: '1.0',
+                              settings: settingsMap,
+                              dashboard: dashboard,
+                              tabs: tabs,
+                            );
+
+                            // Cache for future lookups
+                            schemaProvider.updateMemoryCache(mod.id, mod);
+                          }
+                        } catch (_) {}
+                      }
+
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => SchemaEditorScreen(module: mod)),
+                        MaterialPageRoute(builder: (_) => SchemaEditorScreen(module: mod ?? ModuleSchema(id: it['id'] as String, name: name, icon: iconName, primaryColor: '#2196F3', version: '1.0', settings: {}, dashboard: DashboardConfig(cards: []), tabs: []))),
                       ).then((_) => _loadSchema());
                     } else {
                       // Go to activation/details page
@@ -220,6 +273,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
       case 'support_agent': return Icons.support_agent_rounded;
       default: return Icons.widgets_rounded;
     }
+  }
+
+  String _colorToHex(Color c) {
+    // Return #RRGGBB (drop alpha)
+    final hex = c.value.toRadixString(16).padLeft(8, '0');
+    return '#${hex.substring(2)}';
   }
 
   Future<void> _loadSchema() async {
@@ -472,7 +531,14 @@ class _ModuleScreenState extends State<ModuleScreen> {
                     dashboard: DashboardConfig(cards: []),
                     tabs: parsedOtherTabs,
                   );
-                  Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(authoritativeOtherId, otherModuleSchema);
+                  final provider = Provider.of<SchemaProvider>(context, listen: false);
+                  provider.updateMemoryCache(authoritativeOtherId, otherModuleSchema);
+
+                  // Cache the raw other module JSON so per-tab fileId entries (if any)
+                  // are available to ModuleTabScreen when resolving fileIds later.
+                  try {
+                    await provider.service.cacheConfig(authoritativeOtherId, otherJson);
+                  } catch (_) {}
                 } catch (_) {}
               }
             } else {
@@ -597,7 +663,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SchemaEditorScreen(module: _baseModule ?? widget.module)),
+                  MaterialPageRoute(builder: (context) => SchemaEditorScreen(module: _baseModule ?? cachedModule ?? widget.module)),
                 ).then((_) {
                   // Reload the schema when callback from editor
                   _loadSchema();

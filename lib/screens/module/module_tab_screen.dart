@@ -266,6 +266,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 schemaProvider.updateMemoryCache(fetchModuleId, mapped);
                 sourceModule = mapped;
                 fetchModuleName = mapped.name;
+                // Also copy cached raw config if available so per-tab fileIds are preserved
+                try {
+                  final cachedConfig = await schemaProvider.service.getCachedConfig(possibleMod);
+                  if (cachedConfig != null) {
+                    await schemaProvider.service.cacheConfig(fetchModuleId, cachedConfig);
+                  }
+                } catch (_) {}
               } else {
                 // Try to get a cached ModuleSchema by the resolved folder id (maybe it exists)
                 sourceModule = schemaProvider.getFromMemory(fetchModuleId);
@@ -407,6 +414,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             }
           }
         }
+        debugPrint('ModuleTabScreen: cachedConfig for $fetchModuleId exists=${cachedConfig!=null} tabFileId=$tabFileId');
 
         if (tabFileId != null && tabFileId.isNotEmpty) {
           fetchedData = await _driveService.fetchRecordsBySpreadsheetId(

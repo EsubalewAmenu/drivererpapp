@@ -6,6 +6,8 @@ import '../services/auth_service.dart';
 import '../services/schema_service.dart';
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
+import '../providers/schema_provider.dart';
+import '../models/schema_models.dart';
 import '../providers/workspace_provider.dart';
 import 'dashboard_screen.dart';
 
@@ -141,8 +143,70 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
           final userEmail = authService.currentUser?.email;
           final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}_config' : 'config';
           try {
-            final _createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
-            if (_createCfgRes is Future) await _createCfgRes;
+            // Create module config on Drive and capture its fileId if returned
+            dynamic _createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
+            dynamic createdCfgId;
+            if (_createCfgRes is Future) {
+              createdCfgId = await _createCfgRes;
+            } else {
+              createdCfgId = _createCfgRes;
+            }
+
+            // Cache the created module JSON locally under the new module folder id
+            try {
+              final provider = Provider.of<SchemaProvider>(context, listen: false);
+              await provider.service.cacheConfig(moduleFolderId, _moduleJson!);
+
+              // Also create an in-memory ModuleSchema so UI can pick it up immediately
+              final settingsRaw = _moduleJson!['settings'];
+              final settingsMap = <String, SettingItem>{};
+              if (settingsRaw != null && settingsRaw is Map<String, dynamic>) {
+                settingsRaw.forEach((k, v) {
+                  try {
+                    settingsMap[k] = SettingItem.fromJson(Map<String, dynamic>.from(v as Map));
+                  } catch (_) {}
+                });
+              }
+
+              final dashboardJson = _moduleJson!['dashboard'] != null ? Map<String, dynamic>.from(_moduleJson!['dashboard'] as Map) : null;
+              final dashboard = (dashboardJson != null && dashboardJson['cards'] != null)
+                  ? DashboardConfig.fromJson(dashboardJson)
+                  : DashboardConfig(cards: []);
+
+              final tabsRaw = _moduleJson!['tabs'];
+              final tabsList = tabsRaw != null ? List<dynamic>.from(tabsRaw as List) : [];
+              final tabs = tabsList.map((t) {
+                try {
+                  return TabConfig.fromJson(Map<String, dynamic>.from(t as Map));
+                } catch (_) {
+                  return TabConfig(id: 'err', label: 'Error Tab', columns: []);
+                }
+              }).toList();
+
+              final moduleSchema = ModuleSchema(
+                id: moduleFolderId,
+                name: settingsMap['name']?.value?.toString() ?? moduleName,
+                icon: settingsMap['icon']?.value?.toString() ?? '',
+                primaryColor: settingsMap['primaryColor']?.value?.toString() ?? '#2196F3',
+                version: settingsMap['version']?.value?.toString() ?? '1.0',
+                settings: settingsMap,
+                dashboard: dashboard,
+                tabs: tabs,
+              );
+
+              // Update memory cache after the current frame to avoid calling
+              // notifyListeners() during an ongoing build (which causes
+              // "setState() or markNeedsBuild() called during build" errors).
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                try {
+                  if (mounted) provider.updateMemoryCache(moduleFolderId, moduleSchema);
+                } catch (e) {
+                  debugPrint('Error updating memory cache post-frame: $e');
+                }
+              });
+            } catch (e) {
+              debugPrint('Failed to cache module config locally after activation: $e');
+            }
           } catch (e) {
             debugPrint('Failed to create default module config during activation: $e');
           }
