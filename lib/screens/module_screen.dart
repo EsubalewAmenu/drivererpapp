@@ -143,7 +143,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
                       };
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => ModuleDetailsScreen(moduleInfo: Map<String,String>.from(info))),
+                        MaterialPageRoute(builder: (_) => ModuleDetailsScreen(moduleInfo: Map<String,String>.from(info), hostModuleId: widget.module.id)),
                       ).then((_) => _loadSchema());
                     }
                   },

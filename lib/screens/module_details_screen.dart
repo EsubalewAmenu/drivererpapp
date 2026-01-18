@@ -13,8 +13,9 @@ import 'dashboard_screen.dart';
 
 class ModuleDetailsScreen extends StatefulWidget {
   final Map<String, String> moduleInfo;
+  final String? hostModuleId;
 
-  const ModuleDetailsScreen({super.key, required this.moduleInfo});
+  const ModuleDetailsScreen({super.key, required this.moduleInfo, this.hostModuleId});
 
   @override
   State<ModuleDetailsScreen> createState() => _ModuleDetailsScreenState();
@@ -218,6 +219,115 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                   debugPrint('Error updating memory cache post-frame: $e');
                 }
               });
+              // If this activation was started from within a host module view,
+              // enable the extension on that host module's settings so its
+              // Extensions tab shows the new extension automatically.
+              if (widget.hostModuleId != null && widget.hostModuleId!.isNotEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) async {
+                  try {
+                    final provider = Provider.of<SchemaProvider>(context, listen: false);
+                    ModuleSchema? hostSchema;
+
+                    // Prefer the raw cached config for the host (this is the
+                    // authoritative base config without merged extension tabs).
+                    try {
+                      final cached = await provider.service.getCachedConfig(widget.hostModuleId!);
+                      if (cached != null) {
+                        // Parse settings
+                        final settingsRaw = cached['settings'];
+                        final settingsMap = <String, SettingItem>{};
+                        if (settingsRaw != null && settingsRaw is Map<String, dynamic>) {
+                          settingsRaw.forEach((k, v) {
+                            try {
+                              settingsMap[k] = SettingItem.fromJson(Map<String, dynamic>.from(v as Map));
+                            } catch (_) {}
+                          });
+                        }
+
+                        final dashboardJson = cached['dashboard'] != null ? Map<String, dynamic>.from(cached['dashboard'] as Map) : null;
+                        final dashboard = (dashboardJson != null && dashboardJson['cards'] != null)
+                            ? DashboardConfig.fromJson(dashboardJson)
+                            : DashboardConfig(cards: []);
+
+                        final tabsRaw = cached['tabs'];
+                        final tabsList = tabsRaw != null ? List<dynamic>.from(tabsRaw as List) : [];
+                        final tabs = tabsList.map((t) {
+                          try {
+                            return TabConfig.fromJson(Map<String, dynamic>.from(t as Map));
+                          } catch (_) {
+                            return TabConfig(id: 'err', label: 'Error Tab', columns: []);
+                          }
+                        }).toList();
+
+                        hostSchema = ModuleSchema(
+                          id: widget.hostModuleId!,
+                          name: settingsMap['name']?.value?.toString() ?? provider.getFromMemory(widget.hostModuleId!)?.name ?? 'Module',
+                          icon: settingsMap['icon']?.value?.toString() ?? provider.getFromMemory(widget.hostModuleId!)?.icon ?? '',
+                          primaryColor: settingsMap['primaryColor']?.value?.toString() ?? provider.getFromMemory(widget.hostModuleId!)?.primaryColor ?? '#2196F3',
+                          version: settingsMap['version']?.value?.toString() ?? provider.getFromMemory(widget.hostModuleId!)?.version ?? '1.0',
+                          settings: settingsMap,
+                          dashboard: dashboard,
+                          tabs: tabs,
+                        );
+                      }
+                    } catch (e) {
+                      debugPrint('Error reading cached host config: $e');
+                    }
+
+                    // Fallback: use in-memory host but strip merged extension tabs
+                    if (hostSchema == null) {
+                      final inMem = provider.getFromMemory(widget.hostModuleId!) ?? provider.findModuleByIdOrName(widget.hostModuleId!);
+                      if (inMem != null) {
+                        // Keep only tabs that appear to belong to the host (no external prefixes)
+                        final filteredTabs = inMem.tabs.where((t) => !t.id.contains('_') || t.id.startsWith(inMem.id)).toList();
+                        hostSchema = ModuleSchema(
+                          id: inMem.id,
+                          name: inMem.name,
+                          icon: inMem.icon,
+                          primaryColor: inMem.primaryColor,
+                          version: inMem.version,
+                          settings: Map<String, SettingItem>.from(inMem.settings),
+                          dashboard: inMem.dashboard,
+                          tabs: filteredTabs,
+                        );
+                      }
+                    }
+
+                    if (hostSchema != null) {
+                      // Update host settings to enable this extension
+                      final updatedSettings = Map<String, SettingItem>.from(hostSchema.settings);
+                      final enableKey = 'enable_${assetKey}';
+                      updatedSettings[enableKey] = SettingItem(
+                        label: 'Enable ${moduleName}',
+                        type: 'bool',
+                        value: true,
+                        defaultValue: false,
+                      );
+
+                      final updatedHost = ModuleSchema(
+                        id: hostSchema.id,
+                        name: hostSchema.name,
+                        icon: hostSchema.icon,
+                        primaryColor: hostSchema.primaryColor,
+                        version: hostSchema.version,
+                        settings: updatedSettings,
+                        dashboard: hostSchema.dashboard,
+                        tabs: hostSchema.tabs,
+                      );
+
+                      try {
+                        await provider.saveConfig(updatedHost);
+                        // Also update memory so UI reflects the change immediately
+                        provider.updateMemoryCache(updatedHost.id, updatedHost);
+                      } catch (e) {
+                        debugPrint('Failed to persist enabled extension on host module: $e');
+                      }
+                    }
+                  } catch (e) {
+                    debugPrint('Error enabling extension on host module: $e');
+                  }
+                });
+              }
             } catch (e) {
               debugPrint('Failed to cache module config locally after activation: $e');
             }
