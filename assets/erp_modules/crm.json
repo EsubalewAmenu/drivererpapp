@@ -63,7 +63,6 @@
           "company": "",
           "status": "Supplier",
           "email": "datascienceplc@gmail.com",
-          "phone": "+251923481783",
           "website": "https://datascienceplc.com",
           "notes": "Software development and data analysis services provider",
           "record_id": 1
@@ -75,7 +74,6 @@
           "company": 1,
           "status": "Supplier",
           "email": "esubalewbusiness@gmail.com",
-          "phone": "+971551266787",
           "photo": "",
           "website": "",
           "notes": "Software and mobile apps developer",
@@ -89,7 +87,14 @@
         { "key": "company", "label": "Company", "type": "relation", "depends_on": "type", "depends_value": "Individual", "options": "contacts" },
         { "key": "status", "label": "Stage", "type": "select", "options": ["Lead", "Customer", "Supplier"] },
         { "key": "email", "label": "Email", "type": "email" },
-        { "key": "phone", "label": "Phone", "type": "phone" },
+        { 
+          "key": "phone_nos", 
+          "label": "Phone Number(s)", 
+          "type": "table",
+          "columns": [
+            { "key": "phone", "label": "Phone", "type": "phone" }
+          ]
+        },
         { "key": "website", "label": "Website", "type": "text" },
         { "key": "photo", "label": "Photo", "type": "image" },
         { "key": "notes", "label": "Note", "type": "text" }
