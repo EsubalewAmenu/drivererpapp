@@ -9,6 +9,7 @@ import '../widgets/app_drawer.dart';
 import 'module_screen.dart';
 import 'module_details_screen.dart';
 import 'settings_screen.dart';
+import '../utils/icon_lookup.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -346,7 +347,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  _getIconData(module.icon),
+                  iconFromName(module.icon),
                   color: Color(int.parse(module.primaryColor.replaceAll('#', '0xFF'))),
                   size: 24,
                 ),
@@ -411,7 +412,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
-                  _getIconData(iconName),
+                  iconFromName(iconName),
                   color: color.withValues(alpha: 0.7),
                   size: 24,
                 ),
@@ -437,21 +438,5 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  IconData _getIconData(String iconName) {
-    switch (iconName) {
-      case 'inventory': return Icons.inventory_2_rounded;
-      case 'people': return Icons.people_alt_rounded;
-      case 'shopping_cart': return Icons.shopping_cart_rounded;
-      case 'local_shipping': return Icons.local_shipping_rounded;
-      case 'payments': return Icons.payments_rounded;
-      case 'badge': return Icons.badge_rounded;
-      case 'campaign': return Icons.campaign_rounded;
-      case 'receipt_long': return Icons.receipt_long_rounded;
-      case 'assignment': return Icons.assignment_rounded;
-      case 'account_balance': return Icons.account_balance_rounded;
-      case 'analytics': return Icons.analytics_rounded;
-      case 'support_agent': return Icons.support_agent_rounded;
-      default: return Icons.widgets_rounded;
-    }
-  }
+  // Icons are resolved via `iconFromName` in `lib/utils/icon_lookup.dart`.
 }

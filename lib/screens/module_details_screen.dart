@@ -9,6 +9,7 @@ import '../providers/drive_provider.dart';
 import '../providers/schema_provider.dart';
 import '../models/schema_models.dart';
 import '../providers/workspace_provider.dart';
+import '../utils/icon_lookup.dart';
 import 'dashboard_screen.dart';
 
 class ModuleDetailsScreen extends StatefulWidget {
@@ -342,7 +343,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    _getIconData(iconName),
+                    iconFromName(iconName),
                     size: 48,
                     color: color,
                   ),
@@ -513,21 +514,5 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
     }
   }
 
-  IconData _getIconData(String iconName) {
-    switch (iconName) {
-      case 'inventory': return Icons.inventory_2_rounded;
-      case 'people': return Icons.people_alt_rounded;
-      case 'shopping_cart': return Icons.shopping_cart_rounded;
-      case 'local_shipping': return Icons.local_shipping_rounded;
-      case 'payments': return Icons.payments_rounded;
-      case 'badge': return Icons.badge_rounded;
-      case 'campaign': return Icons.campaign_rounded;
-      case 'receipt_long': return Icons.receipt_long_rounded;
-      case 'assignment': return Icons.assignment_rounded;
-      case 'account_balance': return Icons.account_balance_rounded;
-      case 'analytics': return Icons.analytics_rounded;
-      case 'support_agent': return Icons.support_agent_rounded;
-      default: return Icons.widgets_rounded;
-    }
-  }
+  // Icons are resolved via `iconFromName` in `lib/utils/icon_lookup.dart`.
 }
