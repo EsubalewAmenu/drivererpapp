@@ -68,6 +68,14 @@ class _ModuleScreenState extends State<ModuleScreen> {
               final name = it['name'] as String? ?? it['id'] as String;
               final iconName = it['icon'] as String? ?? '';
               final activated = it['activated'] as bool? ?? false;
+              // Resolve the extension's own primary color; fall back to host color
+              final extColorHex = it['primaryColor'] as String? ?? module.primaryColor;
+              Color extColor;
+              try {
+                extColor = Color(int.parse(extColorHex.replaceAll('#', '0xFF')));
+              } catch (_) {
+                extColor = primaryColor;
+              }
               return Card(
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 child: InkWell(
@@ -157,8 +165,8 @@ class _ModuleScreenState extends State<ModuleScreen> {
                           child: Row(
                             children: [
                               CircleAvatar(
-                                backgroundColor: primaryColor.withOpacity(0.12),
-                                child: Icon(iconFromName(iconName), color: primaryColor),
+                                backgroundColor: extColor.withOpacity(0.12),
+                                child: Icon(iconFromName(iconName), color: extColor),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -254,6 +262,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             'primaryColor': primaryColor,
             'activated': activated,
           });
+          debugPrint('Enabled module entry -> id:$modId name:$name icon:$icon primaryColor:$primaryColor activated:$activated');
         } catch (e) {
           debugPrint('Error loading enabled module entry "${rawKey}": $e');
           continue;
