@@ -217,6 +217,23 @@ void main() {
     await tester.dragUntilVisible(find.text('SUPPLIER'), find.byType(SingleChildScrollView).first, const Offset(0, -500));
     await tester.tap(find.text('Select Supplier').last);
     await safePumpAndSettle();
+
+    // Wait for the search dialog to appear and locate its TextField by hint text
+    final searchFieldFinder = find.byWidgetPredicate((w) => w is TextField && w.decoration?.hintText == 'Type to search (min 2 chars)');
+    for (int i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      if (searchFieldFinder.evaluate().isNotEmpty) break;
+    }
+
+    expect(searchFieldFinder, findsOneWidget);
+
+    // Type a short query (>=2 chars) and wait for results to populate
+    await tester.enterText(searchFieldFinder, 'Ap');
+    for (int i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      if (find.text('Apple Inc.').evaluate().isNotEmpty) break;
+    }
+    expect(find.text('Apple Inc.'), findsOneWidget);
     await tester.tap(find.text('Apple Inc.'));
     await safePumpAndSettle();
 
@@ -261,7 +278,7 @@ void main() {
         .having((m) => m['category'], 'category', 'Electronics')
         .having((m) => m['qty'].toString(), 'qty', '10')
         .having((m) => m['cost'].toString(), 'cost', '2500')
-        .having((m) => m['supplier'], 'supplier', 'Apple Inc.')
+        .having((m) => m['supplier'], 'supplier', 's1')
         .having((m) => m['barcode'], 'barcode', 'SN123456')
       ),
     )).called(1);
