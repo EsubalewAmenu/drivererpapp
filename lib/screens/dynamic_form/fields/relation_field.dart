@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/schema_models.dart';
@@ -194,6 +195,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                   }
                 }
 
+                Timer? debounce;
                 await showDialog<String>(
                   context: context,
                   builder: (context) {
@@ -212,8 +214,14 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                                 decoration: const InputDecoration(hintText: 'Type to search (min 2 chars)'),
                                 onChanged: (v) {
                                   query = v.trim();
-                                  // trigger search and refresh UI after async result
-                                  doSearch().then((_) => setState(() {}));
+                                  // debounce user input before searching
+                                  try { debounce?.cancel(); } catch (_) {}
+                                  debounce = Timer(const Duration(milliseconds: 600), () async {
+                                    if (!mounted) return;
+                                    setState(() => loading = true);
+                                    await doSearch();
+                                    if (mounted) setState(() {});
+                                  });
                                   setState(() {});
                                 },
                               ),
@@ -252,6 +260,8 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                   },
                 ).then((selected) {
                   if (selected != null && mounted) widget.onChanged(selected);
+                }).whenComplete(() {
+                  try { debounce?.cancel(); } catch (_) {}
                 });
               }
 
