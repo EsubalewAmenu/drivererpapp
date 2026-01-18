@@ -1,0 +1,6 @@
+{
+  "support": "support.json",
+  "crm": "crm.json",
+  "inventory": "inventory.json",
+  "deals": "deals.json"
+}

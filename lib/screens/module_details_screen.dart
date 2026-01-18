@@ -3,15 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/schema_service.dart';
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
+import '../providers/schema_provider.dart';
+import '../models/schema_models.dart';
 import '../providers/workspace_provider.dart';
+import '../utils/icon_lookup.dart';
 import 'dashboard_screen.dart';
 
 class ModuleDetailsScreen extends StatefulWidget {
   final Map<String, String> moduleInfo;
+  final String? hostModuleId;
 
-  const ModuleDetailsScreen({super.key, required this.moduleInfo});
+  const ModuleDetailsScreen({super.key, required this.moduleInfo, this.hostModuleId});
 
   @override
   State<ModuleDetailsScreen> createState() => _ModuleDetailsScreenState();
@@ -25,18 +30,32 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
   @override
   void initState() {
     super.initState();
-    _loadModuleConfig();
+  }
+
+  bool _didLoadConfig = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didLoadConfig) {
+      _didLoadConfig = true;
+      _loadModuleConfig();
+    }
   }
 
   Future<void> _loadModuleConfig() async {
     try {
-      final fileName = widget.moduleInfo['name']!.toLowerCase();
-      final jsonString = await rootBundle.loadString('assets/erp_modules/$fileName.json');
-      if (mounted) {
-        setState(() {
-          _moduleJson = jsonDecode(jsonString);
-          _errorMessage = null;
-        });
+      final key = (widget.moduleInfo['id'] ?? widget.moduleInfo['name'])!.toString().toLowerCase().trim();
+      final jsonString = await SchemaService.tryLoadModuleAsset(key, bundle: DefaultAssetBundle.of(context));
+      if (jsonString != null) {
+        if (mounted) {
+          setState(() {
+            _moduleJson = jsonDecode(jsonString);
+            _errorMessage = null;
+          });
+        }
+      } else {
+        throw Exception('Module asset not found for key: $key');
       }
     } catch (e) {
       debugPrint('Error loading module config in details: $e');
@@ -63,6 +82,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       final workspaceId = workspaceProvider.currentWorkspace!.id!;
       
       final moduleName = widget.moduleInfo['name']!;
+      final assetKey = (widget.moduleInfo['id'] ?? widget.moduleInfo['name'])!.toString().toLowerCase().trim();
 
       // Create the module folder in Drive
       final _createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
@@ -79,6 +99,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
 
       // Auto-seed Initial Data
       if (_moduleJson != null && _moduleJson!['tabs'] != null) {
+        debugPrint('ModuleDetailsScreen: seeding initial data, tabs present=${_moduleJson!['tabs'] != null}');
         final tabs = _moduleJson!['tabs'] as List;
         for (var tab in tabs) {
           if (tab is Map && tab['initial_data'] != null) {
@@ -94,6 +115,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                     tabId,
                     record,
                   );
+                  debugPrint('ModuleDetailsScreen: saving record to $moduleFolderId/$moduleName/$tabId -> $record');
                   if (res is Future) await res;
                 } catch (e) {
                   debugPrint('Error seeding record for $tabId: $e');
@@ -136,8 +158,103 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
           final userEmail = authService.currentUser?.email;
           final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}_config' : 'config';
           try {
-            final _createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
-            if (_createCfgRes is Future) await _createCfgRes;
+            // Create module config on Drive and capture its fileId if returned
+            dynamic _createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
+            dynamic createdCfgId;
+            if (_createCfgRes is Future) {
+              createdCfgId = await _createCfgRes;
+            } else {
+              createdCfgId = _createCfgRes;
+            }
+
+            // Cache the created module JSON locally under the new module folder id
+            try {
+              final provider = Provider.of<SchemaProvider>(context, listen: false);
+              // Cache under the Drive folder id so lookups by folder find it
+              await provider.service.cacheConfig(moduleFolderId, _moduleJson!);
+              // Also cache under the authoritative asset key (short key) so
+              // any code that looks up by the module asset id/name sees it immediately
+              try {
+                await provider.service.cacheConfig(assetKey, _moduleJson!);
+              } catch (_) {}
+
+              // Also create an in-memory ModuleSchema so UI can pick it up immediately
+              final settingsRaw = _moduleJson!['settings'];
+              final settingsMap = <String, SettingItem>{};
+              if (settingsRaw != null && settingsRaw is Map<String, dynamic>) {
+                settingsRaw.forEach((k, v) {
+                  try {
+                    settingsMap[k] = SettingItem.fromJson(Map<String, dynamic>.from(v as Map));
+                  } catch (_) {}
+                });
+              }
+
+              final dashboardJson = _moduleJson!['dashboard'] != null ? Map<String, dynamic>.from(_moduleJson!['dashboard'] as Map) : null;
+              final dashboard = (dashboardJson != null && dashboardJson['cards'] != null)
+                  ? DashboardConfig.fromJson(dashboardJson)
+                  : DashboardConfig(cards: []);
+
+              final tabsRaw = _moduleJson!['tabs'];
+              final tabsList = tabsRaw != null ? List<dynamic>.from(tabsRaw as List) : [];
+              final tabs = tabsList.map((t) {
+                try {
+                  return TabConfig.fromJson(Map<String, dynamic>.from(t as Map));
+                } catch (_) {
+                  return TabConfig(id: 'err', label: 'Error Tab', columns: []);
+                }
+              }).toList();
+
+              final moduleSchema = ModuleSchema(
+                id: moduleFolderId,
+                name: settingsMap['name']?.value?.toString() ?? moduleName,
+                icon: settingsMap['icon']?.value?.toString() ?? '',
+                primaryColor: settingsMap['primaryColor']?.value?.toString() ?? '#2196F3',
+                version: settingsMap['version']?.value?.toString() ?? '1.0',
+                settings: settingsMap,
+                dashboard: dashboard,
+                tabs: tabs,
+              );
+
+              // After activation, clear local cached configs and in-memory
+              // entries for the extension (short key + folder id) and the
+              // host module so subsequent opens will fetch fresh data from
+              // Drive and avoid stale prefixed ids.
+              WidgetsBinding.instance.addPostFrameCallback((_) async {
+                try {
+                  if (!mounted) return;
+                  try {
+                    await provider.service.removeCachedConfig(assetKey);
+                  } catch (_) {}
+                  try {
+                    await provider.service.removeCachedConfig(moduleFolderId);
+                  } catch (_) {}
+                  if (widget.hostModuleId != null && widget.hostModuleId!.isNotEmpty) {
+                    try {
+                      await provider.service.removeCachedConfig(widget.hostModuleId!);
+                    } catch (_) {}
+                  }
+
+                  // Clear in-memory entries so UI will re-resolve from Drive
+                  try {
+                    provider.updateMemoryCache(moduleFolderId, null);
+                    try { provider.updateMemoryCache(assetKey, null); } catch (_) {}
+                    if (widget.hostModuleId != null && widget.hostModuleId!.isNotEmpty) {
+                      try { provider.updateMemoryCache(widget.hostModuleId!, null); } catch (_) {}
+                    }
+                  } catch (e) {
+                    debugPrint('Error clearing in-memory cache post-activation: $e');
+                  }
+                } catch (e) {
+                  debugPrint('Error clearing local cache post-activation: $e');
+                }
+              });
+              // Previously we updated the host module's settings to auto-enable
+              // the extension upon activation. That behavior has been removed
+              // — extensions are now activated independently and the host's
+              // `extensions` list is not modified here.
+            } catch (e) {
+              debugPrint('Failed to cache module config locally after activation: $e');
+            }
           } catch (e) {
             debugPrint('Failed to create default module config during activation: $e');
           }
@@ -238,7 +355,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    _getIconData(iconName),
+                    iconFromName(iconName),
                     size: 48,
                     color: color,
                   ),
@@ -409,21 +526,5 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
     }
   }
 
-  IconData _getIconData(String iconName) {
-    switch (iconName) {
-      case 'inventory': return Icons.inventory_2_rounded;
-      case 'people': return Icons.people_alt_rounded;
-      case 'shopping_cart': return Icons.shopping_cart_rounded;
-      case 'local_shipping': return Icons.local_shipping_rounded;
-      case 'payments': return Icons.payments_rounded;
-      case 'badge': return Icons.badge_rounded;
-      case 'campaign': return Icons.campaign_rounded;
-      case 'receipt_long': return Icons.receipt_long_rounded;
-      case 'assignment': return Icons.assignment_rounded;
-      case 'account_balance': return Icons.account_balance_rounded;
-      case 'analytics': return Icons.analytics_rounded;
-      case 'support_agent': return Icons.support_agent_rounded;
-      default: return Icons.widgets_rounded;
-    }
-  }
+  // Icons are resolved via `iconFromName` in `lib/utils/icon_lookup.dart`.
 }

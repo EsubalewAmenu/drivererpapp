@@ -6,27 +6,8 @@
     "version": { "label": "Version", "type": "text", "value": "1.0" },
     "name": { "label": "Name", "type": "text", "value": "Finance" },
 
-    "enable_invoicing": {
-      "label": "Enable Invoicing (AR)?",
-      "type": "boolean",
-      "value": true,
-      "note": "Requires CRM module"
-    },
-    "enable_bills": {
-      "label": "Enable Bill Tracking (AP)?",
-      "type": "boolean",
-      "value": true
-    },
-    "enable_assets": {
-      "label": "Track Fixed Assets?",
-      "type": "boolean",
-      "value": false
-    },
-    "enable_budgeting": {
-      "label": "Enable Budgeting?",
-      "type": "boolean",
-      "value": false
-    }
+    "extensions": ["invoicing", "bills", "assets", "budgeting"]
+
   },
   "dashboard": {
     "cards": [

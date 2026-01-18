@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
+import '../services/schema_service.dart';
 import '../services/drive_service.dart';
 import '../providers/workspace_provider.dart';
 import '../providers/drive_provider.dart';
@@ -34,9 +35,20 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
 
   Future<void> _loadModuleConfig() async {
     try {
-      final fileName = widget.moduleInfo['name']!.toLowerCase();
-      // Try to load the specific JSON for the module
-      final jsonString = await DefaultAssetBundle.of(context).loadString('assets/erp_modules/$fileName.json');
+      final key = (widget.moduleInfo['id'] ?? widget.moduleInfo['name'])!.toString().toLowerCase().trim();
+      // Load module JSON using the authoritative asset map via the
+      // current AssetBundle so tests can inject a TestAssetBundle.
+      final mapStr = await DefaultAssetBundle.of(context).loadString('assets/erp_modules/module_asset_map.json');
+      final Map<String, dynamic> mapJson = jsonDecode(mapStr) as Map<String, dynamic>;
+      final normalizedMap = <String, String>{};
+      for (final entry in mapJson.entries) {
+        final k = entry.key.toString().toLowerCase().trim();
+        final v = entry.value?.toString() ?? '';
+        if (v.isNotEmpty) normalizedMap[k] = v;
+      }
+      final mapped = normalizedMap[key];
+      if (mapped == null || mapped.isEmpty) throw Exception('Module asset not found for key: $key');
+      final jsonString = await DefaultAssetBundle.of(context).loadString('assets/erp_modules/$mapped');
       final json = jsonDecode(jsonString);
       
       setState(() {

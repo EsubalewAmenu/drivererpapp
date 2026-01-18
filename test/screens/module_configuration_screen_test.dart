@@ -21,10 +21,25 @@ class TestAssetBundle extends CachingAssetBundle {
 
   @override
   Future<String> loadString(String key, {bool cache = true}) async {
+    // Provide a dynamic `module_asset_map.json` based on the provided
+    // assets so tests can exercise the authoritative map lookup.
+    if (key == 'assets/erp_modules/module_asset_map.json') {
+      final map = <String, String>{};
+      for (final entry in assets.entries) {
+        final path = entry.key;
+        if (path.startsWith('assets/erp_modules/') && path.endsWith('.json')) {
+          final filename = path.split('/').last;
+          final name = filename.replaceAll('.json', '').toLowerCase();
+          map[name] = filename;
+        }
+      }
+      return jsonEncode(map);
+    }
+
     if (assets.containsKey(key)) {
       return assets[key]!;
     }
-    throw FlutterError('Asset not found');
+    throw FlutterError('Asset not found: $key');
   }
 
   @override

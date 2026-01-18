@@ -46,6 +46,17 @@ class SchemaService {
     }
   }
 
+  /// Removes a cached module configuration and its metadata.
+  Future<void> removeCachedConfig(String moduleId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('$_cachePrefix$moduleId');
+      await prefs.remove('$_metaPrefix$moduleId');
+    } catch (e) {
+      debugPrint('Error removing cached config: $e');
+    }
+  }
+
   /// Gets the cached metadata for a module.
   Future<Map<String, String>?> getCachedMeta(String moduleId) async {
     try {
@@ -130,16 +141,27 @@ class SchemaService {
         
         fileId = await driveService!.getFileId(configFolderId, fileName);
         
-        // 2. Prepare config map
-        final configMap = config.toJson();
+          // 2. Prepare config map
+          final configMap = config.toJson();
 
-        if (fileId != null) {
-           // Update existing user config
-           await driveService!.updateModuleConfig(fileId, configMap);
-        } else {
-           // Create new user config
-           fileId = await driveService!.createModuleConfig(configFolderId, fileName, configMap);
-        }
+          // If module settings include an 'extensions' SettingItem, write it
+          // as a top-level `extensions` array to maintain the newer schema.
+          try {
+           if (config.settings.containsKey('extensions')) {
+            final ext = config.settings['extensions']?.value;
+            if (ext is List) {
+              configMap['extensions'] = ext;
+            }
+           }
+          } catch (_) {}
+
+          if (fileId != null) {
+            // Update existing user config
+            await driveService!.updateModuleConfig(fileId, configMap);
+          } else {
+            // Create new user config
+            fileId = await driveService!.createModuleConfig(configFolderId, fileName, configMap);
+          }
       } else {
         // Legacy/Fallback behavior: config in root
         fileId = await driveService!.getFileId(moduleId, 'config');
@@ -181,4 +203,37 @@ class SchemaService {
 
     return modules;
   }
-}
+
+  /// Attempts to load a module JSON asset by trying multiple filename variants.
+  /// Returns the raw JSON string if found, or null if none of the candidates exist.
+  static Future<String?> tryLoadModuleAsset(String key, {AssetBundle? bundle}) async {
+    final bundleToUse = bundle ?? rootBundle;
+    try {
+      final lookupKey = key.toLowerCase().trim();
+
+      final mapStr = await bundleToUse.loadString('assets/erp_modules/module_asset_map.json');
+      final Map<String, dynamic> mapJson = jsonDecode(mapStr) as Map<String, dynamic>;
+
+      final normalizedMap = <String, String>{};
+      for (final entry in mapJson.entries) {
+        final k = entry.key.toString().toLowerCase().trim();
+        final v = entry.value?.toString() ?? '';
+        if (v.isNotEmpty) normalizedMap[k] = v;
+      }
+
+      final mapped = normalizedMap[lookupKey];
+      if (mapped != null && mapped.isNotEmpty) {
+        try {
+          return await bundleToUse.loadString('assets/erp_modules/$mapped');
+        } catch (e) {
+          debugPrint('Mapped asset found but failed to load $mapped: $e');
+          return null;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error trying to load module asset for $key: $e');
+    }
+    return null;
+  }
+
+          }

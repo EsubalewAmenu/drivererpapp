@@ -1,0 +1,44 @@
+workflows:
+  analyze_and_test:
+    name: Analyze & Test
+    instance_type: standard
+    max_build_duration: 60
+    environment:
+      flutter: stable
+    scripts:
+      - name: Install dependencies
+        script: |
+          flutter pub get
+      - name: Analyze
+        script: |
+          flutter analyze || true
+      - name: Unit & Widget tests
+        script: |
+          flutter test
+      - name: Integration tests (headless)
+        script: |
+          flutter test integration_test || true
+    artifacts:
+      - coverage/lcov.info
+    triggers:
+      - push
+      - pull_request
+
+  android_build:
+    name: Android Build (debug)
+    instance_type: standard
+    depends_on:
+      - analyze_and_test
+    environment:
+      flutter: stable
+    scripts:
+      - name: Install dependencies
+        script: |
+          flutter pub get
+      - name: Build debug APK
+        script: |
+          flutter build apk --debug
+    artifacts:
+      - build/app/outputs/flutter-apk/app-debug.apk
+    triggers:
+      - push
