@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../models/schema_models.dart';
 import '../../../providers/drive_provider.dart';
 import '../../../theme/app_theme.dart';
+import '../conditional_utils.dart';
 
 class DynamicDropdownField extends StatefulWidget {
   final ColumnConfig column;
@@ -150,25 +151,36 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
                 );
                 final targetColumn = _findColumn(relatedTab.columns, targetProperty);
 
-                if (targetColumn?.dependsOn != null) {
-                   final dependencyKey = targetColumn!.dependsOn!;
+                if (targetColumn != null && targetColumn.dependsOn != null) {
+                   final dependencyKey = targetColumn.dependsOn!;
                    if (record.containsKey(dependencyKey)) {
                      final depValue = record[dependencyKey];
-                     bool isActive = true;
-                     if (depValue is bool) {
-                       isActive = depValue;
-                     } else if (depValue is String) {
-                       isActive = depValue.toLowerCase() == 'true';
-                     } else if (depValue == null) {
-                       isActive = false;
-                     }
-                     
-                     if (!isActive) {
-                       setState(() {
-                         _options = [];
-                         _isVisible = false;
-                       });
-                       return;
+                     // If the target column specifies an expected value, evaluate it
+                     if (targetColumn.dependsValue != null) {
+                       final ok = evaluateDependency(depValue, targetColumn.dependsValue, targetColumn.dependsOperator);
+                       if (!ok) {
+                         setState(() {
+                           _options = [];
+                           _isVisible = false;
+                         });
+                         return;
+                       }
+                     } else {
+                       bool isActive = true;
+                       if (depValue is bool) {
+                         isActive = depValue;
+                       } else if (depValue is String) {
+                         isActive = depValue.toLowerCase() == 'true';
+                       } else if (depValue == null) {
+                         isActive = false;
+                       }
+                       if (!isActive) {
+                         setState(() {
+                           _options = [];
+                           _isVisible = false;
+                         });
+                         return;
+                       }
                      }
                    }
                 }
