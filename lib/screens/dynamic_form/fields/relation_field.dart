@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../models/schema_models.dart';
 import '../../../providers/drive_provider.dart';
 import '../../../theme/app_theme.dart';
+import '../conditional_utils.dart';
 
 class DynamicRelationField extends StatefulWidget {
   final ColumnConfig column;
@@ -43,18 +44,28 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
         const SizedBox(height: 8),
         InkWell(
           onTap: () async {
-            // Check dependency first
-            if (widget.column.dependsOn != null) {
-              final parentKey = widget.column.dependsOn!;
-              // Check if it's a field dependency (not settings)
-              if (!parentKey.startsWith('settings.')) {
-                 final parentValue = widget.data[parentKey];
-                 if (parentValue == null || parentValue.toString().isEmpty) {
-                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please select a value for $parentKey first')));
-                   return;
+                // Check dependency first
+                if (widget.column.dependsOn != null) {
+                  final parentKey = widget.column.dependsOn!;
+                  // Settings dependency handled as before
+                  if (parentKey.startsWith('settings.')) {
+                    // Leave check to renderer/settings; allow dialog to open
+                  } else {
+                     final parentValue = widget.data[parentKey];
+                     if (widget.column.dependsValue != null) {
+                       final ok = evaluateDependency(parentValue, widget.column.dependsValue, widget.column.dependsOperator);
+                       if (!ok) {
+                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please select an appropriate value for $parentKey first')));
+                         return;
+                       }
+                     } else {
+                       if (parentValue == null || parentValue.toString().isEmpty) {
+                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Please select a value for $parentKey first')));
+                         return;
+                       }
+                    }
+                  }
                  }
-              }
-            }
 
             // If we have a module and the column specifies a related tab (via options)
             if (widget.module != null && widget.column.options is String) {

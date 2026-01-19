@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../models/schema_models.dart';
 import 'fields/text_field.dart';
+import 'conditional_utils.dart';
 import 'fields/date_field.dart';
 import 'fields/boolean_field.dart';
 import 'fields/formula_field.dart';
@@ -49,14 +50,13 @@ class DynamicFormRenderer extends StatelessWidget {
   bool _shouldShowField(ColumnConfig col) {
     if (col.hidden == true) return false;
     if (col.dependsOn == null) return true;
-
     final dependency = col.dependsOn!;
-    
-    // Check for negation
-    bool expectedValue = true;
+
+    // Check for negation prefix in dependsOn (legacy support: '!field')
+    bool negate = false;
     String actualDependency = dependency;
     if (dependency.startsWith('!')) {
-      expectedValue = false;
+      negate = true;
       actualDependency = dependency.substring(1);
     }
 
@@ -64,18 +64,27 @@ class DynamicFormRenderer extends StatelessWidget {
     if (actualDependency.startsWith('settings.')) {
       final settingKey = actualDependency.split('.')[1];
       final setting = settings[settingKey];
-      return (setting?.value == true) == expectedValue;
+      final match = (setting?.value == true);
+      return negate ? !match : match;
     }
 
     // Check if it depends on another field in the form
     final dependentValue = data[actualDependency];
-    // Simple truthy check: true, or non-empty string, or non-null object
+
+
+    // If a specific expected value is provided on the column, use that
+    if (col.dependsValue != null) {
+      final match = evaluateDependency(dependentValue, col.dependsValue, col.dependsOperator);
+      return negate ? !match : match;
+    }
+
+    // Use simple truthy check if no explicit dependsValue provided
     bool isTruthy = false;
     if (dependentValue is bool) isTruthy = dependentValue;
     else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
     else isTruthy = dependentValue != null;
 
-    return isTruthy == expectedValue;
+    return negate ? !isTruthy : isTruthy;
   }
 
   Widget _buildField(BuildContext context, ColumnConfig col) {

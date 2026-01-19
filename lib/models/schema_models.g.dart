@@ -41,6 +41,8 @@ SettingItem _$SettingItemFromJson(Map<String, dynamic> json) => SettingItem(
   value: json['value'],
   dependsOn: json['dependsOn'] as String?,
   defaultValue: json['default'],
+  dependsValue: json['depends_value'],
+  dependsOperator: json['depends_operator'] as String?,
   options: json['options'] as List<dynamic>?,
 );
 
@@ -50,6 +52,8 @@ Map<String, dynamic> _$SettingItemToJson(SettingItem instance) =>
       'type': instance.type,
       'value': instance.value,
       'dependsOn': instance.dependsOn,
+      'depends_value': instance.dependsValue,
+      'depends_operator': instance.dependsOperator,
       'default': instance.defaultValue,
       'options': instance.options,
     };
@@ -236,6 +240,8 @@ ColumnConfig _$ColumnConfigFromJson(Map<String, dynamic> json) => ColumnConfig(
   dynamicLabel: json['dynamic_label'] as String?,
   isRequired: json['required'] as bool?,
   currencySymbol: json['currency_symbol'] as String?,
+  dependsValue: json['depends_value'],
+  dependsOperator: json['depends_operator'] as String?,
 );
 
 Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
@@ -252,4 +258,6 @@ Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
       'dynamic_label': instance.dynamicLabel,
       'required': instance.isRequired,
       'currency_symbol': instance.currencySymbol,
+      'depends_value': instance.dependsValue,
+      'depends_operator': instance.dependsOperator,
     };

@@ -34,6 +34,10 @@ class SettingItem {
   final String type;
   final dynamic value;
   final String? dependsOn;
+  @JsonKey(name: 'depends_value')
+  final dynamic dependsValue;
+  @JsonKey(name: 'depends_operator')
+  final String? dependsOperator;
   @JsonKey(name: 'default')
   final dynamic defaultValue;
   final List<dynamic>? options;
@@ -44,6 +48,8 @@ class SettingItem {
     this.value,
     this.dependsOn,
     this.defaultValue,
+    this.dependsValue,
+    this.dependsOperator,
     this.options,
   });
 
@@ -306,6 +312,10 @@ class ColumnConfig {
   final bool? isRequired;
   @JsonKey(name: 'currency_symbol')
   final String? currencySymbol;
+  @JsonKey(name: 'depends_value')
+  final dynamic dependsValue;
+  @JsonKey(name: 'depends_operator')
+  final String? dependsOperator;
 
   ColumnConfig({
     required this.key,
@@ -320,6 +330,8 @@ class ColumnConfig {
     this.dynamicLabel,
     this.isRequired,
     this.currencySymbol,
+    this.dependsValue,
+    this.dependsOperator,
   });
 
   ColumnConfig copyWith({
@@ -335,6 +347,8 @@ class ColumnConfig {
     String? dynamicLabel,
     bool? isRequired,
     String? currencySymbol,
+    dynamic dependsValue,
+    String? dependsOperator,
   }) {
     return ColumnConfig(
       key: key ?? this.key,
@@ -349,6 +363,8 @@ class ColumnConfig {
       dynamicLabel: dynamicLabel ?? this.dynamicLabel,
       isRequired: isRequired ?? this.isRequired,
       currencySymbol: currencySymbol ?? this.currencySymbol,
+      dependsValue: dependsValue ?? this.dependsValue,
+      dependsOperator: dependsOperator ?? this.dependsOperator,
     );
   }
 
