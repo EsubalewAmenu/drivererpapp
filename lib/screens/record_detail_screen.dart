@@ -6,6 +6,12 @@ import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
 import '../providers/schema_provider.dart';
 import 'dynamic_form_screen.dart';
+import 'record_detail/table_field_view.dart';
+import 'record_detail/text_field_view.dart';
+import 'record_detail/list_field_view.dart';
+import 'record_detail/status_field_view.dart';
+import 'record_detail/image_field_view.dart';
+import 'record_detail/formula_field_view.dart';
 
 class RecordDetailScreen extends StatefulWidget {
   final Map<String, dynamic> data;
@@ -37,6 +43,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   late Map<String, dynamic> _currentData;
   bool _wasEdited = false;
   final Map<String, String> _relationLabels = {};
+  final Set<String> _loadingTableFields = {};
 
   @override
   void initState() {
@@ -475,8 +482,27 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         final col = filteredColumns[index];
         final value = _currentData[col.key];
 
-        if (col.type == 'table' && value is List) {
-           return _buildTableField(col, value as List<Map<String, dynamic>>);
+        if (col.type == 'table') {
+           // Support table values as List, Map or JSON-encoded String so
+           // table fields persist when stored/loaded as strings.
+           List<Map<String, dynamic>> itemsList = [];
+
+           if (value is List) {
+             itemsList = value.map((e) => e is Map ? Map<String, dynamic>.from(e) : { 'value': e?.toString() ?? '' }).toList();
+           } else if (value is String) {
+             try {
+               final decoded = jsonDecode(value);
+               if (decoded is List) {
+                 itemsList = decoded.map((e) => e is Map ? Map<String, dynamic>.from(e) : { 'value': e?.toString() ?? '' }).toList();
+               }
+             } catch (_) {
+               // ignore parse errors and fall through to empty list
+             }
+           } else if (value is Map) {
+             itemsList = [Map<String, dynamic>.from(value)];
+           }
+
+           return _buildTableField(col, itemsList);
         }
 
         // Relation fields: prefer resolved human label when available
@@ -491,360 +517,92 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           displayValue = value?.toString() ?? 'N/A';
         }
 
-          if (col.type == 'image' || col.key.toLowerCase().contains('image') || col.key.toLowerCase().contains('photo')) {
-           return _buildImageField(context, col.label, displayValue);
-        }
+            if (col.type == 'image' || col.key.toLowerCase().contains('image') || col.key.toLowerCase().contains('photo')) {
+              return ImageFieldView(label: col.label, rawValue: displayValue, primaryColor: widget.primaryColor);
+            }
         
-        if (col.key.toLowerCase() == 'status') {
-           return _buildStatusField(context, col.label, displayValue);
-        }
+          if (col.key.toLowerCase() == 'status') {
+            return StatusFieldView(label: col.label, value: displayValue);
+          }
 
-        if (col.type == 'formula') {
-           return _buildFormulaField(context, col.label, displayValue);
-        }
+          if (col.type == 'formula') {
+            return FormulaFieldView(label: col.label, value: displayValue);
+          }
 
-        if (col.type == 'list') {
-           return _buildListField(context, col.label, value);
-        }
+          if (col.type == 'list') {
+            return ListFieldView(label: col.label, value: value, primaryColor: widget.primaryColor);
+          }
 
-        return _buildTextField(context, col.label, displayValue);
+        return TextFieldView(label: col.label, value: displayValue);
       },
     );
   }
 
-  Widget _buildListField(BuildContext context, String label, dynamic value) {
-    if (value == null || (value is String && value.isEmpty)) {
-      return _buildTextField(context, label, 'N/A');
-    }
 
-    final theme = Theme.of(context);
-    List<String> items = [];
+  
 
-    if (value is List) {
-      items = value.map((e) => e.toString()).toList();
-    } else if (value is String) {
+  Widget _buildTableField(ColumnConfig col, dynamic items) {
+    // Normalize incoming `items` to List<Map<String, dynamic>> so the
+    // table renderer can handle values stored as List, Map or JSON strings.
+    List<Map<String, dynamic>> itemsList = [];
+
+    if (items is List) {
+      itemsList = items.map((e) => e is Map ? Map<String, dynamic>.from(e) : { 'value': e?.toString() ?? '' }).toList();
+    } else if (items is String) {
       try {
-        final decoded = jsonDecode(value);
+        final decoded = jsonDecode(items);
         if (decoded is List) {
-          items = decoded.map((e) => e.toString()).toList();
-        } else {
-          items = [value];
+          itemsList = decoded.map((e) => e is Map ? Map<String, dynamic>.from(e) : { 'value': e?.toString() ?? '' }).toList();
         }
       } catch (_) {
-        items = [value];
+        // ignore parse errors and treat as empty
+      }
+    } else if (items is Map) {
+      itemsList = [Map<String, dynamic>.from(items)];
+    }
+
+    // If there are no items loaded for this table field, try to fetch
+    // sub-table data from the Drive backend using the parent record_id.
+    if (itemsList.isEmpty && widget.module != null && _currentData['record_id'] != null) {
+      final fieldKey = col.key;
+      if (!_loadingTableFields.contains(fieldKey)) {
+        _loadingTableFields.add(fieldKey);
+        final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+        if (driveService != null) {
+          driveService.fetchRecords(
+            widget.module!.id,
+            widget.module!.name,
+            widget.tab.id,
+            fetchSubTables: true,
+            limit: 1,
+            quickFilter: {
+              'field': 'parent_record_id',
+              'operator': '==',
+              'value': _currentData['record_id']?.toString(),
+            },
+          ).then((recs) {
+            if (recs.isNotEmpty) {
+              final fetched = recs.first[fieldKey];
+              if (fetched != null) {
+                if (mounted) {
+                  setState(() {
+                    _currentData[fieldKey] = fetched;
+                  });
+                }
+              }
+            }
+          }).catchError((e) {
+            debugPrint('Error fetching sub-table $fieldKey: $e');
+          }).whenComplete(() {
+            _loadingTableFields.remove(fieldKey);
+          });
+        } else {
+          _loadingTableFields.remove(fieldKey);
+        }
       }
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: AppTheme.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: theme.textTheme.bodyMedium?.color,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: items.map((item) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: widget.primaryColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: widget.primaryColor.withValues(alpha: 0.3)),
-              ),
-              child: Text(
-                item,
-                style: AppTheme.inter(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: widget.primaryColor,
-                ),
-              ),
-            )).toList(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTextField(BuildContext context, String label, String value) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: AppTheme.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: theme.textTheme.bodyMedium?.color,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            value,
-            style: AppTheme.inter(
-              fontSize: 16,
-              color: theme.textTheme.bodyLarge?.color,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatusField(BuildContext context, String label, String value) {
-    final theme = Theme.of(context);
-    Color statusColor;
-    switch (value.toLowerCase()) {
-      case 'active':
-      case 'completed':
-      case 'paid':
-        statusColor = theme.primaryColor;
-        break;
-      case 'inactive':
-      case 'pending':
-      case 'overdue':
-        statusColor = const Color(0xFFF43F5E); // Rose
-        break;
-      default:
-        statusColor = Colors.blue;
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: AppTheme.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: theme.textTheme.bodyMedium?.color,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.2),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: statusColor.withValues(alpha: 0.5)),
-          ),
-          child: Text(
-            value.toUpperCase(),
-            style: AppTheme.inter(
-              fontSize: 14,
-              fontWeight: FontWeight.w700,
-              color: statusColor,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildImageField(BuildContext context, String label, String rawValue) {
-    final theme = Theme.of(context);
-    final borderColor = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
-
-    final url = _resolveImageUrl(rawValue);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: AppTheme.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: theme.textTheme.bodyMedium?.color,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 200,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor.withValues(alpha: 0.2)),
-          ),
-          clipBehavior: Clip.antiAlias,
-          child: url.isNotEmpty
-            ? Image.network(
-                url, 
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Center(
-                  child: Icon(Icons.broken_image_rounded, color: borderColor, size: 48),
-                ),
-              )
-            : Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.image_not_supported_rounded, color: borderColor, size: 48),
-                    const SizedBox(height: 8),
-                    Text('No Image Available', style: TextStyle(color: borderColor)),
-                  ],
-                ),
-              ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFormulaField(BuildContext context, String label, String value) {
-    final theme = Theme.of(context);
-    final borderColor = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: AppTheme.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: theme.textTheme.bodyMedium?.color,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: (theme.cardTheme.color ?? theme.cardColor).withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor.withValues(alpha: 0.1)),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.functions_rounded, size: 16, color: borderColor),
-              const SizedBox(width: 8),
-              Text(
-                value,
-                style: AppTheme.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: theme.textTheme.bodyLarge?.color,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTableField(ColumnConfig col, List<Map<String, dynamic>> items) {
-    return Builder(builder: (context) {
-        final theme = Theme.of(context);
-        final tableCols = col.columns ?? [];
-        if (items.isEmpty) return _buildTextField(context, col.label, 'No items');
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  col.label.toUpperCase(),
-                  style: AppTheme.inter(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: theme.textTheme.bodyMedium?.color,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: theme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    '${items.length} items',
-                    style: AppTheme.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: theme.primaryColor,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: theme.cardTheme.color,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: DataTable(
-                  headingRowColor: WidgetStateProperty.all(theme.primaryColor.withValues(alpha: 0.05)),
-                  columnSpacing: 24,
-                  horizontalMargin: 16,
-                  columns: tableCols.map((c) => DataColumn(
-                    label: Text(
-                      c.label.toUpperCase(),
-                      style: AppTheme.inter(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: theme.textTheme.bodyMedium?.color,
-                      ),
-                    ),
-                  )).toList(),
-                  rows: items.map((item) {
-                    return DataRow(
-                      cells: tableCols.map((c) {
-                        final val = item[c.key]?.toString() ?? '-';
-                        return DataCell(
-                          Text(
-                            val,
-                            style: AppTheme.inter(
-                              fontSize: 14,
-                              color: theme.textTheme.bodyLarge?.color,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-          ],
-        );
-    });
+    return TableFieldView(col: col, items: itemsList);
   }
 
   void _editRecord(BuildContext context) async {
