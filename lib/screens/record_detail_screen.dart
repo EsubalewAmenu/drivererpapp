@@ -37,6 +37,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   late Map<String, dynamic> _currentData;
   bool _wasEdited = false;
   final Map<String, String> _relationLabels = {};
+  final Set<String> _loadingTableFields = {};
 
   @override
   void initState() {
@@ -475,8 +476,27 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         final col = filteredColumns[index];
         final value = _currentData[col.key];
 
-        if (col.type == 'table' && value is List) {
-           return _buildTableField(col, value as List<Map<String, dynamic>>);
+        if (col.type == 'table') {
+           // Support table values as List, Map or JSON-encoded String so
+           // table fields persist when stored/loaded as strings.
+           List<Map<String, dynamic>> itemsList = [];
+
+           if (value is List) {
+             itemsList = value.map((e) => e is Map ? Map<String, dynamic>.from(e) : { 'value': e?.toString() ?? '' }).toList();
+           } else if (value is String) {
+             try {
+               final decoded = jsonDecode(value);
+               if (decoded is List) {
+                 itemsList = decoded.map((e) => e is Map ? Map<String, dynamic>.from(e) : { 'value': e?.toString() ?? '' }).toList();
+               }
+             } catch (_) {
+               // ignore parse errors and fall through to empty list
+             }
+           } else if (value is Map) {
+             itemsList = [Map<String, dynamic>.from(value)];
+           }
+
+           return _buildTableField(col, itemsList);
         }
 
         // Relation fields: prefer resolved human label when available
@@ -760,11 +780,71 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     );
   }
 
-  Widget _buildTableField(ColumnConfig col, List<Map<String, dynamic>> items) {
+  Widget _buildTableField(ColumnConfig col, dynamic items) {
+    // Normalize incoming `items` to List<Map<String, dynamic>> so the
+    // table renderer can handle values stored as List, Map or JSON strings.
+    List<Map<String, dynamic>> itemsList = [];
+
+    if (items is List) {
+      itemsList = items.map((e) => e is Map ? Map<String, dynamic>.from(e) : { 'value': e?.toString() ?? '' }).toList();
+    } else if (items is String) {
+      try {
+        final decoded = jsonDecode(items);
+        if (decoded is List) {
+          itemsList = decoded.map((e) => e is Map ? Map<String, dynamic>.from(e) : { 'value': e?.toString() ?? '' }).toList();
+        }
+      } catch (_) {
+        // ignore parse errors and treat as empty
+      }
+    } else if (items is Map) {
+      itemsList = [Map<String, dynamic>.from(items)];
+    }
+
+    // If there are no items loaded for this table field, try to fetch
+    // sub-table data from the Drive backend using the parent record_id.
+    if (itemsList.isEmpty && widget.module != null && _currentData['record_id'] != null) {
+      final fieldKey = col.key;
+      if (!_loadingTableFields.contains(fieldKey)) {
+        _loadingTableFields.add(fieldKey);
+        final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+        if (driveService != null) {
+          driveService.fetchRecords(
+            widget.module!.id,
+            widget.module!.name,
+            widget.tab.id,
+            fetchSubTables: true,
+            limit: 1,
+            quickFilter: {
+              'field': 'parent_record_id',
+              'operator': '==',
+              'value': _currentData['record_id']?.toString(),
+            },
+          ).then((recs) {
+            if (recs.isNotEmpty) {
+              final fetched = recs.first[fieldKey];
+              if (fetched != null) {
+                if (mounted) {
+                  setState(() {
+                    _currentData[fieldKey] = fetched;
+                  });
+                }
+              }
+            }
+          }).catchError((e) {
+            debugPrint('Error fetching sub-table $fieldKey: $e');
+          }).whenComplete(() {
+            _loadingTableFields.remove(fieldKey);
+          });
+        } else {
+          _loadingTableFields.remove(fieldKey);
+        }
+      }
+    }
+
     return Builder(builder: (context) {
         final theme = Theme.of(context);
         final tableCols = col.columns ?? [];
-        if (items.isEmpty) return _buildTextField(context, col.label, 'No items');
+        if (itemsList.isEmpty) return _buildTextField(context, col.label, 'No items');
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -788,7 +868,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
-                    '${items.length} items',
+                    '${itemsList.length} items',
                     style: AppTheme.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
@@ -823,10 +903,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       ),
                     ),
                   )).toList(),
-                  rows: items.map((item) {
+                  rows: itemsList.map((item) {
                     return DataRow(
                       cells: tableCols.map((c) {
-                        final val = item[c.key]?.toString() ?? '-';
+                        final val = item[c.key]?.toString() ?? item.values.firstWhere((_) => true, orElse: () => '-')?.toString() ?? '-';
                         return DataCell(
                           Text(
                             val,
