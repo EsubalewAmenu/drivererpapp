@@ -61,9 +61,14 @@
           "name": "DataScience Private Limited",
           "tin": "0104111145",
           "company": "",
+          "primary_category": "Software Development and services",
           "status": "Supplier",
-          "email": "datascienceplc@gmail.com",
+          "phone_nos": [ { "phone": "+971551266787" }, { "phone": "+251985287648" } ],
+          "emails": [ { "email": "datascienceplc@gmail.com" }, { "email": "info@datascienceplc.com" } ],
+          "socials": [ { "link": "https://linkedin.com/company/datascienceplc" }, { "link": "https://facebook.com/datascienceplc" } ],
           "website": "https://datascienceplc.com",
+          "source": "Online Search",
+          "address": "Dubai, UAE",
           "notes": "Software development and data analysis services provider",
           "record_id": 1
         },
@@ -72,10 +77,12 @@
           "name": "Oliver A.",
           "tin": "",
           "company": 1,
+          "primary_category": "Software Development",
           "status": "Supplier",
-          "email": "esubalewbusiness@gmail.com",
-          "photo": "",
-          "website": "",
+          "source": "Personal Referral",
+          "address": "Al Rigga, Dubai, UAE",
+          "phone_nos": [ { "phone": "+251923481783" } ],
+          "emails": [ { "email": "esubalew.a2009@gmail.com" } ],
           "notes": "Software and mobile apps developer",
           "record_id": 2
         }
@@ -85,8 +92,8 @@
         { "key": "name", "label": "Name", "type": "text", "required": true },
         { "key": "tin", "label": "TIN", "type": "text"},
         { "key": "company", "label": "Company", "type": "relation", "depends_on": "type", "depends_value": "Individual", "options": "contacts" },
+        { "key": "primary_category", "label": "Primary Category", "type": "text", "depends_on": "type", "depends_value": "Company" },
         { "key": "status", "label": "Stage", "type": "select", "options": ["Lead", "Customer", "Supplier"] },
-        { "key": "email", "label": "Email", "type": "email" },
         { 
           "key": "phone_nos", 
           "label": "Phone Number(s)", 
@@ -95,7 +102,25 @@
             { "key": "phone", "label": "Phone", "type": "phone" }
           ]
         },
-        { "key": "website", "label": "Website", "type": "text" },
+        { 
+          "key": "emails", 
+          "label": "Email Address(es)", 
+          "type": "table",
+          "columns": [
+            { "key": "email", "label": "Email", "type": "email" }
+          ]
+        },
+        { 
+          "key": "socials", 
+          "label": "Social Media", 
+          "type": "table",
+          "columns": [
+            { "key": "link", "label": "Link", "type": "text" }
+          ]
+        },
+        { "key": "website", "label": "Website", "type": "text", "depends_on": "type", "depends_value": "Company" },
+        { "key": "source", "label": "Source", "type": "text" },
+        { "key": "address", "label": "Address", "type": "text" },
         { "key": "photo", "label": "Photo", "type": "image" },
         { "key": "notes", "label": "Note", "type": "text" }
       ]
