@@ -289,63 +289,74 @@ void main() {
   group('DriveSheetMixin', () {
 
     test('createModuleConfig creates spreadsheet and updates config', () async {
-      // 1. Create Spreadsheet
-      when(() => mockSpreadsheetsResource.create(any()))
-          .thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'new_sheet_id'));
+      // 1. Create three Spreadsheets (settings, dashboard, tabs)
+      int createCalls = 0;
+      when(() => mockSpreadsheetsResource.create(any())).thenAnswer((_) async {
+        createCalls++;
+        if (createCalls == 1) return sheets.Spreadsheet(spreadsheetId: 'settings_id');
+        if (createCalls == 2) return sheets.Spreadsheet(spreadsheetId: 'dashboard_id');
+        return sheets.Spreadsheet(spreadsheetId: 'tabs_id');
+      });
 
-      // 2. Move file (get parents, update)
-      when(() => mockFilesResource.get('new_sheet_id', $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.File()..parents = ['old_parent']);
-      
-      when(() => mockFilesResource.update(any(), 'new_sheet_id', addParents: 'folder123', removeParents: 'old_parent', $fields: any(named: '\$fields')))
+      // 2. Move files (return previous parents for each)
+      when(() => mockFilesResource.get(any(), $fields: any(named: '\$fields')))
+          .thenAnswer((inv) async => drive.File()..parents = ['old_parent']);
+      when(() => mockFilesResource.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => drive.File());
 
-      // 3. Write data (Values.clear, Values.update)
+      // 3. Values writes
       when(() => mockValuesResource.clear(any(), any(), any())).thenAnswer((_) async => sheets.ClearValuesResponse());
       when(() => mockValuesResource.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
           .thenAnswer((_) async => sheets.UpdateValuesResponse());
 
       final config = {
         'settings': {'appName': 'Test'},
-        'tabs': [{'id': 'tab1', 'label': 'Tab 1'}] // List of maps, not TabConfig objects for this raw map
+        'tabs': [{'id': 'tab1', 'label': 'Tab 1'}]
       };
 
       final result = await driveService.createModuleConfig('folder123', 'mod_config.xlsx', config);
-      expect(result, 'new_sheet_id');
+      expect(result, 'settings_id');
 
-      // Verify creation
-      verify(() => mockSpreadsheetsResource.create(any())).called(1);
-      
-      // Verify updates for settings and tabs
-      verify(() => mockValuesResource.update(any(), 'new_sheet_id', 'settings!A1', valueInputOption: 'RAW')).called(1);
-      verify(() => mockValuesResource.update(any(), 'new_sheet_id', 'tabs!A1', valueInputOption: 'RAW')).called(1);
+      // Verify creation called three times (settings, dashboard, tabs)
+      verify(() => mockSpreadsheetsResource.create(any())).called(3);
+
+      // Verify settings written to settings spreadsheet and tab written to tabs spreadsheet
+      verify(() => mockValuesResource.update(any(), 'settings_id', 'settings!A1', valueInputOption: 'RAW')).called(1);
+      verify(() => mockValuesResource.update(any(), 'tabs_id', 'tab1!A1', valueInputOption: 'RAW')).called(1);
     });
 
     test('readModuleConfig reads and decodes config', () async {
-      // Setup mock responses for settings, dashboard, tabs
-      // settings
+      // settings sheet (fileId = settings spreadsheet)
       when(() => mockValuesResource.get('sheet123', 'settings!A:B'))
           .thenAnswer((_) async => sheets.ValueRange(values: [
-            ['appName', '"Test App"'], // Values are JSON encoded
+            ['appName', '"Test App"'],
             ['darkMode', 'true']
           ]));
-      
-      // dashboard
-      when(() => mockValuesResource.get('sheet123', 'dashboard!A:B'))
+
+      // meta sheet should point to dashboard and tabs spreadsheet IDs
+      when(() => mockValuesResource.get('sheet123', 'meta!A:B'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['dashboard_id', 'dash123'],
+            ['tabs_id', 'tabs123']
+          ]));
+
+      // dashboard cards empty
+      when(() => mockValuesResource.get('dash123', 'cards!A1:Z'))
+          .thenAnswer((_) async => sheets.ValueRange(values: []));
+      when(() => mockValuesResource.get('dash123', 'cards!A:B'))
           .thenAnswer((_) async => sheets.ValueRange(values: []));
 
-      // tabs
-      when(() => mockValuesResource.get('sheet123', 'tabs!A:B'))
-          .thenAnswer((_) async => sheets.ValueRange(values: [
-            ['tab1', '{"id":"tab1", "label":"Tab 1"}']
-          ]));
+      // tabs spreadsheet metadata: one sheet named 'tab1'
+      when(() => mockSpreadsheetsResource.get('tabs123')).thenAnswer((_) async => sheets.Spreadsheet(sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1'))]));
+      when(() => mockValuesResource.get('tabs123', 'tab1!A1'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['{"id":"tab1", "label":"Tab 1"}']]));
 
       final config = await driveService.readModuleConfig('sheet123');
 
       expect(config!['settings'], isMap);
       expect(config['settings']['appName'], 'Test App');
       expect(config['settings']['darkMode'], true);
-      
+
       expect(config['tabs'], isList);
       expect(config['tabs'].first['id'], 'tab1');
     });
