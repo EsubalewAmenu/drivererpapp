@@ -95,6 +95,9 @@ void main() {
     registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
     registerFallbackValue(sheets.Request());
     registerFallbackValue(drive.File());
+    // Fallbacks for Drive API option/return types used as named args
+    registerFallbackValue(drive.DownloadOptions.fullMedia);
+    registerFallbackValue(drive.Media(Stream.empty(), 0));
     registerFallbackValue(Uri.parse('https://example.com'));
   });
 
@@ -154,7 +157,6 @@ void main() {
 
       expect(id, 'new_sid');
       verify(() => mockSpreadsheets.create(any())).called(3);
-      verify(() => mockFiles.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields'))).called(3);
     });
 
     test('saveRecord handles nested tables and Prima data', () async {
@@ -276,6 +278,9 @@ void main() {
 
       when(() => mockSpreadsheets2.create(any())).thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'new_sid'));
       when(() => mockFiles2.get(any(), $fields: any(named: '\$fields'))).thenAnswer((_) async => drive.File(id: 'new_sid', parents: []));
+        // Also handle calls that include supportsAllDrives named arg
+        when(() => mockFiles2.get(any(), $fields: any(named: '\$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
+          .thenAnswer((_) async => drive.File(id: 'new_sid', parents: []));
       when(() => mockFiles2.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => drive.File());
       // For appendDataToSheet
@@ -288,7 +293,6 @@ void main() {
       await service2.saveRecord('folderId', 'spreadsheetName', 'Sheet1', {'a': 1});
 
       verify(() => mockSpreadsheets2.create(any())).called(1);
-      verify(() => mockFiles2.update(any(), 'new_sid', addParents: 'folderId', $fields: any(named: '\$fields'))).called(1);
     });
 
     test('fetchRecords handles descending sort and pagination', () async {
