@@ -758,12 +758,15 @@ class _ModuleScreenState extends State<ModuleScreen> {
       }
 
       // If it was an asset fallback, navigate to Editor
-      if (isAssetFallback && mounted) {
+        if (isAssetFallback && mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => SchemaEditorScreen(
               module: loadedModule,
               isNewSetup: true,
+              settingsSheetId: widget.settingsSheetId,
+              dashboardSheetId: widget.dashboardSheetId,
+              tabsSheetId: widget.tabsSheetId,
             ),
           ),
         ).then((_) {
@@ -853,7 +856,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SchemaEditorScreen(module: _baseModule ?? cachedModule ?? widget.module)),
+                  MaterialPageRoute(builder: (context) => SchemaEditorScreen(
+                    module: _baseModule ?? cachedModule ?? widget.module,
+                    settingsSheetId: widget.settingsSheetId,
+                    dashboardSheetId: widget.dashboardSheetId,
+                    tabsSheetId: widget.tabsSheetId,
+                  )),
                 ).then((_) {
                   // Reload the schema when callback from editor
                   _loadSchema();
@@ -911,6 +919,8 @@ class _ModuleScreenState extends State<ModuleScreen> {
                       primaryColor: primaryColor,
                       settings: sourceModule.settings,
                       module: sourceModule,
+                      settingsSheetId: widget.settingsSheetId,
+                      tabsSheetId: widget.tabsSheetId,
                     );
                   }),
                   _buildExtensionsTab(module, primaryColor),

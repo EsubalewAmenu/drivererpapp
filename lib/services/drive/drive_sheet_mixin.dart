@@ -576,6 +576,95 @@ mixin DriveSheetMixin {
     }
   }
 
+  /// Read the 'meta' sheet from a settings spreadsheet id.
+  Future<Map<String, String>> readMetaBySettingsId(String settingsId) async {
+    try {
+      return await _readMapFromSheet(settingsId, 'meta');
+    } catch (e) {
+      debugPrint('Error reading meta for $settingsId: $e');
+      return {};
+    }
+  }
+
+  /// Write the settings map into a settings spreadsheet (sheet 'settings').
+  Future<void> writeSettingsById(String settingsId, Map<String, dynamic> settings) async {
+    try {
+      await _writeMapToSheet(settingsId, 'settings', settings);
+    } catch (e) {
+      debugPrint('Error writing settings to $settingsId: $e');
+      rethrow;
+    }
+  }
+
+  /// Write dashboard cards to a dashboard spreadsheet id.
+  Future<void> writeDashboardById(String dashboardId, dynamic dashboard) async {
+    try {
+      if (dashboard is Map) {
+        await _writeMapToSheet(dashboardId, 'cards', dashboard as Map<String, dynamic>);
+      } else if (dashboard is List) {
+        final rows = (dashboard as List).map((c) => [jsonEncode(c)]).toList();
+        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: rows), dashboardId, 'cards!A1', valueInputOption: 'RAW'));
+      }
+    } catch (e) {
+      debugPrint('Error writing dashboard to $dashboardId: $e');
+      rethrow;
+    }
+  }
+
+  /// Write tabs (each tab as a sheet with JSON in A1) to a tabs spreadsheet id.
+  Future<void> writeTabsById(String tabsId, List<dynamic> tabs) async {
+    try {
+      for (var t in tabs) {
+        final tid = (t is Map && t['id'] != null) ? t['id'].toString() : DateTime.now().microsecondsSinceEpoch.toString();
+        try {
+          await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
+            sheets.BatchUpdateSpreadsheetRequest(requests: [
+              sheets.Request(addSheet: sheets.AddSheetRequest(properties: sheets.SheetProperties(title: tid)))
+            ]),
+            tabsId,
+          ));
+        } catch (_) {}
+        final jsonStr = jsonEncode(t);
+        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [[jsonStr]]), tabsId, '$tid!A1', valueInputOption: 'RAW'));
+      }
+    } catch (e) {
+      debugPrint('Error writing tabs to $tabsId: $e');
+      rethrow;
+    }
+  }
+
+  /// Write the 'meta' sheet for a settings spreadsheet.
+  Future<void> writeMetaBySettingsId(String settingsId, Map<String, String> meta) async {
+    try {
+      await _writeMapToSheet(settingsId, 'meta', meta.cast<String, dynamic>());
+    } catch (e) {
+      debugPrint('Error writing meta to $settingsId: $e');
+      rethrow;
+    }
+  }
+
+  /// Create a new spreadsheet and move it into the target folder. Returns new spreadsheet id.
+  Future<String> createSpreadsheetInFolder(String folderId, String title) async {
+    try {
+      final spreadsheet = sheets.Spreadsheet(properties: sheets.SpreadsheetProperties(title: title));
+      final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
+      final newId = created.spreadsheetId!;
+
+      final file = await retryOp(() => driveApi.files.get(newId, $fields: 'parents', supportsAllDrives: true)) as drive.File;
+      final previousParents = file.parents?.join(',') ?? '';
+      if (previousParents.isNotEmpty) {
+        await retryOp(() => driveApi.files.update(drive.File(), newId, addParents: folderId, removeParents: previousParents, $fields: 'id, parents'));
+      } else {
+        await retryOp(() => driveApi.files.update(drive.File(), newId, addParents: folderId, $fields: 'id, parents'));
+      }
+
+      return newId;
+    } catch (e) {
+      debugPrint('Error creating spreadsheet in folder $folderId: $e');
+      rethrow;
+    }
+  }
+
   Future<void> saveRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, Map<String, dynamic> data) async {
     try {
       // 1. Find or Create Spreadsheet
