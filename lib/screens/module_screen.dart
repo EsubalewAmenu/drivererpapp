@@ -353,72 +353,42 @@ class _ModuleScreenState extends State<ModuleScreen> {
       // If explicit per-user sheet ids were provided, prefer reading by those ids
       if (driveService != null && widget.settingsSheetId != null && widget.settingsSheetId!.isNotEmpty) {
         try {
-          debugPrint('Attempting direct read of settings spreadsheet id=${widget.settingsSheetId}');
-          var newConfig = await driveService.readModuleConfig(widget.settingsSheetId!);
+          debugPrint('Attempting direct read by provided sheet ids');
+          final newConfig = <String, dynamic>{};
 
-          // If readModuleConfig didn't populate dashboard/tabs but explicit ids were provided, try manual reads
-          if ((newConfig == null || newConfig['dashboard'] == null) && widget.dashboardSheetId != null && widget.dashboardSheetId!.isNotEmpty) {
+          // 1) Settings (required for authoritative config)
+          try {
+            debugPrint('Reading settings by id=${widget.settingsSheetId}');
+            final settings = await driveService.readSettingsById(widget.settingsSheetId!);
+            if (settings != null) newConfig['settings'] = settings;
+          } catch (e) {
+            debugPrint('Error reading settings by id: $e');
+          }
+
+          // 2) Dashboard (optional, but prefer explicit id)
+          if (widget.dashboardSheetId != null && widget.dashboardSheetId!.isNotEmpty) {
             try {
-              debugPrint('Reading dashboard directly from id=${widget.dashboardSheetId}');
-              final resp = await driveService.sheetsApi.spreadsheets.values.get(widget.dashboardSheetId!, 'cards!A1:Z');
-              if (resp.values != null && resp.values!.isNotEmpty) {
-                final firstRow = resp.values!.first;
-                if (firstRow.isNotEmpty && firstRow.first is String && (firstRow.first as String).trim().startsWith('{')) {
-                  newConfig ??= <String, dynamic>{};
-                  newConfig['dashboard'] = resp.values!.map((r) => jsonDecode(r.first as String)).toList();
-                } else {
-                  // try map form
-                  try {
-                    final mapResp = await driveService.sheetsApi.spreadsheets.values.get(widget.dashboardSheetId!, 'cards!A:B');
-                    final map = <String, dynamic>{};
-                    if (mapResp.values != null) {
-                      for (var row in mapResp.values!) {
-                        if (row.length >= 2) map[row[0] as String] = jsonDecode(row[1] as String);
-                      }
-                      newConfig ??= <String, dynamic>{};
-                      newConfig['dashboard'] = map;
-                    }
-                  } catch (e) {
-                    debugPrint('Error reading dashboard map fallback: $e');
-                  }
-                }
-              }
+              debugPrint('Reading dashboard by id=${widget.dashboardSheetId}');
+              final dash = await driveService.readDashboardById(widget.dashboardSheetId!);
+              if (dash != null) newConfig['dashboard'] = dash;
             } catch (e) {
               debugPrint('Error reading dashboard by id: $e');
             }
           }
 
-          if ((newConfig == null || newConfig['tabs'] == null) && widget.tabsSheetId != null && widget.tabsSheetId!.isNotEmpty) {
+          // 3) Tabs
+          if (widget.tabsSheetId != null && widget.tabsSheetId!.isNotEmpty) {
             try {
-              debugPrint('Reading tabs directly from id=${widget.tabsSheetId}');
-              final ss = await driveService.sheetsApi.spreadsheets.get(widget.tabsSheetId!);
-              final sheetTitles = ss.sheets?.map((s) => s.properties?.title ?? '').where((t) => t.isNotEmpty).toList() ?? [];
-              final tabs = <dynamic>[];
-              for (var title in sheetTitles) {
-                try {
-                  final resp = await driveService.sheetsApi.spreadsheets.values.get(widget.tabsSheetId!, '$title!A1');
-                  if (resp.values != null && resp.values!.isNotEmpty) {
-                    final cell = resp.values!.first.first;
-                    if (cell is String) {
-                      tabs.add(jsonDecode(cell));
-                    }
-                  }
-                } catch (e) {
-                  debugPrint('Error reading tab $title: $e');
-                }
-              }
-              if (tabs.isNotEmpty) {
-                newConfig ??= <String, dynamic>{};
-                newConfig['tabs'] = tabs;
-              }
+              debugPrint('Reading tabs by id=${widget.tabsSheetId}');
+              final tabs = await driveService.readTabsById(widget.tabsSheetId!);
+              if (tabs != null) newConfig['tabs'] = tabs;
             } catch (e) {
               debugPrint('Error reading tabs by id: $e');
             }
           }
 
-          if (newConfig != null) {
+          if (newConfig.isNotEmpty) {
             debugPrint('Module ${widget.module.id} schema loaded directly from spreadsheets.');
-            // Cache with metadata
             try {
               final modifiedTime = await driveService.getFileModifiedTime(widget.settingsSheetId!);
               await schemaService.cacheConfig(widget.module.id, newConfig, fileId: widget.settingsSheetId, modifiedTime: modifiedTime?.toIso8601String());
@@ -426,11 +396,10 @@ class _ModuleScreenState extends State<ModuleScreen> {
               debugPrint('Error caching direct-read config: $e');
             }
             if (mounted) await _processJson(newConfig);
+            return newConfig;
           }
-          return newConfig;
         } catch (e) {
           debugPrint('Direct read by sheet ids failed: $e');
-          // fallthrough to normal sync below
         }
       }
 

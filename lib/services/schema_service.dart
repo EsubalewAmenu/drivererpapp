@@ -2,12 +2,16 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/schema_models.dart';
 import 'drive_service.dart';
 
 class SchemaService {
   static const String _cachePrefix = 'module_config_';
   static const String _metaPrefix = 'module_meta_';
+  static const String _settingsSuffix = '_settings';
+  static const String _dashboardSuffix = '_dashboard';
+  static const String _tabsSuffix = '_tabs';
 
   final DriveService? driveService;
   final String? userEmail;
@@ -18,10 +22,30 @@ class SchemaService {
   Future<Map<String, dynamic>?> getCachedConfig(String moduleId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final cachedJson = prefs.getString('$_cachePrefix$moduleId');
-      if (cachedJson != null) {
-        return jsonDecode(cachedJson) as Map<String, dynamic>;
+      final settingsStr = prefs.getString('$_cachePrefix${moduleId}$_settingsSuffix');
+      final dashboardStr = prefs.getString('$_cachePrefix${moduleId}$_dashboardSuffix');
+      final tabsStr = prefs.getString('$_cachePrefix${moduleId}$_tabsSuffix');
+
+      if (settingsStr == null && dashboardStr == null && tabsStr == null) return null;
+
+      final result = <String, dynamic>{};
+      if (settingsStr != null) {
+        try {
+          result['settings'] = Map<String, dynamic>.from(jsonDecode(settingsStr) as Map);
+        } catch (_) {}
       }
+      if (dashboardStr != null) {
+        try {
+          result['dashboard'] = jsonDecode(dashboardStr);
+        } catch (_) {}
+      }
+      if (tabsStr != null) {
+        try {
+          result['tabs'] = jsonDecode(tabsStr);
+        } catch (_) {}
+      }
+
+      return result;
     } catch (e) {
       debugPrint('Error loading cached config: $e');
     }
@@ -29,11 +53,29 @@ class SchemaService {
   }
 
   /// Saves the module configuration to local cache.
-  Future<void> cacheConfig(String moduleId, Map<String, dynamic> config, {String? fileId, String? modifiedTime}) async {
+  Future<void> cacheConfig(String moduleId, Map<String, dynamic> config,
+      {String? fileId, String? modifiedTime}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('$_cachePrefix$moduleId', jsonEncode(config));
-      
+
+      if (config.containsKey('settings')) {
+        try {
+          await prefs.setString('$_cachePrefix${moduleId}$_settingsSuffix', jsonEncode(config['settings']));
+        } catch (_) {}
+      }
+
+      if (config.containsKey('dashboard')) {
+        try {
+          await prefs.setString('$_cachePrefix${moduleId}$_dashboardSuffix', jsonEncode(config['dashboard']));
+        } catch (_) {}
+      }
+
+      if (config.containsKey('tabs')) {
+        try {
+          await prefs.setString('$_cachePrefix${moduleId}$_tabsSuffix', jsonEncode(config['tabs']));
+        } catch (_) {}
+      }
+
       if (fileId != null && modifiedTime != null) {
         final meta = {
           'fileId': fileId,
@@ -50,7 +92,9 @@ class SchemaService {
   Future<void> removeCachedConfig(String moduleId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('$_cachePrefix$moduleId');
+      await prefs.remove('$_cachePrefix${moduleId}$_settingsSuffix');
+      await prefs.remove('$_cachePrefix${moduleId}$_dashboardSuffix');
+      await prefs.remove('$_cachePrefix${moduleId}$_tabsSuffix');
       await prefs.remove('$_metaPrefix$moduleId');
     } catch (e) {
       debugPrint('Error removing cached config: $e');
@@ -72,55 +116,46 @@ class SchemaService {
   }
 
   /// Checks if the remote configuration has changed and returns the new config if it has.
+  /// Strictly looks for a user-specific settings spreadsheet named '<userEmail>_settings'
+  /// inside the module's 'config' folder. Returns null if no update is needed or on error.
   Future<Map<String, dynamic>?> syncConfig(String moduleId) async {
     if (driveService == null) return null;
 
     try {
-      // Strict lookup: only accept a user-specific settings spreadsheet.
-      // Per requirements: always look for '<userEmail>_settings' inside the module's 'config' folder.
-      String? configFileId;
       if (userEmail == null) {
         debugPrint('No userEmail provided; strict user-specific config lookup skipped');
         return null;
       }
 
-      try {
-        final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
-        final settingsName = '${userEmail}_settings';
-        configFileId = await driveService!.getFileId(configFolderId, settingsName);
-        if (configFileId == null) {
-          debugPrint('User-specific settings file not found: $settingsName in $configFolderId');
-          return null; // Do not fallback per strict rule
-        }
-      } catch (e) {
-        debugPrint('Error while locating user-specific settings: $e');
-        return null;
+      final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
+      final settingsName = '${userEmail}_settings';
+      final configFileId = await driveService!.getFileId(configFolderId, settingsName);
+
+      if (configFileId == null) {
+        debugPrint('User-specific settings file not found: $settingsName in $configFolderId');
+        return null; // strict: do not fallback
       }
 
       final remoteModifiedTime = await driveService!.getFileModifiedTime(configFileId);
       final remoteModifiedString = remoteModifiedTime?.toIso8601String();
 
-      // 2. Check against local meta
       final localMeta = await getCachedMeta(moduleId);
-      if (localMeta != null && 
-          localMeta['fileId'] == configFileId && 
+      if (localMeta != null &&
+          localMeta['fileId'] == configFileId &&
           localMeta['modifiedTime'] == remoteModifiedString) {
         debugPrint('Module $moduleId config is up to date.');
-        return null; // Local is up-to-date, return null to indicate no change needed
+        return null;
       }
 
-      // 3. Needs update
       debugPrint('Syncing module $moduleId config from Drive...');
       final newConfig = await driveService!.readModuleConfig(configFileId);
-      
+
       if (newConfig == null) {
         debugPrint('Remote config for $moduleId was null or malformed.');
         return null;
       }
-      
-      // 4. Update cache
+
       await cacheConfig(moduleId, newConfig, fileId: configFileId, modifiedTime: remoteModifiedString);
-      
       return newConfig;
     } catch (e) {
       debugPrint('Error syncing module config: $e');
@@ -134,40 +169,31 @@ class SchemaService {
 
     try {
       String? fileId;
-      
+
       if (userEmail != null) {
-        // 1. Prepare target location: config/<userEmail>
         final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
-        final fileName = '${userEmail}';
+        final fileName = '${userEmail}_settings';
 
         fileId = await driveService!.getFileId(configFolderId, fileName);
 
-        // 2. Prepare config map
         final configMap = config.toJson();
 
-          // If module settings include an 'extensions' SettingItem, write it
-          // as a top-level `extensions` array to maintain the newer schema.
-          try {
-           if (config.settings.containsKey('extensions')) {
+        try {
+          if (config.settings.containsKey('extensions')) {
             final ext = config.settings['extensions']?.value;
             if (ext is List) {
               configMap['extensions'] = ext;
             }
-           }
-          } catch (_) {}
+          }
+        } catch (_) {}
 
         if (fileId != null) {
-          // Update existing user config
           await driveService!.updateModuleConfig(fileId, configMap);
         } else {
-          // Create new user config (will create <userEmail>_settings/_dashboard/_tabs)
           fileId = await driveService!.createModuleConfig(configFolderId, fileName, configMap);
         }
 
-        // After creating/updating the module config, ensure the user's access spreadsheet
-        // exists under the company folder and register this module's config ids there.
         try {
-          // Determine company folder: prefer parent of the module folder if available
           String companyFolderId = moduleId;
           try {
             final file = await driveService!.driveApi.files.get(moduleId, $fields: 'parents') as dynamic;
@@ -178,7 +204,6 @@ class SchemaService {
           final userAccessFolderId = await driveService!.ensureUserAccessFolder(companyFolderId);
           final userAccessFileId = await driveService!.ensureUserAccessSpreadsheet(userAccessFolderId, userEmail!);
 
-          // Lookup dashboard and tabs ids in the same config folder
           final dashboardId = await driveService!.getFileId(configFolderId, '${userEmail}_dashboard');
           final tabsId = await driveService!.getFileId(configFolderId, '${userEmail}_tabs');
 
@@ -194,18 +219,14 @@ class SchemaService {
           debugPrint('Error updating user access spreadsheet: $e');
         }
       } else {
-        // Enforce strict user-specific behavior: userEmail is required.
         throw Exception('userEmail is required to save module config; legacy fallback disabled');
       }
 
-      // 4. Update Cache
-      // Fetch updated metadata so we are in sync
       final modifiedTime = await driveService!.getFileModifiedTime(fileId!);
       if (modifiedTime != null) {
-         await cacheConfig(moduleId, config.toJson(), fileId: fileId, modifiedTime: modifiedTime.toIso8601String());
+        await cacheConfig(moduleId, config.toJson(), fileId: fileId, modifiedTime: modifiedTime.toIso8601String());
       } else {
-         // Fallback if we can't get time, at least update content
-         await cacheConfig(moduleId, config.toJson());
+        await cacheConfig(moduleId, config.toJson());
       }
     } catch (e) {
       debugPrint('Error saving module config: $e');
@@ -214,8 +235,6 @@ class SchemaService {
   }
 
   Future<List<ModuleSchema>> loadModules() async {
-    // In a real app, this might list files in the directory or read a manifest.
-    // For now, we'll hardcode the list of known modules.
     final moduleFiles = ['inventory.json'];
     final List<ModuleSchema> modules = [];
 
@@ -263,5 +282,5 @@ class SchemaService {
     }
     return null;
   }
-
-          }
+}
+      final normalizedMap = <String, String>{};

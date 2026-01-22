@@ -452,6 +452,92 @@ mixin DriveSheetMixin {
     }
   }
 
+  /// Read only the `settings` sheet from a settings spreadsheet id.
+  /// Returns a map of settingKey -> decoded value, or null on error/empty.
+  Future<Map<String, dynamic>?> readSettingsById(String settingsId) async {
+    try {
+      final map = await _readMapFromSheet(settingsId, 'settings');
+      if (map.isEmpty) return null;
+      final res = <String, dynamic>{};
+      map.forEach((k, v) {
+        try {
+          res[k] = jsonDecode(v);
+        } catch (_) {
+          res[k] = v;
+        }
+      });
+      return res;
+    } catch (e) {
+      debugPrint('Error reading settings by id $settingsId: $e');
+      return null;
+    }
+  }
+
+  /// Read only the dashboard (cards) spreadsheet by id.
+  /// Returns either a List (row JSON list) or a Map (key->value map) or null.
+  Future<dynamic> readDashboardById(String dashboardId) async {
+    try {
+      // Try rows-as-JSON first
+      try {
+        final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(dashboardId, 'cards!A1:Z'));
+        if (resp.values != null && resp.values!.isNotEmpty) {
+          final firstRow = resp.values!.first;
+          if (firstRow.isNotEmpty && firstRow.first is String && (firstRow.first as String).trim().startsWith('{')) {
+            return resp.values!.map((r) => jsonDecode(r.first as String)).toList();
+          }
+        }
+      } catch (e) {
+        // fallthrough to map fallback
+      }
+
+      // Fallback to A:B map representation
+      try {
+        final map = await _readMapFromSheet(dashboardId, 'cards');
+        if (map.isNotEmpty) {
+          final decoded = <String, dynamic>{};
+          map.forEach((k, v) {
+            try {
+              decoded[k] = jsonDecode(v);
+            } catch (_) {
+              decoded[k] = v;
+            }
+          });
+          return decoded;
+        }
+      } catch (_) {}
+
+      return null;
+    } catch (e) {
+      debugPrint('Error reading dashboard by id $dashboardId: $e');
+      return null;
+    }
+  }
+
+  /// Read tabs spreadsheet by id. Returns a List of decoded tab objects or null.
+  Future<List<dynamic>?> readTabsById(String tabsId) async {
+    try {
+      final ss = await retryOp(() => sheetsApi.spreadsheets.get(tabsId));
+      final sheetTitles = ss.sheets?.map((s) => s.properties?.title ?? '').where((t) => t.isNotEmpty).toList() ?? [];
+      final tabs = <dynamic>[];
+      for (var title in sheetTitles) {
+        try {
+          final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(tabsId, '$title!A1'));
+          if (resp.values != null && resp.values!.isNotEmpty) {
+            final cell = resp.values!.first.first;
+            if (cell is String) {
+              tabs.add(jsonDecode(cell));
+            }
+          }
+        } catch (_) {}
+      }
+      if (tabs.isEmpty) return null;
+      return tabs;
+    } catch (e) {
+      debugPrint('Error reading tabs by id $tabsId: $e');
+      return null;
+    }
+  }
+
   Future<void> _writeMapToSheet(String fileId, String sheetTitle, Map<String, dynamic> data) async {
     try {
       // Clear first to avoid stale data
