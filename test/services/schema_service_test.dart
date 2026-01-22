@@ -21,6 +21,14 @@ void main() {
 
     // Default mocks for folder creation/lookup to avoid MissingStubError
     when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'config_folder_id');
+    // Generic fallback stubs to ensure async-returning methods return Futures even if specific tests don't stub them
+    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
+    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => null);
+    when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'new_file_id');
+    when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
+    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'ua_folder');
+    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'ua_sheet');
+    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any())).thenAnswer((_) async => {});
   });
 
   group('SchemaService', () {
@@ -74,8 +82,7 @@ void main() {
     });
 
     test('syncConfig returns null if remote file not found', () async {
-      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_config')).thenAnswer((_) async => null);
-      when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => null);
+      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_settings')).thenAnswer((_) async => null);
       
       final result = await schemaService.syncConfig('mod1');
       expect(result, isNull);
@@ -89,7 +96,7 @@ void main() {
       await schemaService.cacheConfig('mod1', testConfig, fileId: 'file123', modifiedTime: modifiedTime.toIso8601String());
       
       // Setup remote mock (Finding in new location)
-      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_config')).thenAnswer((_) async => 'file123');
+      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_settings')).thenAnswer((_) async => 'file123');
       when(() => mockDriveService.getFileModifiedTime('file123')).thenAnswer((_) async => modifiedTime);
       
       final result = await schemaService.syncConfig('mod1');
@@ -98,17 +105,17 @@ void main() {
     });
 
     test('syncConfig returns new config and updates cache if remote changed', () async {
-      final oldConfig = {'v': 1};
+      final oldConfig = {'settings': {'v': 1}};
       final oldTime = DateTime.utc(2024, 1, 1).toIso8601String();
       
-      final newConfig = {'v': 2};
+      final newConfig = {'settings': {'v': 2}};
       final newTime = DateTime.utc(2024, 1, 2);
       
       // Setup local cache
       await schemaService.cacheConfig('mod1', oldConfig, fileId: 'file123', modifiedTime: oldTime);
       
       // Setup remote mock (finding in new location)
-      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_config')).thenAnswer((_) async => 'file123');
+      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_settings')).thenAnswer((_) async => 'file123');
       when(() => mockDriveService.getFileModifiedTime('file123')).thenAnswer((_) async => newTime);
       when(() => mockDriveService.readModuleConfig('file123')).thenAnswer((_) async => newConfig);
       
@@ -131,7 +138,7 @@ void main() {
       );
       final modifiedTime = DateTime.now();
 
-      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_config')).thenAnswer((_) async => 'file123');
+      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_settings')).thenAnswer((_) async => 'file123');
       when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
       when(() => mockDriveService.getFileModifiedTime('file123')).thenAnswer((_) async => modifiedTime);
 
@@ -139,7 +146,8 @@ void main() {
 
       verify(() => mockDriveService.updateModuleConfig('file123', any())).called(1);
       final cached = await schemaService.getCachedConfig('mod1');
-      expect(cached?['id'], 'mod1');
+      expect(cached, isNotNull);
+      expect(cached?['settings'], equals({}));
     });
 
     test('saveModuleConfig creates new remote config if not exists', () async {
@@ -148,13 +156,13 @@ void main() {
         tabs: [], dashboard: DashboardConfig(cards: [])
       );
       
-      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_config')).thenAnswer((_) async => null);
+      when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_settings')).thenAnswer((_) async => null);
       when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'new_file_id');
       when(() => mockDriveService.getFileModifiedTime('new_file_id')).thenAnswer((_) async => DateTime.now());
 
       await schemaService.saveModuleConfig('mod1', module);
 
-      verify(() => mockDriveService.createModuleConfig('config_folder_id', 'test@example.com_config', any())).called(1);
+      verify(() => mockDriveService.createModuleConfig('config_folder_id', 'test@example.com_settings', any())).called(1);
     });
   });
 }
