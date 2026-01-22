@@ -197,32 +197,41 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
       final newTabsJson = _tabs.map((t) => t.toJson()).toList().toString();
       final tabsChanged = origTabsJson != newTabsJson;
 
-      // Execute saves for changed parts
-      if (settingsChanged) {
-        await schemaProvider.service.saveSettingsPart(widget.module.id, moduleSettings.map((k, v) => MapEntry(k, v.toJson())), settingsId: widget.settingsSheetId);
+      // Require explicit per-sheet ids; show error and abort if any id missing
+      if (widget.settingsSheetId == null || widget.dashboardSheetId == null || widget.tabsSheetId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Missing spreadsheet id(s). Cannot save without sheet ids.')),
+          );
+        }
+        return;
       }
+        // Execute saves for changed parts (only write parts when explicit ids provided)
+        if (settingsChanged) {
+          await schemaProvider.service.saveSettingsPart(widget.module.id, moduleSettings.map((k, v) => MapEntry(k, v.toJson())), settingsId: widget.settingsSheetId);
+        }
 
-      if (dashboardChanged) {
-        await schemaProvider.service.saveDashboardPart(widget.module.id, {'cards': _cards.map((c) => c.toJson()).toList()}, settingsId: widget.settingsSheetId, dashboardId: widget.dashboardSheetId);
-      }
+        if (dashboardChanged) {
+          await schemaProvider.service.saveDashboardPart(widget.module.id, {'cards': _cards.map((c) => c.toJson()).toList()}, settingsId: widget.settingsSheetId, dashboardId: widget.dashboardSheetId);
+        }
 
-      if (tabsChanged) {
-        await schemaProvider.service.saveTabsPart(widget.module.id, _tabs.map((t) => t.toJson()).toList(), settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
-      }
+        if (tabsChanged) {
+          await schemaProvider.service.saveTabsPart(widget.module.id, _tabs.map((t) => t.toJson()).toList(), settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+        }
 
-      // Update memory cache with the merged updated schema
-      final updatedSchema = ModuleSchema(
-        id: widget.module.id,
-        name: _settingsValues['name'] ?? widget.module.name,
-        icon: _settingsValues['icon'] ?? widget.module.icon,
-        primaryColor: _settingsValues['primaryColor'] ?? widget.module.primaryColor,
-        version: _settingsValues['version'] ?? widget.module.version,
-        settings: moduleSettings,
-        dashboard: DashboardConfig(cards: _cards),
-        tabs: _tabs,
-      );
+        // Update memory cache with the merged updated schema
+        final updatedSchema = ModuleSchema(
+          id: widget.module.id,
+          name: _settingsValues['name'] ?? widget.module.name,
+          icon: _settingsValues['icon'] ?? widget.module.icon,
+          primaryColor: _settingsValues['primaryColor'] ?? widget.module.primaryColor,
+          version: _settingsValues['version'] ?? widget.module.version,
+          settings: moduleSettings,
+          dashboard: DashboardConfig(cards: _cards),
+          tabs: _tabs,
+        );
 
-      schemaProvider.updateMemoryCache(widget.module.id, updatedSchema);
+        schemaProvider.updateMemoryCache(widget.module.id, updatedSchema);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

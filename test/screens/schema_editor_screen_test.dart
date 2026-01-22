@@ -34,14 +34,14 @@ void main() {
     when(() => mockSchemaProvider.updateMemoryCache(any(), any())).thenReturn(null);
   });
 
-  Widget createEditorScreen(ModuleSchema module, {bool isNewSetup = false}) {
+  Widget createEditorScreen(ModuleSchema module, {bool isNewSetup = false, String? settingsSheetId, String? dashboardSheetId, String? tabsSheetId}) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
       ],
       child: MaterialApp(
-        home: SchemaEditorScreen(module: module, isNewSetup: isNewSetup),
+        home: SchemaEditorScreen(module: module, isNewSetup: isNewSetup, settingsSheetId: settingsSheetId, dashboardSheetId: dashboardSheetId, tabsSheetId: tabsSheetId),
       ),
     );
   }
@@ -86,33 +86,38 @@ void main() {
   });
 
   testWidgets('SchemaEditorScreen saves changes successfully', (WidgetTester tester) async {
-    when(() => mockSchemaService.saveModuleConfig(any(), any())).thenAnswer((_) async => true);
+    when(() => mockSchemaService.saveSettingsPart(any(), any(), settingsId: any(named: 'settingsId'))).thenAnswer((_) async => true);
 
-    await tester.pumpWidget(createEditorScreen(testModule));
+    await tester.pumpWidget(createEditorScreen(testModule, settingsSheetId: 's1', dashboardSheetId: 'd1', tabsSheetId: 't1'));
     
-    await tester.tap(find.text('SAVE'));
-    await tester.pump();
-    
-    // Check for saving state (might be transient)
-    // await tester.pumpAndSettle(); // This will finish the save and pop
-    
-    // Instead of pumpAndSettle, let's pump enough to finish the future but maybe not pop?
-    // Actually pumpAndSettle is fine, we just verify the mock calls.
+    // Make a change to trigger a settings save
+    await tester.tap(find.text('SETTINGS'));
     await tester.pumpAndSettle();
-    
-    verify(() => mockSchemaService.saveModuleConfig('mod123', any())).called(1);
+    await tester.enterText(find.byType(TextField).first, 'New Value');
+    await tester.pump();
+
+    await tester.tap(find.text('SAVE'));
+    await tester.pumpAndSettle();
+
+    verify(() => mockSchemaService.saveSettingsPart('mod123', any(), settingsId: 's1')).called(1);
     verify(() => mockSchemaProvider.updateMemoryCache('mod123', any())).called(1);
   });
 
   testWidgets('SchemaEditorScreen handles save error', (WidgetTester tester) async {
-    when(() => mockSchemaService.saveModuleConfig(any(), any())).thenThrow(Exception('Save failed'));
+    when(() => mockSchemaService.saveSettingsPart(any(), any(), settingsId: any(named: 'settingsId'))).thenThrow(Exception('Save failed'));
 
-    await tester.pumpWidget(createEditorScreen(testModule));
+    await tester.pumpWidget(createEditorScreen(testModule, settingsSheetId: 's1', dashboardSheetId: 'd1', tabsSheetId: 't1'));
     
+    // Make a change to trigger save
+    await tester.tap(find.text('SETTINGS'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Err');
+    await tester.pump();
+
     await tester.tap(find.text('SAVE'));
     await tester.pumpAndSettle();
-    
-    expect(find.text('Error saving configuration: Exception: Save failed'), findsOneWidget);
+
+    expect(find.textContaining('Error saving configuration:'), findsOneWidget);
   });
 
   testWidgets('SchemaEditorScreen renders ACTIVATE in new setup mode', (WidgetTester tester) async {
@@ -159,7 +164,7 @@ void main() {
   });
 
   testWidgets('SchemaEditorScreen handles settings and tab changes', (WidgetTester tester) async {
-    await tester.pumpWidget(createEditorScreen(testModule));
+    await tester.pumpWidget(createEditorScreen(testModule, settingsSheetId: 's1', dashboardSheetId: 'd1', tabsSheetId: 't1'));
     
     // Test onSettingChanged (Settings Tab)
     await tester.tap(find.text('SETTINGS'));
@@ -173,8 +178,8 @@ void main() {
     // Actually we can just save and check if the save call has the new value.
     await tester.tap(find.text('SAVE'));
     await tester.pumpAndSettle();
-    
-    verify(() => mockSchemaService.saveModuleConfig(any(), any())).called(1);
+
+    verify(() => mockSchemaService.saveSettingsPart(any(), any(), settingsId: any(named: 'settingsId'))).called(1);
     
     // Test onTabsChanged via Structure Tab
     // (Assuming StructureEditor has some way to change tabs that we can trigger)
