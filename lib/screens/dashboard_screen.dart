@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
+import '../services/drive_service.dart';
 import '../providers/workspace_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_drawer.dart';
@@ -12,7 +13,8 @@ import 'settings_screen.dart';
 import '../utils/icon_lookup.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final String? userAccessSpreadsheetId;
+  const DashboardScreen({super.key, this.userAccessSpreadsheetId});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -66,14 +68,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _loadModules() {
     final workspace = Provider.of<WorkspaceProvider>(context).currentWorkspace;
     final driveService = Provider.of<DriveProvider>(context).driveService;
-    
     setState(() {
       if (workspace != null && driveService != null) {
-        _modulesFuture = driveService.listModules(workspace.id!);
+        // If a per-user user_access spreadsheet id was provided, prefer loading active modules from it
+        if (widget.userAccessSpreadsheetId != null && widget.userAccessSpreadsheetId!.isNotEmpty) {
+          _modulesFuture = _loadModulesFromUserAccess(driveService, widget.userAccessSpreadsheetId!);
+        } else {
+          _modulesFuture = driveService.listModules(workspace.id!);
+        }
       } else {
         _modulesFuture = Future.value([]);
       }
     });
+  }
+
+  Future<List<drive.File>> _loadModulesFromUserAccess(DriveService driveService, String userAccessSpreadsheetId) async {
+    try {
+      final resp = await driveService.sheetsApi.spreadsheets.values.get(userAccessSpreadsheetId, 'modules!A2:B');
+      final rows = resp.values ?? [];
+      // rows columns: id, module_name, dashboard, settings, tabs
+      final files = <drive.File>[];
+      for (var r in rows) {
+        final id = r.isNotEmpty ? (r[0] as String) : '';
+        final name = r.length > 1 ? (r[1] as String) : '';
+        if (id.isNotEmpty && name.isNotEmpty) {
+          final f = drive.File()..id = id..name = name;
+          files.add(f);
+        }
+      }
+      return files;
+    } catch (e) {
+      debugPrint('Error loading modules from user access sheet: $e');
+      return [];
+    }
   }
 
   @override
