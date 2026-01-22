@@ -56,7 +56,7 @@ void main() {
         ChangeNotifierProvider<WorkspaceProvider>.value(value: workspaceProvider),
         ChangeNotifierProvider<DriveProvider>.value(value: driveProvider),
         ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
+        ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService, userEmail: 'user@example.com')),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, _) {
@@ -85,7 +85,8 @@ void main() {
     // 1. Mock Module List and Config
     final moduleFile = drive.File()..id = 'mod1'..name = 'Inventory';
     when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFile]);
-    when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_id');
+    when(() => mockDriveService.getOrCreateSubFolder('mod1', 'config')).thenAnswer((_) async => 'mod1');
+    when(() => mockDriveService.getFileId('mod1', 'user@example.com_settings')).thenAnswer((_) async => 'config_id');
     
     final moduleConfig = {
       'id': 'mod1',
