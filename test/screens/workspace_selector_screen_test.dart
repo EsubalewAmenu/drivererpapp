@@ -36,6 +36,7 @@ void main() {
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockAuthService.currentUser).thenReturn(mockAccount);
     when(() => mockAccount.email).thenReturn('test@example.com');
+    when(() => mockWorkspaceProvider.saveUserAccessSpreadsheetId(any())).thenAnswer((_) async {});
     registerFallbackValue(drive.File());
   });
 
