@@ -14,6 +14,7 @@ import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/screens/dynamic_form_screen.dart';
+import 'package:drivererpapp/screens/module_screen.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -110,9 +111,21 @@ void main() {
 
     when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => [workspace]);
     when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFolder]);
-    when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_file');
-    when(() => mockDriveService.getFileModifiedTime('config_file')).thenAnswer((_) async => DateTime.now());
-    when(() => mockDriveService.readModuleConfig('config_file')).thenAnswer((_) async => moduleSchema.toJson());
+    // Per-user config parts (refactored): settings, dashboard, tabs
+    when(() => mockDriveService.getFileId('mod1', 'settings')).thenAnswer((_) async => 'mod1_settings');
+    when(() => mockDriveService.getFileModifiedTime('mod1_settings')).thenAnswer((_) async => DateTime.now());
+    when(() => mockDriveService.readModuleConfig('mod1_settings')).thenAnswer((_) async => moduleSchema.toJson());
+    when(() => mockDriveService.readSettingsById('mod1_settings')).thenAnswer((_) async => moduleSchema.toJson()['settings'] as Map<String, dynamic>);
+
+    when(() => mockDriveService.getFileId('mod1', 'dashboard')).thenAnswer((_) async => 'mod1_dashboard');
+    when(() => mockDriveService.getFileModifiedTime('mod1_dashboard')).thenAnswer((_) async => DateTime.now());
+    when(() => mockDriveService.readModuleConfig('mod1_dashboard')).thenAnswer((_) async => moduleSchema.toJson());
+    when(() => mockDriveService.readDashboardById('mod1_dashboard')).thenAnswer((_) async => moduleSchema.toJson()['dashboard'] as Map<String, dynamic>);
+
+    when(() => mockDriveService.getFileId('mod1', 'tabs')).thenAnswer((_) async => 'mod1_tabs');
+    when(() => mockDriveService.getFileModifiedTime('mod1_tabs')).thenAnswer((_) async => DateTime.now());
+    when(() => mockDriveService.readModuleConfig('mod1_tabs')).thenAnswer((_) async => moduleSchema.toJson());
+    when(() => mockDriveService.readTabsById('mod1_tabs')).thenAnswer((_) async => moduleSchema.toJson()['tabs'] as List<dynamic>);
     when(() => mockDriveService.getFileId('mod1', 'stocks')).thenAnswer((_) async => 'stocks_sheet');
     when(() => mockDriveService.fetchRecords(
       any(), 
@@ -168,7 +181,17 @@ void main() {
     
     final inventoryCard = find.text('Inventory');
     await tester.dragUntilVisible(inventoryCard, find.byType(CustomScrollView), const Offset(0, -300));
-    await tester.tap(inventoryCard);
+    // Instead of tapping the dashboard card (which doesn't include per-user sheet ids
+    // in this test harness), directly open ModuleScreen with explicit per-user sheet ids
+    // so ModuleScreen reads the mocked per-user configs.
+    final dashboardContext = tester.element(find.byType(DashboardScreen));
+    Navigator.of(dashboardContext).push(MaterialPageRoute(builder: (_) => ModuleScreen(
+      module: ModuleSchema(id: moduleFolder.id ?? 'mod1', name: moduleFolder.name ?? 'Inventory', icon: 'inventory', primaryColor: '#3B82F6', version: '1.0', settings: {}, dashboard: DashboardConfig(cards: []), tabs: []),
+      settingsSheetId: 'mod1_settings',
+      dashboardSheetId: 'mod1_dashboard',
+      tabsSheetId: 'mod1_tabs',
+    )));
+    await safePumpAndSettle();
     
     debugPrint('TEST: Waiting for Blueprint to load...');
     for (int i = 0; i < 30; i++) {
