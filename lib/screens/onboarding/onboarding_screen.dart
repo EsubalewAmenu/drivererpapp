@@ -357,13 +357,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
 
       // Create per-user access spreadsheet under the new company's user_access folder
+      String? createdUserSpreadsheetId;
       try {
         final authService = Provider.of<AuthService>(context, listen: false);
         final userEmail = authService.currentUser?.email;
         if (userEmail != null && userEmail.isNotEmpty) {
           final userAccessFolderId = await driveService.getOrCreateSubFolder(workspaceId, 'user_access');
-          final userSpreadsheetId = await driveService.ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
-          debugPrint('Created per-user spreadsheet for new company: $userSpreadsheetId');
+          createdUserSpreadsheetId = await driveService.ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
+          debugPrint('Created per-user spreadsheet for new company: $createdUserSpreadsheetId');
+          // Persist in provider for immediate and future use
+          try {
+            await Provider.of<WorkspaceProvider>(context, listen: false).saveUserAccessSpreadsheetId(createdUserSpreadsheetId);
+          } catch (e) {
+            debugPrint('Failed to save userAccessSpreadsheetId in provider: $e');
+          }
         } else {
           debugPrint('No authenticated user email available to create per-user spreadsheet');
         }
@@ -373,11 +380,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       // Set global workspace
       if (mounted) {
-        Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(workspaceFolder);
-        
+        final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+        workspaceProvider.setWorkspace(workspaceFolder);
+
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          MaterialPageRoute(builder: (_) => DashboardScreen(userAccessSpreadsheetId: createdUserSpreadsheetId)),
           (route) => false,
         );
       }
