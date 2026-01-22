@@ -67,19 +67,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  void _loadModules() {
+  Future<void> _loadModules() async {
     final workspace = Provider.of<WorkspaceProvider>(context).currentWorkspace;
     final driveService = Provider.of<DriveProvider>(context).driveService;
-    setState(() {
-      if (workspace != null && driveService != null) {
-        // If a per-user user_access spreadsheet id was provided, prefer loading active modules from it
-        if (widget.userAccessSpreadsheetId != null && widget.userAccessSpreadsheetId!.isNotEmpty) {
-          _modulesFuture = _loadModulesFromUserAccess(driveService, widget.userAccessSpreadsheetId!);
-        } else {
-          _modulesFuture = driveService.listModules(workspace.id!);
-        }
-      } else {
+    final provider = Provider.of<WorkspaceProvider>(context, listen: false);
+
+    if (workspace == null || driveService == null) {
+      setState(() {
         _modulesFuture = Future.value([]);
+      });
+      return;
+    }
+
+    // Determine effective userAccessSpreadsheetId: widget param -> in-memory provider -> persisted prefs
+    String? cachedId = provider.lastUserAccessSpreadsheetId;
+    if (cachedId == null || cachedId.isEmpty) {
+      try {
+        cachedId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+      } catch (e) {
+        debugPrint('Error reading persisted user access spreadsheet id: $e');
+      }
+    }
+
+    final effectiveId = (widget.userAccessSpreadsheetId != null && widget.userAccessSpreadsheetId!.isNotEmpty)
+        ? widget.userAccessSpreadsheetId
+        : (cachedId != null && cachedId.isNotEmpty ? cachedId : null);
+
+    setState(() {
+      if (effectiveId != null && effectiveId.isNotEmpty) {
+        _modulesFuture = _loadModulesFromUserAccess(driveService, effectiveId);
+      } else {
+        _modulesFuture = driveService.listModules(workspace.id!);
       }
     });
   }

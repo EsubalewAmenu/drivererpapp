@@ -35,7 +35,11 @@ class MainApp extends StatelessWidget {
         ),
         ChangeNotifierProxyProvider<DriveProvider, WorkspaceProvider>(
           create: (_) => WorkspaceProvider(),
-          update: (_, drive, workspace) => WorkspaceProvider(driveService: drive.driveService),
+          update: (_, drive, workspace) {
+            final w = workspace ?? WorkspaceProvider();
+            w.updateDriveService(drive.driveService);
+            return w;
+          },
         ),
         ChangeNotifierProxyProvider2<AuthService, DriveProvider, SchemaProvider>(
           create: (_) => SchemaProvider(),

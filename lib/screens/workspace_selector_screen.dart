@@ -142,6 +142,8 @@ class _WorkspaceSelectorScreenState extends State<WorkspaceSelectorScreen> {
           // Set global workspace
           Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(workspaceFile);
 
+          // Note: userAccessSpreadsheetId is resolved below; caching is done after resolution.
+
           // Try to resolve per-user user_access spreadsheet id from registry
           String? userAccessSpreadsheetId;
           final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
@@ -174,6 +176,13 @@ class _WorkspaceSelectorScreenState extends State<WorkspaceSelectorScreen> {
                 debugPrint('Error ensuring user access spreadsheet: $e');
               }
             }
+          }
+
+          // Cache the per-user user_access spreadsheet id for future sessions
+          try {
+            Provider.of<WorkspaceProvider>(context, listen: false).saveUserAccessSpreadsheetId(userAccessSpreadsheetId);
+          } catch (e) {
+            debugPrint('Error caching userAccessSpreadsheetId: $e');
           }
 
           // Boot into workspace and pass spreadsheet id to DashboardScreen

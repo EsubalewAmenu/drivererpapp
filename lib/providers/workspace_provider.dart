@@ -5,20 +5,28 @@ import '../models/company_model.dart';
 import '../services/drive_service.dart';
 
 class WorkspaceProvider extends ChangeNotifier {
-  final DriveService? _driveService;
+  DriveService? _driveService;
   
   drive.File? _currentWorkspace;
   String? _rootFolderId;
   List<Company> _companies = [];
+  String? _lastUserAccessSpreadsheetId;
   bool _isLoading = false;
 
   WorkspaceProvider({DriveService? driveService}) : _driveService = driveService;
+
+  /// Update the internal DriveService instance without recreating this provider.
+  void updateDriveService(DriveService? driveService) {
+    _driveService = driveService;
+  }
 
   drive.File? get currentWorkspace => _currentWorkspace;
   String? get rootFolderId => _rootFolderId;
   List<Company> get companies => _companies;
   bool get isLoading => _isLoading;
   bool get hasWorkspace => _currentWorkspace != null;
+
+  String? get lastUserAccessSpreadsheetId => _lastUserAccessSpreadsheetId;
 
   Company? get currentCompany {
     if (_currentWorkspace == null) return null;
@@ -232,6 +240,16 @@ class WorkspaceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> saveUserAccessSpreadsheetId(String? id) async {
+    _lastUserAccessSpreadsheetId = id;
+    final prefs = await SharedPreferences.getInstance();
+    if (id == null) {
+      await prefs.remove('last_user_access_spreadsheet_id');
+    } else {
+      await prefs.setString('last_user_access_spreadsheet_id', id);
+    }
+  }
+
   void clearWorkspace() {
     _currentWorkspace = null;
     _clearWorkspaceId();
@@ -244,6 +262,15 @@ class WorkspaceProvider extends ChangeNotifier {
     await prefs.setString('last_workspace_id', id);
   }
 
+  Future<void> _saveUserAccessSpreadsheetId(String? id) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (id == null) {
+      await prefs.remove('last_user_access_spreadsheet_id');
+    } else {
+      await prefs.setString('last_user_access_spreadsheet_id', id);
+    }
+  }
+
   Future<void> _clearWorkspaceId() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('last_workspace_id');
@@ -252,5 +279,10 @@ class WorkspaceProvider extends ChangeNotifier {
   static Future<String?> getLastWorkspaceId() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('last_workspace_id');
+  }
+
+  static Future<String?> getLastUserAccessSpreadsheetId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('last_user_access_spreadsheet_id');
   }
 }
