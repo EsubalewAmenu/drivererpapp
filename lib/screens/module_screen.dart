@@ -17,8 +17,16 @@ import '../utils/icon_lookup.dart';
 
 class ModuleScreen extends StatefulWidget {
   final ModuleSchema module;
-
-  const ModuleScreen({super.key, required this.module});
+  final String? settingsSheetId;
+  final String? dashboardSheetId;
+  final String? tabsSheetId;
+  const ModuleScreen({
+    super.key,
+    required this.module,
+    this.settingsSheetId,
+    this.dashboardSheetId,
+    this.tabsSheetId,
+  });
 
   @override
   State<ModuleScreen> createState() => _ModuleScreenState();

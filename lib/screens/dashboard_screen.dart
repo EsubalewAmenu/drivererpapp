@@ -22,6 +22,8 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   late Future<List<drive.File>> _modulesFuture;
+  // Map of module folder id -> sheet ids (dashboard, settings, tabs)
+  final Map<String, Map<String, String>> _userAccessModuleSheets = {};
   String? _lastWorkspaceId;
   Object? _lastDriveService;
   bool _initialized = false;
@@ -88,12 +90,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final rows = resp.values ?? [];
       // rows columns: id, module_name, dashboard, settings, tabs
       final files = <drive.File>[];
+      _userAccessModuleSheets.clear();
       for (var r in rows) {
         final id = r.isNotEmpty ? (r[0] as String) : '';
         final name = r.length > 1 ? (r[1] as String) : '';
+        final dashboardId = r.length > 2 ? (r[2] as String) : '';
+        final settingsId = r.length > 3 ? (r[3] as String) : '';
+        final tabsId = r.length > 4 ? (r[4] as String) : '';
         if (id.isNotEmpty && name.isNotEmpty) {
           final f = drive.File()..id = id..name = name;
           files.add(f);
+          _userAccessModuleSheets[id] = {
+            'dashboard': dashboardId,
+            'settings': settingsId,
+            'tabs': tabsId,
+          };
         }
       }
       return files;
@@ -325,7 +336,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           dashboard: DashboardConfig(cards: []),
           tabs: [],
         );
-        return _buildModuleCard(module, isActive: true);
+        final sheetIds = _userAccessModuleSheets[folder.id ?? ''];
+        return _buildModuleCard(module, isActive: true, sheetIds: sheetIds);
       },
     );
   }
@@ -348,7 +360,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildModuleCard(ModuleSchema module, {required bool isActive}) {
+  Widget _buildModuleCard(ModuleSchema module, {required bool isActive, Map<String, String>? sheetIds}) {
     final theme = Theme.of(context);
     return Card(
       color: theme.cardTheme.color,
@@ -357,7 +369,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onTap: () {
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => ModuleScreen(module: module)),
+            MaterialPageRoute(builder: (context) => ModuleScreen(
+              module: module,
+              dashboardSheetId: sheetIds != null ? sheetIds['dashboard'] : null,
+              settingsSheetId: sheetIds != null ? sheetIds['settings'] : null,
+              tabsSheetId: sheetIds != null ? sheetIds['tabs'] : null,
+            )),
           );
         },
         borderRadius: BorderRadius.circular(20),
