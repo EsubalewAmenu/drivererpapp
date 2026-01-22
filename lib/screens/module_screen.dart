@@ -764,12 +764,21 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 tooltip: 'Version History',
                 onPressed: () {
                   final index = DefaultTabController.of(context).index;
-                  String fileName;
+                  String? fileName;
+                  final baseName = module.name.toLowerCase();
+
+                  // New config layout stores module config across three spreadsheets:
+                  // `${baseName}_settings`, `${baseName}_dashboard`, `${baseName}_tabs`.
+                  // Map the selected tab to the appropriate spreadsheet file name.
                   if (index == 0) {
-                    fileName = 'config';
+                    fileName = '${baseName}_settings';
+                  } else if (index > 0 && index <= module.tabs.length) {
+                    fileName = '${baseName}_tabs';
                   } else {
-                    fileName = module.tabs[index - 1].id;
+                    // Extensions tab or unknown — no file to show
+                    fileName = null;
                   }
+
                   _showHistory(context, module, fileName);
                 },
               ),

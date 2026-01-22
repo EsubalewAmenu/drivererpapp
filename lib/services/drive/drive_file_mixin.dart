@@ -21,18 +21,8 @@ mixin DriveFileMixin {
         return null;
       } catch (e) {
         debugPrint('Error checking file: $e');
-        // Attempt a fallback search without parent constraint in case folderId is invalid
-        try {
-          final fallback = await driveApi.files.list(
-            q: "name = '${fileName}' and trashed = false",
-            $fields: 'files(id, name, modifiedTime)',
-          );
-          if (fallback.files != null && fallback.files!.isNotEmpty) {
-            return fallback.files!.first.id;
-          }
-        } catch (e2) {
-          debugPrint('Fallback file search failed: $e2');
-        }
+        // Do not perform a fallback search across Drive - enforce parent folder constraint.
+        // Re-throw so callers can handle the error appropriately.
         rethrow;
       }
     });

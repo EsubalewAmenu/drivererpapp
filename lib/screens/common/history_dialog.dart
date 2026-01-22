@@ -121,9 +121,9 @@ class _HistoryDialogState extends State<HistoryDialog> {
             ],
           ),
           const SizedBox(height: 4),
-          Text(
-            widget.fileName == 'config' 
-                ? 'Module Schema & Settings' 
+            Text(
+            (widget.fileName?.endsWith('_settings') == true)
+              ? 'Module Schema & Settings'
                 : 'Tracking: ${widget.fileName ?? widget.moduleName}',
             style: AppTheme.inter(
               fontSize: 12,

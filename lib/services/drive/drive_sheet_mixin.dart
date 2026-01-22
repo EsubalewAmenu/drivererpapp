@@ -338,6 +338,40 @@ mixin DriveSheetMixin {
           }
         } catch (e) {
           debugPrint('Error reading dashboard: $e');
+
+          // Attempt best-effort fallback: look for a sibling '<base>_dashboard' in the same folder as the settings file
+          try {
+            final fileMeta = await retryOp(() => driveApi.files.get(fileId, $fields: 'name, parents')) as drive.File;
+            final name = fileMeta.name ?? '';
+            final parents = fileMeta.parents ?? [];
+            if (name.endsWith('_settings') && parents.isNotEmpty) {
+              final base = name.substring(0, name.length - '_settings'.length);
+              for (var p in parents) {
+                try {
+                  final list = await driveApi.files.list(
+                    q: "'${p}' in parents and name = '${base}_dashboard' and trashed = false",
+                    $fields: 'files(id, name)'
+                  );
+                  if (list.files != null && list.files!.isNotEmpty) {
+                    final found = list.files!.first;
+                    final fallbackId = found.id;
+                    // Try reading from the found spreadsheet id
+                    final resp2 = await retryOp(() => sheetsApi.spreadsheets.values.get(fallbackId!, 'cards!A1:Z'));
+                    if (resp2.values != null && resp2.values!.isNotEmpty) {
+                      final firstRow = resp2.values!.first;
+                      if (firstRow.isNotEmpty && firstRow.first is String && (firstRow.first as String).trim().startsWith('{')) {
+                        config['dashboard'] = resp2.values!.map((r) => jsonDecode(r.first as String)).toList();
+                      } else {
+                        final map = await _readMapFromSheet(fallbackId!, 'cards');
+                        if (map.isNotEmpty) config['dashboard'] = map.map((k, v) => MapEntry(k, jsonDecode(v)));
+                      }
+                      break;
+                    }
+                  }
+                } catch (_) {}
+              }
+            }
+          } catch (_) {}
         }
       }
 
@@ -361,6 +395,46 @@ mixin DriveSheetMixin {
           if (tabs.isNotEmpty) config['tabs'] = tabs;
         } catch (e) {
           debugPrint('Error reading tabs: $e');
+
+          // Attempt fallback: look for '<base>_tabs' sibling in settings parent folder
+          try {
+            final fileMeta = await retryOp(() => driveApi.files.get(fileId, $fields: 'name, parents')) as drive.File;
+            final name = fileMeta.name ?? '';
+            final parents = fileMeta.parents ?? [];
+            if (name.endsWith('_settings') && parents.isNotEmpty) {
+              final base = name.substring(0, name.length - '_settings'.length);
+              for (var p in parents) {
+                try {
+                  final list = await driveApi.files.list(
+                    q: "'${p}' in parents and name = '${base}_tabs' and trashed = false",
+                    $fields: 'files(id, name)'
+                  );
+                  if (list.files != null && list.files!.isNotEmpty) {
+                    final found = list.files!.first;
+                    final fallbackId = found.id;
+                    final ss = await retryOp(() => sheetsApi.spreadsheets.get(fallbackId!));
+                    final sheetTitles = ss.sheets?.map((s) => s.properties?.title ?? '').where((t) => t.isNotEmpty).toList() ?? [];
+                    final tabs = <dynamic>[];
+                    for (var title in sheetTitles) {
+                      try {
+                        final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(fallbackId!, '$title!A1'));
+                        if (resp.values != null && resp.values!.isNotEmpty) {
+                          final cell = resp.values!.first.first;
+                          if (cell is String) {
+                            tabs.add(jsonDecode(cell));
+                          }
+                        }
+                      } catch (_) {}
+                    }
+                    if (tabs.isNotEmpty) {
+                      config['tabs'] = tabs;
+                      break;
+                    }
+                  }
+                } catch (_) {}
+              }
+            }
+          } catch (_) {}
         }
       }
 

@@ -76,25 +76,26 @@ class SchemaService {
     if (driveService == null) return null;
 
     try {
+      // Strict lookup: only accept a user-specific settings spreadsheet.
+      // Per requirements: always look for '<userEmail>_settings' inside the module's 'config' folder.
       String? configFileId;
-      
-      // New logic: Look in config folder first if user email is present
-      if (userEmail != null) {
-        try {
-          final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
-          final fileName = '${userEmail}_config';
-          configFileId = await driveService!.getFileId(configFolderId, fileName);
-        } catch (e) {
-          debugPrint('Error looking up user config: $e');
+      if (userEmail == null) {
+        debugPrint('No userEmail provided; strict user-specific config lookup skipped');
+        return null;
+      }
+
+      try {
+        final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
+        final settingsName = '${userEmail}_settings';
+        configFileId = await driveService!.getFileId(configFolderId, settingsName);
+        if (configFileId == null) {
+          debugPrint('User-specific settings file not found: $settingsName in $configFolderId');
+          return null; // Do not fallback per strict rule
         }
+      } catch (e) {
+        debugPrint('Error while locating user-specific settings: $e');
+        return null;
       }
-
-      // Fallback: Look for legacy config file in module root
-      if (configFileId == null) {
-         configFileId = await driveService!.getFileId(moduleId, 'config');
-      }
-
-      if (configFileId == null) return null;
 
       final remoteModifiedTime = await driveService!.getFileModifiedTime(configFileId);
       final remoteModifiedString = remoteModifiedTime?.toIso8601String();
@@ -135,14 +136,14 @@ class SchemaService {
       String? fileId;
       
       if (userEmail != null) {
-        // 1. Prepare target location: config/email_config
+        // 1. Prepare target location: config/<userEmail>
         final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
-        final fileName = '${userEmail}_config';
-        
+        final fileName = '${userEmail}';
+
         fileId = await driveService!.getFileId(configFolderId, fileName);
-        
-          // 2. Prepare config map
-          final configMap = config.toJson();
+
+        // 2. Prepare config map
+        final configMap = config.toJson();
 
           // If module settings include an 'extensions' SettingItem, write it
           // as a top-level `extensions` array to maintain the newer schema.
@@ -155,19 +156,46 @@ class SchemaService {
            }
           } catch (_) {}
 
-          if (fileId != null) {
-            // Update existing user config
-            await driveService!.updateModuleConfig(fileId, configMap);
-          } else {
-            // Create new user config
-            fileId = await driveService!.createModuleConfig(configFolderId, fileName, configMap);
-          }
+        if (fileId != null) {
+          // Update existing user config
+          await driveService!.updateModuleConfig(fileId, configMap);
+        } else {
+          // Create new user config (will create <userEmail>_settings/_dashboard/_tabs)
+          fileId = await driveService!.createModuleConfig(configFolderId, fileName, configMap);
+        }
+
+        // After creating/updating the module config, ensure the user's access spreadsheet
+        // exists under the company folder and register this module's config ids there.
+        try {
+          // Determine company folder: prefer parent of the module folder if available
+          String companyFolderId = moduleId;
+          try {
+            final file = await driveService!.driveApi.files.get(moduleId, $fields: 'parents') as dynamic;
+            final parents = (file.parents as List?) ?? [];
+            if (parents.isNotEmpty) companyFolderId = parents.first as String;
+          } catch (_) {}
+
+          final userAccessFolderId = await driveService!.ensureUserAccessFolder(companyFolderId);
+          final userAccessFileId = await driveService!.ensureUserAccessSpreadsheet(userAccessFolderId, userEmail!);
+
+          // Lookup dashboard and tabs ids in the same config folder
+          final dashboardId = await driveService!.getFileId(configFolderId, '${userEmail}_dashboard');
+          final tabsId = await driveService!.getFileId(configFolderId, '${userEmail}_tabs');
+
+          await driveService!.upsertUserAccessModule(
+            userAccessFileId,
+            moduleId,
+            config.name,
+            dashboardId ?? '',
+            fileId,
+            tabsId ?? '',
+          );
+        } catch (e) {
+          debugPrint('Error updating user access spreadsheet: $e');
+        }
       } else {
-        // Legacy/Fallback behavior: config in root
-        fileId = await driveService!.getFileId(moduleId, 'config');
-        if (fileId == null) throw Exception('Config file not found and no user email to create new one');
-         
-        await driveService!.updateModuleConfig(fileId, config.toJson());
+        // Enforce strict user-specific behavior: userEmail is required.
+        throw Exception('userEmail is required to save module config; legacy fallback disabled');
       }
 
       // 4. Update Cache
