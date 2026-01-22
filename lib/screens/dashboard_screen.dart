@@ -86,7 +86,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<List<drive.File>> _loadModulesFromUserAccess(DriveService driveService, String userAccessSpreadsheetId) async {
     try {
-      final resp = await driveService.sheetsApi.spreadsheets.values.get(userAccessSpreadsheetId, 'modules!A2:B');
+      final resp = await driveService.sheetsApi.spreadsheets.values.get(userAccessSpreadsheetId, 'modules!A2:E');
       final rows = resp.values ?? [];
       // rows columns: id, module_name, dashboard, settings, tabs
       final files = <drive.File>[];
