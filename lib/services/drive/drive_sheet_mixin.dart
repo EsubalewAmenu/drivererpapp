@@ -614,16 +614,33 @@ mixin DriveSheetMixin {
   /// Write tabs (each tab as a sheet with JSON in A1) to a tabs spreadsheet id.
   Future<void> writeTabsById(String tabsId, List<dynamic> tabs) async {
     try {
+      // Fetch existing sheet titles once to avoid attempting to create duplicates
+      final ss = await retryOp(() => sheetsApi.spreadsheets.get(tabsId));
+      final existingTitles = ss.sheets?.map((s) => s.properties?.title ?? '').where((t) => t.isNotEmpty).toSet() ?? <String>{};
+
       for (var t in tabs) {
         final tid = (t is Map && t['id'] != null) ? t['id'].toString() : DateTime.now().microsecondsSinceEpoch.toString();
-        try {
-          await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
-            sheets.BatchUpdateSpreadsheetRequest(requests: [
-              sheets.Request(addSheet: sheets.AddSheetRequest(properties: sheets.SheetProperties(title: tid)))
-            ]),
-            tabsId,
-          ));
-        } catch (_) {}
+
+        if (!existingTitles.contains(tid)) {
+          try {
+            // Attempt to add sheet; if it fails because it already exists, skip gracefully
+            await sheetsApi.spreadsheets.batchUpdate(
+              sheets.BatchUpdateSpreadsheetRequest(requests: [
+                sheets.Request(addSheet: sheets.AddSheetRequest(properties: sheets.SheetProperties(title: tid)))
+              ]),
+              tabsId,
+            );
+            existingTitles.add(tid);
+          } catch (e) {
+            final msg = e.toString().toLowerCase();
+            if (msg.contains('already exists') || msg.contains('a sheet with the name')) {
+              debugPrint('Sheet $tid already exists in $tabsId; skipping creation.');
+            } else {
+              rethrow;
+            }
+          }
+        }
+
         final jsonStr = jsonEncode(t);
         await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [[jsonStr]]), tabsId, '$tid!A1', valueInputOption: 'RAW'));
       }
