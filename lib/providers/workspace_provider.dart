@@ -210,7 +210,8 @@ class WorkspaceProvider extends ChangeNotifier {
       // If registry failed or company not in registry
       final file = await _driveService!.driveApi.files.get(
         lastId,
-        $fields: 'id, name, mimeType, parents, properties'
+        $fields: 'id, name, mimeType, parents, properties',
+        supportsAllDrives: true,
       ) as drive.File;
       
       setWorkspace(file);

@@ -13,6 +13,8 @@ mixin DriveFileMixin {
         final fileList = await driveApi.files.list(
           q: "'$folderId' in parents and name = '$fileName' and trashed = false",
           $fields: 'files(id, name, modifiedTime)',
+          includeItemsFromAllDrives: true,
+          supportsAllDrives: true,
         );
 
         if (fileList.files != null && fileList.files!.isNotEmpty) {
@@ -31,7 +33,7 @@ mixin DriveFileMixin {
   /// Fetches the modification time of a file.
   Future<DateTime?> getFileModifiedTime(String fileId) async {
     try {
-      final file = await driveApi.files.get(fileId, $fields: 'modifiedTime') as drive.File;
+      final file = await driveApi.files.get(fileId, $fields: 'modifiedTime', supportsAllDrives: true) as drive.File;
       return file.modifiedTime;
     } catch (e) {
       debugPrint('Error getting file modified time: $e');
@@ -45,6 +47,7 @@ mixin DriveFileMixin {
       final media = await driveApi.files.get(
         fileId,
         downloadOptions: drive.DownloadOptions.fullMedia,
+        supportsAllDrives: true,
       ) as drive.Media;
 
       final stream = media.stream;

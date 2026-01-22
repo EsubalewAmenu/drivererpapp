@@ -47,7 +47,7 @@ mixin DriveCompanyMixin {
       fileId = created.spreadsheetId!;
 
       // 3. Move to root folder
-      final file = await driveApi.files.get(fileId, $fields: 'parents') as drive.File;
+      final file = await driveApi.files.get(fileId, $fields: 'parents', supportsAllDrives: true) as drive.File;
       final previousParents = file.parents?.join(',') ?? '';
       
       await driveApi.files.update(
@@ -342,7 +342,7 @@ mixin DriveCompanyMixin {
         debugPrint('Found existing user access spreadsheet: $fileId');
         // Ensure registry knows about this mapping as well
         try {
-          final folderFile = await driveApi.files.get(userAccessFolderId, $fields: 'parents') as drive.File;
+          final folderFile = await driveApi.files.get(userAccessFolderId, $fields: 'parents', supportsAllDrives: true) as drive.File;
           final parentCompanyFolderId = (folderFile.parents != null && folderFile.parents!.isNotEmpty) ? folderFile.parents!.first : null;
           final rootFolderId = await checkRootFolder();
           if (parentCompanyFolderId != null && rootFolderId != null) {
@@ -367,7 +367,7 @@ mixin DriveCompanyMixin {
 
       // Move into userAccessFolder
       try {
-        final file = await driveApi.files.get(newId, $fields: 'parents') as drive.File;
+        final file = await driveApi.files.get(newId, $fields: 'parents', supportsAllDrives: true) as drive.File;
         final previousParents = file.parents?.join(',') ?? '';
         debugPrint('Moving user access spreadsheet. previousParents=$previousParents targetFolder=$userAccessFolderId');
         if (previousParents.isNotEmpty) {
@@ -387,7 +387,7 @@ mixin DriveCompanyMixin {
 
       // Also register this per-user spreadsheet in the companies registry under user_access
       try {
-        final folderFile = await driveApi.files.get(userAccessFolderId, $fields: 'parents') as drive.File;
+        final folderFile = await driveApi.files.get(userAccessFolderId, $fields: 'parents', supportsAllDrives: true) as drive.File;
         final parentCompanyFolderId = (folderFile.parents != null && folderFile.parents!.isNotEmpty) ? folderFile.parents!.first : null;
         final rootFolderId = await checkRootFolder();
         if (parentCompanyFolderId != null && rootFolderId != null) {

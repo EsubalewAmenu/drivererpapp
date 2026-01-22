@@ -198,7 +198,7 @@ mixin DriveSheetMixin {
       // Move all files into the target folder
       Future<void> moveToFolder(String fid) async {
         try {
-          final file = await retryOp(() => driveApi.files.get(fid, $fields: 'parents')) as drive.File;
+          final file = await retryOp(() => driveApi.files.get(fid, $fields: 'parents', supportsAllDrives: true)) as drive.File;
           final previousParents = file.parents?.join(',') ?? '';
           if (previousParents.isNotEmpty) {
             await retryOp(() => driveApi.files.update(drive.File(), fid, addParents: folderId, removeParents: previousParents, $fields: 'id, parents'));
@@ -341,7 +341,7 @@ mixin DriveSheetMixin {
 
           // Attempt best-effort fallback: look for a sibling '<base>_dashboard' in the same folder as the settings file
           try {
-            final fileMeta = await retryOp(() => driveApi.files.get(fileId, $fields: 'name, parents')) as drive.File;
+            final fileMeta = await retryOp(() => driveApi.files.get(fileId, $fields: 'name, parents', supportsAllDrives: true)) as drive.File;
             final name = fileMeta.name ?? '';
             final parents = fileMeta.parents ?? [];
             if (name.endsWith('_settings') && parents.isNotEmpty) {
@@ -350,7 +350,9 @@ mixin DriveSheetMixin {
                 try {
                   final list = await driveApi.files.list(
                     q: "'${p}' in parents and name = '${base}_dashboard' and trashed = false",
-                    $fields: 'files(id, name)'
+                    $fields: 'files(id, name)',
+                    includeItemsFromAllDrives: true,
+                    supportsAllDrives: true,
                   );
                   if (list.files != null && list.files!.isNotEmpty) {
                     final found = list.files!.first;
@@ -398,7 +400,7 @@ mixin DriveSheetMixin {
 
           // Attempt fallback: look for '<base>_tabs' sibling in settings parent folder
           try {
-            final fileMeta = await retryOp(() => driveApi.files.get(fileId, $fields: 'name, parents')) as drive.File;
+            final fileMeta = await retryOp(() => driveApi.files.get(fileId, $fields: 'name, parents', supportsAllDrives: true)) as drive.File;
             final name = fileMeta.name ?? '';
             final parents = fileMeta.parents ?? [];
             if (name.endsWith('_settings') && parents.isNotEmpty) {
@@ -407,7 +409,9 @@ mixin DriveSheetMixin {
                 try {
                   final list = await driveApi.files.list(
                     q: "'${p}' in parents and name = '${base}_tabs' and trashed = false",
-                    $fields: 'files(id, name)'
+                    $fields: 'files(id, name)',
+                    includeItemsFromAllDrives: true,
+                    supportsAllDrives: true,
                   );
                   if (list.files != null && list.files!.isNotEmpty) {
                     final found = list.files!.first;
@@ -502,10 +506,10 @@ mixin DriveSheetMixin {
         spreadsheetId = created.spreadsheetId!;
         
         // Move to folder
-        final file = await retryOp(() async {
-           final result = await driveApi.files.get(spreadsheetId!, $fields: 'id, parents');
-           return result as drive.File;
-        });
+          final file = await retryOp(() async {
+            final result = await driveApi.files.get(spreadsheetId!, $fields: 'id, parents', supportsAllDrives: true);
+            return result as drive.File;
+          });
         final previousParents = file.parents?.join(',') ?? '';
         
         if (previousParents.isNotEmpty) {
