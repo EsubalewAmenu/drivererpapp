@@ -139,12 +139,21 @@ void main() {
     expect(found, isTrue, reason: 'Module card with text "Inventory" did not appear');
 
     // Tap the Text itself (tap bubbles to ancestor handlers in tests)
-    await tester.tap(inventoryTextFinder.first);
+    final scrollable = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(inventoryTextFinder.first, 200, scrollable: scrollable);
+    await tester.pumpAndSettle();
+    await tester.tap(inventoryTextFinder.first, warnIfMissed: false);
     await tester.pumpAndSettle();
     
     // Switch to STOCKS tab (match case-insensitively)
     final stocksTabFinder = find.byWidgetPredicate((w) => w is Text && (w.data ?? '').toString().toUpperCase().contains('STOCK'));
-    await tester.tap(stocksTabFinder.first);
+    if (stocksTabFinder.evaluate().isNotEmpty) {
+      await tester.ensureVisible(stocksTabFinder.first);
+    } else {
+      await tester.scrollUntilVisible(stocksTabFinder.first, 200, scrollable: scrollable);
+    }
+    await tester.pumpAndSettle();
+    await tester.tap(stocksTabFinder.first, warnIfMissed: false);
     await tester.pumpAndSettle();
     
     // Wait for the 500ms delay in ModuleTabScreen initState
