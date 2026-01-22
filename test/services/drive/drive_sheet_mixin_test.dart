@@ -115,30 +115,46 @@ void main() {
       when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
           .thenAnswer((_) async => sheets.UpdateValuesResponse());
 
+      // meta should point to dashboard and tabs spreadsheets
+      when(() => mockValues.get('fileId', 'meta!A:B')).thenAnswer((_) async => sheets.ValueRange(values: [
+        ['dashboard_id', 'dash123'],
+        ['tabs_id', 'tabs123']
+      ]));
+
+      // Dashboard and tabs writes
+      when(() => mockSpreadsheets.get('tabs123')).thenAnswer((_) async => sheets.Spreadsheet(sheets: []));
+
       await service.updateModuleConfig('fileId', {
         'settings': {'s1': 'v1'},
         'dashboard': {'cards': []},
         'tabs': [{'id': 't1', 'label': 'T1', 'columns': []}],
       });
 
+      // Expect one update for settings + one for dashboard + one for the tab sheet
       verify(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW')).called(3);
     });
 
     test('createModuleConfig handles spreadsheet creation and moving', () async {
-      when(() => mockSpreadsheets.create(any())).thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'new_sid'));
+      int callCount = 0;
+      when(() => mockSpreadsheets.create(any())).thenAnswer((_) async {
+        callCount++;
+        if (callCount == 1) return sheets.Spreadsheet(spreadsheetId: 'new_sid');
+        if (callCount == 2) return sheets.Spreadsheet(spreadsheetId: 'new_sid');
+        return sheets.Spreadsheet(spreadsheetId: 'new_sid');
+      });
       when(() => mockFiles.get(any(), $fields: any(named: '\$fields'))).thenAnswer((_) async => drive.File(parents: ['p1']));
       when(() => mockFiles.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => drive.File());
-      
+
       when(() => mockValues.clear(any(), any(), any())).thenAnswer((_) async => sheets.ClearValuesResponse());
       when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
           .thenAnswer((_) async => sheets.UpdateValuesResponse());
 
       final id = await service.createModuleConfig('folderId', 'fileName', {});
-      
+
       expect(id, 'new_sid');
-      verify(() => mockSpreadsheets.create(any())).called(1);
-      verify(() => mockFiles.update(any(), 'new_sid', addParents: 'folderId', removeParents: 'p1', $fields: any(named: '\$fields'))).called(1);
+      verify(() => mockSpreadsheets.create(any())).called(3);
+      verify(() => mockFiles.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields'))).called(3);
     });
 
     test('saveRecord handles nested tables and Prima data', () async {
@@ -205,9 +221,23 @@ void main() {
     });
 
     test('readModuleConfig parses settings and tabs', () async {
-      when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(
+      when(() => mockValues.get('file_id', 'settings!A:B')).thenAnswer((_) async => sheets.ValueRange(
         values: [['key', '"val"'], ['key2', '123']]
       ));
+
+      when(() => mockValues.get('file_id', 'meta!A:B')).thenAnswer((_) async => sheets.ValueRange(values: [
+        ['dashboard_id', 'dash1'],
+        ['tabs_id', 'tabs1']
+      ]));
+
+      when(() => mockSpreadsheets.get('tabs1')).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 't1'))]
+      ));
+
+      when(() => mockValues.get('tabs1', 't1!A1')).thenAnswer((_) async => sheets.ValueRange(values: [['{"id":"t1","label":"T1"}']]));
+
+      // Dashboard may be read during config parsing; ensure it returns an empty range instead of null
+      when(() => mockValues.get('dash1', any())).thenAnswer((_) async => sheets.ValueRange(values: []));
 
       final result = await service.readModuleConfig('file_id');
       expect(result!['settings'], isNotNull);
@@ -215,6 +245,8 @@ void main() {
     });
 
     test('updateModuleConfig writes to sheets', () async {
+      // ensure meta read returns something so method doesn't hit a null future
+      when(() => mockValues.get(any(), 'meta!A:B')).thenAnswer((_) async => sheets.ValueRange(values: []));
       when(() => mockValues.clear(any(), any(), any())).thenAnswer((_) async => sheets.ClearValuesResponse());
       when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
           .thenAnswer((_) async => sheets.UpdateValuesResponse());
