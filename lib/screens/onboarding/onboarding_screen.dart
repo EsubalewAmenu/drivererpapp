@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/drive_provider.dart';
 import '../../providers/workspace_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../services/auth_service.dart';
 import '../dashboard_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -354,6 +355,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         widget.rootFolderId, 
         newCompany
       );
+
+      // Create per-user access spreadsheet under the new company's user_access folder
+      try {
+        final authService = Provider.of<AuthService>(context, listen: false);
+        final userEmail = authService.currentUser?.email;
+        if (userEmail != null && userEmail.isNotEmpty) {
+          final userAccessFolderId = await driveService.getOrCreateSubFolder(workspaceId, 'user_access');
+          final userSpreadsheetId = await driveService.ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
+          debugPrint('Created per-user spreadsheet for new company: $userSpreadsheetId');
+        } else {
+          debugPrint('No authenticated user email available to create per-user spreadsheet');
+        }
+      } catch (e) {
+        debugPrint('Failed to create per-user spreadsheet during onboarding: $e');
+      }
 
       // Set global workspace
       if (mounted) {
