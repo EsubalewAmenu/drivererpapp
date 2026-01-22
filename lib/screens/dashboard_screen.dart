@@ -21,7 +21,7 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  late Future<List<drive.File>> _modulesFuture;
+  Future<List<drive.File>> _modulesFuture = Future.value([]);
   // Map of module folder id -> sheet ids (dashboard, settings, tabs)
   final Map<String, Map<String, String>> _userAccessModuleSheets = {};
   String? _lastWorkspaceId;
