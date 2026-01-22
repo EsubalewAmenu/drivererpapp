@@ -56,6 +56,8 @@ void main() {
         ChangeNotifierProvider<DriveProvider>.value(value: driveProvider),
         ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
         ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
+          // Provide a userEmail so SchemaService.syncConfig performs user-specific lookup
+          ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService, userEmail: 'user@example.com')),
       ],
       child: const MaterialApp(
         home: DashboardScreen(),
@@ -80,7 +82,8 @@ void main() {
     // 1. Mock Module List and Config
     final moduleFile = drive.File()..id = 'mod1'..name = 'Inventory';
     when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFile]);
-    when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_id');
+    when(() => mockDriveService.getOrCreateSubFolder('mod1', 'config')).thenAnswer((_) async => 'mod1');
+    when(() => mockDriveService.getFileId('mod1', 'user@example.com_settings')).thenAnswer((_) async => 'config_id');
     
     final moduleConfig = {
       'id': 'mod1',
@@ -91,7 +94,7 @@ void main() {
       'tabs': [
         {
           'id': 'items', 
-          'label': 'Items', 
+          'label': 'Items / SKUs', 
           'columns': [
             {'key': 'name', 'label': 'Name', 'type': 'text'},
             {'key': 'qty', 'label': 'Quantity', 'type': 'number'}
@@ -117,6 +120,17 @@ void main() {
           quickFilter: any(named: 'quickFilter'),
         )).thenAnswer((_) async => List<Map<String, dynamic>>.from(records));
 
+    // Also stub the spreadsheet-id based fetch path in case cached config provides a fileId
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+          any(), any(),
+          offset: any(named: 'offset'),
+          limit: any(named: 'limit'),
+          fetchSubTables: any(named: 'fetchSubTables'),
+          descending: any(named: 'descending'),
+          searchQuery: any(named: 'searchQuery'),
+          quickFilter: any(named: 'quickFilter'),
+        )).thenAnswer((_) async => List<Map<String, dynamic>>.from(records));
+
     // 3. Start App
     await tester.pumpWidget(createTestWidget(
       workspaceProvider: workspaceProvider,
@@ -132,8 +146,9 @@ void main() {
     }
 
     // First tab is Dashboard, we need to switch to ITEMS tab
-    // The tab bar has [DASHBOARD, ITEMS]
-    await tester.tap(find.text('ITEMS'));
+    // The tab bar has [DASHBOARD, Items]. Tap the tab by matching any Text containing 'Items'
+    final itemsTabFinder = find.byWidgetPredicate((w) => w is Text && (w.data ?? '').toString().toUpperCase().contains('ITEMS'));
+    await tester.tap(itemsTabFinder.first);
     await tester.pumpAndSettle();
     // Delay for records load
     for(int i=0; i<5; i++) {
@@ -153,7 +168,8 @@ void main() {
     await tester.tap(find.byIcon(Icons.edit_outlined));
     await tester.pumpAndSettle();
 
-    expect(find.text('EDIT ITEMS'), findsOneWidget);
+    final editTitleFinder = find.byWidgetPredicate((w) => w is Text && (w.data ?? '').toString().toUpperCase().contains('EDIT') && (w.data ?? '').toString().toUpperCase().contains('ITEMS'));
+    expect(editTitleFinder, findsOneWidget);
 
     // 7. Update Name field
     // Find text field with 'Widget A' and change it
