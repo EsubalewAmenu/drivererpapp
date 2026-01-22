@@ -264,7 +264,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
         debugPrint('Error ensuring config folder during activation: $e');
       }
 
-      // Register the module in the company registry under 'modules' sheet.
+      // Update user's access spreadsheet with module config ids.
       try {
         final _rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
         dynamic rootFolderId;
@@ -274,10 +274,6 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
           rootFolderId = _rootRes;
         }
         if (rootFolderId != null) {
-          final _regRes = (driveService as dynamic).registerModule(rootFolderId, workspaceId, moduleName, moduleFolderId);
-          if (_regRes is Future) await _regRes;
-
-          // Also update user's access spreadsheet with module config ids
           try {
             final userEmail = capturedUserEmail;
             if (userEmail != null && userEmail.isNotEmpty) {
@@ -296,10 +292,10 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
             debugPrint('Failed to update user access spreadsheet during module activation: $e');
           }
         } else {
-          debugPrint('Root folder id not available; skipping module registry write');
+          debugPrint('Root folder id not available; skipping user access update');
         }
       } catch (e) {
-        debugPrint('Failed to register module in registry: $e');
+        debugPrint('Failed to update user access in registry step: $e');
       }
 
       if (mounted) {
