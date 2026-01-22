@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:provider/provider.dart';
 import 'package:drivererpapp/screens/module_configuration_screen.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
@@ -57,9 +58,8 @@ class TestAssetBundle extends CachingAssetBundle {
 }
 
 void main() {
-  setUpAll(() {
-    Provider.debugCheckInvalidValueType = null;
-  });
+  // Disable Provider runtime-type check for tests that inject mock instances
+  Provider.debugCheckInvalidValueType = null;
   late MockWorkspaceProvider mockWorkspaceProvider;
   late MockDriveProvider mockDriveProvider;
   late MockDriveService mockDriveService;
