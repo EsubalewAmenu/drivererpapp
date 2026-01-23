@@ -534,7 +534,12 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           if (value == null) {
             displayValue = 'N/A';
           } else {
-            displayValue = _relationLabels[col.key] ?? value.toString();
+            // Show a friendly placeholder while the human-readable label is being resolved
+            if (_relationLabels.containsKey(col.key)) {
+              displayValue = _relationLabels[col.key]!;
+            } else {
+              displayValue = 'Loading...';
+            }
           }
         } else {
           displayValue = value?.toString() ?? 'N/A';
