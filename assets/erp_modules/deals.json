@@ -56,12 +56,24 @@
           "display_field": "name" 
         },
         { 
-          "key": "stage", 
-          "label": "Stage", 
+          "key": "letter_status", 
+          "label": "Letter Status", 
           "type": "select", 
-          "options": ["New", "Qualified", "Proposal", "Negotiation", "Won", "Lost"] 
+          "options": ["Not Started", "Out for Delivery", "Delivered"] 
         },
-        { "key": "amount", "label": "Value", "type": "currency" },
+        { 
+          "key": "call_status", 
+          "label": "Call Status", 
+          "type": "select", 
+          "options": ["Pending", "No Answer", "Gatekeeper", "Spoke to GM"] 
+        },
+        { 
+          "key": "stage", 
+          "label": "Outcome", 
+          "type": "select", 
+          "options": ["Pending", "Not Interested", "Send Email", "Call Back", "Meeting Set", "Proposal Sent", "Negotiation", "Closed Won", "Closed Lost"] 
+        },
+        { "key": "next_follow_up", "label": "Next Follow Up", "type": "date" },
         { "key": "close_date", "label": "Expected Close", "type": "date" },
         { "key": "owner", "label": "Owner", "type": "email", "default": "user.email", "readonly": true }
       ]
