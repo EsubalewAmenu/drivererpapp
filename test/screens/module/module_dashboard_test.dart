@@ -34,12 +34,11 @@ void main() {
     );
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
-    // Mock the Gviz response
     when(() => mockDriveService.executeGvizQuery(any(), any(), any()))
-        .thenAnswer((_) async => 1000); // Default return 1000 for everything
+        .thenAnswer((_) async => 1000);
   });
 
-  Widget createModuleDashboard() {
+  Widget createModuleDashboard({Color primary = Colors.amber}) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
@@ -48,7 +47,7 @@ void main() {
         home: Scaffold(
           body: ModuleDashboard(
             module: testModule,
-            primaryColor: Colors.amber,
+            primaryColor: primary,
           ),
         ),
       ),
@@ -62,16 +61,36 @@ void main() {
     expect(find.text('Total Sales'.toUpperCase()), findsOneWidget);
     expect(find.text('Active Users'.toUpperCase()), findsOneWidget);
 
-    // Initial state shows placeholder/syncing then updates
-    await tester.pump(); // Start animations
-    await tester.pump(const Duration(milliseconds: 300)); // Delay in initState
-    await tester.pump(); // Final setState
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
 
-    // Sales: Currency format of 1000 -> $1,000 (roughly, depending on locale but simpleCurrency usually $)
-    // Users: Number format of 1000 -> 1000
-    
-    // Check if we found the formatted strings
-    // Note: The exact string depends on locale, but checking for "1,000" or similar
-    expect(find.textContaining('1,000'), findsAtLeastNWidgets(1)); 
+    expect(find.textContaining('1,000'), findsAtLeastNWidgets(1));
+  });
+
+  testWidgets('ModuleDashboard displays KPI card and refresh works', (WidgetTester tester) async {
+    when(() => mockDriveService.executeGvizQuery(any(), any(), any())).thenAnswer((_) async => 100);
+
+    testModule = ModuleSchema(
+      id: 'm2',
+      name: 'KPI Module',
+      icon: 'analytics',
+      primaryColor: '#2196F3',
+      version: '1.0',
+      settings: {},
+      tabs: [],
+      dashboard: DashboardConfig(cards: [DashboardCard(label: 'Total', formula: '=SUM(sheet1!A:A)', format: '', type: 'kpi')]),
+    );
+
+    await tester.pumpWidget(createModuleDashboard(primary: Colors.blue));
+    await tester.pumpAndSettle();
+
+    expect(find.text('PERFORMANCE OVERVIEW'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Refresh'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('TOTAL'), findsOneWidget);
+    expect(find.textContaining('100'), findsAtLeastNWidgets(1));
   });
 }

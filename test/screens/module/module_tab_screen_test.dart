@@ -37,6 +37,7 @@ void main() {
     registerFallbackValue(FakeQuickFilter());
     registerFallbackValue(FakeListTemplateConfig());
     registerFallbackValue(FakeDetailTemplateConfig());
+    Provider.debugCheckInvalidValueType = null;
   });
 
   setUp(() {
@@ -47,7 +48,6 @@ void main() {
     mockSchemaService = MockSchemaService();
     mockWorkspaceProvider = MockWorkspaceProvider();
 
-    // Use a large enough surface size for all tests
     final binding = TestWidgetsFlutterBinding.ensureInitialized();
     binding.platformDispatcher.implicitView!.physicalSize = const Size(1024, 768);
     binding.platformDispatcher.implicitView!.devicePixelRatio = 1.0;
@@ -71,9 +71,7 @@ void main() {
     when(() => mockThemeProvider.themeMode).thenReturn(ThemeMode.light);
     when(() => mockSchemaProvider.service).thenReturn(mockSchemaService);
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(null);
-    // default getFromMemory -> null unless explicitly set in a test
     when(() => mockSchemaProvider.getFromMemory(any())).thenReturn(null);
-    // default cached config is null
     when(() => mockSchemaService.getCachedConfig(any())).thenAnswer((_) async => null);
     when(() => mockSchemaService.saveModuleConfig(any(), any())).thenAnswer((_) async {});
     when(() => mockSchemaProvider.updateMemoryCache(any(), any())).thenReturn(null);
@@ -94,10 +92,10 @@ void main() {
   Widget createModuleTabScreen() {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
-        ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
-        ChangeNotifierProvider<ThemeProvider>.value(value: mockThemeProvider),
-        ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
+        Provider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+        Provider<DriveProvider>.value(value: mockDriveProvider),
+        Provider<ThemeProvider>.value(value: mockThemeProvider),
+        Provider<SchemaProvider>.value(value: mockSchemaProvider),
       ],
       child: MaterialApp(
         home: Scaffold(
@@ -130,13 +128,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 1000));
     await tester.pumpAndSettle();
 
-    // One in the TextField, one in the list tile
     expect(find.text('Record 1'), findsNWidgets(2));
     expect(find.text('Record 2'), findsNothing);
   });
 
   testWidgets('ModuleTabScreen allows custom filtering', (WidgetTester tester) async {
-    // For stability in headless tests, inject the custom quick filter directly
     final customFilter = QuickFilter(
       label: 'Name Equals Record 2',
       key: 'f1',
@@ -145,7 +141,6 @@ void main() {
       value: 'Record 2',
     );
 
-    // Create a module where the tab already contains the quick filter
     final tabWithFilter = testTab.copyWith(quickFilters: [customFilter]);
     final moduleWithFilter = ModuleSchema(
       id: testModule.id,
@@ -163,10 +158,10 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
-          ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
-          ChangeNotifierProvider<ThemeProvider>.value(value: mockThemeProvider),
-          ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
+          Provider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+          Provider<DriveProvider>.value(value: mockDriveProvider),
+          Provider<ThemeProvider>.value(value: mockThemeProvider),
+          Provider<SchemaProvider>.value(value: mockSchemaProvider),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -182,23 +177,18 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Ensure the filter chip exists
     expect(find.text('Name Equals Record 2'), findsOneWidget);
 
-    // Activate the filter
     await tester.tap(find.text('Name Equals Record 2'));
     await tester.pumpAndSettle();
 
-    // Filtering should apply and show only Record 2
     expect(find.text('Record 2'), findsOneWidget);
     expect(find.text('Record 1'), findsNothing);
   });
 
   testWidgets('ModuleTabScreen loads more data on scroll', (WidgetTester tester) async {
-    // Setup specific mock for this test
     reset(mockDriveService);
     
-    // First page (20 items)
     when(() => mockDriveService.fetchRecords(
       'mod1', 
       'Test Module', 
@@ -211,7 +201,6 @@ void main() {
       quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => List.generate(20, (i) => {'name': 'Item ${20-i}', 'record_id': '${1020-i}'}));
 
-    // Second page (1 item)
     when(() => mockDriveService.fetchRecords(
       'mod1', 
       'Test Module', 
@@ -227,10 +216,8 @@ void main() {
     await tester.pumpWidget(createModuleTabScreen());
     await tester.pumpAndSettle();
 
-    // Verify first page loaded (check first item in desc order)
     expect(find.text('Item 20'), findsOneWidget);
     
-    // Scroll to the bottom to trigger load more
     await tester.drag(find.byType(ListView), const Offset(0, -1000));
     await tester.pump();
     await tester.drag(find.byType(ListView), const Offset(0, -1000));
@@ -238,7 +225,6 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     
-    // Verification: Trigger load more
     verify(() => mockDriveService.fetchRecords(
       any(), any(), any(), 
       offset: 20, 
@@ -251,7 +237,6 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Verify item from second page exists
     expect(find.text('Item 0'), findsOneWidget);
   });
 
@@ -271,7 +256,6 @@ void main() {
     expect(find.text('Failed to load records. Please try again.'), findsOneWidget);
     expect(find.byIcon(Icons.refresh_rounded), findsOneWidget);
 
-    // Setup success for retry
     when(() => mockDriveService.fetchRecords(any(), any(), any(),
       offset: any(named: 'offset'),
       limit: any(named: 'limit'),
@@ -304,7 +288,6 @@ void main() {
   });
 
   testWidgets('ModuleTabScreen handles load more error and allows retry within list', (WidgetTester tester) async {
-    // First page success
     when(() => mockDriveService.fetchRecords(any(), any(), any(),
       offset: 0,
       limit: any(named: 'limit'),
@@ -314,7 +297,6 @@ void main() {
       quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => List.generate(20, (i) => {'name': 'Item $i', 'record_id': '$i'}));
 
-    // Second page fails
     when(() => mockDriveService.fetchRecords(any(), any(), any(),
       offset: 20,
       limit: any(named: 'limit'),
@@ -327,7 +309,6 @@ void main() {
     await tester.pumpWidget(createModuleTabScreen());
     await tester.pumpAndSettle();
 
-    // Scroll to bottom
     await tester.drag(find.byType(ListView), const Offset(0, -1000));
     await tester.pump();
     await tester.drag(find.byType(ListView), const Offset(0, -1000));
@@ -336,7 +317,6 @@ void main() {
 
     expect(find.text('Failed to load more records'), findsOneWidget);
     
-    // Setup success for second page retry
     when(() => mockDriveService.fetchRecords(any(), any(), any(),
       offset: 20,
       limit: any(named: 'limit'),
@@ -346,7 +326,6 @@ void main() {
       quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => [{'name': 'More Item', 'record_id': '100'}]);
 
-    // Manual scroll to finding the retry button to avoid "Too many elements" issues with scrollUntilVisible
     for (int i = 0; i < 10; i++) {
       await tester.drag(find.byType(ListView), const Offset(0, -200));
       await tester.pump();
@@ -426,9 +405,7 @@ void main() {
     await tester.tap(find.text('Record 1'));
     await tester.pumpAndSettle();
 
-    // Should find Record 1 as title in RecordDetailScreen AppBar or similar
     expect(find.text('Record 1'), findsWidgets);
-    // Check if back button is present, indicating navigation
     expect(find.byIcon(Icons.arrow_back), findsWidgets);
   });
 
@@ -441,7 +418,6 @@ void main() {
     await tester.tap(fab);
     await tester.pumpAndSettle();
 
-    // Check if we navigated away or show a form
     expect(find.byType(Form), findsWidgets);
   });
 
@@ -451,8 +427,6 @@ void main() {
 
     clearInteractions(mockDriveService);
 
-    // Pull to refresh: Drag down significantly from the top
-    // Use a gesture to ensure we pull it far enough
     final TestGesture gesture = await tester.startGesture(tester.getCenter(find.byType(ListView)));
     await gesture.moveBy(const Offset(0.0, 400.0));
     await tester.pump();
@@ -509,10 +483,10 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
-          ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
-          ChangeNotifierProvider<ThemeProvider>.value(value: mockThemeProvider),
-          ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
+          Provider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+          Provider<DriveProvider>.value(value: mockDriveProvider),
+          Provider<ThemeProvider>.value(value: mockThemeProvider),
+          Provider<SchemaProvider>.value(value: mockSchemaProvider),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -527,7 +501,6 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Test !=
     final f1 = find.text('Not Record 1');
     await tester.ensureVisible(f1);
     await tester.tap(f1);
@@ -535,21 +508,18 @@ void main() {
     expect(find.text('Record 1'), findsNothing);
     expect(find.text('Record 2'), findsOneWidget);
 
-    // Test contains
     final f2 = find.text('Contains ord');
     await tester.ensureVisible(f2);
     await tester.tap(f2);
     await tester.pumpAndSettle();
     expect(find.text('Record 2'), findsOneWidget);
 
-    // Test startsWidth
     final f3 = find.text('Starts with Rec');
     await tester.ensureVisible(f3);
     await tester.tap(f3);
     await tester.pumpAndSettle();
     expect(find.text('Record 2'), findsOneWidget);
 
-    // Test > (Numeric)
     final f4 = find.text('Age > 20');
     await tester.ensureVisible(f4);
     await tester.tap(f4);
@@ -557,7 +527,6 @@ void main() {
     expect(find.text('Record 2'), findsOneWidget);
     expect(find.text('Record 1'), findsNothing);
 
-    // Test < (Numeric)
     final f5 = find.text('Age < 20');
     await tester.ensureVisible(f5);
     await tester.tap(f5);
@@ -565,23 +534,18 @@ void main() {
     expect(find.text('Record 1'), findsOneWidget);
     expect(find.text('Record 2'), findsNothing);
 
-    // Test > (String)
     final f6 = find.text('Z-Name > R');
     await tester.ensureVisible(f6);
     await tester.tap(f6);
     await tester.pumpAndSettle();
-    // 'Record 1' vs 'R' -> 'Record 1' starts with 'R' then 'e', so it's > 'R'
     expect(find.text('Record 1'), findsOneWidget);
 
-    // Test < (String)
     final f7 = find.text('A-Name < R');
     await tester.ensureVisible(f7);
     await tester.tap(f7);
     await tester.pumpAndSettle();
-    // No match since both 'Record 1' and 'Record 2' are > 'R'
     expect(find.text('No items found'), findsOneWidget);
 
-    // Test ==
     final f8 = find.text('Equals Record 1');
     await tester.ensureVisible(f8);
     await tester.tap(f8);
@@ -608,14 +572,13 @@ void main() {
       quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => []);
 
-    // Update the widget with a new tab
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
-          ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
-          ChangeNotifierProvider<ThemeProvider>.value(value: mockThemeProvider),
-          ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
+          Provider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+          Provider<DriveProvider>.value(value: mockDriveProvider),
+          Provider<ThemeProvider>.value(value: mockThemeProvider),
+          Provider<SchemaProvider>.value(value: mockSchemaProvider),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -628,8 +591,7 @@ void main() {
         ),
       ),
     );
-    
-    // Verify it triggers a new load for the new tab ID
+
     verify(() => mockDriveService.fetchRecords(
       any(), any(), 't2',
       offset: any(named: 'offset'),
@@ -673,10 +635,10 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
-          ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
-          ChangeNotifierProvider<ThemeProvider>.value(value: mockThemeProvider),
-          ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
+          Provider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+          Provider<DriveProvider>.value(value: mockDriveProvider),
+          Provider<ThemeProvider>.value(value: mockThemeProvider),
+          Provider<SchemaProvider>.value(value: mockSchemaProvider),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -692,8 +654,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Expensive Item'), findsOneWidget);
-    expect(find.text('Available'), findsNWidgets(2)); // One in subtitle, one in detailKeys
-    expect(find.text('\$100'), findsOneWidget); // Trailing
-    expect(find.text('STATUS'), findsOneWidget); // Detail label (uppercase)
+    expect(find.text('Available'), findsNWidgets(2));
+    expect(find.text('\$100'), findsOneWidget);
+    expect(find.text('STATUS'), findsOneWidget);
   });
 }
