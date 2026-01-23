@@ -7,6 +7,8 @@ mixin DriveCompanyMixin {
   drive.DriveApi get driveApi;
   sheets.SheetsApi get sheetsApi;
   Future<String?> getFileId(String folderId, String fileName);
+  Future<String> getOrCreateSubFolder(String parentId, String folderName);
+  Future<String?> checkRootFolder();
   Future<T> retryOp<T>(Future<T> Function() action, {int retries = 3});
   Future<String> uploadFile(String folderId, String fileName, List<int> bytes, {String mimeType});
   Future<void> deleteFile(String fileId);
@@ -34,7 +36,7 @@ mixin DriveCompanyMixin {
           ),
           sheets.Sheet(
             properties: sheets.SheetProperties(
-              title: 'modules',
+              title: 'user_access',
               gridProperties: sheets.GridProperties(frozenRowCount: 1)
             ),
           ),
@@ -45,7 +47,7 @@ mixin DriveCompanyMixin {
       fileId = created.spreadsheetId!;
 
       // 3. Move to root folder
-      final file = await driveApi.files.get(fileId, $fields: 'parents') as drive.File;
+      final file = await driveApi.files.get(fileId, $fields: 'parents', supportsAllDrives: true) as drive.File;
       final previousParents = file.parents?.join(',') ?? '';
       
       await driveApi.files.update(
@@ -58,9 +60,9 @@ mixin DriveCompanyMixin {
 
       // 4. Add Headers for both sheets
       final companyHeaders = ['id', 'name', 'folderId', 'logoUrl', 'role'];
-      final modulesHeaders = ['moduleId', 'moduleName', 'workspaceId', 'folderId'];
+      final userAccessHeaders = ['company_folder_id', 'email', 'spreadsheet_id'];
 
-      // Write headers to companies and modules
+      // Write headers to companies and user_access
       await retryOp(() => sheetsApi.spreadsheets.values.update(
         sheets.ValueRange(values: [companyHeaders]),
         fileId!,
@@ -69,9 +71,9 @@ mixin DriveCompanyMixin {
       ));
 
       await retryOp(() => sheetsApi.spreadsheets.values.update(
-        sheets.ValueRange(values: [modulesHeaders]),
+        sheets.ValueRange(values: [userAccessHeaders]),
         fileId!,
-        'modules!A1',
+        'user_access!A1',
         valueInputOption: 'RAW',
       ));
 
@@ -101,6 +103,39 @@ mixin DriveCompanyMixin {
       debugPrint('Registered module $moduleName in modules sheet');
     } catch (e) {
       debugPrint('Error registering module in registry: $e');
+      rethrow;
+    }
+  }
+
+  /// Upserts a company/user -> spreadsheet mapping into the registry `user_access` sheet.
+  Future<void> upsertCompanyUserAccess(String rootFolderId, String companyFolderId, String userEmail, String spreadsheetId) async {
+    try {
+      final fileId = await ensureCompanyRegistry(rootFolderId);
+
+      // Fetch existing rows
+      final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(fileId, 'user_access!A2:C'));
+      final values = resp.values ?? [];
+
+      int foundRow = -1;
+      for (int i = 0; i < values.length; i++) {
+        final rowVals = values[i];
+        if (rowVals.length >= 2 && rowVals[0] == companyFolderId && rowVals[1] == userEmail) {
+          foundRow = i + 2; // header + 1-based
+          break;
+        }
+      }
+
+      final row = [companyFolderId, userEmail, spreadsheetId];
+
+      if (foundRow != -1) {
+        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [row]), fileId, 'user_access!A$foundRow:C$foundRow', valueInputOption: 'RAW'));
+        debugPrint('Updated user_access entry for $userEmail in company $companyFolderId');
+      } else {
+        await retryOp(() => sheetsApi.spreadsheets.values.append(sheets.ValueRange(values: [row]), fileId, 'user_access!A1', valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS'));
+        debugPrint('Appended user_access entry for $userEmail in company $companyFolderId');
+      }
+    } catch (e) {
+      debugPrint('Error upserting company user access: $e');
       rethrow;
     }
   }
@@ -162,6 +197,14 @@ mixin DriveCompanyMixin {
       ));
       
       debugPrint('Registered company: ${company.name}');
+
+      // Ensure user_access folder exists under the newly created company folder
+      try {
+        await ensureUserAccessFolder(company.folderId);
+        debugPrint('Ensured user_access folder for company: ${company.name}');
+      } catch (e) {
+        debugPrint('Failed to ensure user_access folder for ${company.name}: $e');
+      }
     } catch (e) {
       debugPrint('Error registering company: $e');
       rethrow;
@@ -275,6 +318,122 @@ mixin DriveCompanyMixin {
       return newUrl;
     } catch (e) {
       debugPrint('Error updating company logo: $e');
+      rethrow;
+    }
+  }
+
+  /// Ensures a `user_access` folder exists under the given company folder and returns its id.
+  Future<String> ensureUserAccessFolder(String companyFolderId) async {
+    try {
+      return await getOrCreateSubFolder(companyFolderId, 'user_access');
+    } catch (e) {
+      debugPrint('Error ensuring user_access folder: $e');
+      rethrow;
+    }
+  }
+
+  /// Ensures a per-user access spreadsheet exists inside `user_access` folder.
+  /// Returns the spreadsheet file id.
+  Future<String> ensureUserAccessSpreadsheet(String userAccessFolderId, String userEmail) async {
+    try {
+      debugPrint('ensureUserAccessSpreadsheet: folder=$userAccessFolderId user=$userEmail');
+      String? fileId = await getFileId(userAccessFolderId, userEmail);
+      if (fileId != null) {
+        debugPrint('Found existing user access spreadsheet: $fileId');
+        // Ensure registry knows about this mapping as well
+        try {
+          final folderFile = await driveApi.files.get(userAccessFolderId, $fields: 'parents', supportsAllDrives: true) as drive.File;
+          final parentCompanyFolderId = (folderFile.parents != null && folderFile.parents!.isNotEmpty) ? folderFile.parents!.first : null;
+          final rootFolderId = await checkRootFolder();
+          if (parentCompanyFolderId != null && rootFolderId != null) {
+            await upsertCompanyUserAccess(rootFolderId, parentCompanyFolderId, userEmail, fileId);
+          }
+        } catch (e) {
+          debugPrint('Failed to register existing user access spreadsheet in company registry: $e');
+        }
+        return fileId;
+      }
+
+      final spreadsheet = sheets.Spreadsheet(
+        properties: sheets.SpreadsheetProperties(title: userEmail),
+        sheets: [
+          sheets.Sheet(properties: sheets.SheetProperties(title: 'modules', gridProperties: sheets.GridProperties(frozenRowCount: 1)))
+        ],
+      );
+
+      final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
+      final newId = created.spreadsheetId!;
+      debugPrint('Created user access spreadsheet: $newId');
+
+      // Move into userAccessFolder
+      try {
+        final file = await driveApi.files.get(newId, $fields: 'parents', supportsAllDrives: true) as drive.File;
+        final previousParents = file.parents?.join(',') ?? '';
+        debugPrint('Moving user access spreadsheet. previousParents=$previousParents targetFolder=$userAccessFolderId');
+        if (previousParents.isNotEmpty) {
+          await driveApi.files.update(drive.File(), newId, addParents: userAccessFolderId, removeParents: previousParents, $fields: 'id, parents');
+        } else {
+          await driveApi.files.update(drive.File(), newId, addParents: userAccessFolderId, $fields: 'id, parents');
+        }
+        debugPrint('Moved user access spreadsheet $newId into folder $userAccessFolderId');
+      } catch (e) {
+        debugPrint('Error moving user access spreadsheet to folder: $e');
+      }
+
+      // Initialize headers
+      final headers = ['id', 'module_name', 'dashboard', 'settings', 'tabs'];
+      await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [headers]), newId, 'modules!A1', valueInputOption: 'RAW'));
+      debugPrint('Initialized headers for user access spreadsheet $newId');
+
+      // Also register this per-user spreadsheet in the companies registry under user_access
+      try {
+        final folderFile = await driveApi.files.get(userAccessFolderId, $fields: 'parents', supportsAllDrives: true) as drive.File;
+        final parentCompanyFolderId = (folderFile.parents != null && folderFile.parents!.isNotEmpty) ? folderFile.parents!.first : null;
+        final rootFolderId = await checkRootFolder();
+        if (parentCompanyFolderId != null && rootFolderId != null) {
+          await upsertCompanyUserAccess(rootFolderId, parentCompanyFolderId, userEmail, newId);
+        }
+      } catch (e) {
+        debugPrint('Failed to register new user access spreadsheet in company registry: $e');
+      }
+
+      return newId;
+    } catch (e) {
+      debugPrint('Error ensuring user access spreadsheet: $e');
+      rethrow;
+    }
+  }
+
+  /// Upserts a module row in the user's access spreadsheet `modules` sheet.
+  Future<void> upsertUserAccessModule(String userAccessFileId, String moduleId, String moduleName, String dashboardId, String settingsId, String tabsId) async {
+    try {
+      debugPrint('upsertUserAccessModule: file=$userAccessFileId module=$moduleId');
+      // Fetch existing rows
+      final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A2:E'));
+      final values = resp.values ?? [];
+
+      int foundRow = -1;
+      for (int i = 0; i < values.length; i++) {
+        final rowVals = values[i];
+        debugPrint('Row ${i + 2}: ${rowVals}');
+        if (rowVals.isNotEmpty && rowVals[0] == moduleId) {
+          foundRow = i + 2; // account for header row and 1-based indexing
+          break;
+        }
+      }
+
+      final row = [moduleId, moduleName, dashboardId, settingsId, tabsId];
+      debugPrint('Prepared upsert row: $row foundRow=$foundRow');
+
+      if (foundRow != -1) {
+        debugPrint('Updating existing module row at $foundRow');
+        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [row]), userAccessFileId, 'modules!A$foundRow:E$foundRow', valueInputOption: 'RAW'));
+      } else {
+        debugPrint('Appending new module row');
+        await retryOp(() => sheetsApi.spreadsheets.values.append(sheets.ValueRange(values: [row]), userAccessFileId, 'modules!A1', valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS'));
+      }
+    } catch (e) {
+      debugPrint('Error upserting user access module row: $e');
       rethrow;
     }
   }

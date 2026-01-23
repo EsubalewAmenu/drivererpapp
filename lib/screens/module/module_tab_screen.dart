@@ -19,6 +19,8 @@ class ModuleTabScreen extends StatefulWidget {
   final Color primaryColor;
   final Map<String, SettingItem> settings;
   final ModuleSchema? module;
+  final String? settingsSheetId;
+  final String? tabsSheetId;
 
   const ModuleTabScreen({
     super.key, 
@@ -26,6 +28,8 @@ class ModuleTabScreen extends StatefulWidget {
     required this.primaryColor,
     this.settings = const {},
     this.module,
+    this.settingsSheetId,
+    this.tabsSheetId,
   });
 
   @override
@@ -650,7 +654,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         const SnackBar(content: Text('Saving configuration...'), duration: Duration(seconds: 5)),
       );
 
-      await schemaProvider.service.saveModuleConfig(currentModule.id, updatedModule);
+      await schemaProvider.service.saveTabsPart(currentModule.id, updatedModule.tabs.map((t) => t.toJson()).toList(), settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
       schemaProvider.updateMemoryCache(currentModule.id, updatedModule);
 
       if (mounted) {

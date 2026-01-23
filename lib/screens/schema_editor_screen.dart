@@ -13,11 +13,17 @@ import 'schema_editor/dashboard_card_edit_screen.dart';
 class SchemaEditorScreen extends StatefulWidget {
   final ModuleSchema module;
   final bool isNewSetup;
+  final String? settingsSheetId;
+  final String? dashboardSheetId;
+  final String? tabsSheetId;
 
   const SchemaEditorScreen({
-    super.key, 
+    super.key,
     required this.module,
     this.isNewSetup = false,
+    this.settingsSheetId,
+    this.dashboardSheetId,
+    this.tabsSheetId,
   });
 
   @override
@@ -165,24 +171,67 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
         return MapEntry(key, SettingItem.fromJson(value as Map<String, dynamic>));
       }) ?? {};
 
-      // 1. Construct schema object
-      final updatedSchema = ModuleSchema(
-        id: widget.module.id,
-        name: _settingsValues['name'] ?? widget.module.name,
-        icon: _settingsValues['icon'] ?? widget.module.icon,
-        primaryColor: _settingsValues['primaryColor'] ?? widget.module.primaryColor,
-        version: _settingsValues['version'] ?? widget.module.version,
-        settings: moduleSettings,
-        dashboard: DashboardConfig(cards: _cards),
-        tabs: _tabs,
-      );
-
-      // 2. Save via SchemaService
+      // 1. Determine which parts changed and save each part independently
       final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
-      await schemaProvider.service.saveModuleConfig(widget.module.id, updatedSchema);
 
-      // 3. Update memory cache
-      schemaProvider.updateMemoryCache(widget.module.id, updatedSchema);
+      // Original values for comparison
+      String origSettingsJson = '{}';
+      try {
+        final origMap = widget.module.settings.map((k, v) => MapEntry(k, v.toJson()));
+        origSettingsJson = origMap.isNotEmpty ? origMap.toString() : '{}';
+      } catch (_) {}
+
+      String newSettingsJson = '{}';
+      try {
+        final newMap = moduleSettings.map((k, v) => MapEntry(k, v.toJson()));
+        newSettingsJson = newMap.isNotEmpty ? newMap.toString() : '{}';
+      } catch (_) {}
+
+      final settingsChanged = origSettingsJson != newSettingsJson;
+
+      final origDashboardJson = widget.module.dashboard.cards.map((c) => c.toJson()).toList().toString();
+      final newDashboardJson = _cards.map((c) => c.toJson()).toList().toString();
+      final dashboardChanged = origDashboardJson != newDashboardJson;
+
+      final origTabsJson = widget.module.tabs.map((t) => t.toJson()).toList().toString();
+      final newTabsJson = _tabs.map((t) => t.toJson()).toList().toString();
+      final tabsChanged = origTabsJson != newTabsJson;
+
+      // Require explicit per-sheet ids; show error and abort if any id missing
+      if (widget.settingsSheetId == null || widget.dashboardSheetId == null || widget.tabsSheetId == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Missing spreadsheet id(s). Cannot save without sheet ids.')),
+          );
+        }
+        return;
+      }
+        // Execute saves for changed parts (only write parts when explicit ids provided)
+        if (settingsChanged) {
+          await schemaProvider.service.saveSettingsPart(widget.module.id, moduleSettings.map((k, v) => MapEntry(k, v.toJson())), settingsId: widget.settingsSheetId);
+        }
+
+        if (dashboardChanged) {
+          await schemaProvider.service.saveDashboardPart(widget.module.id, {'cards': _cards.map((c) => c.toJson()).toList()}, settingsId: widget.settingsSheetId, dashboardId: widget.dashboardSheetId);
+        }
+
+        if (tabsChanged) {
+          await schemaProvider.service.saveTabsPart(widget.module.id, _tabs.map((t) => t.toJson()).toList(), settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+        }
+
+        // Update memory cache with the merged updated schema
+        final updatedSchema = ModuleSchema(
+          id: widget.module.id,
+          name: _settingsValues['name'] ?? widget.module.name,
+          icon: _settingsValues['icon'] ?? widget.module.icon,
+          primaryColor: _settingsValues['primaryColor'] ?? widget.module.primaryColor,
+          version: _settingsValues['version'] ?? widget.module.version,
+          settings: moduleSettings,
+          dashboard: DashboardConfig(cards: _cards),
+          tabs: _tabs,
+        );
+
+        schemaProvider.updateMemoryCache(widget.module.id, updatedSchema);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

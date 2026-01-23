@@ -13,6 +13,8 @@ mixin DriveFileMixin {
         final fileList = await driveApi.files.list(
           q: "'$folderId' in parents and name = '$fileName' and trashed = false",
           $fields: 'files(id, name, modifiedTime)',
+          includeItemsFromAllDrives: true,
+          supportsAllDrives: true,
         );
 
         if (fileList.files != null && fileList.files!.isNotEmpty) {
@@ -21,18 +23,8 @@ mixin DriveFileMixin {
         return null;
       } catch (e) {
         debugPrint('Error checking file: $e');
-        // Attempt a fallback search without parent constraint in case folderId is invalid
-        try {
-          final fallback = await driveApi.files.list(
-            q: "name = '${fileName}' and trashed = false",
-            $fields: 'files(id, name, modifiedTime)',
-          );
-          if (fallback.files != null && fallback.files!.isNotEmpty) {
-            return fallback.files!.first.id;
-          }
-        } catch (e2) {
-          debugPrint('Fallback file search failed: $e2');
-        }
+        // Do not perform a fallback search across Drive - enforce parent folder constraint.
+        // Re-throw so callers can handle the error appropriately.
         rethrow;
       }
     });
@@ -41,7 +33,7 @@ mixin DriveFileMixin {
   /// Fetches the modification time of a file.
   Future<DateTime?> getFileModifiedTime(String fileId) async {
     try {
-      final file = await driveApi.files.get(fileId, $fields: 'modifiedTime') as drive.File;
+      final file = await driveApi.files.get(fileId, $fields: 'modifiedTime', supportsAllDrives: true) as drive.File;
       return file.modifiedTime;
     } catch (e) {
       debugPrint('Error getting file modified time: $e');
@@ -55,6 +47,7 @@ mixin DriveFileMixin {
       final media = await driveApi.files.get(
         fileId,
         downloadOptions: drive.DownloadOptions.fullMedia,
+        supportsAllDrives: true,
       ) as drive.Media;
 
       final stream = media.stream;

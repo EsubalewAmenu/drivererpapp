@@ -109,6 +109,28 @@ void main() {
       ]);
       return drive.File()..id = 'new_mod_id';
     });
+    // Ensure createModuleConfig used during activation returns an id
+    when(() => mockDriveService.createModuleConfig(any(), any(), any()))
+      .thenAnswer((_) async => 'created_cfg_id');
+    // Ensure checkRootFolder resolves
+    when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root_folder_id');
+    // Ensure config folder creation returns an id (async)
+    when(() => mockDriveService.getOrCreateSubFolder('new_mod_id', 'config'))
+        .thenAnswer((_) async => 'new_mod_config_folder');
+    // Seed saveRecord calls should resolve as Future<void>
+    when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
+        .thenAnswer((_) async => null);
+    // After seeding, getFileId for tab spreadsheets should return a non-null id
+    when(() => mockDriveService.getFileId('new_mod_id', any()))
+        .thenAnswer((inv) async {
+      final name = inv.positionalArguments[1] as String;
+      return '${name}_sheet_id';
+    });
+    // Provide defaults for user access helpers in case activation attempts them
+    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'user_access_folder');
+    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'user_access_file');
+    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any()))
+        .thenAnswer((_) async => null);
     
     await tester.tap(find.text('ACTIVATE'));
     await tester.pumpAndSettle();
@@ -168,6 +190,14 @@ void main() {
     // Should be back in ModuleScreen, showing the tabs.
     // Inventory asset has "Stock Adjustment" tab.
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.text('STOCK ADJUSTMENT'), findsOneWidget);
+    expect(
+      find.byWidgetPredicate((w) {
+        if (w is Text && w.data != null) {
+          return w.data!.toUpperCase().contains('STOCK ADJUSTMENT');
+        }
+        return false;
+      }),
+      findsOneWidget,
+    );
   });
 }

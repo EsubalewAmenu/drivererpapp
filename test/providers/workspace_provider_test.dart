@@ -141,8 +141,11 @@ void main() {
 
       when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'rootId');
       when(() => mockDriveService.getCompanies('rootId')).thenThrow(Exception('Registry fail'));
-      when(() => mockFilesResource.get(any(), $fields: any(named: r'$fields')))
-          .thenAnswer((_) async => driveFile);
+      when(() => mockFilesResource.get(
+            any(),
+            $fields: any(named: r'$fields'),
+            supportsAllDrives: any(named: 'supportsAllDrives'),
+          )).thenAnswer((_) async => driveFile);
 
       final success = await workspaceProvider.restorePreviousSession();
 

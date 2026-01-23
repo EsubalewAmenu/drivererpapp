@@ -38,6 +38,12 @@ void main() {
     registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
     registerFallbackValue(Uri());
     registerFallbackValue(drive.Permission());
+    // Fallback values for Drive API option types used as named params
+    registerFallbackValue(drive.DownloadOptions.fullMedia);
+    // UploadOptions may be passed in some calls (create/update) — register a fallback if available
+    try {
+      registerFallbackValue(drive.UploadOptions());
+    } catch (_) {}
   });
 
   setUp(() {
@@ -64,13 +70,57 @@ void main() {
       sheetsApi: mockSheetsApi,
       delay: (_) async {}, // No delay for testing
     );
+
+    // Generic fallback stubs to ensure async methods return Futures of expected types
+    when(() => mockFilesResource.list(
+      q: any(named: 'q'),
+      $fields: any(named: '\$fields'),
+      includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+      supportsAllDrives: any(named: 'supportsAllDrives'),
+    )).thenAnswer((_) async => drive.FileList(files: []));
+    when(() => mockFilesResource.list(
+      q: any(named: 'q'),
+      $fields: any(named: r'$fields'),
+      includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+      supportsAllDrives: any(named: 'supportsAllDrives'),
+    )).thenAnswer((_) async => drive.FileList(files: []));
+    when(() => mockFilesResource.get(any(), $fields: any(named: '\$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
+      .thenAnswer((_) async => drive.File());
+
+    // Fallback for download calls (when downloadOptions is provided) -> return Media
+    when(() => mockFilesResource.get(any(), downloadOptions: any(named: 'downloadOptions'), supportsAllDrives: any(named: 'supportsAllDrives')))
+      .thenAnswer((_) async => drive.Media(Stream.empty(), 0));
+    when(() => mockFilesResource.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
+      .thenAnswer((_) async => drive.File());
+    when(() => mockFilesResource.create(any(), $fields: any(named: '\$fields')))
+      .thenAnswer((_) async => drive.File());
+    when(() => mockFilesResource.delete(any())).thenAnswer((_) async => null);
+
+    // Generic HTTP fallback for GViz queries
+    when(() => mockHttpClient.get(any())).thenAnswer((_) async => http.Response('{}', 200));
+
+    when(() => mockValuesResource.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(values: []));
+    when(() => mockValuesResource.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+      .thenAnswer((_) async => sheets.UpdateValuesResponse());
+    when(() => mockValuesResource.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+      .thenAnswer((_) async => sheets.AppendValuesResponse());
+    when(() => mockValuesResource.clear(any(), any(), any())).thenAnswer((_) async => sheets.ClearValuesResponse());
+
+    when(() => mockSpreadsheetsResource.get(any())).thenAnswer((_) async => sheets.Spreadsheet());
+    when(() => mockSpreadsheetsResource.create(any())).thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'default_sheet'));
+    // Fallback for batch updates
+    when(() => mockSpreadsheetsResource.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
   });
 
   group('DriveFolderMixin', () {
     test('checkRootFolder returns valid ID', () async {
       final fileList = drive.FileList(files: [drive.File()..id = 'root123']);
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => fileList);
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => fileList);
 
       final result = await driveService.checkRootFolder();
 
@@ -78,12 +128,18 @@ void main() {
       verify(() => mockFilesResource.list(
         q: "mimeType = 'application/vnd.google-apps.folder' and name = 'DriveERP_Data' and trashed = false",
         $fields: "files(id, name)",
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
       )).called(1);
     });
 
     test('checkRootFolder returns null if not exists', () async {
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: []));
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => drive.FileList(files: []));
 
       final result = await driveService.checkRootFolder();
 
@@ -108,8 +164,12 @@ void main() {
         drive.File()..id = 'ws1'..name = 'Workspace 1'
       ]);
 
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => fileList);
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => fileList);
 
       final result = await driveService.listWorkspaces('root123');
 
@@ -140,8 +200,12 @@ void main() {
         drive.File()..id = 'mod1'..name = 'Module 1'
       ]);
 
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => fileList);
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+        )).thenAnswer((_) async => fileList);
 
       final result = await driveService.listModules('ws123');
 
@@ -154,8 +218,12 @@ void main() {
         drive.File()..id = 'found_id'
       ]);
       
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: r'$fields')))
-          .thenAnswer((_) async => fileList);
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: r'$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+        )).thenAnswer((_) async => fileList);
 
       final result = await driveService.getOrCreateSubFolder('parentId', 'FolderName');
 
@@ -164,8 +232,12 @@ void main() {
     });
 
     test('getOrCreateSubFolder creates new folder if not found', () async {
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: r'$fields')))
-          .thenAnswer((_) async => drive.FileList(files: []));
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: r'$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => drive.FileList(files: []));
       
       when(() => mockFilesResource.create(any(), $fields: any(named: r'$fields')))
           .thenAnswer((_) async => drive.File()..id = 'created_id');
@@ -183,8 +255,12 @@ void main() {
         drive.File()..id = 'f1'..name = 'config'
       ]);
 
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => fileList);
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => fileList);
 
       final result = await driveService.getFileId('mod1', 'config');
 
@@ -211,7 +287,7 @@ void main() {
       final stream = Stream<List<int>>.value(bytes);
       final media = drive.Media(stream, bytes.length);
 
-      when(() => mockFilesResource.get(any(), downloadOptions: drive.DownloadOptions.fullMedia))
+        when(() => mockFilesResource.get(any(), downloadOptions: drive.DownloadOptions.fullMedia, supportsAllDrives: any(named: 'supportsAllDrives')))
           .thenAnswer((_) async => media);
 
       final result = await driveService.getFileContent('f123');
@@ -251,7 +327,7 @@ void main() {
 
     test('getFileModifiedTime returns time', () async {
       final now = DateTime.now();
-      when(() => mockFilesResource.get('file123', $fields: 'modifiedTime'))
+        when(() => mockFilesResource.get('file123', $fields: 'modifiedTime', supportsAllDrives: any(named: 'supportsAllDrives')))
           .thenAnswer((_) async => drive.File()..modifiedTime = now);
 
       final result = await driveService.getFileModifiedTime('file123');
@@ -259,7 +335,7 @@ void main() {
     });
 
     test('getFileModifiedTime returns null on error', () async {
-      when(() => mockFilesResource.get('error_file', $fields: 'modifiedTime'))
+        when(() => mockFilesResource.get('error_file', $fields: 'modifiedTime', supportsAllDrives: any(named: 'supportsAllDrives')))
           .thenThrow(Exception('API Error'));
 
       final result = await driveService.getFileModifiedTime('error_file');
@@ -289,70 +365,85 @@ void main() {
   group('DriveSheetMixin', () {
 
     test('createModuleConfig creates spreadsheet and updates config', () async {
-      // 1. Create Spreadsheet
-      when(() => mockSpreadsheetsResource.create(any()))
-          .thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'new_sheet_id'));
+      // 1. Create three Spreadsheets (settings, dashboard, tabs)
+      int createCalls = 0;
+      when(() => mockSpreadsheetsResource.create(any())).thenAnswer((_) async {
+        createCalls++;
+        if (createCalls == 1) return sheets.Spreadsheet(spreadsheetId: 'settings_id');
+        if (createCalls == 2) return sheets.Spreadsheet(spreadsheetId: 'dashboard_id');
+        return sheets.Spreadsheet(spreadsheetId: 'tabs_id');
+      });
 
-      // 2. Move file (get parents, update)
-      when(() => mockFilesResource.get('new_sheet_id', $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.File()..parents = ['old_parent']);
-      
-      when(() => mockFilesResource.update(any(), 'new_sheet_id', addParents: 'folder123', removeParents: 'old_parent', $fields: any(named: '\$fields')))
+      // 2. Move files (return previous parents for each)
+        when(() => mockFilesResource.get(any(), $fields: any(named: '\$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
+          .thenAnswer((inv) async => drive.File()..parents = ['old_parent']);
+      when(() => mockFilesResource.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => drive.File());
 
-      // 3. Write data (Values.clear, Values.update)
+      // 3. Values writes
       when(() => mockValuesResource.clear(any(), any(), any())).thenAnswer((_) async => sheets.ClearValuesResponse());
       when(() => mockValuesResource.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
           .thenAnswer((_) async => sheets.UpdateValuesResponse());
 
       final config = {
         'settings': {'appName': 'Test'},
-        'tabs': [{'id': 'tab1', 'label': 'Tab 1'}] // List of maps, not TabConfig objects for this raw map
+        'tabs': [{'id': 'tab1', 'label': 'Tab 1'}]
       };
 
       final result = await driveService.createModuleConfig('folder123', 'mod_config.xlsx', config);
-      expect(result, 'new_sheet_id');
+      expect(result, 'settings_id');
 
-      // Verify creation
-      verify(() => mockSpreadsheetsResource.create(any())).called(1);
-      
-      // Verify updates for settings and tabs
-      verify(() => mockValuesResource.update(any(), 'new_sheet_id', 'settings!A1', valueInputOption: 'RAW')).called(1);
-      verify(() => mockValuesResource.update(any(), 'new_sheet_id', 'tabs!A1', valueInputOption: 'RAW')).called(1);
+      // Verify creation called three times (settings, dashboard, tabs)
+      verify(() => mockSpreadsheetsResource.create(any())).called(3);
+
+      // Verify settings written to settings spreadsheet and tab written to tabs spreadsheet
+      verify(() => mockValuesResource.update(any(), 'settings_id', 'settings!A1', valueInputOption: 'RAW')).called(1);
+      verify(() => mockValuesResource.update(any(), 'tabs_id', 'tab1!A1', valueInputOption: 'RAW')).called(1);
     });
 
     test('readModuleConfig reads and decodes config', () async {
-      // Setup mock responses for settings, dashboard, tabs
-      // settings
+      // settings sheet (fileId = settings spreadsheet)
       when(() => mockValuesResource.get('sheet123', 'settings!A:B'))
           .thenAnswer((_) async => sheets.ValueRange(values: [
-            ['appName', '"Test App"'], // Values are JSON encoded
+            ['appName', '"Test App"'],
             ['darkMode', 'true']
           ]));
-      
-      // dashboard
-      when(() => mockValuesResource.get('sheet123', 'dashboard!A:B'))
+
+      // meta sheet should point to dashboard and tabs spreadsheet IDs
+      when(() => mockValuesResource.get('sheet123', 'meta!A:B'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['dashboard_id', 'dash123'],
+            ['tabs_id', 'tabs123']
+          ]));
+
+      // dashboard cards empty
+      when(() => mockValuesResource.get('dash123', 'cards!A1:Z'))
+          .thenAnswer((_) async => sheets.ValueRange(values: []));
+      when(() => mockValuesResource.get('dash123', 'cards!A:B'))
           .thenAnswer((_) async => sheets.ValueRange(values: []));
 
-      // tabs
-      when(() => mockValuesResource.get('sheet123', 'tabs!A:B'))
-          .thenAnswer((_) async => sheets.ValueRange(values: [
-            ['tab1', '{"id":"tab1", "label":"Tab 1"}']
-          ]));
+      // tabs spreadsheet metadata: one sheet named 'tab1'
+      when(() => mockSpreadsheetsResource.get('tabs123')).thenAnswer((_) async => sheets.Spreadsheet(sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1'))]));
+      when(() => mockValuesResource.get('tabs123', 'tab1!A1'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['{"id":"tab1", "label":"Tab 1"}']]));
 
       final config = await driveService.readModuleConfig('sheet123');
 
       expect(config!['settings'], isMap);
       expect(config['settings']['appName'], 'Test App');
       expect(config['settings']['darkMode'], true);
-      
+
       expect(config['tabs'], isList);
       expect(config['tabs'].first['id'], 'tab1');
     });
 
     test('saveRecord appends data to sheets', () async {
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
       
       when(() => mockSpreadsheetsResource.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
         sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1'))],
@@ -378,8 +469,12 @@ void main() {
     });
 
     test('fetchRecords returns list of maps', () async {
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+        )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
 
       when(() => mockSpreadsheetsResource.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
         sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1'))],
@@ -408,8 +503,12 @@ void main() {
 
     test('fetchRecords returns sorted list when descending is true', () async {
        // Mock spreadsheet lookup
-       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
+       when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
 
       when(() => mockSpreadsheetsResource.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
         sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1', sheetId: 0))],
@@ -432,8 +531,12 @@ void main() {
     });
 
     test('fetchRecords handles search with mixed numeric columns (Gviz)', () async {
-       when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'contacts']));
+       when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+        )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'contacts']));
 
       when(() => mockSpreadsheetsResource.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
         sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'contacts', sheetId: 101))],
@@ -460,8 +563,12 @@ void main() {
 
     test('fetchRecords with sub-tables', () async {
        // Mock folder/file lookup
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
+       when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'tab1']));
 
       // Mock spreadsheet get to show sub-sheets
       when(() => mockSpreadsheetsResource.get('sheet123')).thenAnswer((_) async => sheets.Spreadsheet(
@@ -491,26 +598,39 @@ void main() {
 
   group('DriveCompanyMixin', () {
     test('ensureCompanyRegistry returns existing ID if found', () async {
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'reg123'..name = 'companies']));
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'reg123'..name = 'companies']));
 
       final result = await driveService.ensureCompanyRegistry('root123');
 
       expect(result, 'reg123');
-      verify(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields'))).called(1);
+      verify(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).called(1);
     });
 
     test('ensureCompanyRegistry creates new registry when not found', () async {
       // 1. Not found
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: []));
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => drive.FileList(files: []));
 
       // 2. Create spreadsheet
       when(() => mockSpreadsheetsResource.create(any()))
           .thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'new_reg_id'));
 
       // 3. Move to root (get then update)
-      when(() => mockFilesResource.get(any(), $fields: any(named: '\$fields')))
+        when(() => mockFilesResource.get(any(), $fields: any(named: '\$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
           .thenAnswer((_) async => drive.File()..id = 'new_reg_id'..parents = ['old_parent']);
       
       when(() => mockFilesResource.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
@@ -525,7 +645,7 @@ void main() {
       expect(result, 'new_reg_id');
       
       verify(() => mockSpreadsheetsResource.create(any(that: isA<sheets.Spreadsheet>().having((s) => s.properties?.title, 'title', 'companies')))).called(1);
-      verify(() => mockFilesResource.update(any(), 'new_reg_id', addParents: 'root123', removeParents: 'old_parent', $fields: 'id, parents')).called(1);
+      verify(() => mockFilesResource.update(any(), 'new_reg_id', addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields'))).called(1);
       verify(() => mockValuesResource.update(
         any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'headers', ['id', 'name', 'folderId', 'logoUrl', 'role'])),
         'new_reg_id',
@@ -535,8 +655,12 @@ void main() {
     });
 
     test('getCompanies returns empty list if registry file not found', () async {
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: []));
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+        )).thenAnswer((_) async => drive.FileList(files: []));
 
       final result = await driveService.getCompanies('root123');
 
@@ -544,8 +668,12 @@ void main() {
     });
 
     test('getCompanies handles various row lengths correctly', () async {
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
 
       when(() => mockValuesResource.get('sheet123', 'companies!A2:E'))
           .thenAnswer((_) async => sheets.ValueRange(values: [
@@ -573,8 +701,12 @@ void main() {
 
     test('registerCompany ensures registry and appends row', () async {
       // Stub ensureCompanyRegistry (which uses getFileId -> list)
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+        )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
 
       when(() => mockValuesResource.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'), insertDataOption: any(named: 'insertDataOption')))
           .thenAnswer((_) async => sheets.AppendValuesResponse());
@@ -593,8 +725,12 @@ void main() {
 
     test('updateCompany updates row in registry and renames folder', () async {
       // 1. Find registry ID
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+        )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
 
       // 2. Mock finding the row
       when(() => mockValuesResource.get('sheet123', 'companies!A2:E'))
@@ -634,8 +770,12 @@ void main() {
       final folderId = 'f1';
 
       // 1. Mock getCompanies (to find folder and old logo)
-      when(() => mockFilesResource.list(q: any(named: 'q'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
+      when(() => mockFilesResource.list(
+        q: any(named: 'q'),
+        $fields: any(named: '\$fields'),
+        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+      )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
       when(() => mockValuesResource.get('sheet123', 'companies!A2:E')) // From getCompanies
           .thenAnswer((_) async => sheets.ValueRange(values: [
             [companyId, 'My Co', folderId, 'https://drive.google.com/uc?export=view&id=$oldLogoId', 'owner']

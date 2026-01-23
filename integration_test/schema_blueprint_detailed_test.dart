@@ -57,7 +57,7 @@ void main() {
         ChangeNotifierProvider<WorkspaceProvider>.value(value: workspaceProvider),
         ChangeNotifierProvider<DriveProvider>.value(value: driveProvider),
         ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
+        ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService, userEmail: 'user@example.com')),
       ],
       child: const MaterialApp(
         home: Scaffold(body: Text('Initial')),
@@ -92,10 +92,16 @@ void main() {
         ChangeNotifierProvider<WorkspaceProvider>.value(value: workspaceProvider),
         ChangeNotifierProvider<DriveProvider>.value(value: driveProvider),
         ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
+        ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService, userEmail: 'user@example.com')),
       ],
       child: MaterialApp(
-        home: SchemaEditorScreen(module: moduleSchema),
+        home: SchemaEditorScreen(
+          module: moduleSchema,
+          // Provide explicit per-user sheet ids so save can proceed and pop
+          settingsSheetId: 's_mod1',
+          dashboardSheetId: 'd_mod1',
+          tabsSheetId: 't_mod1',
+        ),
         debugShowCheckedModeBanner: false,
       ),
     ));
@@ -166,8 +172,11 @@ void main() {
     expect(find.text('Total Items'), findsOneWidget);
 
     // 4. Save and Activate
-    when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
-    await tester.tap(find.byType(TextButton).first); // ACTIVATE
+    // Ensure write methods used by SchemaService when direct ids provided resolve
+    when(() => mockDriveService.writeSettingsById(any(), any())).thenAnswer((_) async => null);
+    when(() => mockDriveService.writeDashboardById(any(), any())).thenAnswer((_) async => null);
+    when(() => mockDriveService.writeTabsById(any(), any())).thenAnswer((_) async => null);
+    await tester.tap(find.byType(TextButton).first); // SAVE/ACTIVATE
     await tester.pumpAndSettle();
 
     // Success snackbar and pop

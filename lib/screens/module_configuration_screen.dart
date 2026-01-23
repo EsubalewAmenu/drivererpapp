@@ -429,6 +429,8 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
     try {
       final driveProvider = Provider.of<DriveProvider>(context, listen: false);
       final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final capturedUserEmail = authService.currentUser?.email;
       
       if (driveProvider.driveService == null || workspaceProvider.currentWorkspace == null) {
         throw Exception("Drive Service or Workspace missing");
@@ -504,13 +506,17 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
           } else {
             configFolderId = _configFolderRes;
           }
-          final authService = Provider.of<AuthService>(context, listen: false);
-          final userEmail = authService.currentUser?.email;
-          final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}_config' : 'config';
+          final userEmail = capturedUserEmail;
+          final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}' : 'config';
+          String? createdSettingsId;
           try {
             if (configFolderId != null) {
               final _createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
-              if (_createCfgRes is Future) await _createCfgRes;
+              if (_createCfgRes is Future) {
+                createdSettingsId = await _createCfgRes as String?;
+              } else {
+                createdSettingsId = _createCfgRes as String?;
+              }
             } else {
               debugPrint('Config folder not created; skipping default config creation');
             }
@@ -522,17 +528,6 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         debugPrint('Error ensuring config folder during activation: $e');
       }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$moduleName activated successfully!')),
-        );
-        
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
-          (route) => false,
-        );
-      }
       // Register the module in the company registry under 'modules' sheet.
       try {
         final _rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
@@ -545,11 +540,39 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         if (rootFolderId != null) {
           final _regRes = (driveService as dynamic).registerModule(rootFolderId, workspaceId, moduleName, moduleFolderId);
           if (_regRes is Future) await _regRes;
+
+          // Also ensure user's access spreadsheet is updated with this module info
+          try {
+            final userEmail = capturedUserEmail;
+            if (userEmail != null && userEmail.isNotEmpty) {
+              final userAccessFolderId = await (driveService as dynamic).ensureUserAccessFolder(workspaceId);
+              final userAccessFileId = await (driveService as dynamic).ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
+              final configFolderIdFetched = await (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
+              final dashboardId = await (driveService as dynamic).getFileId(configFolderIdFetched, '${userEmail}_dashboard');
+              final tabsId = await (driveService as dynamic).getFileId(configFolderIdFetched, '${userEmail}_tabs');
+              final settingsId = await (driveService as dynamic).getFileId(configFolderIdFetched, '${userEmail}_settings');
+              await (driveService as dynamic).upsertUserAccessModule(userAccessFileId, moduleFolderId, moduleName, dashboardId ?? '', settingsId ?? '', tabsId ?? '');
+            }
+          } catch (e) {
+            debugPrint('Failed to update user access spreadsheet during module activation: $e');
+          }
         } else {
           debugPrint('Root folder id not available; skipping module registry write');
         }
       } catch (e) {
         debugPrint('Failed to register module in registry: $e');
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$moduleName activated successfully!')),
+        );
+        
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          (route) => false,
+        );
       }
     } catch (e) {
       if (mounted) {

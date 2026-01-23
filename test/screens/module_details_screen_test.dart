@@ -8,12 +8,15 @@ import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:drivererpapp/services/auth_service.dart';
 import 'dart:convert';
 import 'package:flutter/services.dart';
 
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveService extends Mock implements DriveService {}
+class MockAuthService extends Mock implements AuthService {}
 
 class TestAssetBundle extends CachingAssetBundle {
   final Map<String, String> assets;
@@ -29,19 +32,33 @@ class TestAssetBundle extends CachingAssetBundle {
   Future<ByteData> load(String key) async => ByteData(0);
 }
 
+class _TestGoogleAccount extends Fake implements GoogleSignInAccount {
+  final String _email;
+  _TestGoogleAccount(this._email);
+
+  @override
+  String get email => _email;
+}
+
 void main() {
+  setUpAll(() {
+    Provider.debugCheckInvalidValueType = null;
+  });
   late MockDriveProvider mockDriveProvider;
   late MockWorkspaceProvider mockWorkspaceProvider;
   late MockDriveService mockDriveService;
+  late MockAuthService mockAuthService;
 
   setUp(() {
     mockDriveProvider = MockDriveProvider();
     mockWorkspaceProvider = MockWorkspaceProvider();
     mockDriveService = MockDriveService();
+    mockAuthService = MockAuthService();
     
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'ws123'..name = 'My Workspace');
     when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
+    when(() => mockAuthService.currentUser).thenReturn(_TestGoogleAccount('test@example.com'));
   });
 
   Widget createModuleDetailsScreen(Map<String, String> info) {
@@ -49,6 +66,7 @@ void main() {
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+        Provider<AuthService>.value(value: mockAuthService),
       ],
       child: MaterialApp(
         home: ModuleDetailsScreen(moduleInfo: info),
@@ -63,6 +81,7 @@ void main() {
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+        Provider<AuthService>.value(value: mockAuthService),
       ],
       child: root,
     );

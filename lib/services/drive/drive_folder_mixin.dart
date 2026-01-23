@@ -12,6 +12,8 @@ mixin DriveFolderMixin {
       final fileList = await driveApi.files.list(
         q: "mimeType = 'application/vnd.google-apps.folder' and name = '$rootFolderName' and trashed = false",
         $fields: 'files(id, name)',
+        includeItemsFromAllDrives: true,
+        supportsAllDrives: true,
       );
 
       if (fileList.files != null && fileList.files!.isNotEmpty) {
@@ -45,6 +47,8 @@ mixin DriveFolderMixin {
       final fileList = await driveApi.files.list(
         q: "'$rootFolderId' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
         $fields: 'files(id, name)',
+        includeItemsFromAllDrives: true,
+        supportsAllDrives: true,
       );
       return fileList.files ?? [];
     } catch (e) {
@@ -75,6 +79,8 @@ mixin DriveFolderMixin {
       final fileList = await driveApi.files.list(
         q: "'$parentId' in parents and mimeType = 'application/vnd.google-apps.folder' and name = '$folderName' and trashed = false",
         $fields: 'files(id)',
+        includeItemsFromAllDrives: true,
+        supportsAllDrives: true,
       );
 
       if (fileList.files != null && fileList.files!.isNotEmpty) {
@@ -101,6 +107,8 @@ mixin DriveFolderMixin {
       final fileList = await driveApi.files.list(
         q: "'$workspaceId' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
         $fields: 'files(id, name)',
+        includeItemsFromAllDrives: true,
+        supportsAllDrives: true,
       );
       return fileList.files ?? [];
     } catch (e) {

@@ -17,8 +17,16 @@ import '../utils/icon_lookup.dart';
 
 class ModuleScreen extends StatefulWidget {
   final ModuleSchema module;
-
-  const ModuleScreen({super.key, required this.module});
+  final String? settingsSheetId;
+  final String? dashboardSheetId;
+  final String? tabsSheetId;
+  const ModuleScreen({
+    super.key,
+    required this.module,
+    this.settingsSheetId,
+    this.dashboardSheetId,
+    this.tabsSheetId,
+  });
 
   @override
   State<ModuleScreen> createState() => _ModuleScreenState();
@@ -284,6 +292,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
   Future<void> _loadSchema() async {
     debugPrint('ModuleScreen: Starting _loadSchema for ${widget.module.id}');
+    debugPrint('Provided sheet ids -> settings:${widget.settingsSheetId} dashboard:${widget.dashboardSheetId} tabs:${widget.tabsSheetId}');
     try {
       final schemaService = Provider.of<SchemaProvider>(context, listen: false).service;
       
@@ -339,6 +348,61 @@ class _ModuleScreenState extends State<ModuleScreen> {
   Future<Map<String, dynamic>?> _syncSchema(SchemaService schemaService) async {
     debugPrint('ModuleScreen: _syncSchema started');
     try {
+      final driveService = schemaService.driveService;
+
+      // If explicit per-user sheet ids were provided, prefer reading by those ids
+      if (driveService != null && widget.settingsSheetId != null && widget.settingsSheetId!.isNotEmpty) {
+        try {
+          debugPrint('Attempting direct read by provided sheet ids');
+          final newConfig = <String, dynamic>{};
+
+          // 1) Settings (required for authoritative config)
+          try {
+            debugPrint('Reading settings by id=${widget.settingsSheetId}');
+            final settings = await driveService.readSettingsById(widget.settingsSheetId!);
+            if (settings != null) newConfig['settings'] = settings;
+          } catch (e) {
+            debugPrint('Error reading settings by id: $e');
+          }
+
+          // 2) Dashboard (optional, but prefer explicit id)
+          if (widget.dashboardSheetId != null && widget.dashboardSheetId!.isNotEmpty) {
+            try {
+              debugPrint('Reading dashboard by id=${widget.dashboardSheetId}');
+              final dash = await driveService.readDashboardById(widget.dashboardSheetId!);
+              if (dash != null) newConfig['dashboard'] = dash;
+            } catch (e) {
+              debugPrint('Error reading dashboard by id: $e');
+            }
+          }
+
+          // 3) Tabs
+          if (widget.tabsSheetId != null && widget.tabsSheetId!.isNotEmpty) {
+            try {
+              debugPrint('Reading tabs by id=${widget.tabsSheetId}');
+              final tabs = await driveService.readTabsById(widget.tabsSheetId!);
+              if (tabs != null) newConfig['tabs'] = tabs;
+            } catch (e) {
+              debugPrint('Error reading tabs by id: $e');
+            }
+          }
+
+          if (newConfig.isNotEmpty) {
+            debugPrint('Module ${widget.module.id} schema loaded directly from spreadsheets.');
+            try {
+              final modifiedTime = await driveService.getFileModifiedTime(widget.settingsSheetId!);
+              await schemaService.cacheConfig(widget.module.id, newConfig, fileId: widget.settingsSheetId, modifiedTime: modifiedTime?.toIso8601String());
+            } catch (e) {
+              debugPrint('Error caching direct-read config: $e');
+            }
+            if (mounted) await _processJson(newConfig);
+            return newConfig;
+          }
+        } catch (e) {
+          debugPrint('Direct read by sheet ids failed: $e');
+        }
+      }
+
       final newJson = await schemaService.syncConfig(widget.module.id);
       if (newJson != null && mounted) {
         debugPrint('Module ${widget.module.id} schema updated from Drive.');
@@ -694,12 +758,15 @@ class _ModuleScreenState extends State<ModuleScreen> {
       }
 
       // If it was an asset fallback, navigate to Editor
-      if (isAssetFallback && mounted) {
+        if (isAssetFallback && mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => SchemaEditorScreen(
               module: loadedModule,
               isNewSetup: true,
+              settingsSheetId: widget.settingsSheetId,
+              dashboardSheetId: widget.dashboardSheetId,
+              tabsSheetId: widget.tabsSheetId,
             ),
           ),
         ).then((_) {
@@ -764,12 +831,21 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 tooltip: 'Version History',
                 onPressed: () {
                   final index = DefaultTabController.of(context).index;
-                  String fileName;
+                  String? fileName;
+                  final baseName = module.name.toLowerCase();
+
+                  // New config layout stores module config across three spreadsheets:
+                  // `${baseName}_settings`, `${baseName}_dashboard`, `${baseName}_tabs`.
+                  // Map the selected tab to the appropriate spreadsheet file name.
                   if (index == 0) {
-                    fileName = 'config';
+                    fileName = '${baseName}_settings';
+                  } else if (index > 0 && index <= module.tabs.length) {
+                    fileName = '${baseName}_tabs';
                   } else {
-                    fileName = module.tabs[index - 1].id;
+                    // Extensions tab or unknown — no file to show
+                    fileName = null;
                   }
+
                   _showHistory(context, module, fileName);
                 },
               ),
@@ -780,7 +856,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => SchemaEditorScreen(module: _baseModule ?? cachedModule ?? widget.module)),
+                  MaterialPageRoute(builder: (context) => SchemaEditorScreen(
+                    module: _baseModule ?? cachedModule ?? widget.module,
+                    settingsSheetId: widget.settingsSheetId,
+                    dashboardSheetId: widget.dashboardSheetId,
+                    tabsSheetId: widget.tabsSheetId,
+                  )),
                 ).then((_) {
                   // Reload the schema when callback from editor
                   _loadSchema();
@@ -838,6 +919,8 @@ class _ModuleScreenState extends State<ModuleScreen> {
                       primaryColor: primaryColor,
                       settings: sourceModule.settings,
                       module: sourceModule,
+                      settingsSheetId: widget.settingsSheetId,
+                      tabsSheetId: widget.tabsSheetId,
                     );
                   }),
                   _buildExtensionsTab(module, primaryColor),

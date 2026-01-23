@@ -2,6 +2,8 @@ import 'package:drivererpapp/models/company_model.dart';
 import 'package:flutter/material.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:provider/provider.dart';
+import '../services/auth_service.dart';
+import '../providers/drive_provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/workspace_provider.dart';
 import 'dashboard_screen.dart';
@@ -131,7 +133,7 @@ class _WorkspaceSelectorScreenState extends State<WorkspaceSelectorScreen> {
       color: theme.cardTheme.color,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: InkWell(
-        onTap: () {
+        onTap: () async {
           // Construct a drive.File object from the company info to keep compatibility
           final workspaceFile = drive.File()
             ..id = company.folderId
@@ -139,11 +141,54 @@ class _WorkspaceSelectorScreenState extends State<WorkspaceSelectorScreen> {
 
           // Set global workspace
           Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(workspaceFile);
-          
-          // Boot into workspace
+
+          // Note: userAccessSpreadsheetId is resolved below; caching is done after resolution.
+
+          // Try to resolve per-user user_access spreadsheet id from registry
+          String? userAccessSpreadsheetId;
+          final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+          final auth = Provider.of<AuthService>(context, listen: false);
+          final userEmail = auth.currentUser?.email;
+
+          if (driveService != null && widget.rootFolderId.isNotEmpty && userEmail != null) {
+            try {
+              final registryId = await driveService.getFileId(widget.rootFolderId, 'companies');
+              if (registryId != null) {
+                final resp = await driveService.sheetsApi.spreadsheets.values.get(registryId, 'user_access!A2:C');
+                final rows = resp.values ?? [];
+                for (var r in rows) {
+                  if (r.length >= 3 && r[0] == company.folderId && r[1] == userEmail) {
+                    userAccessSpreadsheetId = r[2] as String;
+                    break;
+                  }
+                }
+              }
+            } catch (e) {
+              debugPrint('Error reading registry user_access: $e');
+            }
+
+            // If not found in registry, ensure the user_access spreadsheet exists under the company
+            if (userAccessSpreadsheetId == null) {
+              try {
+                final uaFolderId = await driveService.ensureUserAccessFolder(company.folderId);
+                userAccessSpreadsheetId = await driveService.ensureUserAccessSpreadsheet(uaFolderId, userEmail);
+              } catch (e) {
+                debugPrint('Error ensuring user access spreadsheet: $e');
+              }
+            }
+          }
+
+          // Cache the per-user user_access spreadsheet id for future sessions
+          try {
+            Provider.of<WorkspaceProvider>(context, listen: false).saveUserAccessSpreadsheetId(userAccessSpreadsheetId);
+          } catch (e) {
+            debugPrint('Error caching userAccessSpreadsheetId: $e');
+          }
+
+          // Boot into workspace and pass spreadsheet id to DashboardScreen
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (context) => const DashboardScreen()),
+            MaterialPageRoute(builder: (context) => DashboardScreen(userAccessSpreadsheetId: userAccessSpreadsheetId)),
           );
         },
         borderRadius: BorderRadius.circular(24),

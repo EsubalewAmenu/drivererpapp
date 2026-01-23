@@ -73,6 +73,8 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
     try {
       final driveProvider = Provider.of<DriveProvider>(context, listen: false);
       final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final capturedUserEmail = authService.currentUser?.email;
       
       if (driveProvider.driveService == null || workspaceProvider.currentWorkspace == null) {
         throw Exception("Authentication or Workspace missing");
@@ -154,9 +156,8 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
           if (configFolderId == null) {
             throw Exception('Failed to ensure config folder');
           }
-          final authService = Provider.of<AuthService>(context, listen: false);
-          final userEmail = authService.currentUser?.email;
-          final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}_config' : 'config';
+          final userEmail = capturedUserEmail;
+          final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}' : 'config';
           try {
             // Create module config on Drive and capture its fileId if returned
             dynamic _createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
@@ -263,6 +264,40 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
         debugPrint('Error ensuring config folder during activation: $e');
       }
 
+      // Update user's access spreadsheet with module config ids.
+      try {
+        final _rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
+        dynamic rootFolderId;
+        if (_rootRes is Future) {
+          rootFolderId = await _rootRes;
+        } else {
+          rootFolderId = _rootRes;
+        }
+        if (rootFolderId != null) {
+          try {
+            final userEmail = capturedUserEmail;
+            if (userEmail != null && userEmail.isNotEmpty) {
+              // Ensure config folder and fetch created config file ids
+              final configFolderId = await (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
+              final settingsId = await (driveService as dynamic).getFileId(configFolderId, '${userEmail}_settings');
+              final dashboardId = await (driveService as dynamic).getFileId(configFolderId, '${userEmail}_dashboard');
+              final tabsId = await (driveService as dynamic).getFileId(configFolderId, '${userEmail}_tabs');
+
+              final userAccessFolderId = await (driveService as dynamic).ensureUserAccessFolder(workspaceId);
+              final userAccessFileId = await (driveService as dynamic).ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
+
+              await (driveService as dynamic).upsertUserAccessModule(userAccessFileId, moduleFolderId, moduleName, dashboardId ?? '', settingsId ?? '', tabsId ?? '');
+            }
+          } catch (e) {
+            debugPrint('Failed to update user access spreadsheet during module activation: $e');
+          }
+        } else {
+          debugPrint('Root folder id not available; skipping user access update');
+        }
+      } catch (e) {
+        debugPrint('Failed to update user access in registry step: $e');
+      }
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('$moduleName activated successfully!')),
@@ -273,24 +308,6 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
           MaterialPageRoute(builder: (_) => const DashboardScreen()),
           (route) => false,
         );
-      }
-      // Register the module in the company registry under 'modules' sheet.
-      try {
-        final _rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
-        dynamic rootFolderId;
-        if (_rootRes is Future) {
-          rootFolderId = await _rootRes;
-        } else {
-          rootFolderId = _rootRes;
-        }
-        if (rootFolderId != null) {
-          final _regRes = (driveService as dynamic).registerModule(rootFolderId, workspaceId, moduleName, moduleFolderId);
-          if (_regRes is Future) await _regRes;
-        } else {
-          debugPrint('Root folder id not available; skipping module registry write');
-        }
-      } catch (e) {
-        debugPrint('Failed to register module in registry: $e');
       }
     } catch (e) {
       if (mounted) {

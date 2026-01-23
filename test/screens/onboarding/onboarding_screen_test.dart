@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:drivererpapp/screens/onboarding/onboarding_screen.dart';
+import 'package:drivererpapp/services/auth_service.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
@@ -13,19 +15,32 @@ import 'package:googleapis/drive/v3.dart' as drive;
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
+class MockAuthService extends Mock implements AuthService {}
+
+class _TestGoogleAccount extends Fake implements GoogleSignInAccount {
+  final String _email;
+  _TestGoogleAccount(this._email);
+  @override
+  String get email => _email;
+}
 
 void main() {
+  // Disable Provider runtime-type check for tests that inject mock instances
+  Provider.debugCheckInvalidValueType = null;
   late MockWorkspaceProvider mockWorkspaceProvider;
   late MockDriveProvider mockDriveProvider;
   late MockDriveService mockDriveService;
+  late MockAuthService mockAuthService;
 
   setUp(() {
     mockWorkspaceProvider = MockWorkspaceProvider();
     mockDriveProvider = MockDriveProvider();
     mockDriveService = MockDriveService();
+    mockAuthService = MockAuthService();
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
+    when(() => mockAuthService.currentUser).thenReturn(_TestGoogleAccount('test@example.com'));
     
     registerFallbackValue(Company(id: '1', name: 'Test', folderId: 'f1', role: 'Owner'));
     registerFallbackValue(drive.File());
@@ -34,6 +49,7 @@ void main() {
   Widget createOnboardingScreen() {
     return MultiProvider(
       providers: [
+        Provider<AuthService>.value(value: mockAuthService),
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
       ],

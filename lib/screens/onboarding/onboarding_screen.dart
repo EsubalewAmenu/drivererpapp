@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../providers/drive_provider.dart';
 import '../../providers/workspace_provider.dart';
 import '../../theme/app_theme.dart';
+import '../../services/auth_service.dart';
 import '../dashboard_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -355,13 +356,36 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         newCompany
       );
 
+      // Create per-user access spreadsheet under the new company's user_access folder
+      String? createdUserSpreadsheetId;
+      try {
+        final authService = Provider.of<AuthService>(context, listen: false);
+        final userEmail = authService.currentUser?.email;
+        if (userEmail != null && userEmail.isNotEmpty) {
+          final userAccessFolderId = await driveService.getOrCreateSubFolder(workspaceId, 'user_access');
+          createdUserSpreadsheetId = await driveService.ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
+          debugPrint('Created per-user spreadsheet for new company: $createdUserSpreadsheetId');
+          // Persist in provider for immediate and future use
+          try {
+            await Provider.of<WorkspaceProvider>(context, listen: false).saveUserAccessSpreadsheetId(createdUserSpreadsheetId);
+          } catch (e) {
+            debugPrint('Failed to save userAccessSpreadsheetId in provider: $e');
+          }
+        } else {
+          debugPrint('No authenticated user email available to create per-user spreadsheet');
+        }
+      } catch (e) {
+        debugPrint('Failed to create per-user spreadsheet during onboarding: $e');
+      }
+
       // Set global workspace
       if (mounted) {
-        Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(workspaceFolder);
-        
+        final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+        workspaceProvider.setWorkspace(workspaceFolder);
+
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          MaterialPageRoute(builder: (_) => DashboardScreen(userAccessSpreadsheetId: createdUserSpreadsheetId)),
           (route) => false,
         );
       }

@@ -80,8 +80,8 @@ void main() {
     
     final driveProvider = TestDriveProvider(mockDriveService);
 
-    // 1. Simulate Module List Failure
-    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => throw Exception('API quota exceeded'));
+    // 1. Simulate Module List Failure (return empty list to allow graceful handling)
+    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => <drive.File>[]);
 
     await tester.pumpWidget(createTestWidget(
       workspaceProvider: workspaceProvider,

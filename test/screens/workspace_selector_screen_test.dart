@@ -10,22 +10,33 @@ import 'package:drivererpapp/screens/onboarding/onboarding_screen.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/services/auth_service.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
+class MockAuthService extends Mock implements AuthService {}
+class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
 
 void main() {
   late MockWorkspaceProvider mockWorkspaceProvider;
   late MockDriveProvider mockDriveProvider;
   late MockDriveService mockDriveService;
+  late MockAuthService mockAuthService;
+  late MockGoogleSignInAccount mockAccount;
 
   setUp(() {
     mockWorkspaceProvider = MockWorkspaceProvider();
     mockDriveProvider = MockDriveProvider();
     mockDriveService = MockDriveService();
+    mockAuthService = MockAuthService();
+    mockAccount = MockGoogleSignInAccount();
     
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    when(() => mockAuthService.currentUser).thenReturn(mockAccount);
+    when(() => mockAccount.email).thenReturn('test@example.com');
+    when(() => mockWorkspaceProvider.saveUserAccessSpreadsheetId(any())).thenAnswer((_) async {});
     registerFallbackValue(drive.File());
   });
 
@@ -33,6 +44,7 @@ void main() {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+        ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
       ],
       child: const MaterialApp(
@@ -69,6 +81,9 @@ void main() {
     when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..name = 'Test Corp'..id = 'f1');
     when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
+    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
+    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'uaFolder');
+    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'uaSpreadsheet');
 
     await tester.pumpWidget(createSelectorScreen());
     await tester.tap(find.text('Test Corp'));
