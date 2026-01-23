@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
 import '../providers/schema_provider.dart';
 import 'dynamic_form_screen.dart';
+import 'dynamic_form/conditional_utils.dart';
 import 'record_detail/table_field_view.dart';
 import 'record_detail/text_field_view.dart';
 import 'record_detail/list_field_view.dart';
@@ -440,35 +441,57 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
       if (col.dependsOn != null && col.dependsOn!.isNotEmpty) {
         final dependency = col.dependsOn!;
-        
-        // Check for negation
-        bool expectedValue = true;
+
+        // Support negation prefix (e.g. '!field')
+        bool negate = false;
         String actualDependency = dependency;
         if (dependency.startsWith('!')) {
-          expectedValue = false;
+          negate = true;
           actualDependency = dependency.substring(1);
         }
 
-        bool isTruthy = false;
+        // If dependency references settings, evaluate against setting value
         if (actualDependency.startsWith('settings.')) {
-          final settingKey = actualDependency.replaceFirst('settings.', '');
+          final settingKey = actualDependency.split('.').length > 1 ? actualDependency.split('.')[1] : '';
           final setting = widget.settings[settingKey];
-          if (setting != null) {
-            final val = setting.value;
-            if (val is bool) isTruthy = val;
-            else if (val is String) isTruthy = val.isNotEmpty;
-            else if (val is List) isTruthy = val.isNotEmpty;
-            else isTruthy = val != null;
+          final dependentValue = setting?.value;
+
+          if (col.dependsValue != null) {
+            final match = evaluateDependency(dependentValue, col.dependsValue, col.dependsOperator);
+            if (negate ? !match : match) {
+              // ok
+            } else {
+              return false;
+            }
+          } else {
+            bool isTruthy = false;
+            if (dependentValue is bool) isTruthy = dependentValue;
+            else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
+            else if (dependentValue is List) isTruthy = dependentValue.isNotEmpty;
+            else isTruthy = dependentValue != null;
+
+            if (isTruthy != !negate) return false;
           }
         } else {
-          final val = _currentData[actualDependency];
-          if (val is bool) isTruthy = val;
-          else if (val is String) isTruthy = val.isNotEmpty;
-          else if (val is List) isTruthy = val.isNotEmpty;
-          else isTruthy = val != null;
-        }
+          final dependentValue = _currentData[actualDependency];
 
-        if (isTruthy != expectedValue) return false;
+          if (col.dependsValue != null) {
+            final match = evaluateDependency(dependentValue, col.dependsValue, col.dependsOperator);
+            if (negate ? !match : match) {
+              // ok
+            } else {
+              return false;
+            }
+          } else {
+            bool isTruthy = false;
+            if (dependentValue is bool) isTruthy = dependentValue;
+            else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
+            else if (dependentValue is List) isTruthy = dependentValue.isNotEmpty;
+            else isTruthy = dependentValue != null;
+
+            if (isTruthy != !negate) return false;
+          }
+        }
       }
       return true;
     }).toList();
