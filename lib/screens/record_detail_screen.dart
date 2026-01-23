@@ -45,6 +45,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   bool _wasEdited = false;
   final Map<String, String> _relationLabels = {};
   final Set<String> _loadingTableFields = {};
+  final Set<String> _attemptedTableFields = {};
 
   @override
   void initState() {
@@ -593,75 +594,110 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     // sub-table data from the Drive backend using the parent record_id.
     if (itemsList.isEmpty && widget.module != null && _currentData['record_id'] != null) {
       final fieldKey = col.key;
-        if (!_loadingTableFields.contains(fieldKey)) {
+        if (!_loadingTableFields.contains(fieldKey) && !_attemptedTableFields.contains(fieldKey)) {
           _loadingTableFields.add(fieldKey);
+          _attemptedTableFields.add(fieldKey);
           final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
           if (driveService != null) {
             // Fetch the main tab (spreadsheet) including sub-tables, then
             // find the main record that matches our parent_record_id and
             // extract its attached sub-table rows for the given fieldKey.
+            // Fetch the dedicated sub-sheet named '<tabId>.<fieldKey>' and
+            // filter rows by 'parent_record_id' (or common variants). This
+            // keeps the request scoped to the child sheet instead of pulling
+            // the entire main sheet with embedded sub-tables.
+            final childTabId = '${widget.tab.id}.' + fieldKey;
             driveService.fetchRecords(
               widget.module!.id,
               widget.module!.name,
-              widget.tab.id,
-              fetchSubTables: true,
-              limit: 200,
+              childTabId,
             ).then((recs) {
               try {
                 final recordIdStr = _currentData['record_id']?.toString();
-                final matched = recs.firstWhere((r) => r['record_id']?.toString() == recordIdStr, orElse: () => {});
-                if (matched.isNotEmpty) {
-                  dynamic fetched = matched[fieldKey];
-                  // Try alternative key forms if direct key not present
-                  if (fetched == null) {
-                    fetched = matched['${widget.tab.id}.' + fieldKey];
-                  }
-                  if (fetched == null) {
-                    // try any key that ends with the fieldKey
-                    for (var k in matched.keys) {
-                      if (k is String && k.endsWith('.' + fieldKey)) {
-                        fetched = matched[k];
-                        break;
-                      }
-                    }
-                  }
+                if (recordIdStr == null) {
+                  if (mounted) setState(() { _currentData[fieldKey] = []; });
+                  return;
+                }
 
-                  // Normalize strings that may contain JSON
-                  if (fetched is String) {
+                // Filter rows that belong to this parent record using the
+                // conventional 'parent_record_id' column. Support common
+                // alternatives: 'parent_record', 'parent_id'.
+                final matchedRows = recs.where((r) {
+                  try {
+                    final v = r['parent_record_id'] ?? r['parent_record'] ?? r['parent_id'];
+                    return v?.toString() == recordIdStr;
+                  } catch (_) {
+                    return false;
+                  }
+                }).toList();
+
+                final normalized = matchedRows.map((e) {
+                  if (e is Map) return Map<String, dynamic>.from(e);
+                  return {'value': e?.toString() ?? ''};
+                }).toList();
+                if (mounted) {
+                  setState(() {
+                    _currentData[fieldKey] = normalized;
+                  });
+                }
+
+                // If no rows were found in the dedicated sub-sheet, fall back
+                // to fetching the main tab (with embedded sub-tables) and
+                // extract the sub-table attached to the main record.
+                if (normalized.isEmpty) {
+                  driveService.fetchRecords(
+                    widget.module!.id,
+                    widget.module!.name,
+                    widget.tab.id,
+                    fetchSubTables: true,
+                  ).then((recs) {
                     try {
-                      final decoded = jsonDecode(fetched);
-                      fetched = decoded;
-                    } catch (_) {}
-                  }
+                      final recordIdStr = _currentData['record_id']?.toString();
+                      if (recordIdStr == null) return;
 
-                  if (fetched is List) {
-                    if (mounted) {
-                      setState(() {
-                        _currentData[fieldKey] = fetched.map((e) => e is Map ? Map<String, dynamic>.from(e) : {'value': e?.toString() ?? ''}).toList();
-                      });
+                      final matched = recs.firstWhere((r) => r['record_id']?.toString() == recordIdStr || r['id']?.toString() == recordIdStr, orElse: () => {});
+                      if (matched.isNotEmpty) {
+                        dynamic fetched = matched[fieldKey];
+                        if (fetched == null) fetched = matched['${widget.tab.id}.' + fieldKey];
+                        if (fetched == null) {
+                          for (var k in matched.keys) {
+                            if (k is String && k.endsWith('.' + fieldKey)) {
+                              fetched = matched[k];
+                              break;
+                            }
+                          }
+                        }
+
+                        if (fetched is String) {
+                          try {
+                            final decoded = jsonDecode(fetched);
+                            fetched = decoded;
+                          } catch (_) {}
+                        }
+
+                        if (fetched is List) {
+                          final norm = fetched.map((e) => e is Map ? Map<String, dynamic>.from(e) : {'value': e?.toString() ?? ''}).toList();
+                          if (mounted) setState(() => _currentData[fieldKey] = norm);
+                        } else if (fetched is Map) {
+                          if (mounted) setState(() => _currentData[fieldKey] = [Map<String, dynamic>.from(fetched)]);
+                        } else if (fetched != null) {
+                          if (mounted) setState(() => _currentData[fieldKey] = [{'value': fetched.toString()}]);
+                        } else {
+                          if (mounted) setState(() => _currentData[fieldKey] = []);
+                        }
+                      }
+                    } catch (e) {
+                      debugPrint('Fallback error processing sub-table for $fieldKey: $e');
                     }
-                  } else if (fetched != null) {
-                    if (mounted) {
-                      setState(() {
-                        // Wrap single item maps into a list
-                        _currentData[fieldKey] = fetched is Map ? [Map<String, dynamic>.from(fetched)] : [ {'value': fetched.toString()} ];
-                      });
-                    }
-                  } else {
-                    if (mounted) {
-                      setState(() { _currentData[fieldKey] = []; });
-                    }
-                  }
-                } else {
-                  if (mounted) {
-                    setState(() { _currentData[fieldKey] = []; });
-                  }
+                  }).catchError((e) {
+                    debugPrint('Fallback error fetching main tab for $fieldKey: $e');
+                  });
                 }
               } catch (e) {
                 debugPrint('Error processing sub-table results for $fieldKey: $e');
               }
             }).catchError((e) {
-              debugPrint('Error fetching main tab with sub-tables for $fieldKey: $e');
+              debugPrint('Error fetching sub-sheet $childTabId for $fieldKey: $e');
             }).whenComplete(() {
               _loadingTableFields.remove(fieldKey);
             });
