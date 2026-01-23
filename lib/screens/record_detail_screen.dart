@@ -593,41 +593,82 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     // sub-table data from the Drive backend using the parent record_id.
     if (itemsList.isEmpty && widget.module != null && _currentData['record_id'] != null) {
       final fieldKey = col.key;
-      if (!_loadingTableFields.contains(fieldKey)) {
-        _loadingTableFields.add(fieldKey);
-        final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
-        if (driveService != null) {
-          driveService.fetchRecords(
-            widget.module!.id,
-            widget.module!.name,
-            widget.tab.id,
-            fetchSubTables: true,
-            limit: 1,
-            quickFilter: {
-              'field': 'parent_record_id',
-              'operator': '==',
-              'value': _currentData['record_id']?.toString(),
-            },
-          ).then((recs) {
-            if (recs.isNotEmpty) {
-              final fetched = recs.first[fieldKey];
-              if (fetched != null) {
-                if (mounted) {
-                  setState(() {
-                    _currentData[fieldKey] = fetched;
-                  });
+        if (!_loadingTableFields.contains(fieldKey)) {
+          _loadingTableFields.add(fieldKey);
+          final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+          if (driveService != null) {
+            // Fetch the main tab (spreadsheet) including sub-tables, then
+            // find the main record that matches our parent_record_id and
+            // extract its attached sub-table rows for the given fieldKey.
+            driveService.fetchRecords(
+              widget.module!.id,
+              widget.module!.name,
+              widget.tab.id,
+              fetchSubTables: true,
+              limit: 200,
+            ).then((recs) {
+              try {
+                final recordIdStr = _currentData['record_id']?.toString();
+                final matched = recs.firstWhere((r) => r['record_id']?.toString() == recordIdStr, orElse: () => {});
+                if (matched.isNotEmpty) {
+                  dynamic fetched = matched[fieldKey];
+                  // Try alternative key forms if direct key not present
+                  if (fetched == null) {
+                    fetched = matched['${widget.tab.id}.' + fieldKey];
+                  }
+                  if (fetched == null) {
+                    // try any key that ends with the fieldKey
+                    for (var k in matched.keys) {
+                      if (k is String && k.endsWith('.' + fieldKey)) {
+                        fetched = matched[k];
+                        break;
+                      }
+                    }
+                  }
+
+                  // Normalize strings that may contain JSON
+                  if (fetched is String) {
+                    try {
+                      final decoded = jsonDecode(fetched);
+                      fetched = decoded;
+                    } catch (_) {}
+                  }
+
+                  if (fetched is List) {
+                    if (mounted) {
+                      setState(() {
+                        _currentData[fieldKey] = fetched.map((e) => e is Map ? Map<String, dynamic>.from(e) : {'value': e?.toString() ?? ''}).toList();
+                      });
+                    }
+                  } else if (fetched != null) {
+                    if (mounted) {
+                      setState(() {
+                        // Wrap single item maps into a list
+                        _currentData[fieldKey] = fetched is Map ? [Map<String, dynamic>.from(fetched)] : [ {'value': fetched.toString()} ];
+                      });
+                    }
+                  } else {
+                    if (mounted) {
+                      setState(() { _currentData[fieldKey] = []; });
+                    }
+                  }
+                } else {
+                  if (mounted) {
+                    setState(() { _currentData[fieldKey] = []; });
+                  }
                 }
+              } catch (e) {
+                debugPrint('Error processing sub-table results for $fieldKey: $e');
               }
-            }
-          }).catchError((e) {
-            debugPrint('Error fetching sub-table $fieldKey: $e');
-          }).whenComplete(() {
+            }).catchError((e) {
+              debugPrint('Error fetching main tab with sub-tables for $fieldKey: $e');
+            }).whenComplete(() {
+              _loadingTableFields.remove(fieldKey);
+            });
+          } else {
             _loadingTableFields.remove(fieldKey);
-          });
-        } else {
-          _loadingTableFields.remove(fieldKey);
+          }
         }
-      }
     }
 
     return TableFieldView(col: col, items: itemsList);
