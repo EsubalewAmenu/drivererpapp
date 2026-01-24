@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
 import '../providers/workspace_provider.dart';
+import '../providers/drive_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -197,6 +198,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildCompanyCard() {
     final theme = Theme.of(context);
     final workspaceProvider = Provider.of<WorkspaceProvider>(context);
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+    final driveService = driveProvider.driveService;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -272,30 +275,101 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 Company? company;
                 try {
-                  company = wp.companies.firstWhere(
-                    (c) => c.folderId == wp.currentWorkspace!.id
-                  );
+                  company = wp.companies.firstWhere((c) => c.folderId == wp.currentWorkspace!.id);
                 } catch (_) {
                   company = null;
                 }
-                
-                if (company == null || company.logoUrl == null || company.logoUrl!.isEmpty) {
+
+                if (company == null) {
                   return const SizedBox.shrink();
                 }
 
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    company.logoUrl!,
-                    height: 100,
-                    width: double.infinity,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) => Container(
-                      height: 100,
-                      color: theme.scaffoldBackgroundColor,
-                      child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: workspaceProvider.isLoading || driveService == null ? null : () async {
+                              final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+                                title: const Text('Deactivate Company'),
+                                content: const Text('Deactivating the company will hide it for users. This does not delete data. Continue?'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+                                  TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('DEACTIVATE')),
+                                ],
+                              ));
+                              if (confirm != true) return;
+                              try {
+                                final workspaceId = workspaceProvider.currentWorkspace?.id;
+                                if (workspaceId == null) throw Exception('No workspace');
+                                final rootFolderId = workspaceProvider.rootFolderId ?? await driveService.checkRootFolder();
+                                if (rootFolderId == null) throw Exception('Root folder id missing');
+                                await driveService.setCompanyStatus(rootFolderId, workspaceId, 'deactivated');
+                                if (workspaceProvider.currentWorkspace != null) workspaceProvider.setWorkspace(workspaceProvider.currentWorkspace!);
+                                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company deactivated')));
+                              } catch (e) {
+                                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to deactivate company: $e')));
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade400, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                            child: Text('DEACTIVATE COMPANY', style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.white)),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: workspaceProvider.isLoading || driveService == null ? null : () async {
+                              final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+                                title: const Text('Terminate Company'),
+                                content: const Text('Terminating will delete the company folder and remove registry entries. This is irreversible. Continue?'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+                                  TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('TERMINATE')),
+                                ],
+                              ));
+                              if (confirm != true) return;
+                              try {
+                                final workspaceId = workspaceProvider.currentWorkspace?.id;
+                                if (workspaceId == null) throw Exception('No workspace');
+                                final rootFolderId = workspaceProvider.rootFolderId ?? await driveService.checkRootFolder();
+                                if (rootFolderId == null) throw Exception('Root folder id missing');
+                                await driveService.terminateCompany(rootFolderId, workspaceId);
+                                if (workspaceProvider.currentWorkspace != null) workspaceProvider.setWorkspace(workspaceProvider.currentWorkspace!);
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company terminated')));
+                                  Navigator.pop(context);
+                                }
+                              } catch (e) {
+                                if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to terminate company: $e')));
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade900, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                            child: Text('TERMINATE COMPANY', style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.white)),
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
+                    if (company.logoUrl != null && company.logoUrl!.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          company.logoUrl!,
+                          height: 100,
+                          width: double.infinity,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => Container(
+                            height: 100,
+                            color: theme.scaffoldBackgroundColor,
+                            child: const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 );
               }
             ),

@@ -536,4 +536,145 @@ mixin DriveCompanyMixin {
       rethrow;
     }
   }
+
+  /// Sets a `status` value for a company row in the `companies` sheet.
+  /// If the `status` column does not exist it will be appended to the header.
+  Future<void> setCompanyStatus(String registryRootFolderId, String companyFolderId, String status) async {
+    try {
+      final fileId = await getFileId(registryRootFolderId, _registryFileName);
+      if (fileId == null) throw Exception('Company registry not found');
+
+      final headerResp = await retryOp(() => sheetsApi.spreadsheets.values.get(fileId, 'companies!A1:Z1'));
+      final headerRow = (headerResp.values != null && headerResp.values!.isNotEmpty) ? List<String>.from(headerResp.values!.first.map((e) => e.toString())) : <String>[];
+      int statusIndex = headerRow.indexOf('status');
+      if (statusIndex == -1) {
+        headerRow.add('status');
+        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [headerRow]), fileId, 'companies!A1', valueInputOption: 'RAW'));
+        statusIndex = headerRow.length - 1;
+      }
+
+      final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(fileId, 'companies!A2:${String.fromCharCode(65 + headerRow.length - 1)}'));
+      final values = resp.values ?? [];
+      int foundRow = -1;
+      for (int i = 0; i < values.length; i++) {
+        final rowVals = values[i];
+        final folderId = rowVals.length > 2 ? rowVals[2]?.toString() ?? '' : '';
+        if (folderId == companyFolderId) {
+          foundRow = i + 2;
+          break;
+        }
+      }
+
+      String colLetter(int idx) {
+        int i = idx;
+        String ret = '';
+        while (i >= 0) {
+          ret = String.fromCharCode(65 + (i % 26)) + ret;
+          i = (i / 26).floor() - 1;
+        }
+        return ret;
+      }
+
+      final statusCol = colLetter(statusIndex);
+
+      if (foundRow != -1) {
+        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [[status]]), fileId, 'companies!$statusCol$foundRow:$statusCol$foundRow', valueInputOption: 'RAW'));
+      } else {
+        final newRow = List.filled(headerRow.length, '');
+        newRow[2] = companyFolderId;
+        newRow[statusIndex] = status;
+        await retryOp(() => sheetsApi.spreadsheets.values.append(sheets.ValueRange(values: [newRow]), fileId, 'companies!A1', valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS'));
+      }
+    } catch (e) {
+      debugPrint('Error setting company status in registry: $e');
+      rethrow;
+    }
+  }
+
+  /// Terminates a company: deletes its Drive folder, removes its row from
+  /// the `companies` sheet and removes all related rows from the registry's
+  /// `user_access` sheet where the company_folder_id matches.
+  Future<void> terminateCompany(String registryRootFolderId, String companyFolderId) async {
+    try {
+      final fileId = await getFileId(registryRootFolderId, _registryFileName);
+      if (fileId == null) throw Exception('Company registry not found');
+
+      // 1) Delete the company folder if it exists
+      try {
+        await deleteFile(companyFolderId);
+      } catch (e) {
+        debugPrint('Error deleting company folder $companyFolderId: $e');
+      }
+
+      // 2) Remove company row from companies sheet
+      final meta = await retryOp(() => sheetsApi.spreadsheets.get(fileId));
+      final sheetsList = meta.sheets ?? [];
+      int companiesSheetId = -1;
+      for (var s in sheetsList) {
+        if (s.properties?.title == 'companies') {
+          companiesSheetId = s.properties?.sheetId ?? -1;
+          break;
+        }
+      }
+
+      final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(fileId, 'companies!A2:Z'));
+      final values = resp.values ?? [];
+      int foundRow = -1;
+      for (int i = 0; i < values.length; i++) {
+        final rowVals = values[i];
+        final folderId = rowVals.length > 2 ? rowVals[2]?.toString() ?? '' : '';
+        if (folderId == companyFolderId) {
+          foundRow = i + 2;
+          break;
+        }
+      }
+
+      if (foundRow != -1 && companiesSheetId != -1) {
+        final deleteReq = sheets.BatchUpdateSpreadsheetRequest(requests: [
+          sheets.Request(deleteDimension: sheets.DeleteDimensionRequest(range: sheets.DimensionRange(sheetId: companiesSheetId, dimension: 'ROWS', startIndex: foundRow - 1, endIndex: foundRow)))
+        ]);
+        await retryOp(() => sheetsApi.spreadsheets.batchUpdate(deleteReq, fileId));
+      } else if (foundRow != -1) {
+        // Fallback: clear the row
+        final colCount = 10;
+        final clearRange = 'companies!A$foundRow:${String.fromCharCode(65 + colCount - 1)}$foundRow';
+        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [List.filled(colCount, '')]), fileId, clearRange, valueInputOption: 'RAW'));
+      }
+
+      // 3) Remove registry's user_access rows for this company
+      int userAccessSheetId = -1;
+      for (var s in sheetsList) {
+        if (s.properties?.title == 'user_access') {
+          userAccessSheetId = s.properties?.sheetId ?? -1;
+          break;
+        }
+      }
+
+      final uaResp = await retryOp(() => sheetsApi.spreadsheets.values.get(fileId, 'user_access!A2:Z'));
+      final uaValues = uaResp.values ?? [];
+      final deleteRequests = <sheets.Request>[];
+      for (int i = 0; i < uaValues.length; i++) {
+        final rowVals = uaValues[i];
+        final cid = rowVals.isNotEmpty ? rowVals[0]?.toString() ?? '' : '';
+        if (cid == companyFolderId) {
+          final found = i + 2;
+          if (userAccessSheetId != -1) {
+            deleteRequests.add(sheets.Request(deleteDimension: sheets.DeleteDimensionRequest(range: sheets.DimensionRange(sheetId: userAccessSheetId, dimension: 'ROWS', startIndex: found - 1, endIndex: found))));
+          } else {
+            final colCount = 10;
+            final clearRange = 'user_access!A$found:${String.fromCharCode(65 + colCount - 1)}$found';
+            await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [List.filled(colCount, '')]), fileId, clearRange, valueInputOption: 'RAW'));
+          }
+        }
+      }
+
+      if (deleteRequests.isNotEmpty) {
+        final batch = sheets.BatchUpdateSpreadsheetRequest(requests: deleteRequests);
+        await retryOp(() => sheetsApi.spreadsheets.batchUpdate(batch, fileId));
+      }
+    } catch (e) {
+      debugPrint('Error terminating company: $e');
+      rethrow;
+    }
+  }
 }
