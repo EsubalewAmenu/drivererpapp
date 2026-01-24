@@ -9,6 +9,7 @@ import '../providers/theme_provider.dart';
 import '../services/auth_service.dart';
 import '../providers/workspace_provider.dart';
 import '../providers/drive_provider.dart';
+import 'workspace_selector_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -308,8 +309,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 final rootFolderId = workspaceProvider.rootFolderId ?? await driveService.checkRootFolder();
                                 if (rootFolderId == null) throw Exception('Root folder id missing');
                                 await driveService.setCompanyStatus(rootFolderId, workspaceId, 'deactivated');
-                                if (workspaceProvider.currentWorkspace != null) workspaceProvider.setWorkspace(workspaceProvider.currentWorkspace!);
-                                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company deactivated')));
+                                  // Clear current workspace and navigate back to selector to avoid 404s
+                                  workspaceProvider.clearWorkspace();
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company deactivated')));
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => WorkspaceSelectorScreen(rootFolderId: rootFolderId)),
+                                    );
+                                  }
                               } catch (e) {
                                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to deactivate company: $e')));
                               }
@@ -337,10 +345,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 final rootFolderId = workspaceProvider.rootFolderId ?? await driveService.checkRootFolder();
                                 if (rootFolderId == null) throw Exception('Root folder id missing');
                                 await driveService.terminateCompany(rootFolderId, workspaceId);
-                                if (workspaceProvider.currentWorkspace != null) workspaceProvider.setWorkspace(workspaceProvider.currentWorkspace!);
+                                // Clear workspace and navigate back to selector to avoid stale state
+                                workspaceProvider.clearWorkspace();
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company terminated')));
-                                  Navigator.pop(context);
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(builder: (_) => WorkspaceSelectorScreen(rootFolderId: rootFolderId)),
+                                  );
                                 }
                               } catch (e) {
                                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to terminate company: $e')));
