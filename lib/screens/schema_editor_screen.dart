@@ -263,6 +263,19 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
         await driveService.removeUserAccessModule(uaFileId, widget.module.id);
       }
 
+      // Clear any cached configs and in-memory entries for this module
+      try {
+        final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+        try {
+          await schemaProvider.service.removeCachedConfig(widget.module.id);
+        } catch (_) {}
+        try {
+          schemaProvider.updateMemoryCache(widget.module.id, null);
+        } catch (_) {}
+      } catch (e) {
+        debugPrint('Error clearing schema cache after termination: $e');
+      }
+
       // Refresh workspace provider so Dashboard reflects removed module
       if (workspaceProvider.currentWorkspace != null) workspaceProvider.setWorkspace(workspaceProvider.currentWorkspace!);
 
