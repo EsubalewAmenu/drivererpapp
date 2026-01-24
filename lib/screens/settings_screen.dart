@@ -313,9 +313,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   workspaceProvider.clearWorkspace();
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company deactivated')));
-                                    Navigator.pushReplacement(
+                                    Navigator.pushAndRemoveUntil(
                                       context,
                                       MaterialPageRoute(builder: (_) => WorkspaceSelectorScreen(rootFolderId: rootFolderId)),
+                                      (route) => false,
                                     );
                                   }
                               } catch (e) {
@@ -349,9 +350,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 workspaceProvider.clearWorkspace();
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company terminated')));
-                                  Navigator.pushReplacement(
+                                  Navigator.pushAndRemoveUntil(
                                     context,
                                     MaterialPageRoute(builder: (_) => WorkspaceSelectorScreen(rootFolderId: rootFolderId)),
+                                    (route) => false,
                                   );
                                 }
                               } catch (e) {
