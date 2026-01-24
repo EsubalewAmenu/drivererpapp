@@ -529,38 +529,69 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
            return _buildTableField(col, itemsList);
         }
 
-        // Relation fields: prefer resolved human label when available
-        String displayValue;
+        // Relation fields: prefer resolved human label when available.
+        // While unresolved, show a small CircularProgressIndicator inside
+        // the same styled container used by TextFieldView.
         if (col.type == 'relation') {
           if (value == null) {
-            displayValue = 'N/A';
-          } else {
-            // Show a friendly placeholder while the human-readable label is being resolved
-            if (_relationLabels.containsKey(col.key)) {
-              displayValue = _relationLabels[col.key]!;
-            } else {
-              displayValue = 'Loading...';
-            }
+            return TextFieldView(label: col.label, value: 'N/A');
           }
-        } else {
-          displayValue = value?.toString() ?? 'N/A';
+
+          if (_relationLabels.containsKey(col.key)) {
+            return TextFieldView(label: col.label, value: _relationLabels[col.key]!);
+          }
+
+          // Loading state
+          final theme = Theme.of(context);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                col.label.toUpperCase(),
+                style: AppTheme.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: theme.textTheme.bodyMedium?.color,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.cardTheme.color,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: const [
+                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 12),
+                  ],
+                ),
+              ),
+            ],
+          );
         }
 
-            if (col.type == 'image' || col.key.toLowerCase().contains('image') || col.key.toLowerCase().contains('photo')) {
-              return ImageFieldView(label: col.label, rawValue: displayValue, primaryColor: widget.primaryColor);
-            }
-        
-          if (col.key.toLowerCase() == 'status') {
-            return StatusFieldView(label: col.label, value: displayValue);
-          }
+        // Non-relation fields
+        String displayValue = value?.toString() ?? 'N/A';
 
-          if (col.type == 'formula') {
-            return FormulaFieldView(label: col.label, value: displayValue);
-          }
+        if (col.type == 'image' || col.key.toLowerCase().contains('image') || col.key.toLowerCase().contains('photo')) {
+          return ImageFieldView(label: col.label, rawValue: displayValue, primaryColor: widget.primaryColor);
+        }
 
-          if (col.type == 'list') {
-            return ListFieldView(label: col.label, value: value, primaryColor: widget.primaryColor);
-          }
+        if (col.key.toLowerCase() == 'status') {
+          return StatusFieldView(label: col.label, value: displayValue);
+        }
+
+        if (col.type == 'formula') {
+          return FormulaFieldView(label: col.label, value: displayValue);
+        }
+
+        if (col.type == 'list') {
+          return ListFieldView(label: col.label, value: value, primaryColor: widget.primaryColor);
+        }
 
         return TextFieldView(label: col.label, value: displayValue);
       },
