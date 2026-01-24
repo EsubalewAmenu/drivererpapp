@@ -326,11 +326,13 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
       List<Map<String, dynamic>> fetchedData = [];
 
-      // Try to prefer a direct fileId from cached config (if available)
+      // Try to prefer a direct fileId from cached config (if available).
+      // If no file exists, create the spreadsheet and seed initial_data lazily.
       try {
         final schemaProvider = context.read<SchemaProvider>();
         final cachedConfig = await schemaProvider.service.getCachedConfig(fetchModuleId);
         String? tabFileId;
+        List<dynamic>? tabInitialData;
         if (cachedConfig != null && cachedConfig['tabs'] != null) {
           final tabsRaw = List<dynamic>.from(cachedConfig['tabs'] as List);
           for (var t in tabsRaw) {
@@ -338,6 +340,11 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               final id = t['id']?.toString();
               if (id == fetchTabId) {
                 tabFileId = t['fileId']?.toString();
+                try {
+                  tabInitialData = t['initial_data'] as List<dynamic>?;
+                } catch (_) {
+                  tabInitialData = null;
+                }
                 break;
               }
             }
@@ -361,6 +368,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             } : null,
           );
         } else {
+          // No fileId in cache — attempt to fetch; drive service will return [] when file missing.
           fetchedData = await _driveService.fetchRecords(
             fetchModuleId,
             fetchModuleName,
@@ -376,6 +384,65 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               'value': selectedFilter.value,
             } : null,
           );
+
+          // If there were no records and no existing spreadsheet, create and seed lazily.
+          if ((fetchedData.isEmpty) && (tabInitialData != null && tabInitialData.isNotEmpty)) {
+            try {
+              debugPrint('ModuleTabScreen: creating spreadsheet for $fetchTabId and seeding initial data');
+              final newSpreadsheetId = await _driveService.createSpreadsheetInFolder(fetchModuleId, fetchTabId);
+
+              // Update cached config to store fileId for this tab so future loads use the file directly.
+              try {
+                if (cachedConfig != null && cachedConfig['tabs'] != null) {
+                  final tabsRaw = List<dynamic>.from(cachedConfig['tabs'] as List);
+                  for (var t in tabsRaw) {
+                    if (t is Map && t['id']?.toString() == fetchTabId) {
+                      t['fileId'] = newSpreadsheetId;
+                      break;
+                    }
+                  }
+                  // Persist updated cache (best-effort)
+                  try {
+                    await schemaProvider.service.cacheConfig(fetchModuleId, cachedConfig);
+                  } catch (_) {}
+                }
+              } catch (e) {
+                debugPrint('Error updating cached config with new fileId: $e');
+              }
+
+              // Seed initial records in background and refresh when done.
+              Future.microtask(() async {
+                try {
+                  for (var rec in tabInitialData!) {
+                    if (rec is Map<String, dynamic>) {
+                      try {
+                        await _driveService.saveRecord(fetchModuleId, fetchTabId, fetchTabId, rec);
+                      } catch (e) {
+                        debugPrint('Error seeding record for $fetchTabId: $e');
+                      }
+                    } else if (rec is Map) {
+                      try {
+                        await _driveService.saveRecord(fetchModuleId, fetchTabId, fetchTabId, Map<String, dynamic>.from(rec));
+                      } catch (e) {
+                        debugPrint('Error seeding record for $fetchTabId: $e');
+                      }
+                    }
+                  }
+                } catch (e) {
+                  debugPrint('Error during background seeding: $e');
+                }
+
+                // Trigger a refresh to pick up seeded records
+                if (mounted) {
+                  try {
+                    await _loadData(refresh: true);
+                  } catch (_) {}
+                }
+              });
+            } catch (e) {
+              debugPrint('Error creating spreadsheet and seeding initial data: $e');
+            }
+          }
         }
       } catch (e) {
         debugPrint('Error trying fileId shortcut for $fetchTabId: $e');
