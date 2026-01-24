@@ -145,49 +145,8 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       }
       final moduleFolderId = createdModule.id!;
 
-      // Auto-seed Initial Data
-      if (_moduleJson != null && _moduleJson!['tabs'] != null) {
-        debugPrint('ModuleDetailsScreen: seeding initial data, tabs present=${_moduleJson!['tabs'] != null}');
-        final tabs = _moduleJson!['tabs'] as List;
-        for (var tab in tabs) {
-          if (tab is Map && tab['initial_data'] != null) {
-            final initialData = tab['initial_data'] as List;
-            final tabId = tab['id'];
-
-            for (var record in initialData) {
-              if (record is Map<String, dynamic>) {
-                try {
-                  final res = (driveService as dynamic).saveRecord(
-                    moduleFolderId,
-                    moduleName,
-                    tabId,
-                    record,
-                  );
-                  debugPrint('ModuleDetailsScreen: saving record to $moduleFolderId/$moduleName/$tabId -> $record');
-                  if (res is Future) await res;
-                } catch (e) {
-                  debugPrint('Error seeding record for $tabId: $e');
-                }
-              }
-            }
-            // After seeding, capture the created spreadsheet id and attach to the tab
-            try {
-              final _existingIdRes = (driveService as dynamic).getFileId(moduleFolderId, tabId);
-              dynamic existingId;
-              if (_existingIdRes is Future) {
-                existingId = await _existingIdRes;
-              } else {
-                existingId = _existingIdRes;
-              }
-              if (existingId != null) {
-                tab['fileId'] = existingId;
-              }
-            } catch (e) {
-              debugPrint('Error fetching fileId for $tabId after seeding: $e');
-            }
-          }
-        }
-      }
+      // Defer seeding initial data until the user opens the module's list view.
+      // Seeding here caused long activation times; create folder/config only.
 
       // Create config folder and default config file now (so module has config immediately)
       try {
