@@ -7,6 +7,8 @@ class SettingsEditor extends StatefulWidget {
   final Map<String, dynamic> settingsValues;
   final Function(String key, dynamic value) onSettingChanged;
   final Function(Map<String, dynamic> newSchema) onSchemaChanged;
+  final VoidCallback? onDeactivate;
+  final VoidCallback? onTerminate;
 
   const SettingsEditor({
     super.key,
@@ -14,6 +16,8 @@ class SettingsEditor extends StatefulWidget {
     required this.settingsValues,
     required this.onSettingChanged,
     required this.onSchemaChanged,
+    this.onDeactivate,
+    this.onTerminate,
   });
 
   @override
@@ -49,6 +53,38 @@ class _SettingsEditorState extends State<SettingsEditor> {
 
         const SizedBox(height: 24),
         _buildAddButton(context),
+
+        const SizedBox(height: 24),
+        // Danger actions: Deactivate and Terminate
+        if (widget.onDeactivate != null || widget.onTerminate != null) ...[
+          if (widget.onDeactivate != null)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: widget.onDeactivate,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Text('DEACTIVATE', style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.white)),
+              ),
+            ),
+          const SizedBox(height: 12),
+          if (widget.onTerminate != null)
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: widget.onTerminate,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade900,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                child: Text('TERMINATE', style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.white)),
+              ),
+            ),
+        ],
       ],
     );
   }

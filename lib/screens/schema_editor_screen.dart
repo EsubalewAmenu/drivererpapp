@@ -158,39 +158,12 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
                 _rawSettings = newSchema;
               });
             },
+            onDeactivate: _deactivateModule,
+            onTerminate: _terminateModule,
           ),
         ],
       ),
-      bottomNavigationBar: widget.isNewSetup ? null : Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: _deactivateModule,
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  side: BorderSide(color: Colors.orange.shade700),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: Text('DEACTIVATE', style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.orange.shade700)),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: FilledButton(
-                onPressed: _terminateModule,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  backgroundColor: Colors.red.shade700,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                child: Text('TERMINATE', style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.white)),
-              ),
-            ),
-          ],
-        ),
-      ),
+      bottomNavigationBar: null,
     );
   }
 
