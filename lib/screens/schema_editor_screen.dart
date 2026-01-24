@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
 import '../providers/schema_provider.dart';
+import '../providers/workspace_provider.dart';
 import '../theme/app_theme.dart';
+import '../services/auth_service.dart';
 import 'schema_editor/structure_editor.dart';
 import 'schema_editor/dashboard_editor.dart';
 import 'schema_editor/settings_editor.dart';
@@ -158,7 +160,108 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
           ),
         ],
       ),
+      bottomNavigationBar: widget.isNewSetup ? null : Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _deactivateModule,
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: BorderSide(color: Colors.orange.shade700),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text('DEACTIVATE', style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.orange.shade700)),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: FilledButton(
+                onPressed: _terminateModule,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  backgroundColor: Colors.red.shade700,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: Text('TERMINATE', style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.white)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
+  }
+
+  Future<void> _deactivateModule() async {
+    final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      title: const Text('Deactivate Module'),
+      content: const Text('Deactivating will prevent users from opening this module. Data will not be deleted. Continue?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('DEACTIVATE')),
+      ],
+    ));
+    if (confirm != true) return;
+
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final userEmail = auth.currentUser?.email;
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      final workspaceId = workspaceProvider.currentWorkspace?.id;
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+      final driveService = driveProvider.driveService!;
+
+      if (userEmail == null || workspaceId == null) throw Exception('Missing user or workspace');
+
+      final uaFolderId = await driveService.ensureUserAccessFolder(workspaceId);
+      final uaFileId = await driveService.ensureUserAccessSpreadsheet(uaFolderId, userEmail);
+
+      await driveService.setUserAccessModuleStatus(uaFileId, widget.module.id, 'deactivated');
+
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Module deactivated')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to deactivate: $e')));
+    }
+  }
+
+  Future<void> _terminateModule() async {
+    final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      title: const Text('Terminate Module'),
+      content: const Text('Terminating will delete the module folder and remove access for users. This is irreversible. Continue?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('TERMINATE')),
+      ],
+    ));
+    if (confirm != true) return;
+
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final userEmail = auth.currentUser?.email;
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      final workspaceId = workspaceProvider.currentWorkspace?.id;
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+      final driveService = driveProvider.driveService!;
+
+      if (workspaceId == null) throw Exception('Missing workspace');
+
+      // Delete module folder (widget.module.id assumed to be folder id for installed modules)
+      await driveService.deleteFile(widget.module.id);
+
+      if (userEmail != null) {
+        final uaFolderId = await driveService.ensureUserAccessFolder(workspaceId);
+        final uaFileId = await driveService.ensureUserAccessSpreadsheet(uaFolderId, userEmail);
+        await driveService.removeUserAccessModule(uaFileId, widget.module.id);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Module terminated')));
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to terminate: $e')));
+    }
   }
 
   Future<void> _saveChanges() async {
