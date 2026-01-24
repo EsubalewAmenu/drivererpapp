@@ -220,6 +220,31 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
 
       List<dynamic> activeModules = [];
+      // Build a set of deactivated module ids from the per-user user_access spreadsheet (if available)
+      final deactivated = <String>{};
+      try {
+        final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+        String? uaId = workspaceProvider.lastUserAccessSpreadsheetId;
+        if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+        if (uaId != null && uaId.isNotEmpty && driveService != null) {
+          try {
+            final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
+            final all = resp.values ?? [];
+            if (all.isNotEmpty) {
+              final header = List<String>.from(all.first.map((e) => e.toString().toLowerCase()));
+              final rows = all.length > 1 ? all.sublist(1) : [];
+              final statusIdx = header.indexOf('status');
+              if (statusIdx != -1) {
+                for (var r in rows) {
+                  final id = r.isNotEmpty ? (r[0] as String) : '';
+                  final status = (r.length > statusIdx ? (r[statusIdx] ?? '') : '').toString().toLowerCase();
+                  if (id.isNotEmpty && status == 'deactivated') deactivated.add(id);
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
       try {
         if (driveService != null && workspaceId != null) {
           activeModules = await driveService.listModules(workspaceId);
@@ -261,6 +286,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
               }
             }
           } catch (_) {}
+
+          // If this module is deactivated for the current user, treat as not activated
+          if (deactivated.contains(modId)) activated = false;
 
           result.add({
             'id': modId,

@@ -5,6 +5,7 @@ import '../providers/drive_provider.dart';
 import '../providers/schema_provider.dart';
 import '../providers/workspace_provider.dart';
 import '../theme/app_theme.dart';
+import 'dashboard_screen.dart';
 import '../services/auth_service.dart';
 import 'schema_editor/structure_editor.dart';
 import 'schema_editor/dashboard_editor.dart';
@@ -219,7 +220,14 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
 
       await driveService.setUserAccessModuleStatus(uaFileId, widget.module.id, 'deactivated');
 
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Module deactivated')));
+      // Refresh workspace provider to force dashboards/lists to reload
+      if (workspaceProvider.currentWorkspace != null) workspaceProvider.setWorkspace(workspaceProvider.currentWorkspace!);
+
+      if (mounted) {
+        // Return to root Dashboard and refresh by replacing with a fresh screen
+        Navigator.popUntil(context, (r) => r.isFirst);
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to deactivate: $e')));
     }
@@ -255,9 +263,12 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
         await driveService.removeUserAccessModule(uaFileId, widget.module.id);
       }
 
+      // Refresh workspace provider so Dashboard reflects removed module
+      if (workspaceProvider.currentWorkspace != null) workspaceProvider.setWorkspace(workspaceProvider.currentWorkspace!);
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Module terminated')));
-        Navigator.pop(context);
+        Navigator.popUntil(context, (r) => r.isFirst);
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to terminate: $e')));
