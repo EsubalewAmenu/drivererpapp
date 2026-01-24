@@ -63,7 +63,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
               child: ElevatedButton(
                 onPressed: widget.onDeactivate,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
+                  backgroundColor: Colors.red.shade400,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
