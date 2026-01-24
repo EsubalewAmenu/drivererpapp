@@ -441,6 +441,53 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
       
       final moduleName = _formValues['name'] ?? widget.moduleInfo['name']!;
 
+        // If the user already has this module in their per-user `modules` sheet
+        // and it's marked `deactivated`, simply re-activate by flipping the
+        // status back to `activated` and return — do not create folders or seed data.
+        try {
+          final userEmail = capturedUserEmail;
+          if (userEmail != null && userEmail.isNotEmpty) {
+            final userAccessFolderId = await (driveService as dynamic).ensureUserAccessFolder(workspaceId);
+            final userAccessFileId = await (driveService as dynamic).ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
+
+            // Read header to locate 'status' column
+            try {
+              final headerResp = await (driveService as dynamic).sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A1:Z1');
+              final headerRow = (headerResp.values != null && headerResp.values!.isNotEmpty) ? List<String>.from(headerResp.values!.first.map((e) => e.toString())) : <String>[];
+              int statusIndex = headerRow.indexOf('status');
+
+              final resp = await (driveService as dynamic).sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A2:Z');
+              final values = resp.values ?? [];
+              for (final rowVals in values) {
+                final row = List<String>.from(rowVals.map((e) => e.toString()));
+                final rowName = row.length > 1 ? row[1] : '';
+                if (rowName.trim().toLowerCase() == moduleName.toString().trim().toLowerCase()) {
+                  final currentStatus = (statusIndex != -1 && row.length > statusIndex) ? row[statusIndex] : '';
+                  if (currentStatus.toString().toLowerCase() == 'deactivated') {
+                    final moduleId = row.isNotEmpty ? row[0] : null;
+                    if (moduleId != null && moduleId.isNotEmpty) {
+                      await (driveService as dynamic).setUserAccessModuleStatus(userAccessFileId, moduleId, 'activated');
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$moduleName re-activated.')));
+                        Navigator.pushAndRemoveUntil(
+                          context,
+                          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                          (route) => false,
+                        );
+                      }
+                      return;
+                    }
+                  }
+                }
+              }
+            } catch (e) {
+              debugPrint('Error scanning user access for deactivated module: $e');
+            }
+          }
+        } catch (e) {
+          debugPrint('Error ensuring user access for re-activation check: $e');
+        }
+
       // Create the module folder in Drive
       final _createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
       dynamic createdModule;
@@ -461,7 +508,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
           if (tab is Map && tab['initial_data'] != null) {
             final initialData = tab['initial_data'] as List;
             final tabId = tab['id'];
-            
+
             for (var record in initialData) {
               if (record is Map<String, dynamic>) {
                 try {
@@ -477,21 +524,21 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                 }
               }
             }
-              // After seeding, capture the created spreadsheet id and attach to the tab
-              try {
-                final _existingIdRes = (driveService as dynamic).getFileId(moduleFolderId, tabId);
-                dynamic existingId;
-                if (_existingIdRes is Future) {
-                  existingId = await _existingIdRes;
-                } else {
-                  existingId = _existingIdRes;
-                }
-                if (existingId != null) {
-                  tab['fileId'] = existingId;
-                }
-              } catch (e) {
-                debugPrint('Error fetching fileId for $tabId after seeding: $e');
+            // After seeding, capture the created spreadsheet id and attach to the tab
+            try {
+              final _existingIdRes = (driveService as dynamic).getFileId(moduleFolderId, tabId);
+              dynamic existingId;
+              if (_existingIdRes is Future) {
+                existingId = await _existingIdRes;
+              } else {
+                existingId = _existingIdRes;
               }
+              if (existingId != null) {
+                tab['fileId'] = existingId;
+              }
+            } catch (e) {
+              debugPrint('Error fetching fileId for $tabId after seeding: $e');
+            }
           }
         }
       }
@@ -544,7 +591,7 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
           // Also ensure user's access spreadsheet is updated with this module info
           try {
             final userEmail = capturedUserEmail;
-            if (userEmail != null && userEmail.isNotEmpty) {
+              if (userEmail != null && userEmail.isNotEmpty) {
               final userAccessFolderId = await (driveService as dynamic).ensureUserAccessFolder(workspaceId);
               final userAccessFileId = await (driveService as dynamic).ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
               final configFolderIdFetched = await (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
@@ -552,6 +599,11 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
               final tabsId = await (driveService as dynamic).getFileId(configFolderIdFetched, '${userEmail}_tabs');
               final settingsId = await (driveService as dynamic).getFileId(configFolderIdFetched, '${userEmail}_settings');
               await (driveService as dynamic).upsertUserAccessModule(userAccessFileId, moduleFolderId, moduleName, dashboardId ?? '', settingsId ?? '', tabsId ?? '');
+              try {
+                await (driveService as dynamic).setUserAccessModuleStatus(userAccessFileId, moduleFolderId, 'activated');
+              } catch (e) {
+                debugPrint('Error setting module status to activated: $e');
+              }
             }
           } catch (e) {
             debugPrint('Failed to update user access spreadsheet during module activation: $e');
