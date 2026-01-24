@@ -3,7 +3,10 @@ import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
 import '../providers/schema_provider.dart';
+import '../providers/workspace_provider.dart';
 import '../theme/app_theme.dart';
+import 'dashboard_screen.dart';
+import '../services/auth_service.dart';
 import 'schema_editor/structure_editor.dart';
 import 'schema_editor/dashboard_editor.dart';
 import 'schema_editor/settings_editor.dart';
@@ -155,10 +158,107 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
                 _rawSettings = newSchema;
               });
             },
+            onDeactivate: _deactivateModule,
+            onTerminate: _terminateModule,
           ),
         ],
       ),
+      bottomNavigationBar: null,
     );
+  }
+
+  Future<void> _deactivateModule() async {
+    final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      title: const Text('Deactivate Module'),
+      content: const Text('Deactivating will prevent users from opening this module. Data will not be deleted. Continue?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('DEACTIVATE')),
+      ],
+    ));
+    if (confirm != true) return;
+
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final userEmail = auth.currentUser?.email;
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      final workspaceId = workspaceProvider.currentWorkspace?.id;
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+      final driveService = driveProvider.driveService!;
+
+      if (userEmail == null || workspaceId == null) throw Exception('Missing user or workspace');
+
+      final uaFolderId = await driveService.ensureUserAccessFolder(workspaceId);
+      final uaFileId = await driveService.ensureUserAccessSpreadsheet(uaFolderId, userEmail);
+
+      await driveService.setUserAccessModuleStatus(uaFileId, widget.module.id, 'deactivated');
+
+      // Refresh workspace provider to force dashboards/lists to reload
+      if (workspaceProvider.currentWorkspace != null) workspaceProvider.setWorkspace(workspaceProvider.currentWorkspace!);
+
+      if (mounted) {
+        // Return to root Dashboard and refresh by replacing with a fresh screen
+        Navigator.popUntil(context, (r) => r.isFirst);
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to deactivate: $e')));
+    }
+  }
+
+  Future<void> _terminateModule() async {
+    final confirm = await showDialog<bool>(context: context, builder: (_) => AlertDialog(
+      title: const Text('Terminate Module'),
+      content: const Text('Terminating will delete the module folder and remove access for users. This is irreversible. Continue?'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
+        TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('TERMINATE')),
+      ],
+    ));
+    if (confirm != true) return;
+
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final userEmail = auth.currentUser?.email;
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      final workspaceId = workspaceProvider.currentWorkspace?.id;
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+      final driveService = driveProvider.driveService!;
+
+      if (workspaceId == null) throw Exception('Missing workspace');
+
+      // Delete module folder (widget.module.id assumed to be folder id for installed modules)
+      await driveService.deleteFile(widget.module.id);
+
+      if (userEmail != null) {
+        final uaFolderId = await driveService.ensureUserAccessFolder(workspaceId);
+        final uaFileId = await driveService.ensureUserAccessSpreadsheet(uaFolderId, userEmail);
+        await driveService.removeUserAccessModule(uaFileId, widget.module.id);
+      }
+
+      // Clear any cached configs and in-memory entries for this module
+      try {
+        final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+        try {
+          await schemaProvider.service.removeCachedConfig(widget.module.id);
+        } catch (_) {}
+        try {
+          schemaProvider.updateMemoryCache(widget.module.id, null);
+        } catch (_) {}
+      } catch (e) {
+        debugPrint('Error clearing schema cache after termination: $e');
+      }
+
+      // Refresh workspace provider so Dashboard reflects removed module
+      if (workspaceProvider.currentWorkspace != null) workspaceProvider.setWorkspace(workspaceProvider.currentWorkspace!);
+
+      if (mounted) {
+        Navigator.popUntil(context, (r) => r.isFirst);
+        Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const DashboardScreen()));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to terminate: $e')));
+    }
   }
 
   Future<void> _saveChanges() async {

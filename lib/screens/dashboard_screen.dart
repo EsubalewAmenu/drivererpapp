@@ -104,8 +104,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<List<drive.File>> _loadModulesFromUserAccess(DriveService driveService, String userAccessSpreadsheetId) async {
     try {
-      final resp = await driveService.sheetsApi.spreadsheets.values.get(userAccessSpreadsheetId, 'modules!A2:E');
-      final rows = resp.values ?? [];
+      final resp = await driveService.sheetsApi.spreadsheets.values.get(userAccessSpreadsheetId, 'modules!A1:Z');
+      final all = resp.values ?? [];
+      if (all.isEmpty) return [];
+      final header = List<String>.from(all.first.map((e) => e.toString().toLowerCase()));
+      final rows = all.length > 1 ? all.sublist(1) : [];
       // rows columns: id, module_name, dashboard, settings, tabs
       final files = <drive.File>[];
       _userAccessModuleSheets.clear();
@@ -115,6 +118,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final dashboardId = r.length > 2 ? (r[2] as String) : '';
         final settingsId = r.length > 3 ? (r[3] as String) : '';
         final tabsId = r.length > 4 ? (r[4] as String) : '';
+        // Check status column if present
+        String status = '';
+        final statusIdx = header.indexOf('status');
+        if (statusIdx != -1 && r.length > statusIdx) {
+          status = (r[statusIdx] ?? '').toString().toLowerCase();
+        }
+        if (status == 'deactivated') {
+          // Skip deactivated modules for this user
+          continue;
+        }
         if (id.isNotEmpty && name.isNotEmpty) {
           final f = drive.File()..id = id..name = name;
           files.add(f);

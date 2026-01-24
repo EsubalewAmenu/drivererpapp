@@ -86,6 +86,52 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       final moduleName = widget.moduleInfo['name']!;
       final assetKey = (widget.moduleInfo['id'] ?? widget.moduleInfo['name'])!.toString().toLowerCase().trim();
 
+      // If the user's per-user `modules` sheet contains this module_name and
+      // its `status` is `deactivated`, simply flip it to `activated` and
+      // return — do not create folders or seed data.
+      try {
+        final userEmail = capturedUserEmail;
+        if (userEmail != null && userEmail.isNotEmpty) {
+          final userAccessFolderId = await (driveService as dynamic).ensureUserAccessFolder(workspaceId);
+          final userAccessFileId = await (driveService as dynamic).ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
+
+          try {
+            final headerResp = await (driveService as dynamic).sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A1:Z1');
+            final headerRow = (headerResp.values != null && headerResp.values!.isNotEmpty) ? List<String>.from(headerResp.values!.first.map((e) => e.toString())) : <String>[];
+            int statusIndex = headerRow.indexOf('status');
+
+            final resp = await (driveService as dynamic).sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A2:Z');
+            final values = resp.values ?? [];
+            for (final rowVals in values) {
+              final row = List<String>.from(rowVals.map((e) => e.toString()));
+              final rowName = row.length > 1 ? row[1] : '';
+              if (rowName.trim().toLowerCase() == moduleName.toString().trim().toLowerCase()) {
+                final currentStatus = (statusIndex != -1 && row.length > statusIndex) ? row[statusIndex] : '';
+                if (currentStatus.toString().toLowerCase() == 'deactivated') {
+                  final moduleId = row.isNotEmpty ? row[0] : null;
+                  if (moduleId != null && moduleId.isNotEmpty) {
+                    await (driveService as dynamic).setUserAccessModuleStatus(userAccessFileId, moduleId, 'activated');
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$moduleName re-activated.')));
+                      Navigator.pushAndRemoveUntil(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DashboardScreen()),
+                        (route) => false,
+                      );
+                    }
+                    return;
+                  }
+                }
+              }
+            }
+          } catch (e) {
+            debugPrint('Error scanning user access for deactivated module: $e');
+          }
+        }
+      } catch (e) {
+        debugPrint('Error ensuring user access for re-activation check: $e');
+      }
+
       // Create the module folder in Drive
       final _createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
       dynamic createdModule;
@@ -287,6 +333,11 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               final userAccessFileId = await (driveService as dynamic).ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
 
               await (driveService as dynamic).upsertUserAccessModule(userAccessFileId, moduleFolderId, moduleName, dashboardId ?? '', settingsId ?? '', tabsId ?? '');
+              try {
+                await (driveService as dynamic).setUserAccessModuleStatus(userAccessFileId, moduleFolderId, 'activated');
+              } catch (e) {
+                debugPrint('Error setting module status to activated: $e');
+              }
             }
           } catch (e) {
             debugPrint('Failed to update user access spreadsheet during module activation: $e');

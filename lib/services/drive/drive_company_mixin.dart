@@ -437,4 +437,103 @@ mixin DriveCompanyMixin {
       rethrow;
     }
   }
+
+  /// Sets a `status` value for a module row in the user's `modules` sheet.
+  /// If the `status` column does not exist it will be appended to the header.
+  Future<void> setUserAccessModuleStatus(String userAccessFileId, String moduleId, String status) async {
+    try {
+      // 1. Ensure header includes 'status'
+      final headerResp = await retryOp(() => sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A1:Z1'));
+      final headerRow = (headerResp.values != null && headerResp.values!.isNotEmpty) ? List<String>.from(headerResp.values!.first.map((e) => e.toString())) : <String>[];
+      int statusIndex = headerRow.indexOf('status');
+      if (statusIndex == -1) {
+        headerRow.add('status');
+        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [headerRow]), userAccessFileId, 'modules!A1', valueInputOption: 'RAW'));
+        statusIndex = headerRow.length - 1;
+      }
+
+      // 2. Find module row
+      final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A2:${String.fromCharCode(65 + headerRow.length - 1)}'));
+      final values = resp.values ?? [];
+      int foundRow = -1;
+      for (int i = 0; i < values.length; i++) {
+        final rowVals = values[i];
+        if (rowVals.isNotEmpty && rowVals[0] == moduleId) {
+          foundRow = i + 2; // header + 1-based
+          break;
+        }
+      }
+
+      // Helper to convert 0-based column index to letter (A,B,...)
+      String colLetter(int idx) {
+        int i = idx;
+        String ret = '';
+        while (i >= 0) {
+          ret = String.fromCharCode(65 + (i % 26)) + ret;
+          i = (i / 26).floor() - 1;
+        }
+        return ret;
+      }
+
+      final statusCol = colLetter(statusIndex);
+
+      if (foundRow != -1) {
+        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [[status]]), userAccessFileId, 'modules!$statusCol$foundRow:$statusCol$foundRow', valueInputOption: 'RAW'));
+      } else {
+        final newRow = List.filled(headerRow.length, '');
+        newRow[0] = moduleId;
+        newRow[statusIndex] = status;
+        await retryOp(() => sheetsApi.spreadsheets.values.append(sheets.ValueRange(values: [newRow]), userAccessFileId, 'modules!A1', valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS'));
+      }
+    } catch (e) {
+      debugPrint('Error setting module status in user access file: $e');
+      rethrow;
+    }
+  }
+
+  /// Removes a module row from the user's `modules` sheet. Attempts to delete
+  /// the row; if sheet metadata is unavailable, falls back to clearing the row.
+  Future<void> removeUserAccessModule(String userAccessFileId, String moduleId) async {
+    try {
+      final meta = await retryOp(() => sheetsApi.spreadsheets.get(userAccessFileId));
+      final sheetsList = meta.sheets ?? [];
+      int modulesSheetId = -1;
+      for (var s in sheetsList) {
+        if (s.properties?.title == 'modules') {
+          modulesSheetId = s.properties?.sheetId ?? -1;
+          break;
+        }
+      }
+
+      // Fetch rows to find target row index
+      final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A2:Z'));
+      final values = resp.values ?? [];
+      int foundRow = -1;
+      for (int i = 0; i < values.length; i++) {
+        final rowVals = values[i];
+        if (rowVals.isNotEmpty && rowVals[0] == moduleId) {
+          foundRow = i + 2; // account for header
+          break;
+        }
+      }
+
+      if (foundRow == -1) return; // nothing to do
+
+      if (modulesSheetId != -1) {
+        // Delete the row via batchUpdate DeleteDimensionRequest
+        final deleteReq = sheets.BatchUpdateSpreadsheetRequest(requests: [
+          sheets.Request(deleteDimension: sheets.DeleteDimensionRequest(range: sheets.DimensionRange(sheetId: modulesSheetId, dimension: 'ROWS', startIndex: foundRow - 1, endIndex: foundRow)))
+        ]);
+        await retryOp(() => sheetsApi.spreadsheets.batchUpdate(deleteReq, userAccessFileId));
+      } else {
+        // Fallback: clear the row's values
+        final colCount = 10;
+        final clearRange = 'modules!A$foundRow:${String.fromCharCode(65 + colCount - 1)}$foundRow';
+        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [List.filled(colCount, '')]), userAccessFileId, clearRange, valueInputOption: 'RAW'));
+      }
+    } catch (e) {
+      debugPrint('Error removing module row from user access file: $e');
+      rethrow;
+    }
+  }
 }

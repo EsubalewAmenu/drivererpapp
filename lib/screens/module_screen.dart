@@ -220,6 +220,31 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
 
       List<dynamic> activeModules = [];
+      // Build a set of deactivated module ids from the per-user user_access spreadsheet (if available)
+      final deactivated = <String>{};
+      try {
+        final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+        String? uaId = workspaceProvider.lastUserAccessSpreadsheetId;
+        if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+        if (uaId != null && uaId.isNotEmpty && driveService != null) {
+          try {
+            final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
+            final all = resp.values ?? [];
+            if (all.isNotEmpty) {
+              final header = List<String>.from(all.first.map((e) => e.toString().toLowerCase()));
+              final rows = all.length > 1 ? all.sublist(1) : [];
+              final statusIdx = header.indexOf('status');
+              if (statusIdx != -1) {
+                for (var r in rows) {
+                  final id = r.isNotEmpty ? (r[0] as String) : '';
+                  final status = (r.length > statusIdx ? (r[statusIdx] ?? '') : '').toString().toLowerCase();
+                  if (id.isNotEmpty && status == 'deactivated') deactivated.add(id);
+                }
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
       try {
         if (driveService != null && workspaceId != null) {
           activeModules = await driveService.listModules(workspaceId);
@@ -261,6 +286,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
               }
             }
           } catch (_) {}
+
+          // If this module is deactivated for the current user, treat as not activated
+          if (deactivated.contains(modId)) activated = false;
 
           result.add({
             'id': modId,
@@ -417,6 +445,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
   Future<void> _processJson(Map<String, dynamic> jsonMap, {bool isAssetFallback = false}) async {
     if (!mounted) return;
+
+    // Capture providers now to avoid accessing `context` after awaits
+    final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    final driveServiceFromProvider = driveProvider.driveService;
     
     try {
       // Parse JSON to ModuleSchema
@@ -536,9 +570,8 @@ class _ModuleScreenState extends State<ModuleScreen> {
       // provide Drive/Workspace providers don't crash.
       final installedNames = <String>{};
       try {
-        final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-        final driveService = driveProvider.driveService;
-        final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
+        final driveService = driveServiceFromProvider;
+        final workspaceId = workspaceProvider.currentWorkspace?.id;
         if (driveService != null && workspaceId != null) {
           final activeModules = await driveService.listModules(workspaceId);
           for (var m in activeModules) {
@@ -552,7 +585,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
       for (final otherModuleId in extensionKeys) {
           try {
-            ModuleSchema? otherModule = Provider.of<SchemaProvider>(context, listen: false).getFromMemory(otherModuleId);
+           ModuleSchema? otherModule = schemaProvider.getFromMemory(otherModuleId);
             Map<String, dynamic>? otherJson;
             if (otherModule == null) {
               // Try to load from assets by module id/name
@@ -748,7 +781,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
       );
 
       // Update memory cache for instant access next time
-      Provider.of<SchemaProvider>(context, listen: false).updateMemoryCache(widget.module.id, mergedModule);
+      schemaProvider.updateMemoryCache(widget.module.id, mergedModule);
 
       if (mounted) {
         setState(() {
