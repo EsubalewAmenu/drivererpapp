@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
 import '../providers/schema_provider.dart';
 import 'dynamic_form_screen.dart';
+import 'dynamic_form/conditional_utils.dart';
 import 'record_detail/table_field_view.dart';
 import 'record_detail/text_field_view.dart';
 import 'record_detail/list_field_view.dart';
@@ -44,6 +45,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   bool _wasEdited = false;
   final Map<String, String> _relationLabels = {};
   final Set<String> _loadingTableFields = {};
+  final Set<String> _attemptedTableFields = {};
 
   @override
   void initState() {
@@ -440,35 +442,57 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
       if (col.dependsOn != null && col.dependsOn!.isNotEmpty) {
         final dependency = col.dependsOn!;
-        
-        // Check for negation
-        bool expectedValue = true;
+
+        // Support negation prefix (e.g. '!field')
+        bool negate = false;
         String actualDependency = dependency;
         if (dependency.startsWith('!')) {
-          expectedValue = false;
+          negate = true;
           actualDependency = dependency.substring(1);
         }
 
-        bool isTruthy = false;
+        // If dependency references settings, evaluate against setting value
         if (actualDependency.startsWith('settings.')) {
-          final settingKey = actualDependency.replaceFirst('settings.', '');
+          final settingKey = actualDependency.split('.').length > 1 ? actualDependency.split('.')[1] : '';
           final setting = widget.settings[settingKey];
-          if (setting != null) {
-            final val = setting.value;
-            if (val is bool) isTruthy = val;
-            else if (val is String) isTruthy = val.isNotEmpty;
-            else if (val is List) isTruthy = val.isNotEmpty;
-            else isTruthy = val != null;
+          final dependentValue = setting?.value;
+
+          if (col.dependsValue != null) {
+            final match = evaluateDependency(dependentValue, col.dependsValue, col.dependsOperator);
+            if (negate ? !match : match) {
+              // ok
+            } else {
+              return false;
+            }
+          } else {
+            bool isTruthy = false;
+            if (dependentValue is bool) isTruthy = dependentValue;
+            else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
+            else if (dependentValue is List) isTruthy = dependentValue.isNotEmpty;
+            else isTruthy = dependentValue != null;
+
+            if (isTruthy != !negate) return false;
           }
         } else {
-          final val = _currentData[actualDependency];
-          if (val is bool) isTruthy = val;
-          else if (val is String) isTruthy = val.isNotEmpty;
-          else if (val is List) isTruthy = val.isNotEmpty;
-          else isTruthy = val != null;
-        }
+          final dependentValue = _currentData[actualDependency];
 
-        if (isTruthy != expectedValue) return false;
+          if (col.dependsValue != null) {
+            final match = evaluateDependency(dependentValue, col.dependsValue, col.dependsOperator);
+            if (negate ? !match : match) {
+              // ok
+            } else {
+              return false;
+            }
+          } else {
+            bool isTruthy = false;
+            if (dependentValue is bool) isTruthy = dependentValue;
+            else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
+            else if (dependentValue is List) isTruthy = dependentValue.isNotEmpty;
+            else isTruthy = dependentValue != null;
+
+            if (isTruthy != !negate) return false;
+          }
+        }
       }
       return true;
     }).toList();
@@ -505,33 +529,69 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
            return _buildTableField(col, itemsList);
         }
 
-        // Relation fields: prefer resolved human label when available
-        String displayValue;
+        // Relation fields: prefer resolved human label when available.
+        // While unresolved, show a small CircularProgressIndicator inside
+        // the same styled container used by TextFieldView.
         if (col.type == 'relation') {
           if (value == null) {
-            displayValue = 'N/A';
-          } else {
-            displayValue = _relationLabels[col.key] ?? value.toString();
+            return TextFieldView(label: col.label, value: 'N/A');
           }
-        } else {
-          displayValue = value?.toString() ?? 'N/A';
+
+          if (_relationLabels.containsKey(col.key)) {
+            return TextFieldView(label: col.label, value: _relationLabels[col.key]!);
+          }
+
+          // Loading state
+          final theme = Theme.of(context);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                col.label.toUpperCase(),
+                style: AppTheme.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: theme.textTheme.bodyMedium?.color,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.cardTheme.color,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: const [
+                    SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                    SizedBox(width: 12),
+                  ],
+                ),
+              ),
+            ],
+          );
         }
 
-            if (col.type == 'image' || col.key.toLowerCase().contains('image') || col.key.toLowerCase().contains('photo')) {
-              return ImageFieldView(label: col.label, rawValue: displayValue, primaryColor: widget.primaryColor);
-            }
-        
-          if (col.key.toLowerCase() == 'status') {
-            return StatusFieldView(label: col.label, value: displayValue);
-          }
+        // Non-relation fields
+        String displayValue = value?.toString() ?? 'N/A';
 
-          if (col.type == 'formula') {
-            return FormulaFieldView(label: col.label, value: displayValue);
-          }
+        if (col.type == 'image' || col.key.toLowerCase().contains('image') || col.key.toLowerCase().contains('photo')) {
+          return ImageFieldView(label: col.label, rawValue: displayValue, primaryColor: widget.primaryColor);
+        }
 
-          if (col.type == 'list') {
-            return ListFieldView(label: col.label, value: value, primaryColor: widget.primaryColor);
-          }
+        if (col.key.toLowerCase() == 'status') {
+          return StatusFieldView(label: col.label, value: displayValue);
+        }
+
+        if (col.type == 'formula') {
+          return FormulaFieldView(label: col.label, value: displayValue);
+        }
+
+        if (col.type == 'list') {
+          return ListFieldView(label: col.label, value: value, primaryColor: widget.primaryColor);
+        }
 
         return TextFieldView(label: col.label, value: displayValue);
       },
@@ -565,41 +625,117 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     // sub-table data from the Drive backend using the parent record_id.
     if (itemsList.isEmpty && widget.module != null && _currentData['record_id'] != null) {
       final fieldKey = col.key;
-      if (!_loadingTableFields.contains(fieldKey)) {
-        _loadingTableFields.add(fieldKey);
-        final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
-        if (driveService != null) {
-          driveService.fetchRecords(
-            widget.module!.id,
-            widget.module!.name,
-            widget.tab.id,
-            fetchSubTables: true,
-            limit: 1,
-            quickFilter: {
-              'field': 'parent_record_id',
-              'operator': '==',
-              'value': _currentData['record_id']?.toString(),
-            },
-          ).then((recs) {
-            if (recs.isNotEmpty) {
-              final fetched = recs.first[fieldKey];
-              if (fetched != null) {
+        if (!_loadingTableFields.contains(fieldKey) && !_attemptedTableFields.contains(fieldKey)) {
+          _loadingTableFields.add(fieldKey);
+          _attemptedTableFields.add(fieldKey);
+          final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+          if (driveService != null) {
+            // Fetch the main tab (spreadsheet) including sub-tables, then
+            // find the main record that matches our parent_record_id and
+            // extract its attached sub-table rows for the given fieldKey.
+            // Fetch the dedicated sub-sheet named '<tabId>.<fieldKey>' and
+            // filter rows by 'parent_record_id' (or common variants). This
+            // keeps the request scoped to the child sheet instead of pulling
+            // the entire main sheet with embedded sub-tables.
+            final childTabId = '${widget.tab.id}.' + fieldKey;
+            driveService.fetchRecords(
+              widget.module!.id,
+              widget.module!.name,
+              childTabId,
+            ).then((recs) {
+              try {
+                final recordIdStr = _currentData['record_id']?.toString();
+                if (recordIdStr == null) {
+                  if (mounted) setState(() { _currentData[fieldKey] = []; });
+                  return;
+                }
+
+                // Filter rows that belong to this parent record using the
+                // conventional 'parent_record_id' column. Support common
+                // alternatives: 'parent_record', 'parent_id'.
+                final matchedRows = recs.where((r) {
+                  try {
+                    final v = r['parent_record_id'] ?? r['parent_record'] ?? r['parent_id'];
+                    return v?.toString() == recordIdStr;
+                  } catch (_) {
+                    return false;
+                  }
+                }).toList();
+
+                final normalized = matchedRows.map((e) {
+                  if (e is Map) return Map<String, dynamic>.from(e);
+                  return {'value': e?.toString() ?? ''};
+                }).toList();
                 if (mounted) {
                   setState(() {
-                    _currentData[fieldKey] = fetched;
+                    _currentData[fieldKey] = normalized;
                   });
                 }
+
+                // If no rows were found in the dedicated sub-sheet, fall back
+                // to fetching the main tab (with embedded sub-tables) and
+                // extract the sub-table attached to the main record.
+                if (normalized.isEmpty) {
+                  driveService.fetchRecords(
+                    widget.module!.id,
+                    widget.module!.name,
+                    widget.tab.id,
+                    fetchSubTables: true,
+                  ).then((recs) {
+                    try {
+                      final recordIdStr = _currentData['record_id']?.toString();
+                      if (recordIdStr == null) return;
+
+                      final matched = recs.firstWhere((r) => r['record_id']?.toString() == recordIdStr || r['id']?.toString() == recordIdStr, orElse: () => {});
+                      if (matched.isNotEmpty) {
+                        dynamic fetched = matched[fieldKey];
+                        if (fetched == null) fetched = matched['${widget.tab.id}.' + fieldKey];
+                        if (fetched == null) {
+                          for (var k in matched.keys) {
+                            if (k is String && k.endsWith('.' + fieldKey)) {
+                              fetched = matched[k];
+                              break;
+                            }
+                          }
+                        }
+
+                        if (fetched is String) {
+                          try {
+                            final decoded = jsonDecode(fetched);
+                            fetched = decoded;
+                          } catch (_) {}
+                        }
+
+                        if (fetched is List) {
+                          final norm = fetched.map((e) => e is Map ? Map<String, dynamic>.from(e) : {'value': e?.toString() ?? ''}).toList();
+                          if (mounted) setState(() => _currentData[fieldKey] = norm);
+                        } else if (fetched is Map) {
+                          if (mounted) setState(() => _currentData[fieldKey] = [Map<String, dynamic>.from(fetched)]);
+                        } else if (fetched != null) {
+                          if (mounted) setState(() => _currentData[fieldKey] = [{'value': fetched.toString()}]);
+                        } else {
+                          if (mounted) setState(() => _currentData[fieldKey] = []);
+                        }
+                      }
+                    } catch (e) {
+                      debugPrint('Fallback error processing sub-table for $fieldKey: $e');
+                    }
+                  }).catchError((e) {
+                    debugPrint('Fallback error fetching main tab for $fieldKey: $e');
+                  });
+                }
+              } catch (e) {
+                debugPrint('Error processing sub-table results for $fieldKey: $e');
               }
-            }
-          }).catchError((e) {
-            debugPrint('Error fetching sub-table $fieldKey: $e');
-          }).whenComplete(() {
+            }).catchError((e) {
+              debugPrint('Error fetching sub-sheet $childTabId for $fieldKey: $e');
+            }).whenComplete(() {
+              _loadingTableFields.remove(fieldKey);
+            });
+          } else {
             _loadingTableFields.remove(fieldKey);
-          });
-        } else {
-          _loadingTableFields.remove(fieldKey);
+          }
         }
-      }
     }
 
     return TableFieldView(col: col, items: itemsList);
