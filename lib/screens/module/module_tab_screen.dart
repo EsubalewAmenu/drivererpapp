@@ -82,6 +82,12 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   int _currentOffset = 0;
   static const int _pageSize = 20;
 
+  // Seeding state for lazy-initialized spreadsheets
+  bool _isSeeding = false;
+  int _seedingProgress = 0;
+  int _seedingTotal = 0;
+  String? _seedingFileName;
+
   String? _errorMessage;
   String _searchQuery = '';
   String? _activeFilter;
@@ -411,29 +417,41 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               }
 
               // Seed initial records in background and refresh when done.
+              if (mounted) {
+                setState(() {
+                  _isSeeding = true;
+                  _seedingProgress = 0;
+                  _seedingTotal = tabInitialData?.length ?? 0;
+                  _seedingFileName = fetchTabId;
+                });
+              }
+
               Future.microtask(() async {
                 try {
                   for (var rec in tabInitialData!) {
-                    if (rec is Map<String, dynamic>) {
-                      try {
-                        await _driveService.saveRecord(fetchModuleId, fetchTabId, fetchTabId, rec);
-                      } catch (e) {
-                        debugPrint('Error seeding record for $fetchTabId: $e');
-                      }
-                    } else if (rec is Map) {
-                      try {
-                        await _driveService.saveRecord(fetchModuleId, fetchTabId, fetchTabId, Map<String, dynamic>.from(rec));
-                      } catch (e) {
-                        debugPrint('Error seeding record for $fetchTabId: $e');
-                      }
+                    try {
+                      final recordMap = rec is Map<String, dynamic> ? rec : Map<String, dynamic>.from(rec as Map);
+                      await _driveService.saveRecord(fetchModuleId, fetchTabId, fetchTabId, recordMap);
+                    } catch (e) {
+                      debugPrint('Error seeding record for $fetchTabId: $e');
+                    }
+
+                    if (mounted) {
+                      setState(() {
+                        _seedingProgress = (_seedingProgress + 1).clamp(0, _seedingTotal);
+                      });
                     }
                   }
                 } catch (e) {
                   debugPrint('Error during background seeding: $e');
                 }
 
-                // Trigger a refresh to pick up seeded records
+                // Finish seeding state and trigger a refresh to pick up seeded records
                 if (mounted) {
+                  setState(() {
+                    _isSeeding = false;
+                    _seedingProgress = _seedingTotal;
+                  });
                   try {
                     await _loadData(refresh: true);
                   } catch (_) {}
@@ -757,6 +775,39 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
     final theme = Theme.of(context);
     if (_filteredData.isEmpty) {
+      if (_isSeeding) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(height: 8),
+                Text(
+                  _seedingFileName != null
+                      ? 'Creating file "${_seedingFileName}" and adding seed data...'
+                      : 'Preparing data...',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                LinearProgressIndicator(
+                  value: _seedingTotal > 0 ? _seedingProgress / _seedingTotal : null,
+                  color: widget.primaryColor,
+                  backgroundColor: theme.dividerColor,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _seedingTotal > 0
+                      ? 'Seeding ${_seedingProgress}/${_seedingTotal} records...'
+                      : 'Seeding...',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        );
+      }
+
       return const ModuleEmptyView();
     }
 
