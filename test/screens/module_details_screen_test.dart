@@ -235,7 +235,8 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    verify(() => mockDriveService.saveRecord('mod123', 'Inventory', 't1', any())).called(2);
+    // Seeding is now deferred until the module's list view loads.
+    verifyNever(() => mockDriveService.saveRecord('mod123', 'Inventory', 't1', any()));
     expect(find.byType(DashboardScreen), findsOneWidget);
     
     // Cleanup mock handler
