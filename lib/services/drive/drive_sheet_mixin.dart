@@ -798,6 +798,65 @@ mixin DriveSheetMixin {
     }
   }
 
+  /// Save a record directly to a known spreadsheet id (fileId).
+  Future<void> saveRecordBySpreadsheetId(String spreadsheetId, String sheetTitle, Map<String, dynamic> data) async {
+    try {
+      // 1. Prepare Data with Technical Fields
+      final recordId = data['record_id'] ?? DateTime.now().microsecondsSinceEpoch.toString();
+      final finalData = Map<String, dynamic>.from(data);
+      finalData['record_id'] = recordId;
+      if (finalData['created_at'] == null) {
+        finalData['created_at'] = DateTime.now().toIso8601String();
+      }
+
+      // 2. Extract Nested Lists (Tables)
+      final nestedTables = <String, List<dynamic>>{};
+      final keysToRemove = <String>[];
+      final keysToEncode = <String>[];
+      
+      finalData.forEach((key, value) {
+        if (value is List) {
+          final isNestedTable = value.isNotEmpty && value.first is Map;
+          if (isNestedTable) {
+            nestedTables[key] = value;
+            keysToRemove.add(key);
+          } else {
+            keysToEncode.add(key);
+          }
+        }
+      });
+
+      for (var key in keysToEncode) {
+        finalData[key] = jsonEncode(finalData[key]);
+      }
+
+      for (var key in keysToRemove) {
+        finalData.remove(key);
+      }
+
+      // 3. Save Main Record
+      await _saveToSheet(spreadsheetId, sheetTitle, finalData);
+
+      // 4. Save Nested Tables
+      for (var entry in nestedTables.entries) {
+        final subSheetTitle = '$sheetTitle.${entry.key}';
+        for (var item in entry.value) {
+          if (item is Map) {
+            final itemData = Map<String, dynamic>.from(item);
+            itemData['parent_record_id'] = recordId;
+            if (itemData['sub_record_id'] == null) {
+              itemData['sub_record_id'] = DateTime.now().microsecondsSinceEpoch.toString();
+            }
+            await _saveToSheet(spreadsheetId, subSheetTitle, itemData);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error saving record by spreadsheetId $spreadsheetId: $e');
+      rethrow;
+    }
+  }
+
   Future<void> deleteRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, String recordId) async {
     try {
       // 1. Find Spreadsheet

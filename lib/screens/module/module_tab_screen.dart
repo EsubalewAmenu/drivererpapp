@@ -196,7 +196,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   }
 
   Future<void> _loadData({bool refresh = false}) async {
+    debugPrint('ModuleTabScreen._loadData called for tab=${widget.tab.id} refresh=$refresh');
     if (widget.module == null) {
+      debugPrint('ModuleTabScreen: widget.module is null, aborting load');
       if (mounted) setState(() => _isLoading = false);
       return;
     }
@@ -230,6 +232,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       }
 
       final rawEffectiveTab = _effectiveTabId();
+      debugPrint('Resolved rawEffectiveTab=$rawEffectiveTab');
 
       // Simpler resolution: use the tab's source module id and effective tab id
       // by splitting on '_' when needed. This avoids complex cross-mapping and
@@ -356,7 +359,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             }
           }
         }
-        debugPrint('ModuleTabScreen: cachedConfig for $fetchModuleId exists=${cachedConfig!=null} tabFileId=$tabFileId');
+        debugPrint('ModuleTabScreen: cachedConfig for $fetchModuleId exists=${cachedConfig!=null} tabFileId=$tabFileId tabInitialDataCount=${tabInitialData?.length ?? 0}');
 
         if (tabFileId != null && tabFileId.isNotEmpty) {
           try {
@@ -377,7 +380,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           } catch (e) {
             debugPrint('Error fetching by cached fileId $tabFileId: $e. Will recreate spreadsheet and persist new fileId.');
             try {
+              debugPrint('Attempting to create new spreadsheet in folder $fetchModuleId with title $fetchTabId');
               final newSpreadsheetId = await _driveService.createSpreadsheetInFolder(fetchModuleId, fetchTabId);
+              debugPrint('Created spreadsheet id=$newSpreadsheetId for $fetchTabId');
 
               // Update cached config to store fileId for this tab so future loads use the file directly.
               try {
@@ -421,14 +426,21 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
                 Future.microtask(() async {
                   try {
-                    for (var rec in tabInitialData!) {
-                      try {
-                        final recordMap = rec is Map<String, dynamic> ? rec : Map<String, dynamic>.from(rec as Map);
-                        // Use saveRecord which will resolve/create by name in folder; we already created the spreadsheet and persisted its id
-                        await _driveService.saveRecord(fetchModuleId, fetchTabId, fetchTabId, recordMap);
-                      } catch (e) {
-                        debugPrint('Error seeding record for $fetchTabId after recreate: $e');
-                      }
+                      for (var i = 0; i < tabInitialData!.length; i++) {
+                        final rec = tabInitialData![i];
+                        try {
+                          final recordMap = rec is Map<String, dynamic> ? rec : Map<String, dynamic>.from(rec as Map);
+                          debugPrint('Seeding record ${i + 1}/${tabInitialData.length} to spreadsheetId=$tabFileId sheet=$fetchTabId');
+                          // Prefer saving directly by spreadsheet id when available
+                          try {
+                            await _driveService.saveRecordBySpreadsheetId(tabFileId!, fetchTabId, recordMap);
+                          } catch (e) {
+                            debugPrint('saveRecordBySpreadsheetId failed, falling back to saveRecord: $e');
+                            await _driveService.saveRecord(fetchModuleId, fetchTabId, fetchTabId, recordMap);
+                          }
+                        } catch (e) {
+                          debugPrint('Error seeding record for $fetchTabId after recreate: $e');
+                        }
 
                       if (mounted) {
                         setState(() {
@@ -533,10 +545,22 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
               Future.microtask(() async {
                 try {
-                  for (var rec in tabInitialData!) {
+                  // Ensure we seed using the known spreadsheet id if we set it in cachedConfig
+                  String? seedFileId = newSpreadsheetId;
+                  for (var i = 0; i < tabInitialData!.length; i++) {
+                    final rec = tabInitialData![i];
                     try {
                       final recordMap = rec is Map<String, dynamic> ? rec : Map<String, dynamic>.from(rec as Map);
-                      await _driveService.saveRecord(fetchModuleId, fetchTabId, fetchTabId, recordMap);
+                      debugPrint('Seeding record ${i + 1}/${tabInitialData.length} to newSpreadsheetId=$seedFileId sheet=$fetchTabId');
+                      try {
+                        if (seedFileId != null && seedFileId.isNotEmpty) {
+                          await _driveService.saveRecordBySpreadsheetId(seedFileId, fetchTabId, recordMap);
+                        } else {
+                          await _driveService.saveRecord(fetchModuleId, fetchTabId, fetchTabId, recordMap);
+                        }
+                      } catch (e) {
+                        debugPrint('Error saving seeded record (by id or fallback): $e');
+                      }
                     } catch (e) {
                       debugPrint('Error seeding record for $fetchTabId: $e');
                     }
