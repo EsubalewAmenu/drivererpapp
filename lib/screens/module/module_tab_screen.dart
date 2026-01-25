@@ -426,25 +426,22 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
                 Future.microtask(() async {
                   try {
-                      for (var i = 0; i < tabInitialData!.length; i++) {
-                        final rec = tabInitialData![i];
-                        try {
-                          final recordMap = rec is Map<String, dynamic> ? rec : Map<String, dynamic>.from(rec as Map);
-                          debugPrint('Seeding record ${i + 1}/${tabInitialData.length} to spreadsheetId=$tabFileId sheet=$fetchTabId');
-                          // Prefer saving directly by spreadsheet id when available
-                          try {
-                            await _driveService.saveRecordBySpreadsheetId(tabFileId!, fetchTabId, recordMap);
-                          } catch (e) {
-                            debugPrint('saveRecordBySpreadsheetId failed, falling back to saveRecord: $e');
-                            await _driveService.saveRecord(fetchModuleId, fetchTabId, fetchTabId, recordMap);
-                          }
-                        } catch (e) {
-                          debugPrint('Error seeding record for $fetchTabId after recreate: $e');
-                        }
-
+                    // Use batch append to reduce API calls
+                    try {
+                      final records = tabInitialData!.map((rec) => rec is Map<String, dynamic> ? Map<String, dynamic>.from(rec) : Map<String, dynamic>.from(rec as Map)).toList();
+                      debugPrint('Seeding batch of ${records.length} records to spreadsheetId=$tabFileId sheet=$fetchTabId');
+                      await _driveService.saveRecordsBatchBySpreadsheetId(tabFileId!, fetchTabId, records);
                       if (mounted) {
                         setState(() {
-                          _seedingProgress = (_seedingProgress + 1).clamp(0, _seedingTotal);
+                          _seedingProgress = _seedingTotal;
+                        });
+                      }
+                    } catch (e) {
+                      debugPrint('Batch seeding failed for $fetchTabId: $e');
+                      // If batch fails, mark progress per-record as failed (no fallback per request)
+                      if (mounted) {
+                        setState(() {
+                          _seedingProgress = 0;
                         });
                       }
                     }
@@ -545,29 +542,21 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
               Future.microtask(() async {
                 try {
-                  // Ensure we seed using the known spreadsheet id if we set it in cachedConfig
-                  String? seedFileId = newSpreadsheetId;
-                  for (var i = 0; i < tabInitialData!.length; i++) {
-                    final rec = tabInitialData![i];
-                    try {
-                      final recordMap = rec is Map<String, dynamic> ? rec : Map<String, dynamic>.from(rec as Map);
-                      debugPrint('Seeding record ${i + 1}/${tabInitialData.length} to newSpreadsheetId=$seedFileId sheet=$fetchTabId');
-                      try {
-                        if (seedFileId != null && seedFileId.isNotEmpty) {
-                          await _driveService.saveRecordBySpreadsheetId(seedFileId, fetchTabId, recordMap);
-                        } else {
-                          await _driveService.saveRecord(fetchModuleId, fetchTabId, fetchTabId, recordMap);
-                        }
-                      } catch (e) {
-                        debugPrint('Error saving seeded record (by id or fallback): $e');
-                      }
-                    } catch (e) {
-                      debugPrint('Error seeding record for $fetchTabId: $e');
-                    }
-
+                  // Batch seed to minimize API calls
+                  try {
+                    final records = tabInitialData!.map((rec) => rec is Map<String, dynamic> ? Map<String, dynamic>.from(rec) : Map<String, dynamic>.from(rec as Map)).toList();
+                    debugPrint('Seeding batch of ${records.length} records to newSpreadsheetId=$newSpreadsheetId sheet=$fetchTabId');
+                    await _driveService.saveRecordsBatchBySpreadsheetId(newSpreadsheetId, fetchTabId, records);
                     if (mounted) {
                       setState(() {
-                        _seedingProgress = (_seedingProgress + 1).clamp(0, _seedingTotal);
+                        _seedingProgress = _seedingTotal;
+                      });
+                    }
+                  } catch (e) {
+                    debugPrint('Batch seeding failed for $fetchTabId: $e');
+                    if (mounted) {
+                      setState(() {
+                        _seedingProgress = 0;
                       });
                     }
                   }
