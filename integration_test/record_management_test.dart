@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
@@ -19,6 +20,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 
 class TestDriveProvider extends DriveProvider {
   final DriveService? mockService;
@@ -42,6 +46,12 @@ void main() {
   setUp(() {
     mockAuthService = MockAuthService();
     mockDriveService = MockDriveService();
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
 
     when(() => mockAuthService.isAuthenticated).thenReturn(true);
     when(() => mockAuthService.currentUser).thenReturn(null);
@@ -73,7 +83,12 @@ void main() {
     final workspace = drive.File()..id = 'ws1'..name = 'ERP Lab';
     final moduleFile = drive.File()..id = 'mod1'..name = 'Inventory';
     
-    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFile]);
+    final uaRange = sheets.ValueRange(values: [
+      ['id','module_name','dashboard','settings','tabs'],
+      ['mod1','CRM','','conf1','tabs1'],
+    ]);
+    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+        .thenAnswer((_) async => uaRange);
     
     // Config for Inventory
     when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_id');

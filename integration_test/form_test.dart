@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
@@ -20,6 +21,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
 
 class TestDriveProvider extends DriveProvider {
@@ -42,6 +46,13 @@ void main() {
     mockAuthService = MockAuthService();
     mockDriveService = MockDriveService();
     mockAccount = MockGoogleSignInAccount();
+
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
 
     when(() => mockAuthService.currentUser).thenReturn(mockAccount);
     when(() => mockAccount.displayName).thenReturn('Test User');
@@ -110,7 +121,13 @@ void main() {
     );
 
     when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => [workspace]);
-    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFolder]);
+    // user_access sheet maps installed modules for the workspace
+    final uaRange = sheets.ValueRange(values: [
+      ['id','module_name','dashboard','settings','tabs'],
+      ['mod1','Inventory','','mod1_settings','mod1_tabs'],
+    ]);
+    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+        .thenAnswer((_) async => uaRange);
     // Per-user config parts (refactored): settings, dashboard, tabs
     when(() => mockDriveService.getFileId('mod1', 'settings')).thenAnswer((_) async => 'mod1_settings');
     when(() => mockDriveService.getFileModifiedTime('mod1_settings')).thenAnswer((_) async => DateTime.now());
@@ -168,7 +185,7 @@ void main() {
           ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
         ],
         child: const MaterialApp(
-          home: DashboardScreen(),
+          home: DashboardScreen(userAccessSpreadsheetId: 'ua1'),
         ),
       ),
     );

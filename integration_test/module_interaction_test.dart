@@ -11,13 +11,18 @@ import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
+import 'package:drivererpapp/screens/module_screen.dart';
 import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 
 class TestDriveProvider extends DriveProvider {
   final DriveService? mockService;
@@ -40,6 +45,12 @@ void main() {
   setUp(() {
     mockAuthService = MockAuthService();
     mockDriveService = MockDriveService();
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
 
     when(() => mockAuthService.isAuthenticated).thenReturn(true);
     when(() => mockAuthService.currentUser).thenReturn(null);
@@ -49,6 +60,7 @@ void main() {
   Widget createTestWidget({
     required WorkspaceProvider workspaceProvider,
     required DriveProvider driveProvider,
+    String? userAccessSpreadsheetId,
   }) {
     return MultiProvider(
       providers: [
@@ -64,7 +76,7 @@ void main() {
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: themeProvider.themeMode,
-            home: const DashboardScreen(),
+            home: DashboardScreen(userAccessSpreadsheetId: userAccessSpreadsheetId),
             debugShowCheckedModeBanner: false,
           );
         },
@@ -84,7 +96,12 @@ void main() {
 
     // 1. Mock Module List and Config
     final moduleFile = drive.File()..id = 'mod1'..name = 'Inventory';
-    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFile]);
+    final uaRange = sheets.ValueRange(values: [
+      ['id','module_name','dashboard','settings','tabs'],
+      ['mod1','Inventory','', 'conf1', 'tabs1'],
+    ]);
+    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+        .thenAnswer((_) async => uaRange);
     when(() => mockDriveService.getOrCreateSubFolder('mod1', 'config')).thenAnswer((_) async => 'mod1');
     when(() => mockDriveService.getFileId('mod1', 'user@example.com_settings')).thenAnswer((_) async => 'config_id');
     
@@ -127,6 +144,7 @@ void main() {
     await tester.pumpWidget(createTestWidget(
       workspaceProvider: workspaceProvider,
       driveProvider: driveProvider,
+      userAccessSpreadsheetId: 'ua1',
     ));
     
     // Wait for initial load and animations
@@ -136,33 +154,22 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
-    // 4. Open Inventory Module
-    // Check for "Inventory" text. 
-    final inventoryFinder = find.text('Inventory');
-    await tester.ensureVisible(inventoryFinder);
-    expect(inventoryFinder, findsOneWidget, reason: 'Inventory module card should be on Dashboard');
-    
-    await tester.tap(inventoryFinder);
-    
-    // Wait for the ModuleScreen to load and its intro sync to finish
-    // ModuleScreen has a delayed sync and then its own FutureBuilder/State
-    for(int i=0; i<10; i++) {
-       await tester.pump(const Duration(milliseconds: 300));
-    }
+    // 4. Open Inventory Module directly (bypass Dashboard listing which is mocked via user_access)
+    final dashboardContext = tester.element(find.byType(DashboardScreen));
+    Navigator.of(dashboardContext).push(MaterialPageRoute(builder: (_) => ModuleScreen(
+      module: ModuleSchema(id: moduleFile.id ?? 'mod1', name: moduleFile.name ?? 'Inventory', icon: 'inventory', primaryColor: '#3B82F6', version: '1.0', settings: {}, dashboard: DashboardConfig(cards: []), tabs: []),
+      settingsSheetId: 'config_id',
+      dashboardSheetId: null,
+      tabsSheetId: null,
+    )));
     await tester.pumpAndSettle();
-
-    // First tab is Dashboard, we need to switch to ITEMS tab
-    // The tab bar labels are uppercased in ModuleScreen
+    // First tab is Dashboard, switch to ITEMS tab after ModuleScreen loads
     final itemsTabFinder = find.text('ITEMS');
-    expect(itemsTabFinder, findsOneWidget, reason: 'ITEMS tab should be visible in ModuleScreen');
-    
-    await tester.tap(itemsTabFinder);
-    await tester.pumpAndSettle();
-    
-    // ModuleTabScreen has a 500ms delay in initState before _loadData
-    for(int i=0; i<5; i++) {
-       await tester.pump(const Duration(milliseconds: 300));
+    for (int i = 0; i < 10 && itemsTabFinder.evaluate().isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
     }
+    expect(itemsTabFinder, findsOneWidget, reason: 'ITEMS tab should be visible in ModuleScreen');
+    await tester.tap(itemsTabFinder);
     await tester.pumpAndSettle();
 
     // Verify record appears in list

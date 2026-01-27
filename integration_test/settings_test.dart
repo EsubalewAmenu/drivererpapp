@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:drivererpapp/models/schema_models.dart';
@@ -21,6 +22,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
 
 class TestDriveProvider extends DriveProvider {
@@ -53,6 +57,12 @@ void main() {
   setUp(() {
     mockAuthService = MockAuthService();
     mockDriveService = MockDriveService();
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
     mockUser = MockGoogleSignInAccount();
 
     when(() => mockUser.displayName).thenReturn('Integration User');
@@ -81,7 +91,9 @@ void main() {
       Company(id: 'c1', name: 'Test Workspace', folderId: 'ws1', role: 'Owner')
     ];
     when(() => mockDriveService.getCompanies('root123')).thenAnswer((_) async => companies);
-    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => []);
+    final emptyRange = sheets.ValueRange(values: []);
+    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+      .thenAnswer((_) async => emptyRange);
 
     final driveProvider = TestDriveProvider(mockDriveService);
     
