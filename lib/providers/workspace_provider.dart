@@ -270,16 +270,6 @@ class WorkspaceProvider extends ChangeNotifier {
     debugPrint('WorkspaceProvider: persisted last_workspace_id=$id');
   }
 
-  Future<void> _saveUserAccessSpreadsheetId(String? id) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (id == null) {
-      await prefs.remove('last_user_access_spreadsheet_id');
-      debugPrint('WorkspaceProvider: removed last_user_access_spreadsheet_id (helper)');
-    } else {
-      await prefs.setString('last_user_access_spreadsheet_id', id);
-      debugPrint('WorkspaceProvider: persisted last_user_access_spreadsheet_id (helper)=$id');
-    }
-  }
 
   Future<void> _clearWorkspaceId() async {
     final prefs = await SharedPreferences.getInstance();

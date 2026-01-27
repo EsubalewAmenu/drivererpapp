@@ -145,6 +145,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           };
         }
       }
+      debugPrint('DashboardScreen: built userAccessModuleSheets for ${_userAccessModuleSheets.length} modules');
+      _userAccessModuleSheets.forEach((k, v) {
+        debugPrint('DashboardScreen: sheets mapping -> moduleId=$k -> $v');
+      });
       return files;
     } catch (e) {
       debugPrint('Error loading modules from user access sheet: $e');
@@ -198,6 +202,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
 
             final driveFiles = snapshot.data ?? [];
+            // Debug: print loaded modules and their mapped sheet ids (if any)
+            try {
+              debugPrint('DashboardScreen: modules loaded count=${driveFiles.length}');
+              for (var f in driveFiles) {
+                final id = f.id ?? '<no-id>';
+                final name = f.name ?? '<no-name>';
+                final sheets = _userAccessModuleSheets[id];
+                debugPrint('DashboardScreen: module -> id=$id name=$name sheets=${sheets ?? {}}');
+              }
+            } catch (e) {
+              debugPrint('DashboardScreen: error printing modules debug info: $e');
+            }
             final activeModuleNames = driveFiles.map((f) => f.name).toSet();
 
             final activeModules = _catalog.where((m) => activeModuleNames.contains(m['name'])).toList();
@@ -405,6 +421,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: InkWell(
         onTap: () {
+          // Debug: when opening a module, log the sheet ids being passed
+          debugPrint('DashboardScreen: opening module ${module.id} name=${module.name} sheetIds=${sheetIds ?? {}}');
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => ModuleScreen(
