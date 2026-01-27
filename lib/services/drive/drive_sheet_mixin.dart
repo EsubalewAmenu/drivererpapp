@@ -543,6 +543,7 @@ mixin DriveSheetMixin {
       // Clear first to avoid stale data
       await sheetsApi.spreadsheets.values.clear(sheets.ClearValuesRequest(), fileId, '$sheetTitle!A:B');
       
+      debugPrint('DriveSheetMixin: writing ${data.length} entries to $sheetTitle in $fileId');
       final rows = data.entries.map((e) => [e.key, jsonEncode(e.value)]).toList();
       final valueRange = sheets.ValueRange(values: rows);
       

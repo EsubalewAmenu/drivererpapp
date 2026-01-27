@@ -134,31 +134,36 @@ class _WorkspaceSelectorScreenState extends State<WorkspaceSelectorScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       child: InkWell(
         onTap: () async {
+          debugPrint('WorkspaceSelector: tapped company ${company.name} (${company.folderId})');
           // Construct a drive.File object from the company info to keep compatibility
           final workspaceFile = drive.File()
             ..id = company.folderId
             ..name = company.name;
 
           // Set global workspace
+          debugPrint('WorkspaceSelector: setting workspace in provider');
           Provider.of<WorkspaceProvider>(context, listen: false).setWorkspace(workspaceFile);
 
-          // Note: userAccessSpreadsheetId is resolved below; caching is done after resolution.
-
-          // Try to resolve per-user user_access spreadsheet id from registry
+          // Note: userAccessSpreadsheetId should ALWAYS be read from the companies registry
+          // (user_access sheet). Do NOT create user access spreadsheets here.
           String? userAccessSpreadsheetId;
           final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
           final auth = Provider.of<AuthService>(context, listen: false);
           final userEmail = auth.currentUser?.email;
 
+          debugPrint('WorkspaceSelector: resolving userAccessSpreadsheetId from registry for user=$userEmail');
           if (driveService != null && widget.rootFolderId.isNotEmpty && userEmail != null) {
             try {
               final registryId = await driveService.getFileId(widget.rootFolderId, 'companies');
+              debugPrint('WorkspaceSelector: registryId=$registryId');
               if (registryId != null) {
                 final resp = await driveService.sheetsApi.spreadsheets.values.get(registryId, 'user_access!A2:C');
                 final rows = resp.values ?? [];
+                debugPrint('WorkspaceSelector: registry user_access rows=${rows.length}');
                 for (var r in rows) {
                   if (r.length >= 3 && r[0] == company.folderId && r[1] == userEmail) {
                     userAccessSpreadsheetId = r[2] as String;
+                    debugPrint('WorkspaceSelector: found userAccessSpreadsheetId=$userAccessSpreadsheetId in registry');
                     break;
                   }
                 }
@@ -166,20 +171,13 @@ class _WorkspaceSelectorScreenState extends State<WorkspaceSelectorScreen> {
             } catch (e) {
               debugPrint('Error reading registry user_access: $e');
             }
-
-            // If not found in registry, ensure the user_access spreadsheet exists under the company
-            if (userAccessSpreadsheetId == null) {
-              try {
-                final uaFolderId = await driveService.ensureUserAccessFolder(company.folderId);
-                userAccessSpreadsheetId = await driveService.ensureUserAccessSpreadsheet(uaFolderId, userEmail);
-              } catch (e) {
-                debugPrint('Error ensuring user access spreadsheet: $e');
-              }
-            }
+          } else {
+            debugPrint('WorkspaceSelector: driveService or userEmail missing (driveService=$driveService, userEmail=$userEmail)');
           }
 
           // Cache the per-user user_access spreadsheet id for future sessions
           try {
+            debugPrint('WorkspaceSelector: caching userAccessSpreadsheetId=$userAccessSpreadsheetId');
             Provider.of<WorkspaceProvider>(context, listen: false).saveUserAccessSpreadsheetId(userAccessSpreadsheetId);
           } catch (e) {
             debugPrint('Error caching userAccessSpreadsheetId: $e');

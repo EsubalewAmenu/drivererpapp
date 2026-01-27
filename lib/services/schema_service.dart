@@ -61,18 +61,21 @@ class SchemaService {
       if (config.containsKey('settings')) {
         try {
           await prefs.setString('$_cachePrefix${moduleId}$_settingsSuffix', jsonEncode(config['settings']));
+          debugPrint('SchemaService: cached settings for module=$moduleId');
         } catch (_) {}
       }
 
       if (config.containsKey('dashboard')) {
         try {
           await prefs.setString('$_cachePrefix${moduleId}$_dashboardSuffix', jsonEncode(config['dashboard']));
+          debugPrint('SchemaService: cached dashboard for module=$moduleId');
         } catch (_) {}
       }
 
       if (config.containsKey('tabs')) {
         try {
           await prefs.setString('$_cachePrefix${moduleId}$_tabsSuffix', jsonEncode(config['tabs']));
+          debugPrint('SchemaService: cached tabs for module=$moduleId (count=${(config['tabs'] as List?)?.length ?? 0})');
         } catch (_) {}
       }
 
@@ -82,6 +85,7 @@ class SchemaService {
           'modifiedTime': modifiedTime,
         };
         await prefs.setString('$_metaPrefix$moduleId', jsonEncode(meta));
+        debugPrint('SchemaService: cached meta for module=$moduleId fileId=$fileId modifiedTime=$modifiedTime');
       }
     } catch (e) {
       debugPrint('Error caching config: $e');

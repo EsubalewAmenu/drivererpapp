@@ -245,8 +245,10 @@ class WorkspaceProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     if (id == null) {
       await prefs.remove('last_user_access_spreadsheet_id');
+      debugPrint('WorkspaceProvider: removed last_user_access_spreadsheet_id');
     } else {
       await prefs.setString('last_user_access_spreadsheet_id', id);
+      debugPrint('WorkspaceProvider: persisted last_user_access_spreadsheet_id=$id');
     }
   }
 
@@ -260,14 +262,17 @@ class WorkspaceProvider extends ChangeNotifier {
     if (id == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('last_workspace_id', id);
+    debugPrint('WorkspaceProvider: persisted last_workspace_id=$id');
   }
 
   Future<void> _saveUserAccessSpreadsheetId(String? id) async {
     final prefs = await SharedPreferences.getInstance();
     if (id == null) {
       await prefs.remove('last_user_access_spreadsheet_id');
+      debugPrint('WorkspaceProvider: removed last_user_access_spreadsheet_id (helper)');
     } else {
       await prefs.setString('last_user_access_spreadsheet_id', id);
+      debugPrint('WorkspaceProvider: persisted last_user_access_spreadsheet_id (helper)=$id');
     }
   }
 
