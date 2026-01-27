@@ -11,10 +11,14 @@ import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 class MockAuthService extends Mock implements AuthService {}
 
 class _TestGoogleAccount extends Fake implements GoogleSignInAccount {
@@ -67,7 +71,14 @@ void main() {
     when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'ws123'..name = 'My Business');
     when(() => mockWorkspaceProvider.companies).thenReturn(<Company>[]);
-    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => <drive.File>[]);
+    // Provide empty user_access sheet for created workspace
+    final mockSheetsApi2 = MockSheetsApi();
+    final mockSpreadsheets2 = MockSpreadsheetsResource();
+    final mockValues2 = MockValuesResource();
+    when(() => mockSheetsApi2.spreadsheets).thenReturn(mockSpreadsheets2);
+    when(() => mockSpreadsheets2.values).thenReturn(mockValues2);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi2);
+    when(() => mockValues2.get(any(), 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
 
     await tester.pumpWidget(createOnboardingScreen());
 

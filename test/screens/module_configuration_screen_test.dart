@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:provider/provider.dart';
@@ -17,6 +18,9 @@ import 'package:drivererpapp/services/drive_service.dart';
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 class MockAuthService extends Mock implements AuthService {}
 
 class _TestGoogleAccount extends Fake implements GoogleSignInAccount {
@@ -77,7 +81,13 @@ void main() {
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockAuthService.currentUser).thenReturn(_TestGoogleAccount('user@example.com'));
     when(() => mockDriveService.createWorkspace(any(), any())).thenAnswer((_) async => drive.File(id: 'new_folder_id', name: 'New Folder'));
-    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => <drive.File>[]);
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
+    when(() => mockValues.get(any(), 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
   });
 
   Widget createScreen(Map<String, String> moduleInfo, AssetBundle bundle) {

@@ -8,6 +8,7 @@ import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/screens/onboarding/onboarding_screen.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
@@ -16,6 +17,9 @@ import 'package:google_sign_in/google_sign_in.dart';
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 class MockAuthService extends Mock implements AuthService {}
 class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
 
@@ -80,7 +84,13 @@ void main() {
     ]);
     when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..name = 'Test Corp'..id = 'f1');
-    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
+    when(() => mockValues.get(any(), 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
     when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'uaFolder');
     when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'uaSpreadsheet');
