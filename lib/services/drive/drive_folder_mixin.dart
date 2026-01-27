@@ -104,13 +104,16 @@ mixin DriveFolderMixin {
   /// Lists subfolders (modules) inside a workspace folder.
   Future<List<drive.File>> listModules(String workspaceId) async {
     try {
+      debugPrint('DriveFolderMixin: listing modules in workspace $workspaceId');
       final fileList = await driveApi.files.list(
         q: "'$workspaceId' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
         $fields: 'files(id, name)',
         includeItemsFromAllDrives: true,
         supportsAllDrives: true,
       );
-      return fileList.files ?? [];
+      final files = fileList.files ?? [];
+      debugPrint('DriveFolderMixin: found ${files.length} modules in $workspaceId');
+      return files;
     } catch (e) {
       debugPrint('Error listing modules: $e');
       rethrow;

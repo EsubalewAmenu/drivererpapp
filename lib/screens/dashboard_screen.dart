@@ -79,6 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
+    debugPrint('DashboardScreen: loading modules for workspace=${workspace.id} name=${workspace.name}');
     // Determine effective userAccessSpreadsheetId: widget param -> in-memory provider -> persisted prefs
     String? cachedId = provider.lastUserAccessSpreadsheetId;
     if (cachedId == null || cachedId.isEmpty) {
@@ -93,10 +94,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ? widget.userAccessSpreadsheetId
         : (cachedId != null && cachedId.isNotEmpty ? cachedId : null);
 
+    debugPrint('DashboardScreen: effective userAccessSpreadsheetId=$effectiveId (widget param=${widget.userAccessSpreadsheetId})');
+
     setState(() {
       if (effectiveId != null && effectiveId.isNotEmpty) {
+        debugPrint('DashboardScreen: loading modules from user_access sheet $effectiveId');
         _modulesFuture = _loadModulesFromUserAccess(driveService, effectiveId);
       } else {
+        debugPrint('DashboardScreen: no user_access sheet, falling back to listing modules in Drive');
         _modulesFuture = driveService.listModules(workspace.id!);
       }
     });
@@ -104,8 +109,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<List<drive.File>> _loadModulesFromUserAccess(DriveService driveService, String userAccessSpreadsheetId) async {
     try {
+      debugPrint('DashboardScreen: reading user_access modules from $userAccessSpreadsheetId');
       final resp = await driveService.sheetsApi.spreadsheets.values.get(userAccessSpreadsheetId, 'modules!A1:Z');
       final all = resp.values ?? [];
+      debugPrint('DashboardScreen: user_access rows=${all.length}');
       if (all.isEmpty) return [];
       final header = List<String>.from(all.first.map((e) => e.toString().toLowerCase()));
       final rows = all.length > 1 ? all.sublist(1) : [];
