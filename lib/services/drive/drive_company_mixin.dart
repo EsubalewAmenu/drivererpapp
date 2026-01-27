@@ -143,11 +143,13 @@ mixin DriveCompanyMixin {
   /// lists all registered companies.
   Future<List<Company>> getCompanies(String rootFolderId) async {
     try {
+      debugPrint('DriveCompanyMixin: getCompanies reading registry for root=$rootFolderId');
       final fileId = await getFileId(rootFolderId, _registryFileName);
       if (fileId == null) return [];
 
       final response = await retryOp(() => sheetsApi.spreadsheets.values.get(fileId, 'companies!A2:E'));
       final values = response.values;
+      debugPrint('DriveCompanyMixin: registry fileId=$fileId rows=${values?.length ?? 0}');
 
       if (values == null || values.isEmpty) return [];
 

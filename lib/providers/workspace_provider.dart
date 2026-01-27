@@ -9,6 +9,7 @@ class WorkspaceProvider extends ChangeNotifier {
   
   drive.File? _currentWorkspace;
   String? _rootFolderId;
+  String? _companiesRegistryId;
   List<Company> _companies = [];
   String? _lastUserAccessSpreadsheetId;
   bool _isLoading = false;
@@ -27,6 +28,9 @@ class WorkspaceProvider extends ChangeNotifier {
   bool get hasWorkspace => _currentWorkspace != null;
 
   String? get lastUserAccessSpreadsheetId => _lastUserAccessSpreadsheetId;
+
+  /// The cached companies registry spreadsheet id (if loaded via loadCompanies).
+  String? get companiesRegistryId => _companiesRegistryId;
 
   Company? get currentCompany {
     if (_currentWorkspace == null) return null;
@@ -51,7 +55,8 @@ class WorkspaceProvider extends ChangeNotifier {
 
     try {
       // Ensure registry exists first
-      await _driveService!.ensureCompanyRegistry(rootFolderId);
+      final regId = await _driveService!.ensureCompanyRegistry(rootFolderId);
+      _companiesRegistryId = regId;
       
       // Fetch list
       _companies = await _driveService!.getCompanies(rootFolderId);
@@ -245,8 +250,10 @@ class WorkspaceProvider extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     if (id == null) {
       await prefs.remove('last_user_access_spreadsheet_id');
+      debugPrint('WorkspaceProvider: removed last_user_access_spreadsheet_id');
     } else {
       await prefs.setString('last_user_access_spreadsheet_id', id);
+      debugPrint('WorkspaceProvider: persisted last_user_access_spreadsheet_id=$id');
     }
   }
 
@@ -260,16 +267,9 @@ class WorkspaceProvider extends ChangeNotifier {
     if (id == null) return;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('last_workspace_id', id);
+    debugPrint('WorkspaceProvider: persisted last_workspace_id=$id');
   }
 
-  Future<void> _saveUserAccessSpreadsheetId(String? id) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (id == null) {
-      await prefs.remove('last_user_access_spreadsheet_id');
-    } else {
-      await prefs.setString('last_user_access_spreadsheet_id', id);
-    }
-  }
 
   Future<void> _clearWorkspaceId() async {
     final prefs = await SharedPreferences.getInstance();

@@ -5,6 +5,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:drivererpapp/models/schema_models.dart';
@@ -18,20 +19,9 @@ import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
 import 'package:drivererpapp/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'helpers/test_helpers.dart';
 
-class MockAuthService extends Mock implements AuthService {}
-class MockDriveService extends Mock implements DriveService {}
 class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
-
-class TestDriveProvider extends DriveProvider {
-  final DriveService? mockService;
-  TestDriveProvider(this.mockService);
-  
-  @override
-  DriveService? get driveService => mockService;
-  @override
-  void updateClient(http.Client? client) {}
-}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -41,9 +31,7 @@ void main() {
   late MockGoogleSignInAccount mockUser;
 
   setUpAll(() {
-    SharedPreferences.setMockInitialValues({});
-    AppTheme.useGoogleFonts = false;
-    registerFallbackValue(drive.File());
+    initTestEnvironment();
     registerFallbackValue(ModuleSchema(
       id: '', name: '', icon: '', primaryColor: '', version: '',
       settings: {}, dashboard: DashboardConfig(cards: []), tabs: []
@@ -51,8 +39,9 @@ void main() {
   });
 
   setUp(() {
-    mockAuthService = MockAuthService();
-    mockDriveService = MockDriveService();
+    final mocks = createTestMocks();
+    mockAuthService = mocks.auth;
+    mockDriveService = mocks.drive;
     mockUser = MockGoogleSignInAccount();
 
     when(() => mockUser.displayName).thenReturn('Integration User');
@@ -61,10 +50,7 @@ void main() {
     when(() => mockAuthService.currentUser).thenReturn(mockUser);
     when(() => mockAuthService.isAuthenticated).thenReturn(false);
     when(() => mockAuthService.signInSilently()).thenAnswer((_) async {});
-    
-    when(() => mockAuthService.signIn()).thenAnswer((_) async {
-      when(() => mockAuthService.isAuthenticated).thenReturn(true);
-    });
+    when(() => mockAuthService.signIn()).thenAnswer((_) async { when(() => mockAuthService.isAuthenticated).thenReturn(true); });
 
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
     when(() => mockDriveService.ensureCompanyRegistry(any())).thenAnswer((_) async => 'companies_sheet_id');
@@ -81,7 +67,9 @@ void main() {
       Company(id: 'c1', name: 'Test Workspace', folderId: 'ws1', role: 'Owner')
     ];
     when(() => mockDriveService.getCompanies('root123')).thenAnswer((_) async => companies);
-    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => []);
+    final emptyRange = sheets.ValueRange(values: []);
+    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+      .thenAnswer((_) async => emptyRange);
 
     final driveProvider = TestDriveProvider(mockDriveService);
     

@@ -7,11 +7,15 @@ import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveService extends Mock implements DriveService {}
 class MockDriveFile extends Mock implements drive.File {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 
 void main() {
   late MockDriveProvider mockDriveProvider;
@@ -49,8 +53,17 @@ void main() {
     when(() => mockFile.name).thenReturn('HR');
     when(() => mockFile.id).thenReturn('mod123');
 
-    when(() => mockDriveService.listModules('ws123'))
-        .thenAnswer((_) async => [mockFile]);
+    // Provide user_access sheet for ws123 and empty for others
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
+    final header = ['id', 'module_name', 'dashboard', 'settings', 'tabs'];
+    final rows = [ ['m1','Module 1','d1','s1','t1'] ];
+    when(() => mockValues.get('ws123', 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: [header, ...rows]));
+    when(() => mockValues.get(any(), 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
 
     await tester.pumpWidget(createDashboardScreen());
     await tester.pump(); 
@@ -64,8 +77,14 @@ void main() {
   });
 
   testWidgets('DashboardScreen period selection changes KPIs', (WidgetTester tester) async {
-    when(() => mockDriveService.listModules(any()))
-        .thenAnswer((_) async => []);
+    // Ensure any user_access query returns empty
+    final mockSheetsApi2 = MockSheetsApi();
+    final mockSpreadsheets2 = MockSpreadsheetsResource();
+    final mockValues2 = MockValuesResource();
+    when(() => mockSheetsApi2.spreadsheets).thenReturn(mockSpreadsheets2);
+    when(() => mockSpreadsheets2.values).thenReturn(mockValues2);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi2);
+    when(() => mockValues2.get(any(), 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
 
     await tester.pumpWidget(createDashboardScreen());
     await tester.pumpAndSettle();

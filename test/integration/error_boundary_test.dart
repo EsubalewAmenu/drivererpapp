@@ -12,10 +12,14 @@ import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/models/company_model.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 
 class TestDriveProvider extends DriveProvider {
   final DriveService? mockService;
@@ -71,8 +75,16 @@ void main() {
     
     final driveProvider = TestDriveProvider(mockDriveService);
 
-    // 1. Simulate Module List Failure (return empty list so Dashboard doesn't throw)
-    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => <drive.File>[]);
+    // 1. Simulate Module List Failure via empty user_access sheet (return empty rows so Dashboard doesn't throw)
+    final mockSheetsApi1 = MockSheetsApi();
+    final mockSpreadsheets1 = MockSpreadsheetsResource();
+    final mockValues1 = MockValuesResource();
+    when(() => mockSheetsApi1.spreadsheets).thenReturn(mockSpreadsheets1);
+    when(() => mockSpreadsheets1.values).thenReturn(mockValues1);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi1);
+    // Persist the per-workspace user_access spreadsheet id so Dashboard will query it
+    await workspaceProvider.saveUserAccessSpreadsheetId('ua_ws1');
+    when(() => mockValues1.get('ua_ws1', 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
 
     await tester.pumpWidget(createTestWidget(
       workspaceProvider: workspaceProvider,
@@ -89,7 +101,17 @@ void main() {
     workspaceProvider.setWorkspace(workspaceFile2);
     
     final moduleFile = drive.File()..id = 'mod_err'..name = 'HR';
-    when(() => mockDriveService.listModules('ws2')).thenAnswer((_) async => [moduleFile]);
+    // Provide a user_access sheet that contains the module row for ws2
+    final mockSheetsApi2 = MockSheetsApi();
+    final mockSpreadsheets2 = MockSpreadsheetsResource();
+    final mockValues2 = MockValuesResource();
+    when(() => mockSheetsApi2.spreadsheets).thenReturn(mockSpreadsheets2);
+    when(() => mockSpreadsheets2.values).thenReturn(mockValues2);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi2);
+    await workspaceProvider.saveUserAccessSpreadsheetId('ua_ws2');
+    final header = ['id', 'module_name', 'dashboard', 'settings', 'tabs'];
+    final rows = [ ['mod_err', 'HR', 'dash_x', 'conf_err', 'tabs_x'] ];
+    when(() => mockValues2.get('ua_ws2', 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: [header, ...rows]));
     when(() => mockDriveService.getFileId('mod_err', 'config')).thenAnswer((_) async => 'conf_err');
     when(() => mockDriveService.readModuleConfig('conf_err')).thenAnswer((_) async => throw const FormatException('Invalid JSON'));
 

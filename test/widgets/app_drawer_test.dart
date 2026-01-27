@@ -13,11 +13,15 @@ import 'package:drivererpapp/screens/landing_screen.dart';
 import 'package:drivererpapp/screens/workspace_selector_screen.dart';
 import 'package:drivererpapp/models/company_model.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 class MockThemeProvider extends Mock implements ThemeProvider {}
 
 void main() {
@@ -45,7 +49,14 @@ void main() {
     when(() => mockAuthService.isAuthenticated).thenReturn(true);
     when(() => mockAuthService.signInSilently()).thenAnswer((_) async {});
     
-    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => <drive.File>[]);
+    // Provide empty user_access sheet so drawer sees no modules
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
+    when(() => mockValues.get(any(), 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
   });
 
   Widget createDrawer() {

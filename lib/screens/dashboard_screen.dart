@@ -79,6 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return;
     }
 
+    debugPrint('DashboardScreen: loading modules for workspace=${workspace.id} name=${workspace.name}');
     // Determine effective userAccessSpreadsheetId: widget param -> in-memory provider -> persisted prefs
     String? cachedId = provider.lastUserAccessSpreadsheetId;
     if (cachedId == null || cachedId.isEmpty) {
@@ -93,19 +94,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ? widget.userAccessSpreadsheetId
         : (cachedId != null && cachedId.isNotEmpty ? cachedId : null);
 
+    debugPrint('DashboardScreen: effective userAccessSpreadsheetId=$effectiveId (widget param=${widget.userAccessSpreadsheetId})');
+
     setState(() {
       if (effectiveId != null && effectiveId.isNotEmpty) {
+        debugPrint('DashboardScreen: loading modules from user_access sheet $effectiveId');
         _modulesFuture = _loadModulesFromUserAccess(driveService, effectiveId);
       } else {
-        _modulesFuture = driveService.listModules(workspace.id!);
+        debugPrint('DashboardScreen: no user_access sheet, treating as no access (no Drive listing)');
+        _modulesFuture = Future.value([]);
       }
     });
   }
 
   Future<List<drive.File>> _loadModulesFromUserAccess(DriveService driveService, String userAccessSpreadsheetId) async {
     try {
+      debugPrint('DashboardScreen: reading user_access modules from $userAccessSpreadsheetId');
       final resp = await driveService.sheetsApi.spreadsheets.values.get(userAccessSpreadsheetId, 'modules!A1:Z');
       final all = resp.values ?? [];
+      debugPrint('DashboardScreen: user_access rows=${all.length}');
       if (all.isEmpty) return [];
       final header = List<String>.from(all.first.map((e) => e.toString().toLowerCase()));
       final rows = all.length > 1 ? all.sublist(1) : [];
@@ -138,6 +145,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           };
         }
       }
+      debugPrint('DashboardScreen: built userAccessModuleSheets for ${_userAccessModuleSheets.length} modules');
+      _userAccessModuleSheets.forEach((k, v) {
+        debugPrint('DashboardScreen: sheets mapping -> moduleId=$k -> $v');
+      });
       return files;
     } catch (e) {
       debugPrint('Error loading modules from user access sheet: $e');
@@ -191,6 +202,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
 
             final driveFiles = snapshot.data ?? [];
+            // Debug: print loaded modules and their mapped sheet ids (if any)
+            try {
+              debugPrint('DashboardScreen: modules loaded count=${driveFiles.length}');
+              for (var f in driveFiles) {
+                final id = f.id ?? '<no-id>';
+                final name = f.name ?? '<no-name>';
+                final sheets = _userAccessModuleSheets[id];
+                debugPrint('DashboardScreen: module -> id=$id name=$name sheets=${sheets ?? {}}');
+              }
+            } catch (e) {
+              debugPrint('DashboardScreen: error printing modules debug info: $e');
+            }
             final activeModuleNames = driveFiles.map((f) => f.name).toSet();
 
             final activeModules = _catalog.where((m) => activeModuleNames.contains(m['name'])).toList();
@@ -398,6 +421,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: InkWell(
         onTap: () {
+          // Debug: when opening a module, log the sheet ids being passed
+          debugPrint('DashboardScreen: opening module ${module.id} name=${module.name} sheetIds=${sheetIds ?? {}}');
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => ModuleScreen(

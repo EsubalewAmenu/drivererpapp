@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drivererpapp/screens/module/module_tab_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
@@ -38,6 +39,8 @@ void main() {
     registerFallbackValue(FakeListTemplateConfig());
     registerFallbackValue(FakeDetailTemplateConfig());
     Provider.debugCheckInvalidValueType = null;
+    // Ensure SharedPreferences is available in widget tests
+    SharedPreferences.setMockInitialValues({});
   });
 
   setUp(() {

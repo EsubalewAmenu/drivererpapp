@@ -543,6 +543,7 @@ mixin DriveSheetMixin {
       // Clear first to avoid stale data
       await sheetsApi.spreadsheets.values.clear(sheets.ClearValuesRequest(), fileId, '$sheetTitle!A:B');
       
+      debugPrint('DriveSheetMixin: writing ${data.length} entries to $sheetTitle in $fileId');
       final rows = data.entries.map((e) => [e.key, jsonEncode(e.value)]).toList();
       final valueRange = sheets.ValueRange(values: rows);
       
@@ -1291,13 +1292,16 @@ mixin DriveSheetMixin {
       Map<String, dynamic>? quickFilter,
   }) async {
     try {
+      debugPrint('fetchRecords: moduleFolderId=$moduleFolderId spreadsheetName=$spreadsheetName sheetTitle=$sheetTitle offset=$offset limit=$limit search=${searchQuery!=null}');
       // 1. Find Spreadsheet
       String targetSpreadsheetName = sheetTitle;
       String? spreadsheetId = await getFileId(moduleFolderId, targetSpreadsheetName);
       
       if (spreadsheetId == null) {
+        debugPrint('fetchRecords: no spreadsheet found for $targetSpreadsheetName in $moduleFolderId');
         return [];
       }
+      debugPrint('fetchRecords: resolved spreadsheetId=$spreadsheetId');
 
       // 2. Fetch Spreadsheet Metadata (to get sheet ID and titles)
       final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
@@ -1446,6 +1450,7 @@ mixin DriveSheetMixin {
     int? limit,
   }) async {
     try {
+      debugPrint(' _fetchSheetData: spreadsheetId=$spreadsheetId sheetTitle=$sheetTitle offset=$offset limit=$limit');
       // Always fetch headers first (Row 1)
       final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
       final headerValues = headerResponse.values;
@@ -1470,6 +1475,7 @@ mixin DriveSheetMixin {
 
       final response = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, range));
       final values = response.values;
+      debugPrint(' _fetchSheetData: fetched rows=${values?.length ?? 0} for range=$range');
 
       if (values == null || values.isEmpty) return [];
 
@@ -1721,6 +1727,7 @@ mixin DriveSheetMixin {
       Map<String, dynamic>? quickFilter,
   }) async {
     try {
+      debugPrint('fetchRecordsBySpreadsheetId: spreadsheetId=$spreadsheetId sheetTitle=$sheetTitle offset=$offset limit=$limit search=${searchQuery!=null}');
       // 1. Fetch Spreadsheet Metadata
       final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
       final allSheetTitles = spreadsheet.sheets?.map((s) => s.properties?.title ?? '').toList() ?? [];

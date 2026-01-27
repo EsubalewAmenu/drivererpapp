@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
@@ -17,18 +18,9 @@ import 'package:drivererpapp/screens/dynamic_form_screen.dart';
 import 'package:drivererpapp/screens/module_screen.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'helpers/test_helpers.dart';
 
-class MockAuthService extends Mock implements AuthService {}
-class MockDriveService extends Mock implements DriveService {}
 class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
-
-class TestDriveProvider extends DriveProvider {
-  final DriveService? _mockService;
-  TestDriveProvider(this._mockService);
-  
-  @override
-  DriveService? get driveService => _mockService;
-}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -37,22 +29,15 @@ void main() {
   late MockDriveService mockDriveService;
   late MockGoogleSignInAccount mockAccount;
 
+  setUpAll(() {
+    initTestEnvironment();
+  });
+
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
-    mockAuthService = MockAuthService();
-    mockDriveService = MockDriveService();
+    final mocks = createTestMocks();
+    mockAuthService = mocks.auth;
+    mockDriveService = mocks.drive;
     mockAccount = MockGoogleSignInAccount();
-
-    when(() => mockAuthService.currentUser).thenReturn(mockAccount);
-    when(() => mockAccount.displayName).thenReturn('Test User');
-    when(() => mockAccount.email).thenReturn('test@example.com');
-    
-    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
-    when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'module_subfolder');
-    when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
-    
-    AppTheme.useGoogleFonts = false;
-
     registerFallbackValue(Uri.parse('http://localhost'));
   });
 
@@ -110,7 +95,13 @@ void main() {
     );
 
     when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => [workspace]);
-    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFolder]);
+    // user_access sheet maps installed modules for the workspace
+    final uaRange = sheets.ValueRange(values: [
+      ['id','module_name','dashboard','settings','tabs'],
+      ['mod1','Inventory','','mod1_settings','mod1_tabs'],
+    ]);
+    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+        .thenAnswer((_) async => uaRange);
     // Per-user config parts (refactored): settings, dashboard, tabs
     when(() => mockDriveService.getFileId('mod1', 'settings')).thenAnswer((_) async => 'mod1_settings');
     when(() => mockDriveService.getFileModifiedTime('mod1_settings')).thenAnswer((_) async => DateTime.now());
@@ -168,7 +159,7 @@ void main() {
           ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
         ],
         child: const MaterialApp(
-          home: DashboardScreen(),
+          home: DashboardScreen(userAccessSpreadsheetId: 'ua1'),
         ),
       ),
     );

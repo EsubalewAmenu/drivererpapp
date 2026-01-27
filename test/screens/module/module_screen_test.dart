@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:mocktail/mocktail.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 
 import 'package:drivererpapp/screens/module_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
@@ -15,6 +16,9 @@ import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 
 class TestDriveProvider extends DriveProvider {
   final DriveService? _svc;
@@ -109,7 +113,13 @@ void main() {
     when(() => mockDrive.readDashboardById('d1')).thenAnswer((_) async => {'cards': []});
     when(() => mockDrive.readTabsById('t1')).thenAnswer((_) async => []);
     when(() => mockDrive.getFileModifiedTime('s1')).thenAnswer((_) async => DateTime.utc(2025));
-    when(() => mockDrive.listModules(any())).thenAnswer((_) async => []);
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDrive.sheetsApi).thenReturn(mockSheetsApi);
+    when(() => mockValues.get(any(), 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
 
     final hostModule = ModuleSchema(
       id: 'host3',

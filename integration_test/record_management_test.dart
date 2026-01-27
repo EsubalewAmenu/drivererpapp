@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
@@ -16,16 +17,7 @@ import 'package:drivererpapp/screens/record_detail_screen.dart';
 import 'package:drivererpapp/screens/schema_editor_screen.dart';
 import 'package:drivererpapp/screens/module/widgets/module_list_item.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-class MockAuthService extends Mock implements AuthService {}
-class MockDriveService extends Mock implements DriveService {}
-
-class TestDriveProvider extends DriveProvider {
-  final DriveService? mockService;
-  TestDriveProvider(this.mockService);
-  @override
-  DriveService? get driveService => mockService;
-}
+import 'helpers/test_helpers.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -34,18 +26,13 @@ void main() {
   late MockDriveService mockDriveService;
 
   setUpAll(() {
-    SharedPreferences.setMockInitialValues({});
-    AppTheme.useGoogleFonts = false;
-    registerFallbackValue(drive.File());
+    initTestEnvironment();
   });
 
   setUp(() {
-    mockAuthService = MockAuthService();
-    mockDriveService = MockDriveService();
-
-    when(() => mockAuthService.isAuthenticated).thenReturn(true);
-    when(() => mockAuthService.currentUser).thenReturn(null);
-    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
+    final mocks = createTestMocks();
+    mockAuthService = mocks.auth;
+    mockDriveService = mocks.drive;
   });
 
   Widget createTestWidget({
@@ -73,7 +60,12 @@ void main() {
     final workspace = drive.File()..id = 'ws1'..name = 'ERP Lab';
     final moduleFile = drive.File()..id = 'mod1'..name = 'Inventory';
     
-    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFile]);
+    final uaRange = sheets.ValueRange(values: [
+      ['id','module_name','dashboard','settings','tabs'],
+      ['mod1','CRM','','conf1','tabs1'],
+    ]);
+    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+        .thenAnswer((_) async => uaRange);
     
     // Config for Inventory
     when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_id');

@@ -195,23 +195,9 @@ void main() {
       )).called(1);
     });
 
-    test('listModules returns list of folders in workspace', () async {
-      final fileList = drive.FileList(files: [
-        drive.File()..id = 'mod1'..name = 'Module 1'
-      ]);
-
-      when(() => mockFilesResource.list(
-        q: any(named: 'q'),
-        $fields: any(named: '\$fields'),
-        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
-        supportsAllDrives: any(named: 'supportsAllDrives'),
-        )).thenAnswer((_) async => fileList);
-
-      final result = await driveService.listModules('ws123');
-
-      expect(result.length, 1);
-      expect(result.first.id, 'mod1');
-    });
+    // NOTE: `listModules` was removed in favor of using the companies registry
+    // `user_access` sheet. The original Drive-based listing test was removed
+    // accordingly.
 
     test('getOrCreateSubFolder returns existing folder id if found', () async {
        final fileList = drive.FileList(files: [
