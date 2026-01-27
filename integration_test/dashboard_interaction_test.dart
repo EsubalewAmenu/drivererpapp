@@ -4,6 +4,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
@@ -18,6 +19,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 
 class TestDriveProvider extends DriveProvider {
   final DriveService? mockService;
@@ -40,6 +44,13 @@ void main() {
   setUp(() {
     mockAuthService = MockAuthService();
     mockDriveService = MockDriveService();
+    // Provide a mocked Sheets API chain for DriveService.sheetsApi.spreadsheets.values.get
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
 
     when(() => mockAuthService.isAuthenticated).thenReturn(true);
     when(() => mockAuthService.currentUser).thenReturn(null);
@@ -49,6 +60,7 @@ void main() {
   Widget createTestWidget({
     required WorkspaceProvider workspaceProvider,
     required DriveProvider driveProvider,
+    String? userAccessSpreadsheetId,
   }) {
     return MultiProvider(
       providers: [
@@ -58,8 +70,8 @@ void main() {
         ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
         ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
       ],
-      child: const MaterialApp(
-        home: DashboardScreen(),
+      child: MaterialApp(
+        home: DashboardScreen(userAccessSpreadsheetId: userAccessSpreadsheetId),
         debugShowCheckedModeBanner: false,
       ),
     );
@@ -71,7 +83,13 @@ void main() {
     final workspace = drive.File()..id = 'ws1'..name = 'ERP Lab';
     final moduleFile = drive.File()..id = 'mod1'..name = 'CRM';
     
-    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => [moduleFile]);
+    // Mock the user_access sheet rows via Sheets API
+    final mockValueRange = sheets.ValueRange(values: [
+      ['id', 'module_name', 'dashboard', 'settings', 'tabs'],
+      ['mod1', 'CRM', '', 'config_id', 'tabs_id'],
+    ]);
+    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+        .thenAnswer((_) async => mockValueRange);
     when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_id');
     when(() => mockDriveService.readModuleConfig('config_id')).thenAnswer((_) async => <String, dynamic>{
       'id': 'mod1',
@@ -89,6 +107,7 @@ void main() {
     await tester.pumpWidget(createTestWidget(
       workspaceProvider: workspaceProvider,
       driveProvider: driveProvider,
+      userAccessSpreadsheetId: 'ua1',
     ));
 
     await tester.pumpAndSettle();
@@ -121,7 +140,10 @@ void main() {
     final ws1 = drive.File()..id = 'ws1'..name = 'Company A';
     final companyB = Company(id: 'c2', name: 'Company B', folderId: 'ws2');
     
-    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
+    // No modules in user access sheet
+    final emptyRange = sheets.ValueRange(values: []);
+    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+      .thenAnswer((_) async => emptyRange);
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root_id');
     when(() => mockDriveService.ensureCompanyRegistry(any())).thenAnswer((_) async => 'reg_id');
     when(() => mockDriveService.getCompanies(any())).thenAnswer((_) async => [
@@ -136,6 +158,7 @@ void main() {
     await tester.pumpWidget(createTestWidget(
       workspaceProvider: workspaceProvider,
       driveProvider: driveProvider,
+      userAccessSpreadsheetId: 'ua1',
     ));
 
     await tester.pumpAndSettle();
