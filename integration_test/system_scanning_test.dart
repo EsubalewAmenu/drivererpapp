@@ -12,16 +12,7 @@ import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/system_scanning_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-class MockAuthService extends Mock implements AuthService {}
-class MockDriveService extends Mock implements DriveService {}
-
-class TestDriveProvider extends DriveProvider {
-  final DriveService? mockService;
-  TestDriveProvider(this.mockService);
-  @override
-  DriveService? get driveService => mockService;
-}
+import 'test_helpers.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -30,14 +21,13 @@ void main() {
   late MockDriveService mockDriveService;
 
   setUpAll(() {
-    SharedPreferences.setMockInitialValues({});
-    AppTheme.useGoogleFonts = false;
+    initTestEnvironment();
   });
 
   setUp(() {
-    mockAuthService = MockAuthService();
-    mockDriveService = MockDriveService();
-
+    final mocks = createTestMocks();
+    mockAuthService = mocks.auth;
+    mockDriveService = mocks.drive;
     when(() => mockAuthService.isAuthenticated).thenReturn(true);
     when(() => mockAuthService.currentUser).thenReturn(null);
   });

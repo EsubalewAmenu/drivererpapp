@@ -19,23 +19,9 @@ import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
 import 'package:drivererpapp/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'test_helpers.dart';
 
-class MockAuthService extends Mock implements AuthService {}
-class MockDriveService extends Mock implements DriveService {}
-class MockSheetsApi extends Mock implements sheets.SheetsApi {}
-class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
-class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
-
-class TestDriveProvider extends DriveProvider {
-  final DriveService? mockService;
-  TestDriveProvider(this.mockService);
-  
-  @override
-  DriveService? get driveService => mockService;
-  @override
-  void updateClient(http.Client? client) {}
-}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -45,9 +31,7 @@ void main() {
   late MockGoogleSignInAccount mockUser;
 
   setUpAll(() {
-    SharedPreferences.setMockInitialValues({});
-    AppTheme.useGoogleFonts = false;
-    registerFallbackValue(drive.File());
+    initTestEnvironment();
     registerFallbackValue(ModuleSchema(
       id: '', name: '', icon: '', primaryColor: '', version: '',
       settings: {}, dashboard: DashboardConfig(cards: []), tabs: []
@@ -55,14 +39,9 @@ void main() {
   });
 
   setUp(() {
-    mockAuthService = MockAuthService();
-    mockDriveService = MockDriveService();
-    final mockSheetsApi = MockSheetsApi();
-    final mockSpreadsheets = MockSpreadsheetsResource();
-    final mockValues = MockValuesResource();
-    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
-    when(() => mockSpreadsheets.values).thenReturn(mockValues);
-    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
+    final mocks = createTestMocks();
+    mockAuthService = mocks.auth;
+    mockDriveService = mocks.drive;
     mockUser = MockGoogleSignInAccount();
 
     when(() => mockUser.displayName).thenReturn('Integration User');
@@ -71,10 +50,7 @@ void main() {
     when(() => mockAuthService.currentUser).thenReturn(mockUser);
     when(() => mockAuthService.isAuthenticated).thenReturn(false);
     when(() => mockAuthService.signInSilently()).thenAnswer((_) async {});
-    
-    when(() => mockAuthService.signIn()).thenAnswer((_) async {
-      when(() => mockAuthService.isAuthenticated).thenReturn(true);
-    });
+    when(() => mockAuthService.signIn()).thenAnswer((_) async { when(() => mockAuthService.isAuthenticated).thenReturn(true); });
 
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
     when(() => mockDriveService.ensureCompanyRegistry(any())).thenAnswer((_) async => 'companies_sheet_id');

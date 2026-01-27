@@ -13,23 +13,9 @@ import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dynamic_form_screen.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'test_helpers.dart';
 
-class MockAuthService extends Mock implements AuthService {}
-class MockDriveService extends Mock implements DriveService {}
 class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
-
-class TestDriveProvider extends DriveProvider {
-  DriveService? _mockService;
-  TestDriveProvider(this._mockService);
-  
-  @override
-  DriveService? get driveService => _mockService;
-  
-  void setMockService(DriveService? service) {
-    _mockService = service;
-    notifyListeners();
-  }
-}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -39,15 +25,14 @@ void main() {
   late ModuleSchema testModule;
 
   setUpAll(() {
-    SharedPreferences.setMockInitialValues({});
-    AppTheme.useGoogleFonts = false;
-    registerFallbackValue(drive.File());
+    initTestEnvironment();
   });
 
   setUp(() {
-    mockDriveService = MockDriveService();
+    final mocks = createTestMocks();
+    mockDriveService = mocks.drive;
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
-    
+
     testTab = TabConfig(
       id: 'stocks',
       label: 'Stocks',

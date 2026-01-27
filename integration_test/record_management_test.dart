@@ -17,19 +17,7 @@ import 'package:drivererpapp/screens/record_detail_screen.dart';
 import 'package:drivererpapp/screens/schema_editor_screen.dart';
 import 'package:drivererpapp/screens/module/widgets/module_list_item.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-class MockAuthService extends Mock implements AuthService {}
-class MockDriveService extends Mock implements DriveService {}
-class MockSheetsApi extends Mock implements sheets.SheetsApi {}
-class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
-class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
-
-class TestDriveProvider extends DriveProvider {
-  final DriveService? mockService;
-  TestDriveProvider(this.mockService);
-  @override
-  DriveService? get driveService => mockService;
-}
+import 'test_helpers.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -38,24 +26,13 @@ void main() {
   late MockDriveService mockDriveService;
 
   setUpAll(() {
-    SharedPreferences.setMockInitialValues({});
-    AppTheme.useGoogleFonts = false;
-    registerFallbackValue(drive.File());
+    initTestEnvironment();
   });
 
   setUp(() {
-    mockAuthService = MockAuthService();
-    mockDriveService = MockDriveService();
-    final mockSheetsApi = MockSheetsApi();
-    final mockSpreadsheets = MockSpreadsheetsResource();
-    final mockValues = MockValuesResource();
-    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
-    when(() => mockSpreadsheets.values).thenReturn(mockValues);
-    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
-
-    when(() => mockAuthService.isAuthenticated).thenReturn(true);
-    when(() => mockAuthService.currentUser).thenReturn(null);
-    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
+    final mocks = createTestMocks();
+    mockAuthService = mocks.auth;
+    mockDriveService = mocks.drive;
   });
 
   Widget createTestWidget({

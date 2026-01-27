@@ -18,21 +18,9 @@ import 'package:drivererpapp/screens/dynamic_form_screen.dart';
 import 'package:drivererpapp/screens/module_screen.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'test_helpers.dart';
 
-class MockAuthService extends Mock implements AuthService {}
-class MockDriveService extends Mock implements DriveService {}
-class MockSheetsApi extends Mock implements sheets.SheetsApi {}
-class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
-class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
-
-class TestDriveProvider extends DriveProvider {
-  final DriveService? _mockService;
-  TestDriveProvider(this._mockService);
-  
-  @override
-  DriveService? get driveService => _mockService;
-}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -41,29 +29,15 @@ void main() {
   late MockDriveService mockDriveService;
   late MockGoogleSignInAccount mockAccount;
 
+  setUpAll(() {
+    initTestEnvironment();
+  });
+
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
-    mockAuthService = MockAuthService();
-    mockDriveService = MockDriveService();
+    final mocks = createTestMocks();
+    mockAuthService = mocks.auth;
+    mockDriveService = mocks.drive;
     mockAccount = MockGoogleSignInAccount();
-
-    final mockSheetsApi = MockSheetsApi();
-    final mockSpreadsheets = MockSpreadsheetsResource();
-    final mockValues = MockValuesResource();
-    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
-    when(() => mockSpreadsheets.values).thenReturn(mockValues);
-    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
-
-    when(() => mockAuthService.currentUser).thenReturn(mockAccount);
-    when(() => mockAccount.displayName).thenReturn('Test User');
-    when(() => mockAccount.email).thenReturn('test@example.com');
-    
-    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
-    when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'module_subfolder');
-    when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
-    
-    AppTheme.useGoogleFonts = false;
-
     registerFallbackValue(Uri.parse('http://localhost'));
   });
 

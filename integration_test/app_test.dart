@@ -14,10 +14,10 @@ import 'package:drivererpapp/models/company_model.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:shared_preferences/shared_preferences.dart';
 
-class MockAuthService extends Mock implements AuthService {}
+import 'test_helpers.dart';
+
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveProvider extends Mock implements DriveProvider {}
-class MockDriveService extends Mock implements DriveService {}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -28,22 +28,21 @@ void main() {
   late MockDriveService mockDriveService;
 
   setUpAll(() {
-    SharedPreferences.setMockInitialValues({});
-    AppTheme.useGoogleFonts = false;
-    registerFallbackValue(drive.File());
+    initTestEnvironment();
   });
 
   setUp(() {
-    mockAuthService = MockAuthService();
+    final mocks = createTestMocks();
+    mockAuthService = mocks.auth;
+    mockDriveService = mocks.drive;
     mockWorkspaceProvider = MockWorkspaceProvider();
     mockDriveProvider = MockDriveProvider();
-    mockDriveService = MockDriveService();
 
     when(() => mockAuthService.isAuthenticated).thenReturn(false);
     when(() => mockAuthService.signInSilently()).thenAnswer((_) async {});
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
-    
+
     // Workspace Provider stubs
     when(() => mockWorkspaceProvider.hasWorkspace).thenReturn(false);
     when(() => mockWorkspaceProvider.isLoading).thenReturn(false);

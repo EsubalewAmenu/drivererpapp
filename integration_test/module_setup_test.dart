@@ -16,19 +16,7 @@ import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/screens/module_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-class MockAuthService extends Mock implements AuthService {}
-class MockDriveService extends Mock implements DriveService {}
-class MockSheetsApi extends Mock implements sheets.SheetsApi {}
-class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
-class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
-
-class TestDriveProvider extends DriveProvider {
-  final DriveService? mockService;
-  TestDriveProvider(this.mockService);
-  @override
-  DriveService? get driveService => mockService;
-}
+import 'test_helpers.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -37,36 +25,13 @@ void main() {
   late MockDriveService mockDriveService;
 
   setUpAll(() {
-    SharedPreferences.setMockInitialValues({});
-    AppTheme.useGoogleFonts = false;
-    registerFallbackValue(drive.File());
+    initTestEnvironment();
   });
 
   setUp(() {
-    mockAuthService = MockAuthService();
-    mockDriveService = MockDriveService();
-    final mockSheetsApi = MockSheetsApi();
-    final mockSpreadsheets = MockSpreadsheetsResource();
-    final mockValues = MockValuesResource();
-    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
-    when(() => mockSpreadsheets.values).thenReturn(mockValues);
-    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
-
-    when(() => mockAuthService.isAuthenticated).thenReturn(true);
-    when(() => mockAuthService.currentUser).thenReturn(null);
-    
-    // Default mocks for module loading and dashboard
-    when(() => mockDriveService.fetchRecords(
-      any(), 
-      any(), 
-      any(),
-      offset: any(named: 'offset'),
-      limit: any(named: 'limit'),
-      fetchSubTables: any(named: 'fetchSubTables'),
-      descending: any(named: 'descending'),
-    )).thenAnswer((_) async => []);
-    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
-    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
+    final mocks = createTestMocks();
+    mockAuthService = mocks.auth;
+    mockDriveService = mocks.drive;
   });
 
   testWidgets('Module Activation and Blueprint Editing Flow', (tester) async {
