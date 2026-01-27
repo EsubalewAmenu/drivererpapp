@@ -102,21 +102,7 @@ mixin DriveFolderMixin {
   }
 
   /// Lists subfolders (modules) inside a workspace folder.
-  Future<List<drive.File>> listModules(String workspaceId) async {
-    try {
-      debugPrint('DriveFolderMixin: listing modules in workspace $workspaceId');
-      final fileList = await driveApi.files.list(
-        q: "'$workspaceId' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
-        $fields: 'files(id, name)',
-        includeItemsFromAllDrives: true,
-        supportsAllDrives: true,
-      );
-      final files = fileList.files ?? [];
-      debugPrint('DriveFolderMixin: found ${files.length} modules in $workspaceId');
-      return files;
-    } catch (e) {
-      debugPrint('Error listing modules: $e');
-      rethrow;
-    }
-  }
+  // Note: module listing via Drive folders has been removed. Access control
+  // and module activation are now driven exclusively by the companies
+  // registry `user_access` sheet. Do not add a Drive-based fallback.
 }

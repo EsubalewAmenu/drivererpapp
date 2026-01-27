@@ -219,7 +219,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
       final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
 
-      List<dynamic> activeModules = [];
+      List<List<dynamic>> uaRows = [];
       // Build a set of deactivated module ids from the per-user user_access spreadsheet (if available)
       final deactivated = <String>{};
       try {
@@ -233,10 +233,11 @@ class _ModuleScreenState extends State<ModuleScreen> {
             if (all.isNotEmpty) {
               final header = List<String>.from(all.first.map((e) => e.toString().toLowerCase()));
               final rows = all.length > 1 ? all.sublist(1) : [];
+              uaRows = rows.map((r) => List<dynamic>.from(r as List)).toList();
               final statusIdx = header.indexOf('status');
               if (statusIdx != -1) {
-                for (var r in rows) {
-                  final id = r.isNotEmpty ? (r[0] as String) : '';
+                for (var r in uaRows) {
+                  final id = r.isNotEmpty ? (r[0]?.toString() ?? '') : '';
                   final status = (r.length > statusIdx ? (r[statusIdx] ?? '') : '').toString().toLowerCase();
                   if (id.isNotEmpty && status == 'deactivated') deactivated.add(id);
                 }
@@ -245,11 +246,8 @@ class _ModuleScreenState extends State<ModuleScreen> {
           } catch (_) {}
         }
       } catch (_) {}
-      try {
-        if (driveService != null && workspaceId != null) {
-          activeModules = await driveService.listModules(workspaceId);
-        }
-      } catch (_) {}
+      // active modules are determined from the per-user user_access spreadsheet
+      // (do not fall back to Drive folder listing).
 
       for (var rawKey in enabledKeys) {
         try {
@@ -278,11 +276,15 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
           var activated = false;
           try {
-            for (var m in activeModules) {
-              final mName = (m.name ?? '').toString().toLowerCase();
-              if (mName == modId.toLowerCase() || mName == name.toLowerCase()) {
-                activated = true;
-                break;
+            // If we have a user_access rows snapshot, check for a matching id/name
+            if (uaRows.isNotEmpty) {
+              for (var r in uaRows) {
+                final rowId = r.isNotEmpty ? (r[0]?.toString() ?? '') : '';
+                final rowName = r.length > 1 ? (r[1]?.toString() ?? '') : '';
+                if (rowId.isNotEmpty && (rowId == modId || rowName.toLowerCase() == name.toLowerCase())) {
+                  activated = true;
+                  break;
+                }
               }
             }
           } catch (_) {}
@@ -573,11 +575,22 @@ class _ModuleScreenState extends State<ModuleScreen> {
         final driveService = driveServiceFromProvider;
         final workspaceId = workspaceProvider.currentWorkspace?.id;
         if (driveService != null && workspaceId != null) {
-          final activeModules = await driveService.listModules(workspaceId);
-          for (var m in activeModules) {
-            final name = (m.name ?? '').toString().toLowerCase();
-            installedNames.add(name);
-          }
+          try {
+            String? uaId = workspaceProvider.lastUserAccessSpreadsheetId;
+            if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+            if (uaId != null && uaId.isNotEmpty) {
+              final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
+              final all = resp.values ?? [];
+              if (all.isNotEmpty) {
+                final rows = all.length > 1 ? all.sublist(1) : [];
+                for (var r in rows) {
+                  final row = List<dynamic>.from(r as List);
+                  final rowName = row.length > 1 ? (row[1]?.toString() ?? '') : '';
+                  if (rowName.isNotEmpty) installedNames.add(rowName.toLowerCase());
+                }
+              }
+            }
+          } catch (_) {}
         }
       } catch (e) {
         debugPrint('Could not determine installed modules (missing providers?): $e');
@@ -657,19 +670,30 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 // If this extension is installed in the workspace, prefer the Drive folder id
                 String moduleIdForCache = authoritativeOtherId;
                 try {
-                  List<dynamic> _activeModules = [];
                   final driveProvider = Provider.of<DriveProvider>(context, listen: false);
                   final driveService = driveProvider.driveService;
                   final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
                   if (driveService != null && workspaceId != null) {
-                    _activeModules = await driveService.listModules(workspaceId);
-                  }
-                  for (var m in _activeModules) {
-                    final mName = (m.name ?? '').toString().toLowerCase();
-                    if (mName == candidateName || mName == otherModuleId.toLowerCase()) {
-                      moduleIdForCache = m.id ?? authoritativeOtherId;
-                      break;
-                    }
+                    try {
+                      String? uaId = Provider.of<WorkspaceProvider>(context, listen: false).lastUserAccessSpreadsheetId;
+                      if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+                      if (uaId != null && uaId.isNotEmpty) {
+                        final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
+                        final all = resp.values ?? [];
+                        if (all.isNotEmpty) {
+                          final rows = all.length > 1 ? all.sublist(1) : [];
+                          for (var r in rows) {
+                            final row = List<dynamic>.from(r as List);
+                            final rowName = row.length > 1 ? (row[1]?.toString() ?? '') : '';
+                            final rowId = row.isNotEmpty ? (row[0]?.toString() ?? '') : '';
+                            if (rowName.toLowerCase() == candidateName || rowName.toLowerCase() == otherModuleId.toLowerCase() || rowId == otherModuleId) {
+                              moduleIdForCache = rowId.isNotEmpty ? rowId : authoritativeOtherId;
+                              break;
+                            }
+                          }
+                        }
+                      }
+                    } catch (_) {}
                   }
                 } catch (_) {}
 
@@ -734,19 +758,30 @@ class _ModuleScreenState extends State<ModuleScreen> {
               // Use the actual other module id when prefixing (this is authoritative)
               String moduleIdForCache = otherModule.id;
               try {
-                List<dynamic> _activeModules = [];
                 final driveProvider = Provider.of<DriveProvider>(context, listen: false);
                 final driveService = driveProvider.driveService;
                 final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
                 if (driveService != null && workspaceId != null) {
-                  _activeModules = await driveService.listModules(workspaceId);
-                }
-                for (var m in _activeModules) {
-                  final mName = (m.name ?? '').toString().toLowerCase();
-                  if (mName == otherModule.name.toLowerCase() || mName == otherModule.id.toLowerCase()) {
-                    moduleIdForCache = m.id ?? otherModule.id;
-                    break;
-                  }
+                  try {
+                    String? uaId = Provider.of<WorkspaceProvider>(context, listen: false).lastUserAccessSpreadsheetId;
+                    if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+                    if (uaId != null && uaId.isNotEmpty) {
+                      final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
+                      final all = resp.values ?? [];
+                      if (all.isNotEmpty) {
+                        final rows = all.length > 1 ? all.sublist(1) : [];
+                        for (var r in rows) {
+                          final row = List<dynamic>.from(r as List);
+                          final rowName = row.length > 1 ? (row[1]?.toString() ?? '') : '';
+                          final rowId = row.isNotEmpty ? (row[0]?.toString() ?? '') : '';
+                          if (rowName.toLowerCase() == otherModule.name.toLowerCase() || rowName.toLowerCase() == otherModule.id.toLowerCase() || rowId == otherModule.id) {
+                            moduleIdForCache = rowId.isNotEmpty ? rowId : otherModule.id;
+                            break;
+                          }
+                        }
+                      }
+                    }
+                  } catch (_) {}
                 }
               } catch (_) {}
 

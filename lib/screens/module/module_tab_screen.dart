@@ -277,51 +277,58 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       debugPrint('ModuleTabScreen: widgetTab=${widget.tab.id} rawEffective=$rawEffectiveTab resolvedTab=$fetchTabId fetchModuleId=$fetchModuleId');
 
       // If fetchModuleId looks like a short placeholder (e.g. 'deals'), try to resolve
-      // to an actual Drive folder id by searching the current workspace folders.
+      // to an actual Drive folder id by checking the per-user `user_access` sheet.
       if (fetchModuleId.length < 15) {
         try {
-          final workspaceId = context.read<WorkspaceProvider>().currentWorkspace?.id;
-          if (workspaceId != null) {
-            final modules = await _driveService.listModules(workspaceId);
-            var match;
-            for (var m in modules) {
-              final name = (m.name ?? '').toLowerCase();
-              if (name == fetchModuleId.toLowerCase() || name == fetchModuleName.toLowerCase()) {
-                match = m;
-                break;
+          String? uaId = context.read<WorkspaceProvider>().lastUserAccessSpreadsheetId;
+          if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+          if (uaId != null && uaId.isNotEmpty) {
+            final resp = await _driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
+            final all = resp.values ?? [];
+            if (all.isNotEmpty) {
+              final rows = all.length > 1 ? all.sublist(1) : [];
+              dynamic match;
+              for (var r in rows) {
+                final row = List<dynamic>.from(r as List);
+                final rowId = row.isNotEmpty ? (row[0]?.toString() ?? '') : '';
+                final rowName = row.length > 1 ? (row[1]?.toString() ?? '') : '';
+                if (rowId.isNotEmpty && (rowId == fetchModuleId || rowName.toLowerCase() == fetchModuleId.toLowerCase() || rowName.toLowerCase() == fetchModuleName.toLowerCase())) {
+                  match = {'id': rowId, 'name': rowName};
+                  break;
+                }
               }
-            }
-            if (match != null && match.id != null) {
-              fetchModuleId = match.id!;
-              // update sourceModule if we have a cached module by that id
-              sourceModule = context.read<SchemaProvider>().getFromMemory(fetchModuleId) ?? sourceModule;
+              if (match != null && (match['id'] ?? '') != '') {
+                fetchModuleId = match['id'];
+                // update sourceModule if we have a cached module by that id
+                sourceModule = context.read<SchemaProvider>().getFromMemory(fetchModuleId) ?? sourceModule;
 
-              // If we still don't have a sourceModule but we have a cached
-              // asset entry under the short key (e.g. 'support'), map that
-              // cached ModuleSchema to the resolved Drive folder id so future
-              // lookups find it by folder id.
-              if (sourceModule == null) {
-                try {
-                  final provider = context.read<SchemaProvider>();
-                  final parts = widget.tab.id.split('_');
-                  final possibleMod = parts.isNotEmpty ? parts[0] : '';
-                  final cached = provider.getFromMemory(possibleMod);
-                  if (cached != null) {
-                    final mapped = ModuleSchema(
-                      id: fetchModuleId,
-                      name: cached.name,
-                      icon: cached.icon,
-                      primaryColor: cached.primaryColor,
-                      version: cached.version,
-                      settings: cached.settings,
-                      dashboard: cached.dashboard,
-                      tabs: cached.tabs,
-                    );
-                    provider.updateMemoryCache(fetchModuleId, mapped);
-                    sourceModule = mapped;
+                // If we still don't have a sourceModule but we have a cached
+                // asset entry under the short key (e.g. 'support'), map that
+                // cached ModuleSchema to the resolved Drive folder id so future
+                // lookups find it by folder id.
+                if (sourceModule == null) {
+                  try {
+                    final provider = context.read<SchemaProvider>();
+                    final parts = widget.tab.id.split('_');
+                    final possibleMod = parts.isNotEmpty ? parts[0] : '';
+                    final cached = provider.getFromMemory(possibleMod);
+                    if (cached != null) {
+                      final mapped = ModuleSchema(
+                        id: fetchModuleId,
+                        name: cached.name,
+                        icon: cached.icon,
+                        primaryColor: cached.primaryColor,
+                        version: cached.version,
+                        settings: cached.settings,
+                        dashboard: cached.dashboard,
+                        tabs: cached.tabs,
+                      );
+                      provider.updateMemoryCache(fetchModuleId, mapped);
+                      sourceModule = mapped;
+                    }
+                  } catch (e) {
+                    debugPrint('Error mapping cached module to folder id: $e');
                   }
-                } catch (e) {
-                  debugPrint('Error mapping cached module to folder id: $e');
                 }
               }
             }

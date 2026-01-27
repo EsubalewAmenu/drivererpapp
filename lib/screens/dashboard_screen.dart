@@ -101,8 +101,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         debugPrint('DashboardScreen: loading modules from user_access sheet $effectiveId');
         _modulesFuture = _loadModulesFromUserAccess(driveService, effectiveId);
       } else {
-        debugPrint('DashboardScreen: no user_access sheet, falling back to listing modules in Drive');
-        _modulesFuture = driveService.listModules(workspace.id!);
+        debugPrint('DashboardScreen: no user_access sheet, treating as no access (no Drive listing)');
+        _modulesFuture = Future.value([]);
       }
     });
   }
