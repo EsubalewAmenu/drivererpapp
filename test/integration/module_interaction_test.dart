@@ -13,10 +13,14 @@ import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 
 class TestDriveProvider extends DriveProvider {
   final DriveService? mockService;
@@ -79,9 +83,18 @@ void main() {
     
     final driveProvider = TestDriveProvider(mockDriveService);
 
-    // 1. Mock Module List and Config
+    // 1. Mock Module List and Config via user_access sheet
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
     final moduleFile = drive.File()..id = 'mod1'..name = 'Inventory';
-    when(() => mockDriveService.listModules('ws1')).thenAnswer((_) async => [moduleFile]);
+    await workspaceProvider.saveUserAccessSpreadsheetId('ua_ws1');
+    final header = ['id', 'module_name', 'dashboard', 'settings', 'tabs'];
+    final rows = [ ['mod1', 'Inventory', 'dash_1', 'config_id', 'tabs_1'] ];
+    when(() => mockValues.get('ua_ws1', 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: [header, ...rows]));
     when(() => mockDriveService.getOrCreateSubFolder('mod1', 'config')).thenAnswer((_) async => 'mod1');
     when(() => mockDriveService.getFileId('mod1', 'user@example.com_settings')).thenAnswer((_) async => 'config_id');
     

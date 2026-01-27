@@ -11,10 +11,14 @@ import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
+import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 
 class TestDriveProvider extends DriveProvider {
   final DriveService? mockService;
@@ -41,7 +45,7 @@ void main() {
     when(() => mockAuthService.isAuthenticated).thenReturn(true);
     when(() => mockAuthService.currentUser).thenReturn(null);
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
-    when(() => mockDriveService.listModules(any())).thenAnswer((_) async => []);
+    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root_id');
     when(() => mockDriveService.createRootFolder()).thenAnswer((_) async => 'root_id');
@@ -84,6 +88,16 @@ void main() {
     workspaceProvider.setWorkspace(workspaceFile);
     
     final driveProvider = TestDriveProvider(mockDriveService);
+
+    // Provide an empty user_access sheet for this workspace so Dashboard treats as no modules
+    final mockSheetsApi = MockSheetsApi();
+    final mockSpreadsheets = MockSpreadsheetsResource();
+    final mockValues = MockValuesResource();
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
+    await workspaceProvider.saveUserAccessSpreadsheetId('ua_ws1');
+    when(() => mockValues.get('ua_ws1', 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
 
     await tester.pumpWidget(createTestWidget(
       workspaceProvider: workspaceProvider,
