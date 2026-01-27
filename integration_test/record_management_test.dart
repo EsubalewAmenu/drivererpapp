@@ -17,7 +17,7 @@ import 'package:drivererpapp/screens/record_detail_screen.dart';
 import 'package:drivererpapp/screens/schema_editor_screen.dart';
 import 'package:drivererpapp/screens/module/widgets/module_list_item.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'test_helpers.dart';
+import 'helpers/test_helpers.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

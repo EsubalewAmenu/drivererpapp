@@ -14,7 +14,7 @@ import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/screens/schema_editor_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'test_helpers.dart';
+import 'helpers/test_helpers.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

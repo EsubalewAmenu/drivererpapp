@@ -19,7 +19,7 @@ import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
 import 'package:drivererpapp/screens/settings_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'test_helpers.dart';
+import 'helpers/test_helpers.dart';
 
 class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
 

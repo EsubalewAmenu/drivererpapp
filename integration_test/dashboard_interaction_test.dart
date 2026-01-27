@@ -16,7 +16,7 @@ import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/screens/workspace_selector_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'test_helpers.dart';
+import 'helpers/test_helpers.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

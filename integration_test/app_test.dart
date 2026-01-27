@@ -14,7 +14,7 @@ import 'package:drivererpapp/models/company_model.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'test_helpers.dart';
+import 'helpers/test_helpers.dart';
 
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 class MockDriveProvider extends Mock implements DriveProvider {}

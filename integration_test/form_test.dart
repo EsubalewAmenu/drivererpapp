@@ -18,7 +18,7 @@ import 'package:drivererpapp/screens/dynamic_form_screen.dart';
 import 'package:drivererpapp/screens/module_screen.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'test_helpers.dart';
+import 'helpers/test_helpers.dart';
 
 class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
 
