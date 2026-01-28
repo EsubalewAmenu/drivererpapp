@@ -435,10 +435,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             }
           }
         } else {
-          // No fileId in cache — do not perform folder/name lookup or fallback fetch.
-          // Rely on cached `tabs` metadata only. If initial data exists, create
-          // spreadsheet in the expected folder id (fetchModuleId must be the
-          // authoritative folder id in the cached config scenario).
           fetchedData = [];
 
           // If there were no records and no existing spreadsheet, create and seed lazily.
