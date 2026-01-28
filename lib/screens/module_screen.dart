@@ -420,8 +420,41 @@ class _ModuleScreenState extends State<ModuleScreen> {
           if (newConfig.isNotEmpty) {
             debugPrint('Module ${widget.module.id} schema loaded directly from spreadsheets.');
             try {
-              final modifiedTime = await driveService.getFileModifiedTime(widget.settingsSheetId!);
-              await schemaService.cacheConfig(widget.module.id, newConfig, fileId: widget.settingsSheetId, modifiedTime: modifiedTime?.toIso8601String());
+              // Cache each part separately so each sheet's metadata can be tracked
+              // and updated independently.
+              if (newConfig.containsKey('settings') && widget.settingsSheetId != null && widget.settingsSheetId!.isNotEmpty) {
+                try {
+                  final settingsModified = await driveService.getFileModifiedTime(widget.settingsSheetId!);
+                  await schemaService.cacheConfig(widget.module.id, {'settings': newConfig['settings']}, fileId: widget.settingsSheetId, modifiedTime: settingsModified?.toIso8601String());
+                } catch (e) {
+                  debugPrint('Error caching settings part: $e');
+                }
+              } else if (newConfig.containsKey('settings')) {
+                // No explicit sheet id provided; cache without file metadata
+                await schemaService.cacheConfig(widget.module.id, {'settings': newConfig['settings']});
+              }
+
+              if (newConfig.containsKey('dashboard') && widget.dashboardSheetId != null && widget.dashboardSheetId!.isNotEmpty) {
+                try {
+                  final dashModified = await driveService.getFileModifiedTime(widget.dashboardSheetId!);
+                  await schemaService.cacheConfig(widget.module.id, {'dashboard': newConfig['dashboard']}, fileId: widget.dashboardSheetId, modifiedTime: dashModified?.toIso8601String());
+                } catch (e) {
+                  debugPrint('Error caching dashboard part: $e');
+                }
+              } else if (newConfig.containsKey('dashboard')) {
+                await schemaService.cacheConfig(widget.module.id, {'dashboard': newConfig['dashboard']});
+              }
+
+              if (newConfig.containsKey('tabs') && widget.tabsSheetId != null && widget.tabsSheetId!.isNotEmpty) {
+                try {
+                  final tabsModified = await driveService.getFileModifiedTime(widget.tabsSheetId!);
+                  await schemaService.cacheConfig(widget.module.id, {'tabs': newConfig['tabs']}, fileId: widget.tabsSheetId, modifiedTime: tabsModified?.toIso8601String());
+                } catch (e) {
+                  debugPrint('Error caching tabs part: $e');
+                }
+              } else if (newConfig.containsKey('tabs')) {
+                await schemaService.cacheConfig(widget.module.id, {'tabs': newConfig['tabs']});
+              }
             } catch (e) {
               debugPrint('Error caching direct-read config: $e');
             }
