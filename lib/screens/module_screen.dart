@@ -771,6 +771,30 @@ class _ModuleScreenState extends State<ModuleScreen> {
                   // Cache the raw other module JSON so per-tab fileId entries (if any)
                   // are available to ModuleTabScreen when resolving fileIds later.
                   try {
+                    // Merge any existing cached tab fileIds so we don't erase
+                    // fileId metadata when caching asset-derived module JSON.
+                    try {
+                      final existing = await provider.service.getCachedConfig(moduleIdForCache);
+                      if (existing != null && existing['tabs'] != null && otherJson['tabs'] != null) {
+                        final existingTabs = List<dynamic>.from(existing['tabs'] as List);
+                        final otherTabs = List<dynamic>.from(otherJson['tabs'] as List);
+                        for (var ot in otherTabs) {
+                          if (ot is Map && ot['id'] != null) {
+                            final oid = ot['id'].toString();
+                            for (var et in existingTabs) {
+                              if (et is Map && et['id']?.toString() == oid) {
+                                if (et['fileId'] != null && (ot['fileId'] == null || ot['fileId'].toString().isEmpty)) {
+                                  ot['fileId'] = et['fileId'];
+                                }
+                                break;
+                              }
+                            }
+                          }
+                        }
+                        otherJson['tabs'] = otherTabs;
+                      }
+                    } catch (_) {}
+
                     await provider.service.cacheConfig(moduleIdForCache, otherJson);
                     // Also cache under the authoritative asset key for lookups by asset id
                     if (moduleIdForCache != authoritativeOtherId) {
@@ -817,6 +841,32 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 provider.updateMemoryCache(moduleIdForCache, otherModule);
                 try {
                   await provider.service.cacheConfig(moduleIdForCache, otherModule.toJson());
+                } catch (_) {}
+                try {
+                  // Merge existing cached tab fileIds to avoid overwriting metadata
+                  final existing = await provider.service.getCachedConfig(moduleIdForCache);
+                  if (existing != null && existing['tabs'] != null) {
+                    final existingTabs = List<dynamic>.from(existing['tabs'] as List);
+                    final otherJson = otherModule.toJson();
+                    final otherTabs = otherJson['tabs'] != null ? List<dynamic>.from(otherJson['tabs'] as List) : <dynamic>[];
+                    for (var ot in otherTabs) {
+                      if (ot is Map && ot['id'] != null) {
+                        final oid = ot['id'].toString();
+                        for (var et in existingTabs) {
+                          if (et is Map && et['id']?.toString() == oid) {
+                            if (et['fileId'] != null && (ot['fileId'] == null || ot['fileId'].toString().isEmpty)) {
+                              ot['fileId'] = et['fileId'];
+                            }
+                            break;
+                          }
+                        }
+                      }
+                    }
+                    otherJson['tabs'] = otherTabs;
+                    try {
+                      await provider.service.cacheConfig(moduleIdForCache, otherJson);
+                    } catch (_) {}
+                  }
                 } catch (_) {}
               }
 

@@ -332,30 +332,37 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               debugPrint('Created spreadsheet id=$newSpreadsheetId for $fetchTabId');
 
               // Update cached config to store fileId for this tab so future loads use the file directly.
-              try {
-                if (cachedConfig != null && cachedConfig['tabs'] != null) {
-                  final tabsRaw = List<dynamic>.from(cachedConfig['tabs'] as List);
-                  for (var t in tabsRaw) {
-                    if (t is Map && t['id']?.toString() == fetchTabId) {
-                      t['fileId'] = newSpreadsheetId;
-                      break;
-                    }
-                  }
-                  // Persist updated tabs to Drive (best-effort)
                   try {
-                    await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
-                  } catch (se) {
-                    debugPrint('Failed to persist updated tabs with new fileId: $se');
-                  }
+                    if (cachedConfig != null && cachedConfig['tabs'] != null) {
+                      final tabsRaw = List<dynamic>.from(cachedConfig['tabs'] as List);
+                      for (var t in tabsRaw) {
+                        if (t is Map && t['id']?.toString() == fetchTabId) {
+                          t['fileId'] = newSpreadsheetId;
+                          break;
+                        }
+                      }
+                      // Persist updated tabs to Drive (best-effort)
+                      try {
+                        if (fetchModuleId == (widget.module?.id ?? '')) {
+                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+                        } else {
+                          // When operating on an extension module, avoid using the host widget's
+                          // settings/tabs ids (which belong to the host). Let SchemaService
+                          // resolve the correct files for the target module instead.
+                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw);
+                        }
+                      } catch (se) {
+                        debugPrint('Failed to persist updated tabs with new fileId: $se');
+                      }
 
-                  // Persist updated cache locally (best-effort)
-                  try {
-                    await schemaProvider.service.cacheConfig(fetchModuleId, cachedConfig);
-                  } catch (_) {}
-                }
-              } catch (e) {
-                debugPrint('Error updating cached config with recreated fileId: $e');
-              }
+                      // Persist updated cache locally (best-effort)
+                      try {
+                        await schemaProvider.service.cacheConfig(fetchModuleId, cachedConfig);
+                      } catch (_) {}
+                    }
+                  } catch (e) {
+                    debugPrint('Error updating cached config with recreated fileId: $e');
+                  }
 
               // Prepare for seeding
               tabFileId = newSpreadsheetId;
@@ -441,30 +448,34 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               final newSpreadsheetId = await _driveService.createSpreadsheetInFolder(fetchModuleId, fetchTabId);
 
               // Update cached config to store fileId for this tab so future loads use the file directly.
-              try {
-                if (cachedConfig != null && cachedConfig['tabs'] != null) {
-                  final tabsRaw = List<dynamic>.from(cachedConfig['tabs'] as List);
-                  for (var t in tabsRaw) {
-                    if (t is Map && t['id']?.toString() == fetchTabId) {
-                      t['fileId'] = newSpreadsheetId;
-                      break;
-                    }
-                  }
-                  // Persist updated tabs to Drive (best-effort)
                   try {
-                    await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
-                  } catch (se) {
-                    debugPrint('Failed to persist updated tabs with new fileId: $se');
-                  }
+                    if (cachedConfig != null && cachedConfig['tabs'] != null) {
+                      final tabsRaw = List<dynamic>.from(cachedConfig['tabs'] as List);
+                      for (var t in tabsRaw) {
+                        if (t is Map && t['id']?.toString() == fetchTabId) {
+                          t['fileId'] = newSpreadsheetId;
+                          break;
+                        }
+                      }
+                      // Persist updated tabs to Drive (best-effort)
+                      try {
+                        if (fetchModuleId == (widget.module?.id ?? '')) {
+                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+                        } else {
+                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw);
+                        }
+                      } catch (se) {
+                        debugPrint('Failed to persist updated tabs with new fileId: $se');
+                      }
 
-                  // Persist updated cache locally (best-effort)
-                  try {
-                    await schemaProvider.service.cacheConfig(fetchModuleId, cachedConfig);
-                  } catch (_) {}
-                }
-              } catch (e) {
-                debugPrint('Error updating cached config with new fileId: $e');
-              }
+                      // Persist updated cache locally (best-effort)
+                      try {
+                        await schemaProvider.service.cacheConfig(fetchModuleId, cachedConfig);
+                      } catch (_) {}
+                    }
+                  } catch (e) {
+                    debugPrint('Error updating cached config with new fileId: $e');
+                  }
 
               // Seed initial records in background and refresh when done.
               if (mounted) {
