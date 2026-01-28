@@ -276,67 +276,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
       debugPrint('ModuleTabScreen: widgetTab=${widget.tab.id} rawEffective=$rawEffectiveTab resolvedTab=$fetchTabId fetchModuleId=$fetchModuleId');
 
-      // If fetchModuleId looks like a short placeholder (e.g. 'deals'), try to resolve
-      // to an actual Drive folder id by checking the per-user `user_access` sheet.
-      if (fetchModuleId.length < 15) {
-        try {
-          String? uaId = context.read<WorkspaceProvider>().lastUserAccessSpreadsheetId;
-          if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
-          if (uaId != null && uaId.isNotEmpty) {
-            final resp = await _driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
-            final all = resp.values ?? [];
-            if (all.isNotEmpty) {
-              final rows = all.length > 1 ? all.sublist(1) : [];
-              dynamic match;
-              for (var r in rows) {
-                final row = List<dynamic>.from(r as List);
-                final rowId = row.isNotEmpty ? (row[0]?.toString() ?? '') : '';
-                final rowName = row.length > 1 ? (row[1]?.toString() ?? '') : '';
-                if (rowId.isNotEmpty && (rowId == fetchModuleId || rowName.toLowerCase() == fetchModuleId.toLowerCase() || rowName.toLowerCase() == fetchModuleName.toLowerCase())) {
-                  match = {'id': rowId, 'name': rowName};
-                  break;
-                }
-              }
-              if (match != null && (match['id'] ?? '') != '') {
-                fetchModuleId = match['id'];
-                // update sourceModule if we have a cached module by that id
-                sourceModule = context.read<SchemaProvider>().getFromMemory(fetchModuleId) ?? sourceModule;
-
-                // If we still don't have a sourceModule but we have a cached
-                // asset entry under the short key (e.g. 'support'), map that
-                // cached ModuleSchema to the resolved Drive folder id so future
-                // lookups find it by folder id.
-                if (sourceModule == null) {
-                  try {
-                    final provider = context.read<SchemaProvider>();
-                    final parts = widget.tab.id.split('_');
-                    final possibleMod = parts.isNotEmpty ? parts[0] : '';
-                    final cached = provider.getFromMemory(possibleMod);
-                    if (cached != null) {
-                      final mapped = ModuleSchema(
-                        id: fetchModuleId,
-                        name: cached.name,
-                        icon: cached.icon,
-                        primaryColor: cached.primaryColor,
-                        version: cached.version,
-                        settings: cached.settings,
-                        dashboard: cached.dashboard,
-                        tabs: cached.tabs,
-                      );
-                      provider.updateMemoryCache(fetchModuleId, mapped);
-                      sourceModule = mapped;
-                    }
-                  } catch (e) {
-                    debugPrint('Error mapping cached module to folder id: $e');
-                  }
-                }
-              }
-            }
-          }
-        } catch (e) {
-          debugPrint('Error resolving module folder id for $fetchModuleId: $e');
-        }
-      }
+      // No fallback lookup by folder name — rely on cached config `fileId` only.
 
       debugPrint('ModuleTabScreen: fetchModuleId=$fetchModuleId fetchModuleName=$fetchModuleName fetchTabId=$fetchTabId');
 
@@ -488,22 +428,11 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             }
           }
         } else {
-          // No fileId in cache — attempt to fetch; drive service will return [] when file missing.
-          fetchedData = await _driveService.fetchRecords(
-            fetchModuleId,
-            fetchModuleName,
-            fetchTabId,
-            offset: _currentOffset,
-            limit: _pageSize,
-            fetchSubTables: false, // Performance optimization for List View
-            descending: true,
-            searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
-            quickFilter: selectedFilter != null ? {
-              'field': selectedFilter.field,
-              'operator': selectedFilter.operator,
-              'value': selectedFilter.value,
-            } : null,
-          );
+          // No fileId in cache — do not perform folder/name lookup or fallback fetch.
+          // Rely on cached `tabs` metadata only. If initial data exists, create
+          // spreadsheet in the expected folder id (fetchModuleId must be the
+          // authoritative folder id in the cached config scenario).
+          fetchedData = [];
 
           // If there were no records and no existing spreadsheet, create and seed lazily.
           if ((fetchedData.isEmpty) && (tabInitialData != null && tabInitialData.isNotEmpty)) {
@@ -589,22 +518,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         }
       } catch (e) {
         debugPrint('Error trying fileId shortcut for $fetchTabId: $e');
-        // Fallback to normal fetch
-        fetchedData = await _driveService.fetchRecords(
-          fetchModuleId,
-          fetchModuleName,
-          fetchTabId,
-          offset: _currentOffset,
-          limit: _pageSize,
-          fetchSubTables: false, // Performance optimization for List View
-          descending: true,
-          searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
-          quickFilter: selectedFilter != null ? {
-            'field': selectedFilter.field,
-            'operator': selectedFilter.operator,
-            'value': selectedFilter.value,
-          } : null,
-        );
+        // Do not fallback to name-based lookup; surface as empty result.
+        fetchedData = [];
       }
       
       if (mounted) {
