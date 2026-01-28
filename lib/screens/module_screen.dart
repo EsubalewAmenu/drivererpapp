@@ -429,9 +429,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 } catch (e) {
                   debugPrint('Error caching settings part: $e');
                 }
-              } else if (newConfig.containsKey('settings')) {
-                // No explicit sheet id provided; cache without file metadata
-                await schemaService.cacheConfig(widget.module.id, {'settings': newConfig['settings']});
               }
 
               if (newConfig.containsKey('dashboard') && widget.dashboardSheetId != null && widget.dashboardSheetId!.isNotEmpty) {
@@ -441,8 +438,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 } catch (e) {
                   debugPrint('Error caching dashboard part: $e');
                 }
-              } else if (newConfig.containsKey('dashboard')) {
-                await schemaService.cacheConfig(widget.module.id, {'dashboard': newConfig['dashboard']});
               }
 
               if (newConfig.containsKey('tabs') && widget.tabsSheetId != null && widget.tabsSheetId!.isNotEmpty) {
@@ -452,8 +447,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 } catch (e) {
                   debugPrint('Error caching tabs part: $e');
                 }
-              } else if (newConfig.containsKey('tabs')) {
-                await schemaService.cacheConfig(widget.module.id, {'tabs': newConfig['tabs']});
               }
             } catch (e) {
               debugPrint('Error caching direct-read config: $e');
