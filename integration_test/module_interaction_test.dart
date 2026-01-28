@@ -93,6 +93,7 @@ void main() {
         {
           'id': 'items', 
           'label': 'Items', 
+          'fileId': 'sheet_mod1',
           'columns': [
             {'key': 'name', 'label': 'Name', 'type': 'text'},
             {'key': 'qty', 'label': 'Quantity', 'type': 'number'}
@@ -110,6 +111,17 @@ void main() {
     ];
     when(() => mockDriveService.fetchRecords(
           any(), any(), any(), 
+          offset: any(named: 'offset'), 
+          limit: any(named: 'limit'), 
+          fetchSubTables: any(named: 'fetchSubTables'), 
+          descending: any(named: 'descending'),
+          searchQuery: any(named: 'searchQuery'),
+          quickFilter: any(named: 'quickFilter'),
+        )).thenAnswer((_) async => List<Map<String, dynamic>>.from(records));
+
+    // Also mock spreadsheet-id based fetch used when tabs include a fileId
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+          any(), any(),
           offset: any(named: 'offset'), 
           limit: any(named: 'limit'), 
           fetchSubTables: any(named: 'fetchSubTables'), 
@@ -152,8 +164,11 @@ void main() {
 
     // Verify record appears in list
     final recordInListFinder = find.text('Widget A');
+    for (int i = 0; i < 10 && recordInListFinder.evaluate().isEmpty; i++) {
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+    expect(recordInListFinder, findsAtLeast(1));
     await tester.ensureVisible(recordInListFinder.first);
-    expect(recordInListFinder, findsAtLeast(1)); 
 
     // 5. Open Record Detail
     // Tap the first occurrence (the one in the list)
@@ -210,6 +225,15 @@ void main() {
           searchQuery: any(named: 'searchQuery'),
           quickFilter: any(named: 'quickFilter'),
         )).thenAnswer((_) async => List<Map<String, dynamic>>.from(updatedRecords));
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+          any(), any(),
+          offset: any(named: 'offset'), 
+          limit: any(named: 'limit'), 
+          fetchSubTables: any(named: 'fetchSubTables'), 
+          descending: any(named: 'descending'),
+          searchQuery: any(named: 'searchQuery'),
+          quickFilter: any(named: 'quickFilter'),
+        )).thenAnswer((_) async => List<Map<String, dynamic>>.from(updatedRecords));
 
     // Navigate back to Module list
     await tester.tap(find.byIcon(Icons.arrow_back));
@@ -230,8 +254,8 @@ void main() {
     await tester.pumpAndSettle();
     
     // The sync logic might call fetchRecords with searchQuery
-    verify(() => mockDriveService.fetchRecords(
-      any(), any(), any(), 
+    verify(() => mockDriveService.fetchRecordsBySpreadsheetId(
+      any(), any(),
       searchQuery: 'Updated',
       offset: any(named: 'offset'),
       limit: any(named: 'limit'),
