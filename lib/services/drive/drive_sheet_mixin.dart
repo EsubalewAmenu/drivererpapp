@@ -184,9 +184,21 @@ mixin DriveSheetMixin {
       final createdDashboard = await retryOp(() => sheetsApi.spreadsheets.create(dashboardSpreadsheet));
       final dashboardId = createdDashboard.spreadsheetId!;
 
-      // Tabs spreadsheet (create empty now; individual tabs will be created as sheets)
+      // Tabs spreadsheet: include sheets for each tab during creation to avoid 'Sheet1'
+      final tabsList = (config['tabs'] as List? ?? []).cast<dynamic>();
+      final List<sheets.Sheet> initialTabsSheets = [];
+      for (var t in tabsList) {
+        final tid = (t is Map && t['id'] != null) ? t['id'].toString() : null;
+        if (tid != null) {
+          initialTabsSheets.add(sheets.Sheet(properties: sheets.SheetProperties(title: tid)));
+        }
+      }
+
       final tabsSpreadsheet = sheets.Spreadsheet(
         properties: sheets.SpreadsheetProperties(title: tabsTitle),
+        sheets: initialTabsSheets.isNotEmpty
+            ? initialTabsSheets
+            : [sheets.Sheet(properties: sheets.SheetProperties(title: 'meta'))],
       );
       final createdTabs = await retryOp(() => sheetsApi.spreadsheets.create(tabsSpreadsheet));
       final tabsId = createdTabs.spreadsheetId!;
@@ -693,7 +705,12 @@ mixin DriveSheetMixin {
   /// Create a new spreadsheet and move it into the target folder. Returns new spreadsheet id.
   Future<String> createSpreadsheetInFolder(String folderId, String title) async {
     try {
-      final spreadsheet = sheets.Spreadsheet(properties: sheets.SpreadsheetProperties(title: title));
+      final spreadsheet = sheets.Spreadsheet(
+        properties: sheets.SpreadsheetProperties(title: title),
+        sheets: [
+          sheets.Sheet(properties: sheets.SheetProperties(title: 'data'))
+        ],
+      );
       final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
       final newId = created.spreadsheetId!;
 
@@ -723,6 +740,11 @@ mixin DriveSheetMixin {
         // Create new spreadsheet
         final spreadsheet = sheets.Spreadsheet(
           properties: sheets.SpreadsheetProperties(title: targetSpreadsheetName),
+          sheets: [
+            sheets.Sheet(
+              properties: sheets.SheetProperties(title: sheetTitle),
+            )
+          ],
         );
         final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
         spreadsheetId = created.spreadsheetId!;
