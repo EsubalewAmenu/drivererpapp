@@ -30,7 +30,12 @@
         "subtitle_key": "amount",
         "trailing_key": "owner"
       },
-
+      "detail_template": {
+        "template": "standard",
+        "title_key": "deal_name",
+        "subtitle_key": "amount",
+        "show_all_fields": true
+      },
       "initial_data": [
         {
           "deal_name": "Staff financing deal",
