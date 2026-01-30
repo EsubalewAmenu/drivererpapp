@@ -38,6 +38,11 @@ class _ModuleScreenState extends State<ModuleScreen> {
   bool _isLoadingSchema = false;
   String? _errorMessage;
 
+  // Track spreadsheet IDs for the host module and any enabling extensions
+  final Map<String, String> _settingsSheetIds = {};
+  final Map<String, String> _dashboardSheetIds = {};
+  final Map<String, String> _tabsSheetIds = {};
+
   @override
   void initState() {
     super.initState();
@@ -147,7 +152,14 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (_) => SchemaEditorScreen(module: mod ?? ModuleSchema(id: it['id'] as String, name: name, icon: iconName, primaryColor: '#2196F3', version: '1.0', settings: {}, dashboard: DashboardConfig(cards: []), tabs: []))),
+                        MaterialPageRoute(
+                          builder: (_) => SchemaEditorScreen(
+                            module: mod ?? ModuleSchema(id: it['id'] as String, name: name, icon: iconName, primaryColor: '#2196F3', version: '1.0', settings: {}, dashboard: DashboardConfig(cards: []), tabs: []),
+                            settingsSheetId: _settingsSheetIds[it['id']] ?? (it['activated'] == true ? it['settingsSheetId'] : null),
+                            dashboardSheetId: _dashboardSheetIds[it['id']] ?? (it['activated'] == true ? it['dashboardSheetId'] : null),
+                            tabsSheetId: _tabsSheetIds[it['id']] ?? (it['activated'] == true ? it['tabsSheetId'] : null),
+                          )
+                        ),
                       ).then((_) => _loadSchema());
                     } else {
                       // Go to activation/details page
@@ -497,7 +509,17 @@ class _ModuleScreenState extends State<ModuleScreen> {
     final driveServiceFromProvider = driveProvider.driveService;
     
     try {
-      // Parse JSON to ModuleSchema
+      // Clear and Initialize sheet ID maps for the host module
+      _settingsSheetIds.clear();
+      _dashboardSheetIds.clear();
+      _tabsSheetIds.clear();
+
+      if (widget.settingsSheetId != null) _settingsSheetIds[widget.module.id] = widget.settingsSheetId!;
+      if (widget.dashboardSheetId != null) _dashboardSheetIds[widget.module.id] = widget.dashboardSheetId!;
+      if (widget.tabsSheetId != null) _tabsSheetIds[widget.module.id] = widget.tabsSheetId!;
+
+      // Cache for module info from user_access
+      final Map<String, Map<String, String>> installedModuleInfo = {};
       final settingsRaw = jsonMap['settings'];
       final settingsMap = settingsRaw != null ? Map<String, dynamic>.from(settingsRaw as Map) : <String, dynamic>{};
       final name = settingsMap['name']?['value']?.toString() ?? widget.module.name;
@@ -609,10 +631,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
       }
 
       // Determine which extensions are activated in the current workspace so
-      // we only merge tabs from modules that are actually installed. Wrap
-      // provider lookups in try/catch so isolated widget tests that don't
-      // provide Drive/Workspace providers don't crash.
+      // we only merge tabs from modules that are actually installed.
       final installedNames = <String>{};
+      final Map<String, String> nameToId = {};
       try {
         final driveService = driveServiceFromProvider;
         final workspaceId = workspaceProvider.currentWorkspace?.id;
@@ -627,15 +648,35 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 final rows = all.length > 1 ? all.sublist(1) : [];
                 for (var r in rows) {
                   final row = List<dynamic>.from(r as List);
+                  final rowId = row.isNotEmpty ? (row[0]?.toString() ?? '') : '';
                   final rowName = row.length > 1 ? (row[1]?.toString() ?? '') : '';
-                  if (rowName.isNotEmpty) installedNames.add(rowName.toLowerCase());
+                  if (rowName.isNotEmpty) {
+                    installedNames.add(rowName.toLowerCase());
+                    nameToId[rowName.toLowerCase()] = rowId;
+                  }
+                  if (rowId.isNotEmpty) {
+                    nameToId[rowId.toLowerCase()] = rowId;
+                  }
+
+                  // Populate spreadsheet ID maps for activated modules
+                  if (rowId.isNotEmpty) {
+                    if (row.length > 2 && row[2] != null && row[2].toString().isNotEmpty) {
+                      _dashboardSheetIds[rowId] = row[2].toString();
+                    }
+                    if (row.length > 3 && row[3] != null && row[3].toString().isNotEmpty) {
+                      _settingsSheetIds[rowId] = row[3].toString();
+                    }
+                    if (row.length > 4 && row[4] != null && row[4].toString().isNotEmpty) {
+                      _tabsSheetIds[rowId] = row[4].toString();
+                    }
+                  }
                 }
               }
             }
           } catch (_) {}
         }
       } catch (e) {
-        debugPrint('Could not determine installed modules (missing providers?): $e');
+        debugPrint('Could not determine installed modules: $e');
       }
 
       for (final otherModuleId in extensionKeys) {
@@ -710,34 +751,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 final authoritativeOtherId = otherSettingsMap['id']?['value']?.toString() ?? otherModuleId;
 
                 // If this extension is installed in the workspace, prefer the Drive folder id
-                String moduleIdForCache = authoritativeOtherId;
-                try {
-                  final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-                  final driveService = driveProvider.driveService;
-                  final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
-                  if (driveService != null && workspaceId != null) {
-                    try {
-                      String? uaId = Provider.of<WorkspaceProvider>(context, listen: false).lastUserAccessSpreadsheetId;
-                      if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
-                      if (uaId != null && uaId.isNotEmpty) {
-                        final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
-                        final all = resp.values ?? [];
-                        if (all.isNotEmpty) {
-                          final rows = all.length > 1 ? all.sublist(1) : [];
-                          for (var r in rows) {
-                            final row = List<dynamic>.from(r as List);
-                            final rowName = row.length > 1 ? (row[1]?.toString() ?? '') : '';
-                            final rowId = row.isNotEmpty ? (row[0]?.toString() ?? '') : '';
-                            if (rowName.toLowerCase() == candidateName || rowName.toLowerCase() == otherModuleId.toLowerCase() || rowId == otherModuleId) {
-                              moduleIdForCache = rowId.isNotEmpty ? rowId : authoritativeOtherId;
-                              break;
-                            }
-                          }
-                        }
-                      }
-                    } catch (_) {}
-                  }
-                } catch (_) {}
+                final String moduleIdForCache = nameToId[candidateName] ?? nameToId[otherModuleId.toLowerCase()] ?? nameToId[authoritativeOtherId.toLowerCase()] ?? authoritativeOtherId;
 
                 for (var ot in parsedOtherTabs) {
                   final newId = authoritativeOtherId == ot.id ? ot.id : '${authoritativeOtherId}_${ot.id}';
@@ -822,34 +836,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             } else {
               // Append tabs from loaded otherModule
               // Use the actual other module id when prefixing (this is authoritative)
-              String moduleIdForCache = otherModule.id;
-              try {
-                final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-                final driveService = driveProvider.driveService;
-                final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
-                if (driveService != null && workspaceId != null) {
-                  try {
-                    String? uaId = Provider.of<WorkspaceProvider>(context, listen: false).lastUserAccessSpreadsheetId;
-                    if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
-                    if (uaId != null && uaId.isNotEmpty) {
-                      final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
-                      final all = resp.values ?? [];
-                      if (all.isNotEmpty) {
-                        final rows = all.length > 1 ? all.sublist(1) : [];
-                        for (var r in rows) {
-                          final row = List<dynamic>.from(r as List);
-                          final rowName = row.length > 1 ? (row[1]?.toString() ?? '') : '';
-                          final rowId = row.isNotEmpty ? (row[0]?.toString() ?? '') : '';
-                          if (rowName.toLowerCase() == otherModule.name.toLowerCase() || rowName.toLowerCase() == otherModule.id.toLowerCase() || rowId == otherModule.id) {
-                            moduleIdForCache = rowId.isNotEmpty ? rowId : otherModule.id;
-                            break;
-                          }
-                        }
-                      }
-                    }
-                  } catch (_) {}
-                }
-              } catch (_) {}
+              final String moduleIdForCache = nameToId[otherModule.name.toLowerCase()] ?? nameToId[otherModule.id.toLowerCase()] ?? otherModule.id;
 
               // If the preferred id differs, update memory cache key so lookups use folder id
               if (moduleIdForCache != otherModule.id) {
@@ -1079,9 +1066,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
                       primaryColor: primaryColor,
                       settings: sourceModule.settings,
                       module: sourceModule,
-                      settingsSheetId: widget.settingsSheetId,
-                      dashboardSheetId: widget.dashboardSheetId,
-                      tabsSheetId: widget.tabsSheetId,
+                      settingsSheetId: _settingsSheetIds[sourceModule.id] ?? widget.settingsSheetId,
+                      dashboardSheetId: _dashboardSheetIds[sourceModule.id] ?? widget.dashboardSheetId,
+                      tabsSheetId: _tabsSheetIds[sourceModule.id] ?? widget.tabsSheetId,
                     );
                   }),
                   _buildExtensionsTab(module, primaryColor),
