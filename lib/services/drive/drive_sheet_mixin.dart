@@ -327,43 +327,7 @@ mixin DriveSheetMixin {
             }
           }
         } catch (e) {
-          debugPrint('Error reading dashboard: $e');
-
-          // Attempt best-effort fallback: look for a sibling '<base>_dashboard' in the same folder as the settings file
-          try {
-            final fileMeta = await retryOp(() => driveApi.files.get(fileId, $fields: 'name, parents', supportsAllDrives: true)) as drive.File;
-            final name = fileMeta.name ?? '';
-            final parents = fileMeta.parents ?? [];
-            if (name.endsWith('_settings') && parents.isNotEmpty) {
-              final base = name.substring(0, name.length - '_settings'.length);
-              for (var p in parents) {
-                try {
-                  final list = await driveApi.files.list(
-                    q: "'${p}' in parents and name = '${base}_dashboard' and trashed = false",
-                    $fields: 'files(id, name)',
-                    includeItemsFromAllDrives: true,
-                    supportsAllDrives: true,
-                  );
-                  if (list.files != null && list.files!.isNotEmpty) {
-                    final found = list.files!.first;
-                    final fallbackId = found.id;
-                    // Try reading from the found spreadsheet id
-                    final resp2 = await retryOp(() => sheetsApi.spreadsheets.values.get(fallbackId!, 'cards!A1:Z'));
-                    if (resp2.values != null && resp2.values!.isNotEmpty) {
-                      final firstRow = resp2.values!.first;
-                      if (firstRow.isNotEmpty && firstRow.first is String && (firstRow.first as String).trim().startsWith('{')) {
-                        config['dashboard'] = resp2.values!.map((r) => jsonDecode(r.first as String)).toList();
-                      } else {
-                        final map = await _readMapFromSheet(fallbackId!, 'cards');
-                        if (map.isNotEmpty) config['dashboard'] = map.map((k, v) => MapEntry(k, jsonDecode(v)));
-                      }
-                      break;
-                    }
-                  }
-                } catch (_) {}
-              }
-            }
-          } catch (_) {}
+          debugPrint('Error reading dashboard by id $dashboardId: $e');
         }
       }
 
@@ -373,62 +337,6 @@ mixin DriveSheetMixin {
           if (read != null) config['tabs'] = read;
         } catch (e) {
           debugPrint('Error reading tabs: $e');
-
-          // Migration step: if A:B read failed, attempt a one-time legacy A1 read and migrate to A:B
-          try {
-            final ss = await retryOp(() => sheetsApi.spreadsheets.get(tabsId));
-            final sheetTitles = ss.sheets?.map((s) => s.properties?.title ?? '').where((t) => t.isNotEmpty).toList() ?? [];
-            final legacyTabs = <dynamic>[];
-            for (var title in sheetTitles) {
-              try {
-                final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(tabsId, '$title!A1'));
-                if (resp.values != null && resp.values!.isNotEmpty) {
-                  final cell = resp.values!.first.first;
-                  if (cell is String && cell.trim().isNotEmpty) {
-                    try {
-                      legacyTabs.add(jsonDecode(cell));
-                    } catch (_) {}
-                  }
-                }
-              } catch (_) {}
-            }
-            if (legacyTabs.isNotEmpty) {
-              // rewrite tabs using A:B format and continue
-              try {
-                await writeTabsById(tabsId, legacyTabs);
-                config['tabs'] = legacyTabs;
-              } catch (_) {}
-            }
-          } catch (_) {}
-
-          // Attempt fallback: look for '<base>_tabs' sibling in settings parent folder and try reading with readTabsById
-          try {
-            final fileMeta = await retryOp(() => driveApi.files.get(fileId, $fields: 'name, parents', supportsAllDrives: true)) as drive.File;
-            final name = fileMeta.name ?? '';
-            final parents = fileMeta.parents ?? [];
-            if (name.endsWith('_settings') && parents.isNotEmpty) {
-              final base = name.substring(0, name.length - '_settings'.length);
-              for (var p in parents) {
-                try {
-                  final list = await driveApi.files.list(
-                    q: "'${p}' in parents and name = '${base}_tabs' and trashed = false",
-                    $fields: 'files(id, name)',
-                    includeItemsFromAllDrives: true,
-                    supportsAllDrives: true,
-                  );
-                  if (list.files != null && list.files!.isNotEmpty) {
-                    final found = list.files!.first;
-                    final fallbackId = found.id;
-                    final readFb = await readTabsById(fallbackId!);
-                    if (readFb != null) {
-                      config['tabs'] = readFb;
-                      break;
-                    }
-                  }
-                } catch (_) {}
-              }
-            }
-          } catch (_) {}
         }
       }
 

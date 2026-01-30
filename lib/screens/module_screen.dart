@@ -275,6 +275,10 @@ class _ModuleScreenState extends State<ModuleScreen> {
           } catch (_) {}
 
           var activated = false;
+          String? extSettingsId;
+          String? extDashboardId;
+          String? extTabsId;
+
           try {
             // If we have a user_access rows snapshot, check for a matching id/name
             if (uaRows.isNotEmpty) {
@@ -283,6 +287,10 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 final rowName = r.length > 1 ? (r[1]?.toString() ?? '') : '';
                 if (rowId.isNotEmpty && (rowId == modId || rowName.toLowerCase() == name.toLowerCase())) {
                   activated = true;
+                  // Extract IDs from A:E row (id, name, dashboard, settings, tabs)
+                  if (r.length > 2) extDashboardId = r[2]?.toString();
+                  if (r.length > 3) extSettingsId = r[3]?.toString();
+                  if (r.length > 4) extTabsId = r[4]?.toString();
                   break;
                 }
               }
@@ -299,6 +307,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
             'desc': desc,
             'primaryColor': primaryColor,
             'activated': activated,
+            'settingsSheetId': extSettingsId,
+            'dashboardSheetId': extDashboardId,
+            'tabsSheetId': extTabsId,
           });
           debugPrint('Enabled module entry -> id:$modId name:$name icon:$icon primaryColor:$primaryColor activated:$activated');
         } catch (e) {
@@ -459,7 +470,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
         }
       }
 
-      final newJson = await schemaService.syncConfig(widget.module.id, settingsId: widget.settingsSheetId);
+      final newJson = await schemaService.syncConfig(
+        widget.module.id, 
+        settingsId: widget.settingsSheetId,
+        dashboardId: widget.dashboardSheetId,
+        tabsId: widget.tabsSheetId,
+      );
       if (newJson != null && mounted) {
         debugPrint('Module ${widget.module.id} schema updated from Drive.');
         await _processJson(newJson);
