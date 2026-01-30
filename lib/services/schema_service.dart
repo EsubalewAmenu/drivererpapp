@@ -122,21 +122,24 @@ class SchemaService {
   /// Checks if the remote configuration has changed and returns the new config if it has.
   /// Strictly looks for a user-specific settings spreadsheet named '<userEmail>_settings'
   /// inside the module's 'config' folder. Returns null if no update is needed or on error.
-  Future<Map<String, dynamic>?> syncConfig(String moduleId) async {
+  Future<Map<String, dynamic>?> syncConfig(String moduleId, {String? settingsId}) async {
     if (driveService == null) return null;
 
     try {
-      if (userEmail == null) {
-        debugPrint('No userEmail provided; strict user-specific config lookup skipped');
-        return null;
+      String? configFileId = settingsId;
+      if (configFileId == null || configFileId.isEmpty) {
+        if (userEmail == null) {
+          debugPrint('No userEmail provided; strict user-specific config lookup skipped');
+          return null;
+        }
+
+        final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
+        final settingsName = '${userEmail}_settings';
+        configFileId = await driveService!.getFileId(configFolderId, settingsName);
       }
 
-      final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
-      final settingsName = '${userEmail}_settings';
-      final configFileId = await driveService!.getFileId(configFolderId, settingsName);
-
-      if (configFileId == null) {
-        debugPrint('User-specific settings file not found: $settingsName in $configFolderId');
+      if (configFileId == null || configFileId.isEmpty) {
+        debugPrint('User-specific settings file not found for module $moduleId');
         return null; // strict: do not fallback
       }
 
@@ -241,7 +244,7 @@ class SchemaService {
   /// Save only the settings portion of a module to the per-user settings spreadsheet.
   Future<void> saveSettingsPart(String moduleId, Map<String, dynamic> settings, {String? settingsId}) async {
     if (driveService == null) throw Exception('DriveService not initialized');
-    if (userEmail == null) throw Exception('userEmail required');
+    
     if (settingsId != null && settingsId.isNotEmpty) {
       await driveService!.writeSettingsById(settingsId, settings);
       final modifiedTime = await driveService!.getFileModifiedTime(settingsId);
@@ -249,8 +252,11 @@ class SchemaService {
       return;
     }
 
+    if (userEmail == null) throw Exception('userEmail required for resolution');
+
     final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
     final fileName = '${userEmail}_settings';
+    // ... rest of the settings fallback ...
 
     String? resolvedSettingsId = await driveService!.getFileId(configFolderId, fileName);
     if (resolvedSettingsId == null) {
@@ -268,7 +274,6 @@ class SchemaService {
   /// Save only the dashboard/cards portion to the dashboard spreadsheet.
   Future<void> saveDashboardPart(String moduleId, dynamic dashboard, {String? settingsId, String? dashboardId}) async {
     if (driveService == null) throw Exception('DriveService not initialized');
-    if (userEmail == null) throw Exception('userEmail required');
 
     // If caller provided a direct dashboard spreadsheet id, write straight to it
     if (dashboardId != null && dashboardId.isNotEmpty) {
@@ -281,6 +286,8 @@ class SchemaService {
       }
       return;
     }
+
+    if (userEmail == null) throw Exception('userEmail required for resolution');
 
     // Fallback behavior when no explicit dashboardId provided: use existing meta/create as before
     final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
@@ -312,7 +319,6 @@ class SchemaService {
   /// Save only the tabs portion to the tabs spreadsheet.
   Future<void> saveTabsPart(String moduleId, List<dynamic> tabs, {String? settingsId, String? tabsId}) async {
     if (driveService == null) throw Exception('DriveService not initialized');
-    if (userEmail == null) throw Exception('userEmail required');
 
     // If caller provided direct tabs spreadsheet id, write straight to it
     if (tabsId != null && tabsId.isNotEmpty) {
@@ -324,6 +330,8 @@ class SchemaService {
       }
       return;
     }
+
+    if (userEmail == null) throw Exception('userEmail required for resolution');
 
     // Fallback when no explicit tabsId provided
     final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
@@ -354,10 +362,10 @@ class SchemaService {
   /// Update a single field in a specific tab's configuration row-by-row in Drive.
   Future<void> saveTabField(String moduleId, String tabId, String key, dynamic value, {String? settingsId, String? tabsId}) async {
     if (driveService == null) throw Exception('DriveService not initialized');
-    if (userEmail == null) throw Exception('userEmail required');
 
     String? resolvedTabsId = tabsId;
     if (resolvedTabsId == null || resolvedTabsId.isEmpty) {
+      if (userEmail == null) throw Exception('userEmail required for resolution');
       final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
       final settingsName = '${userEmail}_settings';
       final sId = settingsId ?? await driveService!.getFileId(configFolderId, settingsName);
@@ -371,6 +379,29 @@ class SchemaService {
       await driveService!.updateTabField(resolvedTabsId, tabId, key, value);
     } else {
       debugPrint('SchemaService: Could not resolve tabsId to update field $key for tab $tabId');
+    }
+  }
+
+  /// Update multiple fields in a specific tab's configuration row-by-row in Drive.
+  Future<void> saveTabFields(String moduleId, String tabId, Map<String, dynamic> fields, {String? settingsId, String? tabsId}) async {
+    if (driveService == null) throw Exception('DriveService not initialized');
+
+    String? resolvedTabsId = tabsId;
+    if (resolvedTabsId == null || resolvedTabsId.isEmpty) {
+      if (userEmail == null) throw Exception('userEmail required for resolution');
+      final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
+      final settingsName = '${userEmail}_settings';
+      final sId = settingsId ?? await driveService!.getFileId(configFolderId, settingsName);
+      if (sId != null) {
+        final meta = await driveService!.readMetaBySettingsId(sId);
+        resolvedTabsId = meta['tabs_id'];
+      }
+    }
+
+    if (resolvedTabsId != null && resolvedTabsId.isNotEmpty) {
+      await driveService!.updateTabFields(resolvedTabsId, tabId, fields);
+    } else {
+      debugPrint('SchemaService: Could not resolve tabsId to update fields for tab $tabId');
     }
   }
 

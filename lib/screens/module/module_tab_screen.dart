@@ -20,6 +20,7 @@ class ModuleTabScreen extends StatefulWidget {
   final Map<String, SettingItem> settings;
   final ModuleSchema? module;
   final String? settingsSheetId;
+  final String? dashboardSheetId;
   final String? tabsSheetId;
 
   const ModuleTabScreen({
@@ -29,6 +30,7 @@ class ModuleTabScreen extends StatefulWidget {
     this.settings = const {},
     this.module,
     this.settingsSheetId,
+    this.dashboardSheetId,
     this.tabsSheetId,
   });
 
@@ -786,7 +788,28 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         const SnackBar(content: Text('Saving configuration...'), duration: Duration(seconds: 5)),
       );
 
-      await schemaProvider.service.saveTabsPart(currentModule.id, updatedModule.tabs.map((t) => t.toJson()).toList(), settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+      // Persist updated tab fields to Drive (optimized row-by-row update)
+      try {
+        final Map<String, dynamic> updateFields = {
+          'quick_filters': filters.map((f) => f.toJson()).toList(),
+          'enable_custom_filters': enableFilters,
+        };
+        if (listTemplate != null) {
+          updateFields['list_template'] = listTemplate.toJson();
+        }
+        if (detailTemplate != null) {
+          updateFields['detail_template'] = detailTemplate.toJson();
+        }
+
+        if (currentModule.id == (widget.module?.id ?? '')) {
+          await schemaProvider.service.saveTabFields(currentModule.id, effectiveTabId, updateFields, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+        } else {
+          await schemaProvider.service.saveTabFields(currentModule.id, effectiveTabId, updateFields);
+        }
+      } catch (se) {
+        debugPrint('Failed to persist updated tab configuration: $se');
+      }
+
       schemaProvider.updateMemoryCache(currentModule.id, updatedModule);
 
       if (mounted) {

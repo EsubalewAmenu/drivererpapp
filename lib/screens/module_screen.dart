@@ -459,7 +459,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
         }
       }
 
-      final newJson = await schemaService.syncConfig(widget.module.id);
+      final newJson = await schemaService.syncConfig(widget.module.id, settingsId: widget.settingsSheetId);
       if (newJson != null && mounted) {
         debugPrint('Module ${widget.module.id} schema updated from Drive.');
         await _processJson(newJson);
@@ -1064,6 +1064,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
                       settings: sourceModule.settings,
                       module: sourceModule,
                       settingsSheetId: widget.settingsSheetId,
+                      dashboardSheetId: widget.dashboardSheetId,
                       tabsSheetId: widget.tabsSheetId,
                     );
                   }),

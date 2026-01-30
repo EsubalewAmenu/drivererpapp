@@ -739,6 +739,62 @@ mixin DriveSheetMixin {
     }
   }
 
+  /// Updates multiple key/value pairs in a specific tab's sheet (A:B rows).
+  Future<void> updateTabFields(String tabsId, String tabId, Map<String, dynamic> fields) async {
+    if (fields.isEmpty) return;
+    try {
+      // 1. Fetch current rows to find keys
+      final range = '$tabId!A:B';
+      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(tabsId, range));
+      final rows = response.values ?? [];
+
+      final Map<String, int> keyToRowIndex = {};
+      for (int i = 0; i < rows.length; i++) {
+        if (rows[i].isNotEmpty) {
+          keyToRowIndex[rows[i].first?.toString() ?? ''] = i;
+        }
+      }
+
+      final List<List<Object>> toAppend = [];
+      
+      for (var entry in fields.entries) {
+        final key = entry.key;
+        final value = entry.value;
+        final encodedValue = jsonEncode(value);
+
+        if (keyToRowIndex.containsKey(key)) {
+          // Update existing row
+          final rowIndex = keyToRowIndex[key]!;
+          final updateRange = '$tabId!B${rowIndex + 1}';
+          await retryOp(() => sheetsApi.spreadsheets.values.update(
+                sheets.ValueRange(values: [
+                  [encodedValue]
+                ]),
+                tabsId,
+                updateRange,
+                valueInputOption: 'RAW',
+              ));
+        } else {
+          // Add to append list
+          toAppend.add([key, encodedValue]);
+        }
+      }
+
+      if (toAppend.isNotEmpty) {
+        await retryOp(() => sheetsApi.spreadsheets.values.append(
+              sheets.ValueRange(values: toAppend),
+              tabsId,
+              range,
+              valueInputOption: 'RAW',
+            ));
+      }
+      debugPrint('DriveSheetMixin: updated ${fields.length} tab fields in $tabId for spreadsheet $tabsId');
+    } catch (e) {
+      debugPrint('Error updating tab fields in $tabId: $e');
+      rethrow;
+    }
+  }
+
   /// Write the 'meta' sheet for a settings spreadsheet.
   Future<void> writeMetaBySettingsId(String settingsId, Map<String, String> meta) async {
     try {
