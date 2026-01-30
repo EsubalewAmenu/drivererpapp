@@ -1204,6 +1204,62 @@ mixin DriveSheetMixin {
     }
   }
 
+  Future<void> deleteRecordBySpreadsheetId(String spreadsheetId, String sheetTitle, String recordId) async {
+    try {
+      // 1. Identify Row Index
+      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
+      if (headerResponse.values == null || headerResponse.values!.isEmpty) throw Exception("Sheet is empty");
+      
+      final headers = headerResponse.values!.first.map((e) => e.toString()).toList();
+      final idColIndex = headers.indexOf('record_id');
+      if (idColIndex == -1) throw Exception("record_id column not found");
+
+      final colLetter = _getColLetter(idColIndex);
+      final idColResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!$colLetter:$colLetter'));
+      final idValues = idColResponse.values;
+      
+      int? rowIndex;
+      if (idValues != null) {
+        for (int i = 0; i < idValues.length; i++) {
+          if (idValues[i].isNotEmpty && idValues[i].first.toString() == recordId) {
+            rowIndex = i; // 0-indexed for deleteDimension
+            break;
+          }
+        }
+      }
+
+      if (rowIndex == null) throw Exception("Record not found in sheet");
+
+      // 2. Get Sheet ID (GID)
+      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+      final sheet = spreadsheet.sheets?.firstWhere((s) => s.properties?.title == sheetTitle);
+      final int? gid = sheet?.properties?.sheetId;
+
+      if (gid == null) throw Exception("Sheet GID not found");
+
+      // 3. Delete Row
+      final request = sheets.BatchUpdateSpreadsheetRequest(
+        requests: [
+          sheets.Request(
+            deleteDimension: sheets.DeleteDimensionRequest(
+              range: sheets.DimensionRange(
+                sheetId: gid,
+                dimension: 'ROWS',
+                startIndex: rowIndex,
+                endIndex: rowIndex + 1,
+              ),
+            ),
+          ),
+        ],
+      );
+
+      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(request, spreadsheetId));
+    } catch (e) {
+      debugPrint('Error deleting record by id: $e');
+      rethrow;
+    }
+  }
+
   Future<void> _saveToSheet(String spreadsheetId, String sheetTitle, Map<String, dynamic> data) async {
     // 1. Check/Create Sheet
     final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));

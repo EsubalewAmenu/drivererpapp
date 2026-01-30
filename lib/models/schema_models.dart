@@ -27,6 +27,28 @@ class ModuleSchema {
 
   factory ModuleSchema.fromJson(Map<String, dynamic> json) => _$ModuleSchemaFromJson(json);
   Map<String, dynamic> toJson() => _$ModuleSchemaToJson(this);
+
+  ModuleSchema copyWith({
+    String? id,
+    String? name,
+    String? icon,
+    String? primaryColor,
+    String? version,
+    Map<String, SettingItem>? settings,
+    DashboardConfig? dashboard,
+    List<TabConfig>? tabs,
+  }) {
+    return ModuleSchema(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      icon: icon ?? this.icon,
+      primaryColor: primaryColor ?? this.primaryColor,
+      version: version ?? this.version,
+      settings: settings ?? this.settings,
+      dashboard: dashboard ?? this.dashboard,
+      tabs: tabs ?? this.tabs,
+    );
+  }
 }
 
 @JsonSerializable(explicitToJson: true)
