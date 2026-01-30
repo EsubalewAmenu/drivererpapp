@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
@@ -274,27 +275,17 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
       // 1. Determine which parts changed and save each part independently
       final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
 
-      // Original values for comparison
-      String origSettingsJson = '{}';
-      try {
-        final origMap = widget.module.settings.map((k, v) => MapEntry(k, v.toJson()));
-        origSettingsJson = origMap.isNotEmpty ? origMap.toString() : '{}';
-      } catch (_) {}
-
-      String newSettingsJson = '{}';
-      try {
-        final newMap = moduleSettings.map((k, v) => MapEntry(k, v.toJson()));
-        newSettingsJson = newMap.isNotEmpty ? newMap.toString() : '{}';
-      } catch (_) {}
-
+      // Original values for comparison using JSON for accuracy
+      final origSettingsJson = jsonEncode(widget.module.settings.map((k, v) => MapEntry(k, v.toJson())));
+      final newSettingsJson = jsonEncode(moduleSettings.map((k, v) => MapEntry(k, v.toJson())));
       final settingsChanged = origSettingsJson != newSettingsJson;
 
-      final origDashboardJson = widget.module.dashboard.cards.map((c) => c.toJson()).toList().toString();
-      final newDashboardJson = _cards.map((c) => c.toJson()).toList().toString();
+      final origDashboardJson = jsonEncode(widget.module.dashboard.cards.map((c) => c.toJson()).toList());
+      final newDashboardJson = jsonEncode(_cards.map((c) => c.toJson()).toList());
       final dashboardChanged = origDashboardJson != newDashboardJson;
 
-      final origTabsJson = widget.module.tabs.map((t) => t.toJson()).toList().toString();
-      final newTabsJson = _tabs.map((t) => t.toJson()).toList().toString();
+      final origTabsJson = jsonEncode(widget.module.tabs.map((t) => t.toJson()).toList());
+      final newTabsJson = jsonEncode(_tabs.map((t) => t.toJson()).toList());
       final tabsChanged = origTabsJson != newTabsJson;
 
       // Require explicit per-sheet ids; show error and abort if any id missing
@@ -306,18 +297,88 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
         }
         return;
       }
-        // Execute saves for changed parts (only write parts when explicit ids provided)
-        if (settingsChanged) {
-          await schemaProvider.service.saveSettingsPart(widget.module.id, moduleSettings.map((k, v) => MapEntry(k, v.toJson())), settingsId: widget.settingsSheetId);
+
+      // Execute saves for changed parts (only write parts when explicit ids provided)
+      if (settingsChanged) {
+        // Granular Update for settings
+        final Map<String, dynamic> changedSettings = {};
+        final newSettingsMap = moduleSettings.map((k, v) => MapEntry(k, v.toJson()));
+        final origSettingsMap = widget.module.settings.map((k, v) => MapEntry(k, v.toJson()));
+        
+        newSettingsMap.forEach((key, value) {
+          if (jsonEncode(value) != jsonEncode(origSettingsMap[key])) {
+            changedSettings[key] = value;
+          }
+        });
+
+        if (changedSettings.isNotEmpty) {
+          debugPrint('SchemaEditor: Updating changed settings fields: ${changedSettings.keys.toList()}');
+          await schemaProvider.service.saveSettingFields(widget.module.id, changedSettings, settingsId: widget.settingsSheetId);
         }
 
-        if (dashboardChanged) {
-          await schemaProvider.service.saveDashboardPart(widget.module.id, {'cards': _cards.map((c) => c.toJson()).toList()}, settingsId: widget.settingsSheetId, dashboardId: widget.dashboardSheetId);
-        }
+        final settingsModified = await schemaProvider.service.driveService?.getFileModifiedTime(widget.settingsSheetId!);
+        await schemaProvider.service.cacheConfig(
+          widget.module.id, 
+          {'settings': newSettingsMap}, 
+          fileId: widget.settingsSheetId, 
+          modifiedTime: settingsModified?.toIso8601String()
+        );
+      }
 
-        if (tabsChanged) {
-          await schemaProvider.service.saveTabsPart(widget.module.id, _tabs.map((t) => t.toJson()).toList(), settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+      if (dashboardChanged) {
+        // Dashboards are usually a list of cards; clear and rewrite the whole cards sheet for now
+        await schemaProvider.service.saveDashboardPart(widget.module.id, {'cards': _cards.map((c) => c.toJson()).toList()}, settingsId: widget.settingsSheetId, dashboardId: widget.dashboardSheetId);
+      }
+
+      if (tabsChanged) {
+        // Granular Update: Only update changed fields in changed tabs to avoid re-writing everything
+        for (final newTab in _tabs) {
+          final newTabJson = newTab.toJson();
+          
+          // Find original tab
+          final origTab = widget.module.tabs.firstWhere(
+            (t) => t.id == newTab.id,
+            orElse: () => TabConfig(id: '', label: '', columns: []),
+          );
+
+          if (origTab.id.isEmpty) {
+            // New tab added - write the whole sheet
+            debugPrint('SchemaEditor: Writing new tab sheet for ${newTab.id}');
+            await schemaProvider.service.saveTabsPart(widget.module.id, [newTabJson], settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+          } else {
+            // Existing tab - find changed fields
+            final origTabJson = origTab.toJson();
+            final Map<String, dynamic> changedFields = {};
+            
+            newTabJson.forEach((key, value) {
+              if (jsonEncode(value) != jsonEncode(origTabJson[key])) {
+                changedFields[key] = value;
+              }
+            });
+
+            if (changedFields.isNotEmpty) {
+              debugPrint('SchemaEditor: Updating changed fields for tab ${newTab.id}: ${changedFields.keys.toList()}');
+              await schemaProvider.service.saveTabFields(
+                widget.module.id, 
+                newTab.id, 
+                changedFields, 
+                settingsId: widget.settingsSheetId, 
+                tabsId: widget.tabsSheetId
+              );
+            }
+          }
         }
+        
+        // Also handle deleted tabs?
+        // For now, we update cache to ensure local state reflects the full tabs list including any deletions
+        final tabsModified = await schemaProvider.service.driveService?.getFileModifiedTime(widget.tabsSheetId!);
+        await schemaProvider.service.cacheConfig(
+          widget.module.id, 
+          {'tabs': _tabs.map((t) => t.toJson()).toList()}, 
+          fileId: widget.settingsSheetId, 
+          modifiedTime: tabsModified?.toIso8601String()
+        );
+      }
 
         // Update memory cache with the merged updated schema
         final updatedSchema = ModuleSchema(

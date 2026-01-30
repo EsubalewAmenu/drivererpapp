@@ -315,6 +315,18 @@ class SchemaService {
     }
   }
 
+  /// Update multiple fields in the settings spreadsheet row-by-row.
+  Future<void> saveSettingFields(String moduleId, Map<String, dynamic> fields, {String? settingsId}) async {
+    if (driveService == null) throw Exception('DriveService not initialized');
+
+    if (settingsId != null && settingsId.isNotEmpty) {
+      // Settings are stored in the 'settings' sheet title
+      await driveService!.updateTabFields(settingsId, 'settings', fields);
+    } else {
+      debugPrint('SchemaService: No settingsId provided for $moduleId to update settings fields');
+    }
+  }
+
   /// Update multiple fields in a specific tab's configuration row-by-row in Drive.
   Future<void> saveTabFields(String moduleId, String tabId, Map<String, dynamic> fields, {String? settingsId, String? tabsId}) async {
     if (driveService == null) throw Exception('DriveService not initialized');
