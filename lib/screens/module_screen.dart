@@ -94,60 +94,16 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 child: InkWell(
                   onTap: () async {
                     if (activated) {
-                      // Open blueprint editor for activated module
                       final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
                       ModuleSchema? mod = schemaProvider.getFromMemory(it['id'] as String);
 
-                      // If not cached, try to load authoritative asset (includes tabs)
+                      // If not in memory, try cache only (no asset fallback for active extensions)
                       if (mod == null) {
-                        try {
-                          final jsonString = await SchemaService.tryLoadModuleAsset(it['id'] as String);
-                          if (jsonString != null) {
-                            final parsed = jsonDecode(jsonString) as Map<String, dynamic>;
-
-                            // Parse settings
-                            final settingsRaw = parsed['settings'];
-                            final settingsMap = <String, SettingItem>{};
-                            if (settingsRaw != null && settingsRaw is Map<String, dynamic>) {
-                              settingsRaw.forEach((k, v) {
-                                try {
-                                  settingsMap[k] = SettingItem.fromJson(Map<String, dynamic>.from(v as Map));
-                                } catch (_) {}
-                              });
-                            }
-
-                            // Parse dashboard
-                            final dashboardJson = parsed['dashboard'] != null ? Map<String, dynamic>.from(parsed['dashboard'] as Map) : null;
-                            final dashboard = (dashboardJson != null && dashboardJson['cards'] != null)
-                                ? DashboardConfig.fromJson(dashboardJson)
-                                : DashboardConfig(cards: []);
-
-                            // Parse tabs
-                            final tabsRaw = parsed['tabs'];
-                            final tabsList = tabsRaw != null ? List<dynamic>.from(tabsRaw as List) : [];
-                            final tabs = tabsList.map((t) {
-                              try {
-                                return TabConfig.fromJson(Map<String, dynamic>.from(t as Map));
-                              } catch (_) {
-                                return TabConfig(id: 'err', label: 'Error Tab', columns: []);
-                              }
-                            }).toList();
-
-                            mod = ModuleSchema(
-                              id: it['id'] as String,
-                              name: name,
-                              icon: iconName,
-                              primaryColor: _colorToHex(primaryColor),
-                              version: '1.0',
-                              settings: settingsMap,
-                              dashboard: dashboard,
-                              tabs: tabs,
-                            );
-
-                            // Cache for future lookups
-                            schemaProvider.updateMemoryCache(mod.id, mod);
-                          }
-                        } catch (_) {}
+                        final cached = await schemaProvider.service.getCachedConfig(it['id'] as String);
+                        if (cached != null) {
+                          // Note: Parsing here is minimal; SchemaEditor handles full schema loading if needed
+                          mod = ModuleSchema.fromJson(cached);
+                        }
                       }
 
                       Navigator.push(
@@ -272,27 +228,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
           String desc = '';
           String primaryColor = cached?.primaryColor ?? '#2196F3';
 
-          // Try to load detailed info (favoring local cache, then fallback to asset)
-          try {
-            Map<String, dynamic>? config = await schemaProvider.service.getCachedConfig(modId);
-            if (config == null) {
-              final jsonString = await SchemaService.tryLoadModuleAsset(modId);
-              if (jsonString != null) {
-                config = jsonDecode(jsonString) as Map<String, dynamic>;
-              }
-            }
-
-            if (config != null) {
-              final settingsRaw = config['settings'] as Map<String, dynamic>?;
-              if (settingsRaw != null) {
-                name = settingsRaw['name']?['value']?.toString() ?? name;
-                icon = settingsRaw['icon']?['value']?.toString() ?? icon;
-                primaryColor = settingsRaw['primaryColor']?['value']?.toString() ?? primaryColor;
-              }
-              desc = config['desc']?.toString() ?? desc;
-            }
-          } catch (_) {}
-
           var activated = false;
           String? extSettingsId;
           String? extDashboardId;
@@ -318,6 +253,29 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
           // If this module is deactivated for the current user, treat as not activated
           if (deactivated.contains(modId)) activated = false;
+
+          // Try to load detailed info (favoring local cache)
+          try {
+            Map<String, dynamic>? config = await schemaProvider.service.getCachedConfig(modId);
+            
+            // Only fallback to assets if module is NOT yet activated (Discovery phase)
+            if (config == null && !activated) {
+              final jsonString = await SchemaService.tryLoadModuleAsset(modId);
+              if (jsonString != null) {
+                config = jsonDecode(jsonString) as Map<String, dynamic>;
+              }
+            }
+
+            if (config != null) {
+              final settingsRaw = config['settings'] as Map<String, dynamic>?;
+              if (settingsRaw != null) {
+                name = settingsRaw['name']?['value']?.toString() ?? name;
+                icon = settingsRaw['icon']?['value']?.toString() ?? icon;
+                primaryColor = settingsRaw['primaryColor']?['value']?.toString() ?? primaryColor;
+              }
+              desc = config['desc']?.toString() ?? desc;
+            }
+          } catch (_) {}
 
           result.add({
             'id': modId,
@@ -374,20 +332,30 @@ class _ModuleScreenState extends State<ModuleScreen> {
       _syncSchema(schemaService).then((newJson) async {
         debugPrint('ModuleScreen: _syncSchema finished with ${newJson != null}');
         if (newJson == null && mounted) {
-          // 3. Fallback to Assets if no remote config
+          // If this module is already active (has spreadsheet IDs), 
+          // do not fallback to assets as it would show an outdated/default blueprint.
+          if (widget.settingsSheetId != null && widget.settingsSheetId!.isNotEmpty) {
+            debugPrint('Module ${widget.module.id} is active but sync failed. Aborting asset fallback.');
+            setState(() {
+              _errorMessage = "Module data unavailable. Please check your connection or wait for sync.";
+              _isLoadingSchema = false;
+            });
+            return;
+          }
+
+          // 3. Fallback to Assets ONLY for initial activation/new setup
           debugPrint('No remote config found for ${widget.module.id}, checking assets...');
           final fileName = widget.module.name.toLowerCase();
           Map<String, dynamic> assetJson;
-            try {
-                final jsonString = await SchemaService.tryLoadModuleAsset(fileName);
-                if (jsonString != null) {
-                  assetJson = jsonDecode(jsonString);
-                } else {
-                  throw Exception('Asset not found');
-                }
-              } catch (e) {
+          try {
+            final jsonString = await SchemaService.tryLoadModuleAsset(fileName);
+            if (jsonString != null) {
+              assetJson = jsonDecode(jsonString);
+            } else {
+              throw Exception('Asset not found');
+            }
+          } catch (e) {
             debugPrint('Asset not found for $fileName, using default template');
-            // If no remote config AND no asset, use a basic template and go to editor
             assetJson = {
               'settings': {
                 'name': {'label': 'Name', 'type': 'text', 'value': widget.module.name}
@@ -654,14 +622,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
           
           if (otherModule == null) {
             otherJson = await schemaProvider.service.getCachedConfig(resolvedOtherId);
-            if (otherJson == null) {
-              try {
-                final jsonString = await SchemaService.tryLoadModuleAsset(otherModuleId);
-                if (jsonString != null) {
-                  otherJson = jsonDecode(jsonString) as Map<String, dynamic>;
-                }
-              } catch (_) {}
-            }
+            // No asset fallback here; extensions that are active MUST have a config in cache or drive.
           }
 
           if (otherModule == null && otherJson != null) {
