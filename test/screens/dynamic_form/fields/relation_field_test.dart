@@ -31,15 +31,32 @@ void main() {
       version: '1',
       settings: {},
       tabs: [
-        TabConfig(id: 'users', label: 'Users', columns: [
-          ColumnConfig(key: 'name', label: 'Name', type: 'text'),
-          ColumnConfig(key: 'dept', label: 'Dept', type: 'text'),
-        ]),
+        TabConfig(
+            id: 'users',
+            label: 'Users',
+            fileId: 'users_sheet_id',
+            columns: [
+              ColumnConfig(key: 'name', label: 'Name', type: 'text'),
+              ColumnConfig(key: 'dept', label: 'Dept', type: 'text'),
+            ]),
       ],
       dashboard: DashboardConfig(cards: []),
     );
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+          any(),
+          any(),
+          offset: any(named: 'offset'),
+          limit: any(named: 'limit'),
+          fetchSubTables: any(named: 'fetchSubTables'),
+          descending: any(named: 'descending'),
+          searchQuery: any(named: 'searchQuery'),
+          quickFilter: any(named: 'quickFilter'),
+        )).thenAnswer((_) async => [
+          {'name': 'John Doe', 'selected_dept': 'Engineering'},
+          {'name': 'Jane Doe', 'selected_dept': 'Sales'},
+        ]);
     schemaProvider.updateMemoryCache(testModule.id, testModule);
   });
 
@@ -124,6 +141,20 @@ void main() {
       options: 'users',
       dependsOn: 'selected_dept',
     );
+
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+      any(),
+      any(),
+      offset: any(named: 'offset'),
+      limit: any(named: 'limit'),
+      fetchSubTables: any(named: 'fetchSubTables'),
+      descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
+    )).thenAnswer((_) async => [
+      {'name': 'Engineer 1', 'selected_dept': 'Engineering'},
+      {'name': 'Sales 1', 'selected_dept': 'Sales'},
+    ]);
 
     // Mock response with items from different departments
     when(() => mockDriveService.fetchRecords(

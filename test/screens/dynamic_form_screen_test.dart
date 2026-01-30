@@ -28,6 +28,7 @@ void main() {
     final tab = TabConfig(
       id: 'tab1',
       label: 'Orders',
+      fileId: 'spreadsheet_123',
       columns: [
         ColumnConfig(key: 'customer', label: 'Customer', type: 'text', isRequired: true),
       ],
@@ -71,7 +72,7 @@ void main() {
     // Enter data
     await tester.enterText(find.byType(TextFormField), 'John Doe');
     
-    when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
+    when(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any()))
         .thenAnswer((_) async {});
 
     await tester.tap(find.text('SAVE'));
@@ -83,6 +84,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
 
-    verify(() => mockDriveService.saveRecord('mod123', 'Sales', 'tab1', any())).called(1);
+    verify(() => mockDriveService.saveRecordBySpreadsheetId('spreadsheet_123', 'tab1', any())).called(1);
   });
 }

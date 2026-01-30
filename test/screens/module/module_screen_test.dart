@@ -37,6 +37,8 @@ void main() {
       'module_config_host_tabs': jsonEncode([]),
     });
     final mockDrive = MockDriveService();
+    when(() => mockDrive.getFileId(any(), any())).thenAnswer((_) async => null);
+    when(() => mockDrive.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
 
     // Create a host module with extensions setting
     final hostModule = ModuleSchema(
@@ -112,7 +114,8 @@ void main() {
     when(() => mockDrive.readSettingsById('s1')).thenAnswer((_) async => {'name': {'label': 'Name', 'type': 'text', 'value': 'DirectHost'}});
     when(() => mockDrive.readDashboardById('d1')).thenAnswer((_) async => {'cards': []});
     when(() => mockDrive.readTabsById('t1')).thenAnswer((_) async => []);
-    when(() => mockDrive.getFileModifiedTime('s1')).thenAnswer((_) async => DateTime.utc(2025));
+    when(() => mockDrive.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.utc(2025));
+    when(() => mockDrive.getFileId(any(), any())).thenAnswer((_) async => null);
     final mockSheetsApi = MockSheetsApi();
     final mockSpreadsheets = MockSpreadsheetsResource();
     final mockValues = MockValuesResource();

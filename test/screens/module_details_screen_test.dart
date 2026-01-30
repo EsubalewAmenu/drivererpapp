@@ -60,6 +60,7 @@ void main() {
     mockAuthService = MockAuthService();
     
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'ws123'..name = 'My Workspace');
     when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
     when(() => mockAuthService.currentUser).thenReturn(_TestGoogleAccount('test@example.com'));

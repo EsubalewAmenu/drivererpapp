@@ -79,6 +79,15 @@ void main() {
       drive.File(id: 'w1', name: 'Test Company'),
     );
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
+    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'ua_folder');
+    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'ua_file');
+    when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'sub_folder');
+    when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any())).thenAnswer((_) async => {});
+    when(() => mockDriveService.saveRecord(any(), any(), any(), any())).thenAnswer((_) async => 'rec123');
+    when(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any())).thenAnswer((_) async => 'rec123');
+    when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
+
     when(() => mockAuthService.currentUser).thenReturn(_TestGoogleAccount('user@example.com'));
     when(() => mockDriveService.createWorkspace(any(), any())).thenAnswer((_) async => drive.File(id: 'new_folder_id', name: 'New Folder'));
     final mockSheetsApi = MockSheetsApi();

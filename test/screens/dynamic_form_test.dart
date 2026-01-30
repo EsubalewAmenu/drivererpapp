@@ -23,6 +23,7 @@ void main() {
     testTab = TabConfig(
       id: 'items',
       label: 'Items',
+      fileId: 'mock_spreadsheet_id',
       columns: [
         ColumnConfig(key: 'name', label: 'Name', type: 'text', isRequired: true),
         ColumnConfig(key: 'qty', label: 'Quantity', type: 'number'),
@@ -77,7 +78,7 @@ void main() {
   });
 
   testWidgets('DynamicFormScreen should call saveRecord on valid submission', (WidgetTester tester) async {
-    when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
+    when(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any()))
         .thenAnswer((_) async => {});
 
     await tester.pumpWidget(createDynamicFormScreen());
@@ -89,10 +90,9 @@ void main() {
     await tester.tap(saveButton);
     await tester.pumpAndSettle();
 
-    verify(() => mockDriveService.saveRecord(
-      any(), 
-      any(), 
-      any(), 
+    verify(() => mockDriveService.saveRecordBySpreadsheetId(
+      'mock_spreadsheet_id', 
+      'items', 
       any()
     )).called(1);
   });
