@@ -101,8 +101,41 @@ class _ModuleScreenState extends State<ModuleScreen> {
                       if (mod == null) {
                         final cached = await schemaProvider.service.getCachedConfig(it['id'] as String);
                         if (cached != null) {
-                          // Note: Parsing here is minimal; SchemaEditor handles full schema loading if needed
-                          mod = ModuleSchema.fromJson(cached);
+                          try {
+                            // Extract values from cached settings part
+                            final sMap = cached['settings'] != null ? Map<String, dynamic>.from(cached['settings'] as Map) : <String, dynamic>{};
+                            final n = sMap['name']?['value'] ?? it['name'] ?? it['id'];
+                            final ic = sMap['icon']?['value'] ?? it['icon'] ?? 'extension';
+                            final pc = sMap['primaryColor']?['value'] ?? it['primaryColor'] ?? '#2196F3';
+                            final v = sMap['version']?['value'] ?? '1.0';
+
+                            final sItems = <String, SettingItem>{};
+                            sMap.forEach((k, value) {
+                              if (value is Map) {
+                                try { sItems[k] = SettingItem.fromJson(Map<String, dynamic>.from(value)); } catch (_) {}
+                              }
+                            });
+
+                            final d = cached['dashboard'] != null 
+                              ? DashboardConfig.fromJson(Map<String, dynamic>.from(cached['dashboard'] as Map)) 
+                              : DashboardConfig(cards: []);
+                            
+                            final tList = cached['tabs'] != null ? List<dynamic>.from(cached['tabs'] as List) : [];
+                            final tItems = tList.map((t) => TabConfig.fromJson(Map<String, dynamic>.from(t as Map))).toList();
+
+                            mod = ModuleSchema(
+                              id: it['id'] as String,
+                              name: n.toString(),
+                              icon: ic.toString(),
+                              primaryColor: pc.toString(),
+                              version: v.toString(),
+                              settings: sItems,
+                              dashboard: d,
+                              tabs: tItems,
+                            );
+                          } catch (e) {
+                            debugPrint('Error reconstructing module from cache: $e');
+                          }
                         }
                       }
 
@@ -111,9 +144,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
                         MaterialPageRoute(
                           builder: (_) => SchemaEditorScreen(
                             module: mod ?? ModuleSchema(id: it['id'] as String, name: name, icon: iconName, primaryColor: '#2196F3', version: '1.0', settings: {}, dashboard: DashboardConfig(cards: []), tabs: []),
-                            settingsSheetId: _settingsSheetIds[it['id']] ?? (it['activated'] == true ? it['settingsSheetId'] : null),
-                            dashboardSheetId: _dashboardSheetIds[it['id']] ?? (it['activated'] == true ? it['dashboardSheetId'] : null),
-                            tabsSheetId: _tabsSheetIds[it['id']] ?? (it['activated'] == true ? it['tabsSheetId'] : null),
+                            settingsSheetId: _settingsSheetIds[it['id']] ?? it['settingsSheetId'],
+                            dashboardSheetId: _dashboardSheetIds[it['id']] ?? it['dashboardSheetId'],
+                            tabsSheetId: _tabsSheetIds[it['id']] ?? it['tabsSheetId'],
                           )
                         ),
                       ).then((_) => _loadSchema());
@@ -232,15 +265,17 @@ class _ModuleScreenState extends State<ModuleScreen> {
           String? extSettingsId;
           String? extDashboardId;
           String? extTabsId;
+          String? rowId;
 
           try {
             // If we have a user_access rows snapshot, check for a matching id/name
             if (uaRows.isNotEmpty) {
               for (var r in uaRows) {
-                final rowId = r.isNotEmpty ? (r[0]?.toString() ?? '') : '';
+                final rId = r.isNotEmpty ? (r[0]?.toString() ?? '') : '';
                 final rowName = r.length > 1 ? (r[1]?.toString() ?? '') : '';
-                if (rowId.isNotEmpty && (rowId == modId || rowName.toLowerCase() == name.toLowerCase())) {
+                if (rId.isNotEmpty && (rId == modId || rowName.toLowerCase() == name.toLowerCase())) {
                   activated = true;
+                  rowId = rId;
                   // Extract IDs from A:E row (id, name, dashboard, settings, tabs)
                   if (r.length > 2) extDashboardId = r[2]?.toString();
                   if (r.length > 3) extSettingsId = r[3]?.toString();
@@ -254,9 +289,13 @@ class _ModuleScreenState extends State<ModuleScreen> {
           // If this module is deactivated for the current user, treat as not activated
           if (deactivated.contains(modId)) activated = false;
 
+          // For activated modules, prefer the Drive folder ID as the primary 'id'
+          // so memory/cache lookups resolve the provisioned schema correctly.
+          final effectiveId = activated ? (rowId ?? modId) : modId;
+
           // Try to load detailed info (favoring local cache)
           try {
-            Map<String, dynamic>? config = await schemaProvider.service.getCachedConfig(modId);
+            Map<String, dynamic>? config = await schemaProvider.service.getCachedConfig(effectiveId);
             
             // Only fallback to assets if module is NOT yet activated (Discovery phase)
             if (config == null && !activated) {
@@ -278,7 +317,8 @@ class _ModuleScreenState extends State<ModuleScreen> {
           } catch (_) {}
 
           result.add({
-            'id': modId,
+            'id': effectiveId,
+            'assetKey': modId,
             'name': name,
             'icon': icon,
             'desc': desc,
