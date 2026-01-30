@@ -82,6 +82,7 @@ void main() {
             ColumnConfig(key: 'barcode', label: 'Barcode', type: 'scanner'),
             ColumnConfig(key: 'sign', label: 'Signature', type: 'signature'),
           ],
+          fileId: 'stocks_sheet',
         ),
         TabConfig(
           id: 'suppliers',
@@ -89,6 +90,7 @@ void main() {
           columns: [
              ColumnConfig(key: 'name', label: 'Name', type: 'text'),
           ],
+          fileId: 'suppliers_sheet',
         ),
       ],
       dashboard: DashboardConfig(cards: []),
@@ -118,28 +120,38 @@ void main() {
     when(() => mockDriveService.readModuleConfig('mod1_tabs')).thenAnswer((_) async => moduleSchema.toJson());
     when(() => mockDriveService.readTabsById('mod1_tabs')).thenAnswer((_) async => moduleSchema.toJson()['tabs'] as List<dynamic>);
     when(() => mockDriveService.getFileId('mod1', 'stocks')).thenAnswer((_) async => 'stocks_sheet');
-    when(() => mockDriveService.fetchRecords(
-      any(), 
-      any(), 
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+      'stocks_sheet',
       'stocks',
       offset: any(named: 'offset'),
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => []);
-    when(() => mockDriveService.fetchRecords(
-      any(), 
-      any(), 
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+      'suppliers_sheet',
       'suppliers',
       offset: any(named: 'offset'),
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
-    )).thenAnswer((_) async => [
-       {'name': 'Apple Inc.', 'id': 's1'},
-       {'name': 'Samsung', 'id': 's2'},
-    ]);
-    when(() => mockDriveService.saveRecord(any(), any(), any(), any())).thenAnswer((_) async => {});
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
+    )).thenAnswer((invocation) async {
+      final query = invocation.namedArguments[const Symbol('searchQuery')] as String?;
+      final results = [
+        {'name': 'Apple Inc.', 'id': 's1'},
+        {'name': 'Samsung', 'id': 's2'},
+      ];
+      if (query != null && query.isNotEmpty) {
+        final lower = query.toLowerCase();
+        return results.where((item) => item['name']?.toString().toLowerCase().contains(lower) ?? false).toList();
+      }
+      return results;
+    });
+    when(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any())).thenAnswer((_) async => {});
 
     final driveProvider = TestDriveProvider(mockDriveService);
 
@@ -283,9 +295,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
-    verify(() => mockDriveService.saveRecord(
-      'mod1',
-      'Inventory',
+    verify(() => mockDriveService.saveRecordBySpreadsheetId(
+      'stocks_sheet',
       'stocks',
       any(that: isA<Map<String, dynamic>>()
         .having((m) => m['item'], 'item', 'MacBook Pro M3')

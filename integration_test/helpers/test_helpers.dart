@@ -95,6 +95,7 @@ TestMocks createTestMocks() {
     when(() => drive.readTabsById(any())).thenAnswer((_) async => <Map<String, dynamic>>[]);
     when(() => drive.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'folder_id');
     when(() => drive.updateTabFields(any(), any(), any())).thenAnswer((_) async => null);
+      when(() => drive.updateTabField(any(), any(), any(), any())).thenAnswer((_) async => null);
     when(() => drive.writeDashboardById(any(), any())).thenAnswer((_) async => null);
     when(() => drive.writeTabsById(any(), any())).thenAnswer((_) async => null);
   } catch (_) {}
