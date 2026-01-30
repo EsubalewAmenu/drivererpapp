@@ -14,8 +14,8 @@ import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/screens/module_screen.dart';
+import 'package:drivererpapp/screens/schema_editor_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'helpers/test_helpers.dart';
 
 void main() {
@@ -23,6 +23,7 @@ void main() {
 
   late MockAuthService mockAuthService;
   late MockDriveService mockDriveService;
+  late MockValuesResource mockValues;
 
   setUpAll(() {
     initTestEnvironment();
@@ -32,6 +33,7 @@ void main() {
     final mocks = createTestMocks();
     mockAuthService = mocks.auth;
     mockDriveService = mocks.drive;
+    mockValues = mocks.values;
   });
 
   testWidgets('Module Activation and Blueprint Editing Flow', (tester) async {
@@ -40,7 +42,7 @@ void main() {
     
     // Initial state: no modules installed
     final emptyRange = sheets.ValueRange(values: []);
-    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+    when(() => mockValues.get('ua1', 'modules!A1:Z'))
       .thenAnswer((_) async => emptyRange);
     
     final workspaceProvider = WorkspaceProvider();
@@ -68,9 +70,11 @@ void main() {
 
     await tester.pumpAndSettle();
 
+    debugPrint('STEP 1: Checking for "No modules installed"');
     // 1. Verify we are on Dashboard and see "No modules installed"
     expect(find.text('No modules installed.\nVisit the Marketplace to expand.'), findsOneWidget);
 
+    debugPrint('STEP 2: Selecting module from Marketplace');
     // 2. Select a module from Catalog (Marketplace)
     // Expansion Module "CRM" or "Inventory"
     final inventoryMarketplaceFinder = find.text('Inventory').last;
@@ -78,10 +82,12 @@ void main() {
     await tester.tap(inventoryMarketplaceFinder);
     await tester.pumpAndSettle();
 
+    debugPrint('STEP 3: Verifying Module Details');
     // 3. Verify Module Details
     expect(find.text('INVENTORY'), findsOneWidget);
     expect(find.text('KEY BENEFITS'), findsOneWidget);
 
+    debugPrint('STEP 4: Activating Module');
     // 4. Activate Module
     when(() => mockDriveService.createWorkspace(any(), any())).thenAnswer((_) async {
       // After creating the workspace, update the user_access sheet mock
@@ -89,7 +95,7 @@ void main() {
         ['id', 'module_name', 'dashboard', 'settings', 'tabs'],
         ['new_mod_id', 'Inventory', '', '', '']
       ]);
-      when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+      when(() => mockValues.get('ua1', 'modules!A1:Z'))
           .thenAnswer((_) async => installedRange);
       return drive.File()..id = 'new_mod_id';
     });
@@ -108,12 +114,14 @@ void main() {
     when(() => mockDriveService.getFileId('new_mod_id', any()))
         .thenAnswer((inv) async {
       final name = inv.positionalArguments[1] as String;
-      return '${name}_sheet_id';
+      return '\${name}_sheet_id';
     });
     // Provide defaults for user access helpers in case activation attempts them
     when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'user_access_folder');
     when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'user_access_file');
     when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any()))
+        .thenAnswer((_) async => null);
+    when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any()))
         .thenAnswer((_) async => null);
     
     await tester.tap(find.text('ACTIVATE'));
@@ -128,29 +136,31 @@ void main() {
     await workspaceProvider.saveUserAccessSpreadsheetId('ua1');
     await tester.pumpAndSettle();
 
-    // If the dashboard didn't navigate to the editor automatically, push ModuleScreen directly
+    // If the dashboard didn't navigate to the editor automatically, push SchemaEditorScreen directly
     try {
       final dashboardContext = tester.element(find.byType(DashboardScreen));
-      Navigator.of(dashboardContext).push(MaterialPageRoute(builder: (_) => ModuleScreen(
+      Navigator.of(dashboardContext).push(MaterialPageRoute(builder: (_) => SchemaEditorScreen(
         module: ModuleSchema(id: 'new_mod_id', name: 'Inventory', icon: 'inventory', primaryColor: '#3B82F6', version: '1.0.0', settings: {}, dashboard: DashboardConfig(cards: []), tabs: []),
         settingsSheetId: 'config_id',
-        dashboardSheetId: null,
-        tabsSheetId: null,
+        dashboardSheetId: 'dash_id',
+        tabsSheetId: 'tabs_id',
+        isNewSetup: true,
       )));
       await tester.pumpAndSettle();
     } catch (e) {
-      debugPrint('Could not push ModuleScreen directly: $e');
+      debugPrint('Could not push SchemaEditorScreen directly: \${e}');
     }
     
     // 5. Open the module to trigger first-time setup (Blueprint Editor)
     when(() => mockDriveService.getFileId('new_mod_id', 'config')).thenAnswer((_) async => null);
+    when(() => mockDriveService.readSettingsById(any())).thenAnswer((_) async => <String, dynamic>{});
+    when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => <String, dynamic>{'cards': <dynamic>[]});
+    when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => <Map<String, dynamic>>[]);
     when(() => mockDriveService.readModuleConfig(any())).thenAnswer((_) async => <String, dynamic>{
       'tabs': <dynamic>[],
       'dashboard': <String, dynamic>{'cards': <dynamic>[]},
       'settings': <String, dynamic>{}
     });
-
-    // If we didn't navigate via dashboard, ModuleScreen was pushed directly above.
 
     // Should be in COMPLETE SETUP (SchemaEditorScreen) or show structure
     final hasCompleteSetup = find.text('COMPLETE SETUP').evaluate().isNotEmpty;
@@ -161,27 +171,35 @@ void main() {
     when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'config_id');
     when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
     
-    // After activate in editor, it goes back to ModuleScreen which might load again.
-    when(() => mockDriveService.getFileId('new_mod_id', 'config')).thenAnswer((_) async => 'config_id');
-    when(() => mockDriveService.readModuleConfig('config_id')).thenAnswer((_) async => <String, dynamic>{
+    // Provide generic mocks for the new granular read methods
+    when(() => mockDriveService.readSettingsById('config_id')).thenAnswer((_) async => <String, dynamic>{
       'id': 'new_mod_id',
       'name': 'Inventory',
       'icon': 'inventory',
-      'primaryColor': '#F59E0B',
+      'primaryColor': '#3B82F6',
       'version': '1.0.0',
-      'tabs': <dynamic>[
-        <String, dynamic>{'id': 't1', 'label': 'Stocks', 'columns': <dynamic>[]}
-      ],
-      'dashboard': <String, dynamic>{'cards': <dynamic>[]},
-      'settings': <String, dynamic>{}
     });
+    when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => <Map<String, dynamic>>[
+       {'id': 't1', 'label': 'Stock Adjustment', 'columns': []}
+    ]);
 
     await tester.tap(find.text('ACTIVATE'));
     await tester.pumpAndSettle();
 
+    // Force Dashboard refresh
+    workspaceProvider.setWorkspace(workspace);
+    await tester.pumpAndSettle();
+
+    debugPrint('STEP 8b: Tapping newly activated module');
+    // Now open the module from Dashboard to see the tabs
+    final inventoryCard = find.text('Inventory');
+    expect(inventoryCard, findsAtLeast(1));
+    await tester.tap(inventoryCard.first);
+    await tester.pumpAndSettle();
+
     // Should be back in ModuleScreen, showing the tabs.
-    // Inventory asset has "Stock Adjustment" tab.
-    await tester.pump(const Duration(milliseconds: 500));
+    // Inventory asset has "Stock Adjustment" tab (or our mocked 'Stock Adjustment' tab).
+    await tester.pump(const Duration(milliseconds: 1500));
     expect(
       find.byWidgetPredicate((w) {
         if (w is Text && w.data != null) {
@@ -193,3 +211,4 @@ void main() {
     );
   });
 }
+
