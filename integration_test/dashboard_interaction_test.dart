@@ -23,6 +23,7 @@ void main() {
 
   late MockAuthService mockAuthService;
   late MockDriveService mockDriveService;
+  late MockValuesResource mockValues;
 
   setUpAll(() {
     initTestEnvironment();
@@ -32,6 +33,7 @@ void main() {
     final mocks = createTestMocks();
     mockAuthService = mocks.auth;
     mockDriveService = mocks.drive;
+    mockValues = mocks.values;
   });
 
   Widget createTestWidget({
@@ -65,7 +67,7 @@ void main() {
       ['id', 'module_name', 'dashboard', 'settings', 'tabs'],
       ['mod1', 'CRM', '', 'config_id', 'tabs_id'],
     ]);
-    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+    when(() => mockValues.get('ua1', 'modules!A1:Z'))
         .thenAnswer((_) async => mockValueRange);
     when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_id');
     when(() => mockDriveService.readModuleConfig('config_id')).thenAnswer((_) async => <String, dynamic>{
@@ -119,7 +121,7 @@ void main() {
     
     // No modules in user access sheet
     final emptyRange = sheets.ValueRange(values: []);
-    when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
+    when(() => mockValues.get('ua1', 'modules!A1:Z'))
       .thenAnswer((_) async => emptyRange);
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root_id');
     when(() => mockDriveService.ensureCompanyRegistry(any())).thenAnswer((_) async => 'reg_id');
