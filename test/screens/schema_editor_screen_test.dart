@@ -32,6 +32,18 @@ void main() {
 
     when(() => mockSchemaProvider.service).thenReturn(mockSchemaService);
     when(() => mockSchemaProvider.updateMemoryCache(any(), any())).thenReturn(null);
+
+    // Default mock behavior for save methods
+    when(() => mockSchemaService.saveSettingFields(any(), any(), settingsId: any(named: 'settingsId')))
+        .thenAnswer((_) async {});
+    when(() => mockSchemaService.saveTabFields(any(), any(), any(), settingsId: any(named: 'settingsId'), tabsId: any(named: 'tabsId')))
+        .thenAnswer((_) async {});
+    when(() => mockSchemaService.saveDashboardPart(any(), any(), settingsId: any(named: 'settingsId'), dashboardId: any(named: 'dashboardId')))
+        .thenAnswer((_) async {});
+    when(() => mockSchemaService.saveTabsPart(any(), any(), settingsId: any(named: 'settingsId'), tabsId: any(named: 'tabsId')))
+        .thenAnswer((_) async {});
+    when(() => mockSchemaService.cacheConfig(any(), any(), fileId: any(named: 'fileId'), modifiedTime: any(named: 'modifiedTime')))
+        .thenAnswer((_) async {});
   });
 
   Widget createEditorScreen(ModuleSchema module, {bool isNewSetup = false, String? settingsSheetId, String? dashboardSheetId, String? tabsSheetId}) {
@@ -86,8 +98,6 @@ void main() {
   });
 
   testWidgets('SchemaEditorScreen saves changes successfully', (WidgetTester tester) async {
-    when(() => mockSchemaService.saveSettingsPart(any(), any(), settingsId: any(named: 'settingsId'))).thenAnswer((_) async => true);
-
     await tester.pumpWidget(createEditorScreen(testModule, settingsSheetId: 's1', dashboardSheetId: 'd1', tabsSheetId: 't1'));
     
     // Make a change to trigger a settings save
@@ -99,12 +109,13 @@ void main() {
     await tester.tap(find.text('SAVE'));
     await tester.pumpAndSettle();
 
-    verify(() => mockSchemaService.saveSettingsPart('mod123', any(), settingsId: 's1')).called(1);
+    verify(() => mockSchemaService.saveSettingFields('mod123', any(), settingsId: 's1')).called(1);
     verify(() => mockSchemaProvider.updateMemoryCache('mod123', any())).called(1);
   });
 
   testWidgets('SchemaEditorScreen handles save error', (WidgetTester tester) async {
-    when(() => mockSchemaService.saveSettingsPart(any(), any(), settingsId: any(named: 'settingsId'))).thenThrow(Exception('Save failed'));
+    when(() => mockSchemaService.saveSettingFields(any(), any(), settingsId: any(named: 'settingsId')))
+        .thenThrow(Exception('Save failed'));
 
     await tester.pumpWidget(createEditorScreen(testModule, settingsSheetId: 's1', dashboardSheetId: 'd1', tabsSheetId: 't1'));
     
@@ -179,7 +190,7 @@ void main() {
     await tester.tap(find.text('SAVE'));
     await tester.pumpAndSettle();
 
-    verify(() => mockSchemaService.saveSettingsPart(any(), any(), settingsId: any(named: 'settingsId'))).called(1);
+    verify(() => mockSchemaService.saveSettingFields(any(), any(), settingsId: any(named: 'settingsId'))).called(1);
     
     // Test onTabsChanged via Structure Tab
     // (Assuming StructureEditor has some way to change tabs that we can trigger)
