@@ -106,10 +106,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           List<Map<String, dynamic>> records = [];
           
           if (fileId != null && fileId.isNotEmpty) {
-            records = await (driveService as dynamic).fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000);
-          } else {
-            // Fallback for non-synced modules but technically we want to avoid this
-            records = await driveService.fetchRecords(targetModule.id, targetModule.name, tab.id);
+            records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000);
           }
 
           final match = records.firstWhere((r) => (r['record_id']?.toString() == id) || (r['id']?.toString() == id), orElse: () => {});
@@ -651,9 +648,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
             Future<List<Map<String, dynamic>>> fetchTask;
             if (fileId != null && fileId.isNotEmpty) {
-              fetchTask = (driveService as dynamic).fetchRecordsBySpreadsheetId(fileId, childTabId);
+              fetchTask = driveService.fetchRecordsBySpreadsheetId(fileId, childTabId);
             } else {
-              fetchTask = driveService.fetchRecords(widget.module!.id, widget.module!.id, childTabId);
+              fetchTask = Future.value([]);
             }
 
             fetchTask.then((recs) {
@@ -692,9 +689,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 if (normalized.isEmpty) {
                   Future<List<Map<String, dynamic>>> fetchMainTask;
                   if (fileId != null && fileId.isNotEmpty) {
-                    fetchMainTask = (driveService as dynamic).fetchRecordsBySpreadsheetId(fileId, widget.tab.id, fetchSubTables: true);
+                    fetchMainTask = driveService.fetchRecordsBySpreadsheetId(fileId, widget.tab.id, fetchSubTables: true);
                   } else {
-                    fetchMainTask = driveService.fetchRecords(widget.module!.id, widget.module!.id, widget.tab.id, fetchSubTables: true);
+                    fetchMainTask = Future.value([]);
                   }
                   
                   fetchMainTask.then((recs) {

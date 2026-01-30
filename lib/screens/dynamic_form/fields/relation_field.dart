@@ -65,9 +65,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
         List<Map<String, dynamic>> records = [];
         
         if (fileId != null && fileId.isNotEmpty) {
-          records = await (driveService as dynamic).fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000);
-        } else {
-          records = await driveService.fetchRecords(targetModule.id, targetModule.name, relatedTabId);
+          records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000);
         }
 
         final match = records.firstWhere((r) => (r['record_id']?.toString() == id.toString()) || (r['id']?.toString() == id.toString()), orElse: () => {});
@@ -154,9 +152,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                         final tab = targetModule.tabs.firstWhere((t) => t.id == tabId, orElse: () => targetModule!.tabs.first);
                         final fileId = tab.fileId;
                         if (fileId != null && fileId.isNotEmpty) {
-                          fetched = await (driveService as dynamic).fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10);
-                        } else {
-                          fetched = await driveService.fetchRecords(targetModule.id, targetModule.name, tabId, searchQuery: query, limit: 10);
+                          fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10);
                         }
                       } catch (_) {
                         fetched = [];
@@ -171,9 +167,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                           final tab = targetModule.tabs.firstWhere((t) => t.id == tabId, orElse: () => targetModule!.tabs.first);
                           final fileId = tab.fileId;
                           if (fileId != null && fileId.isNotEmpty) {
-                            fetched = await (driveService as dynamic).fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10);
-                          } else {
-                            fetched = await driveService.fetchRecords(targetModule.id, targetModule.name, tabId, searchQuery: query, limit: 10);
+                            fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10);
                           }
                         }
                       } catch (_) {}
@@ -203,9 +197,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                           final fileId = tab.fileId;
                           List<Map<String, dynamic>> local = [];
                           if (fileId != null && fileId.isNotEmpty) {
-                             local = await (driveService as dynamic).fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 200);
-                          } else {
-                             local = await driveService.fetchRecords(useModule.id, useModule.name, tabId, limit: 200);
+                             local = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 200);
                           }
                           
                           final lowered = query.toLowerCase();
