@@ -53,6 +53,7 @@
       ],
       "columns": [
         { "key": "deal_name", "label": "Deal Name", "type": "text", "required": true },
+        { "key": "amount", "label": "Amount", "type": "currency" },
         { 
           "key": "related_contact", 
           "label": "Customer", 
@@ -73,7 +74,7 @@
           "options": ["Pending", "No Answer", "Gatekeeper", "Spoke to GM"] 
         },
         { 
-          "key": "stage", 
+          "key": "stage",
           "label": "Outcome", 
           "type": "select", 
           "options": ["Pending", "Not Interested", "Send Email", "Call Back", "Meeting Set", "Proposal Sent", "Negotiation", "Closed Won", "Closed Lost"] 
