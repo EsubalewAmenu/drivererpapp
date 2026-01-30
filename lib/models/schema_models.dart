@@ -107,6 +107,8 @@ class TabConfig {
   final DetailTemplateConfig? detailTemplate;
   @JsonKey(name: 'initial_data')
   final List<Map<String, dynamic>>? initialData;
+  @JsonKey(name: 'fileId')
+  final String? fileId;
 
   TabConfig({
     required this.id,
@@ -117,6 +119,7 @@ class TabConfig {
     this.listTemplate,
     this.detailTemplate,
     this.initialData,
+    this.fileId,
   });
 
   TabConfig copyWith({
@@ -128,6 +131,7 @@ class TabConfig {
     ListTemplateConfig? listTemplate,
     DetailTemplateConfig? detailTemplate,
     List<Map<String, dynamic>>? initialData,
+    String? fileId,
   }) {
     return TabConfig(
       id: id ?? this.id,
@@ -138,6 +142,7 @@ class TabConfig {
       listTemplate: listTemplate ?? this.listTemplate,
       detailTemplate: detailTemplate ?? this.detailTemplate,
       initialData: initialData ?? this.initialData,
+      fileId: fileId ?? this.fileId,
     );
   }
 

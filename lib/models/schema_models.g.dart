@@ -109,6 +109,7 @@ TabConfig _$TabConfigFromJson(Map<String, dynamic> json) => TabConfig(
   initialData: (json['initial_data'] as List<dynamic>?)
       ?.map((e) => e as Map<String, dynamic>)
       .toList(),
+  fileId: json['fileId'] as String?,
 );
 
 Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
@@ -120,6 +121,7 @@ Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
   'list_template': instance.listTemplate?.toJson(),
   'detail_template': instance.detailTemplate?.toJson(),
   'initial_data': instance.initialData,
+  'fileId': instance.fileId,
 };
 
 ListTemplateConfig _$ListTemplateConfigFromJson(Map<String, dynamic> json) =>

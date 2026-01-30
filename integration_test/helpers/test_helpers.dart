@@ -10,6 +10,7 @@ import 'package:drivererpapp/providers/drive_provider.dart';
 // Common mock types used across integration tests
 class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
+class MockDriveApi extends Mock implements drive.DriveApi {}
 class MockSheetsApi extends Mock implements sheets.SheetsApi {}
 class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
 class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
@@ -17,6 +18,7 @@ class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResour
 class TestMocks {
   final MockAuthService auth;
   final MockDriveService drive;
+  final MockDriveApi driveApi;
   final MockSheetsApi sheetsApi;
   final MockSpreadsheetsResource spreadsheets;
   final MockValuesResource values;
@@ -24,6 +26,7 @@ class TestMocks {
   TestMocks({
     required this.auth,
     required this.drive,
+    required this.driveApi,
     required this.sheetsApi,
     required this.spreadsheets,
     required this.values,
@@ -50,6 +53,7 @@ void initTestEnvironment() {
 TestMocks createTestMocks() {
   final auth = MockAuthService();
   final drive = MockDriveService();
+  final driveApi = MockDriveApi();
   final sheetsApi = MockSheetsApi();
   final spreadsheets = MockSpreadsheetsResource();
   final values = MockValuesResource();
@@ -57,6 +61,7 @@ TestMocks createTestMocks() {
   when(() => sheetsApi.spreadsheets).thenReturn(spreadsheets);
   when(() => spreadsheets.values).thenReturn(values);
   when(() => drive.sheetsApi).thenReturn(sheetsApi);
+  when(() => drive.driveApi).thenReturn(driveApi);
 
   // Default auth/driveservice behaviors that most tests expect
   try {
@@ -72,9 +77,27 @@ TestMocks createTestMocks() {
       limit: any(named: 'limit'),
       fetchSubTables: any(named: 'fetchSubTables'),
       descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
+    )).thenAnswer((_) async => <Map<String, dynamic>>[]);
+    when(() => drive.fetchRecordsBySpreadsheetId(
+      any(), any(),
+      offset: any(named: 'offset'),
+      limit: any(named: 'limit'),
+      fetchSubTables: any(named: 'fetchSubTables'),
+      descending: any(named: 'descending'),
+      searchQuery: any(named: 'searchQuery'),
+      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => <Map<String, dynamic>>[]);
     when(() => drive.getFileId(any(), any())).thenAnswer((_) async => null);
+    when(() => drive.readSettingsById(any())).thenAnswer((_) async => <String, dynamic>{});
+    when(() => drive.readDashboardById(any())).thenAnswer((_) async => <String, dynamic>{});
+    when(() => drive.readTabsById(any())).thenAnswer((_) async => <Map<String, dynamic>>[]);
+    when(() => drive.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'folder_id');
+    when(() => drive.updateTabFields(any(), any(), any())).thenAnswer((_) async => null);
+    when(() => drive.writeDashboardById(any(), any())).thenAnswer((_) async => null);
+    when(() => drive.writeTabsById(any(), any())).thenAnswer((_) async => null);
   } catch (_) {}
 
-  return TestMocks(auth: auth, drive: drive, sheetsApi: sheetsApi, spreadsheets: spreadsheets, values: values);
+  return TestMocks(auth: auth, drive: drive, driveApi: driveApi, sheetsApi: sheetsApi, spreadsheets: spreadsheets, values: values);
 }
