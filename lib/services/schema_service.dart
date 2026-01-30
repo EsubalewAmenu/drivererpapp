@@ -205,8 +205,8 @@ class SchemaService {
         if (fileId != null) {
           await driveService!.updateModuleConfig(fileId, configMap);
         } else {
-          debugPrint('SchemaService: No settings file found for module $moduleId, cannot save.');
-          return;
+          fileId = await driveService!.createModuleConfig(configFolderId, fileName, configMap);
+          debugPrint('SchemaService: Created new settings file for module $moduleId: $fileId');
         }
 
         try {

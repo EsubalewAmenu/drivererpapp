@@ -303,7 +303,15 @@ mixin DriveSheetMixin {
       if (settingsMap.isEmpty) {
         debugPrint('Settings sheet is empty or missing for $fileId');
       } else {
-        config['settings'] = settingsMap.map((k, v) => MapEntry(k, jsonDecode(v)));
+        final settings = <String, dynamic>{};
+        settingsMap.forEach((k, v) {
+          try {
+            settings[k] = jsonDecode(v);
+          } catch (_) {
+            settings[k] = v;
+          }
+        });
+        config['settings'] = settings;
       }
 
       // Read meta to get dashboard and tabs spreadsheet IDs
@@ -490,13 +498,10 @@ mixin DriveSheetMixin {
       final map = <String, String>{};
       if (response.values != null) {
         for (var row in response.values!) {
-          if (row.isEmpty) continue;
-          final rawKey = row.length >= 1 ? row[0] : null;
-          if (rawKey == null) continue;
-          final key = rawKey.toString().trim();
+          if (row.length < 2) continue;
+          final key = row[0].toString().trim();
           if (key.isEmpty) continue;
-          final rawVal = row.length >= 2 ? row[1] : '';
-          final val = rawVal == null ? '' : rawVal.toString();
+          final val = row[1] == null ? '' : row[1].toString();
           map[key] = val;
         }
       }
