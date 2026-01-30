@@ -196,7 +196,7 @@ void main() {
     await tester.enterText(nameField, 'Widget Updated');
     
     // Mock Save
-    when(() => mockDriveService.saveRecord(any(), any(), any(), any())).thenAnswer((_) async => {});
+    when(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any())).thenAnswer((_) async => {});
 
     // Save
     await tester.tap(find.text('SAVE'));
