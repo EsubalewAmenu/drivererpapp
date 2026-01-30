@@ -504,21 +504,34 @@ mixin DriveSheetMixin {
           if (map.isNotEmpty) {
             final decoded = <String, dynamic>{};
             map.forEach((k, v) {
+              final key = k.toString();
+              final raw = (v ?? '').toString();
+              if (raw.trim().isEmpty || raw.trim() == 'null') {
+                decoded[key] = null;
+                return;
+              }
               try {
-                decoded[k] = jsonDecode(v);
+                decoded[key] = jsonDecode(raw);
               } catch (_) {
-                decoded[k] = v;
+                decoded[key] = raw;
               }
             });
+            // Ensure required fields exist so callers (TabConfig.fromJson) don't crash
+            if (decoded['id'] == null || (decoded['id'] is String && (decoded['id'] as String).trim().isEmpty)) {
+              decoded['id'] = title;
+            }
+            if (decoded['label'] == null || (decoded['label'] is String && (decoded['label'] as String).trim().isEmpty)) {
+              decoded['label'] = title;
+            }
             tabs.add(decoded);
             continue;
           }
           // If map is empty, still add an empty map to preserve sheet order
-          tabs.add(<String, dynamic>{});
+          tabs.add(<String, dynamic>{'id': title, 'label': title});
         } catch (e) {
           debugPrint('Error reading tab sheet $title in $tabsId: $e');
           // Add empty placeholder to keep behavior predictable
-          tabs.add(<String, dynamic>{});
+          tabs.add(<String, dynamic>{'id': title, 'label': title});
         }
       }
       if (tabs.isEmpty) return null;
@@ -557,9 +570,14 @@ mixin DriveSheetMixin {
       final map = <String, String>{};
       if (response.values != null) {
         for (var row in response.values!) {
-          if (row.length >= 2) {
-            map[row[0] as String] = row[1] as String;
-          }
+          if (row.isEmpty) continue;
+          final rawKey = row.length >= 1 ? row[0] : null;
+          if (rawKey == null) continue;
+          final key = rawKey.toString().trim();
+          if (key.isEmpty) continue;
+          final rawVal = row.length >= 2 ? row[1] : '';
+          final val = rawVal == null ? '' : rawVal.toString();
+          map[key] = val;
         }
       }
       return map;
