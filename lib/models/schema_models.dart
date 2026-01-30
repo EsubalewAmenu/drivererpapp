@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'schema_models.g.dart';
@@ -142,6 +143,27 @@ class TabConfig {
 
   factory TabConfig.fromJson(Map<String, dynamic> json) => _$TabConfigFromJson(json);
   Map<String, dynamic> toJson() => _$TabConfigToJson(this);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TabConfig &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          label == other.label &&
+          jsonEncode(quickFilters) == jsonEncode(other.quickFilters) &&
+          enableCustomFilters == other.enableCustomFilters &&
+          listTemplate == other.listTemplate &&
+          detailTemplate == other.detailTemplate;
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      label.hashCode ^
+      quickFilters.hashCode ^
+      enableCustomFilters.hashCode ^
+      listTemplate.hashCode ^
+      detailTemplate.hashCode;
 }
 
 @JsonSerializable(explicitToJson: true)
@@ -197,6 +219,23 @@ class ListTemplateConfig {
 
   factory ListTemplateConfig.fromJson(Map<String, dynamic> json) => _$ListTemplateConfigFromJson(json);
   Map<String, dynamic> toJson() => _$ListTemplateConfigToJson(this);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ListTemplateConfig &&
+          runtimeType == other.runtimeType &&
+          template == other.template &&
+          titleKey == other.titleKey &&
+          subtitleKey == other.subtitleKey &&
+          trailingKey == other.trailingKey;
+
+  @override
+  int get hashCode =>
+      template.hashCode ^
+      titleKey.hashCode ^
+      subtitleKey.hashCode ^
+      trailingKey.hashCode;
 }
 
 @JsonSerializable(explicitToJson: true)
@@ -291,6 +330,20 @@ class QuickFilter {
 
   factory QuickFilter.fromJson(Map<String, dynamic> json) => _$QuickFilterFromJson(json);
   Map<String, dynamic> toJson() => _$QuickFilterToJson(this);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is QuickFilter &&
+          runtimeType == other.runtimeType &&
+          key == other.key &&
+          label == other.label &&
+          field == other.field &&
+          operator == other.operator &&
+          value == other.value;
+
+  @override
+  int get hashCode => key.hashCode ^ label.hashCode ^ field.hashCode ^ operator.hashCode ^ value.hashCode;
 }
 
 @JsonSerializable(explicitToJson: true)

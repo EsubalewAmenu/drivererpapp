@@ -264,7 +264,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
       for (var rawKey in enabledKeys) {
         try {
           final key = rawKey.toString();
-          final modId = key; // extensions list contains authoritative module asset keys
+          final modId = key;
 
           final cached = schemaProvider.findModuleByIdOrName(modId);
           String name = cached?.name ?? modId;
@@ -272,17 +272,24 @@ class _ModuleScreenState extends State<ModuleScreen> {
           String desc = '';
           String primaryColor = cached?.primaryColor ?? '#2196F3';
 
+          // Try to load detailed info (favoring local cache, then fallback to asset)
           try {
-            final jsonString = await SchemaService.tryLoadModuleAsset(modId);
-            if (jsonString != null) {
-              final parsed = jsonDecode(jsonString) as Map<String, dynamic>;
-              final settingsRaw = parsed['settings'] as Map<String, dynamic>?;
+            Map<String, dynamic>? config = await schemaProvider.service.getCachedConfig(modId);
+            if (config == null) {
+              final jsonString = await SchemaService.tryLoadModuleAsset(modId);
+              if (jsonString != null) {
+                config = jsonDecode(jsonString) as Map<String, dynamic>;
+              }
+            }
+
+            if (config != null) {
+              final settingsRaw = config['settings'] as Map<String, dynamic>?;
               if (settingsRaw != null) {
                 name = settingsRaw['name']?['value']?.toString() ?? name;
                 icon = settingsRaw['icon']?['value']?.toString() ?? icon;
                 primaryColor = settingsRaw['primaryColor']?['value']?.toString() ?? primaryColor;
               }
-              desc = parsed['desc']?.toString() ?? desc;
+              desc = config['desc']?.toString() ?? desc;
             }
           } catch (_) {}
 
@@ -502,14 +509,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
   Future<void> _processJson(Map<String, dynamic> jsonMap, {bool isAssetFallback = false}) async {
     if (!mounted) return;
 
-    // Capture providers now to avoid accessing `context` after awaits
     final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
     final driveProvider = Provider.of<DriveProvider>(context, listen: false);
     final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
     final driveServiceFromProvider = driveProvider.driveService;
     
     try {
-      // Clear and Initialize sheet ID maps for the host module
       _settingsSheetIds.clear();
       _dashboardSheetIds.clear();
       _tabsSheetIds.clear();
@@ -518,12 +523,10 @@ class _ModuleScreenState extends State<ModuleScreen> {
       if (widget.dashboardSheetId != null) _dashboardSheetIds[widget.module.id] = widget.dashboardSheetId!;
       if (widget.tabsSheetId != null) _tabsSheetIds[widget.module.id] = widget.tabsSheetId!;
 
-      // Cache for module info from user_access
-      final Map<String, Map<String, String>> installedModuleInfo = {};
       final settingsRaw = jsonMap['settings'];
       final settingsMap = settingsRaw != null ? Map<String, dynamic>.from(settingsRaw as Map) : <String, dynamic>{};
-      final name = settingsMap['name']?['value']?.toString() ?? widget.module.name;
       
+      final name = settingsMap['name']?['value']?.toString() ?? jsonMap['name']?.toString() ?? widget.module.name;
       final icon = settingsMap['icon']?['value']?.toString() ?? jsonMap['icon']?.toString() ?? widget.module.icon;
       final primaryColor = settingsMap['primaryColor']?['value']?.toString() ?? jsonMap['primaryColor']?.toString() ?? widget.module.primaryColor;
       final version = settingsMap['version']?['value']?.toString() ?? jsonMap['version']?.toString() ?? widget.module.version;
@@ -537,13 +540,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final tabsRaw = jsonMap['tabs'];
       final tabsList = tabsRaw != null ? List<dynamic>.from(tabsRaw as List) : [];
       
-      // Pre-process tabs
       for (var i = 0; i < tabsList.length; i++) {
         final tab = Map<String, dynamic>.from(tabsList[i] as Map);
-        if (tab['columns'] == null) {
-          tab['columns'] = [];
-        }
-        
+        if (tab['columns'] == null) tab['columns'] = [];
         final columns = List<dynamic>.from(tab['columns'] as List);
         for (var j = 0; j < columns.length; j++) {
           final col = columns[j];
@@ -552,13 +551,8 @@ class _ModuleScreenState extends State<ModuleScreen> {
             if (path.length == 2) {
               final settingKey = path[1];
               final settingValue = settingsMap[settingKey]?['value'];
-              
               final colMap = Map<String, dynamic>.from(col);
-              if (settingValue is List) {
-                colMap['options'] = settingValue;
-              } else {
-                colMap['options'] = [];
-              }
+              colMap['options'] = settingValue is List ? settingValue : [];
               columns[j] = colMap;
             }
           }
@@ -567,11 +561,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
         tabsList[i] = tab;
       }
 
-      final tabs = (tabsList as List).map((t) {
+      final tabs = tabsList.map((t) {
         try {
-          final parsed = TabConfig.fromJson(t as Map<String, dynamic>);
-          debugPrint('Loaded tab: ${parsed.label}');
-          return parsed;
+          return TabConfig.fromJson(t as Map<String, dynamic>);
         } catch (e) {
           debugPrint('Error parsing tab: $e');
           return TabConfig(id: 'err', label: 'Error Tab', columns: []);
@@ -584,19 +576,13 @@ class _ModuleScreenState extends State<ModuleScreen> {
           if (v != null && v is Map<String, dynamic>) {
             settingsItems[k] = SettingItem.fromJson(v);
           } else if (v != null && v is List) {
-            // e.g. extensions defined inside 'settings' as a plain list
             settingsItems[k] = SettingItem(label: k, type: 'list', value: v);
           } else if (v != null) {
-            // Primitive value; wrap as a simple SettingItem
             settingsItems[k] = SettingItem(label: k, type: 'text', value: v);
           }
-        } catch (e) {
-          debugPrint('Error parsing setting $k: $e');
-        }
+        } catch (_) {}
       });
 
-      // Read top-level extensions array (new format) and expose it via settings
-      // so existing UI helpers can read it.
       try {
         final extensionsRaw = jsonMap['extensions'];
         if (extensionsRaw is List) {
@@ -605,7 +591,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
         }
       } catch (_) {}
 
-      final loadedModule = ModuleSchema(
+      final baseModuleSchema = ModuleSchema(
         id: widget.module.id,
         name: name,
         icon: icon,
@@ -615,314 +601,185 @@ class _ModuleScreenState extends State<ModuleScreen> {
         dashboard: dashboard,
         tabs: tabs,
       );
+      _baseModule = baseModuleSchema;
 
-      // Keep the original loaded module (without tabs merged from enabled modules)
-      _baseModule = loadedModule;
-
-      // If module lists extensions explicitly (preferred) use that list.
       final combinedTabs = <TabConfig>[];
       combinedTabs.addAll(tabs);
 
-      // Only use explicit `extensions` list
       final List<String> extensionKeys = [];
       final extSetting = settingsItems['extensions'];
       if (extSetting != null && extSetting.value is List) {
         extensionKeys.addAll((extSetting.value as List).map((e) => e.toString()));
       }
 
-      // Determine which extensions are activated in the current workspace so
-      // we only merge tabs from modules that are actually installed.
       final installedNames = <String>{};
       final Map<String, String> nameToId = {};
       try {
         final driveService = driveServiceFromProvider;
-        final workspaceId = workspaceProvider.currentWorkspace?.id;
-        if (driveService != null && workspaceId != null) {
-          try {
-            String? uaId = workspaceProvider.lastUserAccessSpreadsheetId;
-            if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
-            if (uaId != null && uaId.isNotEmpty) {
-              final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
-              final all = resp.values ?? [];
-              if (all.isNotEmpty) {
-                final rows = all.length > 1 ? all.sublist(1) : [];
-                for (var r in rows) {
-                  final row = List<dynamic>.from(r as List);
-                  final rowId = row.isNotEmpty ? (row[0]?.toString() ?? '') : '';
-                  final rowName = row.length > 1 ? (row[1]?.toString() ?? '') : '';
-                  if (rowName.isNotEmpty) {
-                    installedNames.add(rowName.toLowerCase());
-                    nameToId[rowName.toLowerCase()] = rowId;
-                  }
-                  if (rowId.isNotEmpty) {
-                    nameToId[rowId.toLowerCase()] = rowId;
-                  }
-
-                  // Populate spreadsheet ID maps for activated modules
-                  if (rowId.isNotEmpty) {
-                    if (row.length > 2 && row[2] != null && row[2].toString().isNotEmpty) {
-                      _dashboardSheetIds[rowId] = row[2].toString();
-                    }
-                    if (row.length > 3 && row[3] != null && row[3].toString().isNotEmpty) {
-                      _settingsSheetIds[rowId] = row[3].toString();
-                    }
-                    if (row.length > 4 && row[4] != null && row[4].toString().isNotEmpty) {
-                      _tabsSheetIds[rowId] = row[4].toString();
-                    }
-                  }
+        if (driveService != null) {
+          String? uaId = workspaceProvider.lastUserAccessSpreadsheetId;
+          if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+          if (uaId != null && uaId.isNotEmpty) {
+            final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
+            final all = resp.values ?? [];
+            if (all.isNotEmpty) {
+              final rows = all.length > 1 ? all.sublist(1) : [];
+              for (var row in rows) {
+                final r = List<dynamic>.from(row as List);
+                final rowId = r.isNotEmpty ? (r[0]?.toString() ?? '') : '';
+                final rowName = r.length > 1 ? (r[1]?.toString() ?? '') : '';
+                if (rowName.isNotEmpty) {
+                  installedNames.add(rowName.toLowerCase());
+                  nameToId[rowName.toLowerCase()] = rowId;
+                }
+                if (rowId.isNotEmpty) {
+                  nameToId[rowId.toLowerCase()] = rowId;
+                  if (r.length > 2 && r[2]?.toString().isNotEmpty == true) _dashboardSheetIds[rowId] = r[2]!.toString();
+                  if (r.length > 3 && r[3]?.toString().isNotEmpty == true) _settingsSheetIds[rowId] = r[3]!.toString();
+                  if (r.length > 4 && r[4]?.toString().isNotEmpty == true) _tabsSheetIds[rowId] = r[4]!.toString();
                 }
               }
             }
-          } catch (_) {}
+          }
         }
       } catch (e) {
         debugPrint('Could not determine installed modules: $e');
       }
 
       for (final otherModuleId in extensionKeys) {
-          try {
-           ModuleSchema? otherModule = schemaProvider.getFromMemory(otherModuleId);
-            Map<String, dynamic>? otherJson;
-            if (otherModule == null) {
-              // Try to load from assets by module id/name
+        try {
+          final String resolvedOtherId = nameToId[otherModuleId.toLowerCase()] ?? otherModuleId;
+          ModuleSchema? otherModule = schemaProvider.getFromMemory(resolvedOtherId);
+          Map<String, dynamic>? otherJson;
+          
+          if (otherModule == null) {
+            otherJson = await schemaProvider.service.getCachedConfig(resolvedOtherId);
+            if (otherJson == null) {
               try {
                 final jsonString = await SchemaService.tryLoadModuleAsset(otherModuleId);
                 if (jsonString != null) {
                   otherJson = jsonDecode(jsonString) as Map<String, dynamic>;
-                } else {
-                  otherJson = null;
                 }
-              } catch (_) {
-                otherJson = null;
-              }
-
-              if (otherJson != null) {
-                // Parse the other module's tabs similarly to above
-                final otherSettingsRaw = otherJson['settings'];
-                final otherSettingsMap = otherSettingsRaw != null ? Map<String, dynamic>.from(otherSettingsRaw as Map) : <String, dynamic>{};
-
-                // Check activation: ensure this extension module is installed in
-                // the workspace before merging its tabs into the host module.
-                final candidateName = (otherSettingsMap['name']?['value']?.toString() ?? otherModuleId).toLowerCase();
-                if (!installedNames.contains(candidateName) && !installedNames.contains(otherModuleId.toLowerCase())) {
-                  // Not installed — skip merging tabs from this extension.
-                  continue;
-                }
-                final otherTabsRaw = otherJson['tabs'];
-                final otherTabsList = otherTabsRaw != null ? List<dynamic>.from(otherTabsRaw as List) : [];
-
-                // Pre-process columns for options that reference settings
-                for (var i = 0; i < otherTabsList.length; i++) {
-                  final tab = Map<String, dynamic>.from(otherTabsList[i] as Map);
-                  if (tab['columns'] == null) tab['columns'] = [];
-                  final columns = List<dynamic>.from(tab['columns'] as List);
-                  for (var j = 0; j < columns.length; j++) {
-                    final col = columns[j];
-                    if (col is Map && col['options'] is String && (col['options'] as String).startsWith('settings.')) {
-                      final path = (col['options'] as String).split('.');
-                      if (path.length == 2) {
-                        final settingKey = path[1];
-                        final settingValue = otherSettingsMap[settingKey]?['value'];
-                        final colMap = Map<String, dynamic>.from(col);
-                        if (settingValue is List) {
-                          colMap['options'] = settingValue;
-                        } else {
-                          colMap['options'] = [];
-                        }
-                        columns[j] = colMap;
-                      }
-                    }
-                  }
-                  tab['columns'] = columns;
-                  otherTabsList[i] = tab;
-                }
-
-                final parsedOtherTabs = (otherTabsList as List).map((t) {
-                  try {
-                    return TabConfig.fromJson(t as Map<String, dynamic>);
-                  } catch (e) {
-                    return TabConfig(id: 'err', label: 'Error Tab', columns: []);
-                  }
-                }).toList();
-
-                // Prefix ids to avoid collisions and mark origin. Use the authoritative
-                // module id from the other module's settings if available (not the
-                // display name), so tab ids remain consistent with the source config.
-                final authoritativeOtherId = otherSettingsMap['id']?['value']?.toString() ?? otherModuleId;
-
-                // If this extension is installed in the workspace, prefer the Drive folder id
-                final String moduleIdForCache = nameToId[candidateName] ?? nameToId[otherModuleId.toLowerCase()] ?? nameToId[authoritativeOtherId.toLowerCase()] ?? authoritativeOtherId;
-
-                for (var ot in parsedOtherTabs) {
-                  final newId = authoritativeOtherId == ot.id ? ot.id : '${authoritativeOtherId}_${ot.id}';
-                  combinedTabs.add(ot.copyWith(id: newId));
-                }
-
-                // Cache a minimal ModuleSchema for the enabled module so later
-                // lookups by id/name resolve correctly when building tabs.
-                try {
-                  final otherModuleName = otherSettingsMap['name']?['value']?.toString() ?? otherModuleId;
-                  final otherIcon = otherSettingsMap['icon']?['value']?.toString() ?? '';
-                  final otherPrimary = otherSettingsMap['primaryColor']?['value']?.toString() ?? '#2196F3';
-                  final otherVersion = otherSettingsMap['version']?['value']?.toString() ?? '1.0';
-                  final authoritativeOtherId = otherSettingsMap['id']?['value']?.toString() ?? otherModuleId;
-                  // Normalize other module settings into SettingItem map
-                  final otherSettingsItems = <String, SettingItem>{};
-                  otherSettingsMap.forEach((k, v) {
-                    try {
-                      if (v != null && v is Map<String, dynamic>) {
-                        otherSettingsItems[k] = SettingItem.fromJson(v);
-                      } else if (v != null && v is List) {
-                        otherSettingsItems[k] = SettingItem(label: k, type: 'list', value: v);
-                      } else if (v != null) {
-                        otherSettingsItems[k] = SettingItem(label: k, type: 'text', value: v);
-                      }
-                    } catch (_) {}
-                  });
-
-                  final otherDashboardJson = otherJson['dashboard'] != null ? Map<String, dynamic>.from(otherJson['dashboard'] as Map) : null;
-                  final otherDashboard = (otherDashboardJson != null && otherDashboardJson['cards'] != null)
-                      ? DashboardConfig.fromJson(otherDashboardJson)
-                      : DashboardConfig(cards: []);
-
-                  final otherModuleSchema = ModuleSchema(
-                    id: moduleIdForCache,
-                    name: otherModuleName,
-                    icon: otherIcon,
-                    primaryColor: otherPrimary,
-                    version: otherVersion,
-                    settings: otherSettingsItems,
-                    dashboard: otherDashboard,
-                    tabs: parsedOtherTabs,
-                  );
-                  final provider = Provider.of<SchemaProvider>(context, listen: false);
-                  provider.updateMemoryCache(moduleIdForCache, otherModuleSchema);
-
-                  // Cache the raw other module JSON so per-tab fileId entries (if any)
-                  // are available to ModuleTabScreen when resolving fileIds later.
-                  try {
-                    // Merge any existing cached tab fileIds so we don't erase
-                    // fileId metadata when caching asset-derived module JSON.
-                    try {
-                      final existing = await provider.service.getCachedConfig(moduleIdForCache);
-                      if (existing != null && existing['tabs'] != null && otherJson['tabs'] != null) {
-                        final existingTabs = List<dynamic>.from(existing['tabs'] as List);
-                        final otherTabs = List<dynamic>.from(otherJson['tabs'] as List);
-                        for (var ot in otherTabs) {
-                          if (ot is Map && ot['id'] != null) {
-                            final oid = ot['id'].toString();
-                            for (var et in existingTabs) {
-                              if (et is Map && et['id']?.toString() == oid) {
-                                if (et['fileId'] != null && (ot['fileId'] == null || ot['fileId'].toString().isEmpty)) {
-                                  ot['fileId'] = et['fileId'];
-                                }
-                                break;
-                              }
-                            }
-                          }
-                        }
-                        otherJson['tabs'] = otherTabs;
-                      }
-                    } catch (_) {}
-
-                    await provider.service.cacheConfig(moduleIdForCache, otherJson);
-                    // Also cache under the authoritative asset key for lookups by asset id
-                    if (moduleIdForCache != authoritativeOtherId) {
-                      await provider.service.cacheConfig(authoritativeOtherId, otherJson);
-                    }
-                  } catch (_) {}
-                } catch (_) {}
-              }
-            } else {
-              // Append tabs from loaded otherModule
-              // Use the actual other module id when prefixing (this is authoritative)
-              final String moduleIdForCache = nameToId[otherModule.name.toLowerCase()] ?? nameToId[otherModule.id.toLowerCase()] ?? otherModule.id;
-
-              // If the preferred id differs, update memory cache key so lookups use folder id
-              if (moduleIdForCache != otherModule.id) {
-                final provider = Provider.of<SchemaProvider>(context, listen: false);
-                provider.updateMemoryCache(moduleIdForCache, otherModule);
-                try {
-                  await provider.service.cacheConfig(moduleIdForCache, otherModule.toJson());
-                } catch (_) {}
-                try {
-                  // Merge existing cached tab fileIds to avoid overwriting metadata
-                  final existing = await provider.service.getCachedConfig(moduleIdForCache);
-                  if (existing != null && existing['tabs'] != null) {
-                    final existingTabs = List<dynamic>.from(existing['tabs'] as List);
-                    final otherJson = otherModule.toJson();
-                    final otherTabs = otherJson['tabs'] != null ? List<dynamic>.from(otherJson['tabs'] as List) : <dynamic>[];
-                    for (var ot in otherTabs) {
-                      if (ot is Map && ot['id'] != null) {
-                        final oid = ot['id'].toString();
-                        for (var et in existingTabs) {
-                          if (et is Map && et['id']?.toString() == oid) {
-                            if (et['fileId'] != null && (ot['fileId'] == null || ot['fileId'].toString().isEmpty)) {
-                              ot['fileId'] = et['fileId'];
-                            }
-                            break;
-                          }
-                        }
-                      }
-                    }
-                    otherJson['tabs'] = otherTabs;
-                    try {
-                      await provider.service.cacheConfig(moduleIdForCache, otherJson);
-                    } catch (_) {}
-                  }
-                } catch (_) {}
-              }
-
-              for (var ot in otherModule.tabs) {
-                final newId = otherModule.id == ot.id ? ot.id : '${otherModule.id}_${ot.id}';
-                combinedTabs.add(ot.copyWith(id: newId));
-              }
+              } catch (_) {}
             }
-          } catch (e) {
-            debugPrint('Error loading enabled module $otherModuleId: $e');
           }
+
+          if (otherModule == null && otherJson != null) {
+            final otherSettingsRaw = otherJson['settings'] is Map ? Map<String, dynamic>.from(otherJson['settings'] as Map) : <String, dynamic>{};
+            final candidateName = (otherSettingsRaw['name']?['value']?.toString() ?? otherModuleId).toLowerCase();
+
+            if (!installedNames.contains(candidateName) && 
+                !installedNames.contains(otherModuleId.toLowerCase()) && 
+                !installedNames.contains(resolvedOtherId.toLowerCase())) {
+              continue;
+            }
+
+            final otherTabsRaw = otherJson['tabs'];
+            final otherTabsList = otherTabsRaw is List ? List<dynamic>.from(otherTabsRaw) : [];
+            final processedOtherTabs = <TabConfig>[];
+
+            for (var tRaw in otherTabsList) {
+              if (tRaw is! Map) continue;
+              final tabMap = Map<String, dynamic>.from(tRaw);
+              if (tabMap['columns'] is List) {
+                final cols = List<dynamic>.from(tabMap['columns'] as List);
+                for (var j = 0; j < cols.length; j++) {
+                  final col = cols[j];
+                  if (col is Map && col['options'] is String && (col['options'] as String).startsWith('settings.')) {
+                    final key = (col['options'] as String).split('.').last;
+                    final val = otherSettingsRaw[key]?['value'];
+                    final colMap = Map<String, dynamic>.from(col);
+                    colMap['options'] = val is List ? val : [];
+                    cols[j] = colMap;
+                  }
+                }
+                tabMap['columns'] = cols;
+              }
+              try {
+                processedOtherTabs.add(TabConfig.fromJson(tabMap));
+              } catch (_) {}
+            }
+
+            final authoritativeId = otherSettingsRaw['id']?['value']?.toString() ?? otherModuleId;
+            final moduleIdForCache = nameToId[candidateName] ?? nameToId[otherModuleId.toLowerCase()] ?? authoritativeId;
+
+            for (var ot in processedOtherTabs) {
+              final newId = authoritativeId == ot.id ? ot.id : '${authoritativeId}_${ot.id}';
+              combinedTabs.add(ot.copyWith(id: newId));
+            }
+
+            final otherSettingsItems = <String, SettingItem>{};
+            otherSettingsRaw.forEach((k, v) {
+              try {
+                if (v is Map) {
+                  otherSettingsItems[k] = SettingItem.fromJson(Map<String, dynamic>.from(v));
+                } else if (v is List) {
+                  otherSettingsItems[k] = SettingItem(label: k, type: 'list', value: v);
+                } else if (v != null) {
+                  otherSettingsItems[k] = SettingItem(label: k, type: 'text', value: v);
+                }
+              } catch (_) {}
+            });
+
+            final otherModuleSchema = ModuleSchema(
+              id: moduleIdForCache,
+              name: otherSettingsRaw['name']?['value']?.toString() ?? otherModuleId,
+              icon: otherSettingsRaw['icon']?['value']?.toString() ?? '',
+              primaryColor: otherSettingsRaw['primaryColor']?['value']?.toString() ?? '#2196F3',
+              version: otherSettingsRaw['version']?['value']?.toString() ?? '1.0',
+              settings: otherSettingsItems,
+              dashboard: otherJson['dashboard'] != null ? DashboardConfig.fromJson(Map<String, dynamic>.from(otherJson['dashboard'] as Map)) : DashboardConfig(cards: []),
+              tabs: processedOtherTabs,
+            );
+            
+            schemaProvider.updateMemoryCache(moduleIdForCache, otherModuleSchema);
+            await schemaProvider.service.cacheConfig(moduleIdForCache, otherJson);
+          } else if (otherModule != null) {
+            for (var ot in otherModule.tabs) {
+              final newId = otherModule.id == ot.id ? ot.id : '${otherModule.id}_${ot.id}';
+              combinedTabs.add(ot.copyWith(id: newId));
+            }
+          }
+        } catch (e) {
+          debugPrint('Error merging extension $otherModuleId: $e');
+        }
       }
 
-      final mergedModule = ModuleSchema(
-        id: loadedModule.id,
-        name: loadedModule.name,
-        icon: loadedModule.icon,
-        primaryColor: loadedModule.primaryColor,
-        version: loadedModule.version,
-        settings: loadedModule.settings,
-        dashboard: loadedModule.dashboard,
+      final mergedModuleResult = ModuleSchema(
+        id: baseModuleSchema.id,
+        name: baseModuleSchema.name,
+        icon: baseModuleSchema.icon,
+        primaryColor: baseModuleSchema.primaryColor,
+        version: baseModuleSchema.version,
+        settings: baseModuleSchema.settings,
+        dashboard: baseModuleSchema.dashboard,
         tabs: combinedTabs,
       );
 
-      // Update memory cache for instant access next time
-      schemaProvider.updateMemoryCache(widget.module.id, mergedModule);
+      schemaProvider.updateMemoryCache(widget.module.id, mergedModuleResult);
 
       if (mounted) {
         setState(() {
-          _fullModule = mergedModule;
+          _fullModule = mergedModuleResult;
           _isLoadingSchema = false;
         });
       }
 
-      // If it was an asset fallback, navigate to Editor
-        if (isAssetFallback && mounted) {
+      if (isAssetFallback && mounted) {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (_) => SchemaEditorScreen(
-              module: loadedModule,
+              module: baseModuleSchema,
               isNewSetup: true,
               settingsSheetId: widget.settingsSheetId,
               dashboardSheetId: widget.dashboardSheetId,
               tabsSheetId: widget.tabsSheetId,
             ),
           ),
-        ).then((_) {
-          _loadSchema();
-        });
+        ).then((_) => _loadSchema());
       }
-    } catch (e, stack) {
+    } catch (e) {
       debugPrint('Error in _processJson: $e');
-      debugPrint('Stack: $stack');
       if (mounted) {
         setState(() {
           _errorMessage = "Error parsing blueprint: $e";
@@ -931,6 +788,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
       }
     }
   }
+
 
   Future<void> _showHistory(BuildContext context, ModuleSchema module, String? fileName) async {
     final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;

@@ -332,7 +332,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           }
         } else {
           fetchedData = [];
-
+           
           // If there were no records and no existing spreadsheet, create and seed lazily.
           if ((fetchedData.isEmpty) && (tabInitialData != null && tabInitialData.isNotEmpty)) {
             try {
@@ -555,6 +555,19 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     final latestModule = context.watch<SchemaProvider>().getFromMemory(_sourceModuleId());
     final effectiveTabId = _effectiveTabId();
     final currentTab = latestModule?.tabs.firstWhere((t) => t.id == effectiveTabId, orElse: () => widget.tab) ?? widget.tab;
+
+    // Sync state if configuration changed from external source (e.g. extension viewed in host)
+    final remoteFilters = currentTab.quickFilters ?? [];
+    final remoteShow = currentTab.enableCustomFilters ?? true;
+    if (_activeFilters != remoteFilters || _showFilters != remoteShow) {
+      _activeFilters = List.from(remoteFilters);
+      _showFilters = remoteShow;
+      // Reset active filter if it no longer exists
+      if (_activeFilter != 'all' && _activeFilter != null) {
+        bool exists = _activeFilters.any((f) => f.key == _activeFilter);
+        if (!exists) _activeFilter = 'all';
+      }
+    }
 
     final theme = Theme.of(context);
 

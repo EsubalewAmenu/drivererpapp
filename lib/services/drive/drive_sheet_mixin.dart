@@ -600,6 +600,31 @@ mixin DriveSheetMixin {
     }
   }
 
+  Future<String> createSpreadsheetInFolder(String folderId, String title) async {
+    try {
+      final spreadsheet = sheets.Spreadsheet(
+        properties: sheets.SpreadsheetProperties(title: title),
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: title))],
+      );
+      final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
+      final spreadsheetId = created.spreadsheetId!;
+
+      // Move to folder
+      final file = await retryOp(() => driveApi.files.get(spreadsheetId, $fields: 'parents', supportsAllDrives: true)) as drive.File;
+      final previousParents = file.parents?.join(',') ?? '';
+      if (previousParents.isNotEmpty) {
+        await retryOp(() => driveApi.files.update(drive.File(), spreadsheetId, addParents: folderId, removeParents: previousParents, $fields: 'id, parents'));
+      } else {
+        await retryOp(() => driveApi.files.update(drive.File(), spreadsheetId, addParents: folderId, $fields: 'id, parents'));
+      }
+      
+      return spreadsheetId;
+    } catch (e) {
+      debugPrint('Error creating spreadsheet $title in folder $folderId: $e');
+      rethrow;
+    }
+  }
+
   /// Updates a single key/value pair in a specific tab's sheet (A:B rows).
   Future<void> updateTabField(String tabsId, String tabId, String key, dynamic value) async {
     try {
@@ -713,81 +738,15 @@ mixin DriveSheetMixin {
     }
   }
 
-  /// Create a new spreadsheet and move it into the target folder. Returns new spreadsheet id.
-  Future<String> createSpreadsheetInFolder(String folderId, String title) async {
-    try {
-      final spreadsheet = sheets.Spreadsheet(
-        properties: sheets.SpreadsheetProperties(title: title),
-        sheets: [
-          sheets.Sheet(properties: sheets.SheetProperties(title: 'data'))
-        ],
-      );
-      final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
-      final newId = created.spreadsheetId!;
-
-      final file = await retryOp(() => driveApi.files.get(newId, $fields: 'parents', supportsAllDrives: true)) as drive.File;
-      final previousParents = file.parents?.join(',') ?? '';
-      if (previousParents.isNotEmpty) {
-        await retryOp(() => driveApi.files.update(drive.File(), newId, addParents: folderId, removeParents: previousParents, $fields: 'id, parents'));
-      } else {
-        await retryOp(() => driveApi.files.update(drive.File(), newId, addParents: folderId, $fields: 'id, parents'));
-      }
-
-      return newId;
-    } catch (e) {
-      debugPrint('Error creating spreadsheet in folder $folderId: $e');
-      rethrow;
-    }
-  }
-
   Future<void> saveRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, Map<String, dynamic> data) async {
     try {
-      // 1. Find or Create Spreadsheet
+      // 1. Find Spreadsheet
       // Use sheetTitle as the spreadsheet name to save each tab in a separate file
       String targetSpreadsheetName = sheetTitle;
       String? spreadsheetId = await getFileId(moduleFolderId, targetSpreadsheetName);
       
       if (spreadsheetId == null) {
-        // Create new spreadsheet
-        final spreadsheet = sheets.Spreadsheet(
-          properties: sheets.SpreadsheetProperties(title: targetSpreadsheetName),
-          sheets: [
-            sheets.Sheet(
-              properties: sheets.SheetProperties(title: sheetTitle),
-            )
-          ],
-        );
-        final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
-        spreadsheetId = created.spreadsheetId!;
-        
-        // Move to folder
-          final file = await retryOp(() async {
-            final result = await driveApi.files.get(spreadsheetId!, $fields: 'id, parents', supportsAllDrives: true);
-            return result as drive.File;
-          });
-        final previousParents = file.parents?.join(',') ?? '';
-        
-        if (previousParents.isNotEmpty) {
-           await retryOp(() async {
-             await driveApi.files.update(
-              drive.File(), 
-              spreadsheetId!, 
-              addParents: moduleFolderId, 
-              removeParents: previousParents,
-              $fields: 'id, parents',
-            );
-           });
-        } else {
-           await retryOp(() async {
-             await driveApi.files.update(
-              drive.File(), 
-              spreadsheetId!, 
-              addParents: moduleFolderId,
-              $fields: 'id, parents',
-            );
-           });
-        }
-        debugPrint('Created data spreadsheet: $targetSpreadsheetName ($spreadsheetId)');
+        throw Exception('Spreadsheet $targetSpreadsheetName not found in module folder $moduleFolderId. Development or provisioning error.');
       }
 
       // 2. Prepare Data with Technical Fields
