@@ -372,17 +372,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
       _syncSchema(schemaService).then((newJson) async {
         debugPrint('ModuleScreen: _syncSchema finished with ${newJson != null}');
         if (newJson == null && mounted) {
-          // If this module is already active (has spreadsheet IDs), 
-          // do not fallback to assets as it would show an outdated/default blueprint.
-          if (widget.settingsSheetId != null && widget.settingsSheetId!.isNotEmpty) {
-            debugPrint('Module ${widget.module.id} is active but sync failed. Aborting asset fallback.');
-            setState(() {
-              _errorMessage = "Module data unavailable. Please check your connection or wait for sync.";
-              _isLoadingSchema = false;
-            });
-            return;
-          }
-
           // 3. Fallback to Assets ONLY for initial activation/new setup
           debugPrint('No remote config found for ${widget.module.id}, checking assets...');
           final fileName = widget.module.name.toLowerCase();

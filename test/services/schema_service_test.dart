@@ -75,9 +75,10 @@ void main() {
   });
 
   test('syncConfig returns null if remote file not found', () async {
-    when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_settings')).thenAnswer((_) async => null);
+    when(() => mockDriveService.getFileModifiedTime('missing_id')).thenAnswer((_) async => null);
+    when(() => mockDriveService.readSettingsById('missing_id')).thenAnswer((_) async => null);
 
-    final result = await schemaService.syncConfig('mod1');
+    final result = await schemaService.syncConfig('mod1', settingsId: 'missing_id');
     expect(result, isNull);
   });
 
@@ -92,9 +93,11 @@ void main() {
 
     when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_settings')).thenAnswer((_) async => 'file123');
     when(() => mockDriveService.getFileModifiedTime('file123')).thenAnswer((_) async => newTime);
-    when(() => mockDriveService.readModuleConfig('file123')).thenAnswer((_) async => newConfig);
+    when(() => mockDriveService.readSettingsById('file123')).thenAnswer((_) async => {'v': 2});
+    when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => {'cards': []});
+    when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => []);
 
-    final result = await schemaService.syncConfig('mod1');
+    final result = await schemaService.syncConfig('mod1', settingsId: 'file123');
 
     expect(result, equals(newConfig));
 

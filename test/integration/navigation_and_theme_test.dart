@@ -45,7 +45,9 @@ void main() {
     when(() => mockAuthService.isAuthenticated).thenReturn(true);
     when(() => mockAuthService.currentUser).thenReturn(null);
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
-    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
+    when(() => mockDriveService.readSettingsById(any())).thenAnswer((_) async => {'settings': {}});
+    when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => {'cards': []});
+    when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => []);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root_id');
     when(() => mockDriveService.createRootFolder()).thenAnswer((_) async => 'root_id');
