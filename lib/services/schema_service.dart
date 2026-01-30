@@ -351,6 +351,29 @@ class SchemaService {
     await cacheConfig(moduleId, {'tabs': tabs}, fileId: resolvedSettingsId, modifiedTime: modifiedTime?.toIso8601String());
   }
 
+  /// Update a single field in a specific tab's configuration row-by-row in Drive.
+  Future<void> saveTabField(String moduleId, String tabId, String key, dynamic value, {String? settingsId, String? tabsId}) async {
+    if (driveService == null) throw Exception('DriveService not initialized');
+    if (userEmail == null) throw Exception('userEmail required');
+
+    String? resolvedTabsId = tabsId;
+    if (resolvedTabsId == null || resolvedTabsId.isEmpty) {
+      final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
+      final settingsName = '${userEmail}_settings';
+      final sId = settingsId ?? await driveService!.getFileId(configFolderId, settingsName);
+      if (sId != null) {
+        final meta = await driveService!.readMetaBySettingsId(sId);
+        resolvedTabsId = meta['tabs_id'];
+      }
+    }
+
+    if (resolvedTabsId != null && resolvedTabsId.isNotEmpty) {
+      await driveService!.updateTabField(resolvedTabsId, tabId, key, value);
+    } else {
+      debugPrint('SchemaService: Could not resolve tabsId to update field $key for tab $tabId');
+    }
+  }
+
   Future<List<ModuleSchema>> loadModules() async {
     final moduleFiles = ['inventory.json'];
     final List<ModuleSchema> modules = [];

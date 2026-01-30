@@ -692,6 +692,53 @@ mixin DriveSheetMixin {
     }
   }
 
+  /// Updates a single key/value pair in a specific tab's sheet (A:B rows).
+  Future<void> updateTabField(String tabsId, String tabId, String key, dynamic value) async {
+    try {
+      // 1. Fetch current rows to find the key
+      final range = '$tabId!A:B';
+      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(tabsId, range));
+      final rows = response.values ?? [];
+
+      int foundIndex = -1;
+      for (int i = 0; i < rows.length; i++) {
+        if (rows[i].isNotEmpty && rows[i].first?.toString() == key) {
+          foundIndex = i;
+          break;
+        }
+      }
+
+      final encodedValue = jsonEncode(value);
+
+      if (foundIndex != -1) {
+        // Update existing row. Columns are A (1) and B (2). Row is foundIndex + 1.
+        final updateRange = '$tabId!B${foundIndex + 1}';
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+              sheets.ValueRange(values: [
+                [encodedValue]
+              ]),
+              tabsId,
+              updateRange,
+              valueInputOption: 'RAW',
+            ));
+      } else {
+        // Append new key/value row
+        await retryOp(() => sheetsApi.spreadsheets.values.append(
+              sheets.ValueRange(values: [
+                [key, encodedValue]
+              ]),
+              tabsId,
+              range,
+              valueInputOption: 'RAW',
+            ));
+      }
+      debugPrint('DriveSheetMixin: updated tab field $key in $tabId for spreadsheet $tabsId');
+    } catch (e) {
+      debugPrint('Error updating tab field $key in $tabId: $e');
+      rethrow;
+    }
+  }
+
   /// Write the 'meta' sheet for a settings spreadsheet.
   Future<void> writeMetaBySettingsId(String settingsId, Map<String, String> meta) async {
     try {

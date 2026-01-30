@@ -341,18 +341,18 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                           break;
                         }
                       }
-                      // Persist updated tabs to Drive (best-effort)
+                      // Persist updated tab field to Drive (best-effort optimized update)
                       try {
                         if (fetchModuleId == (widget.module?.id ?? '')) {
-                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+                          await schemaProvider.service.saveTabField(fetchModuleId, fetchTabId, 'fileId', newSpreadsheetId, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
                         } else {
                           // When operating on an extension module, avoid using the host widget's
                           // settings/tabs ids (which belong to the host). Let SchemaService
                           // resolve the correct files for the target module instead.
-                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw);
+                          await schemaProvider.service.saveTabField(fetchModuleId, fetchTabId, 'fileId', newSpreadsheetId);
                         }
                       } catch (se) {
-                        debugPrint('Failed to persist updated tabs with new fileId: $se');
+                        debugPrint('Failed to persist updated tab field with new fileId: $se');
                       }
 
                       // Persist updated cache locally (best-effort)
@@ -453,15 +453,15 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                           break;
                         }
                       }
-                      // Persist updated tabs to Drive (best-effort)
+                      // Persist updated tab field to Drive (best-effort optimized update)
                       try {
                         if (fetchModuleId == (widget.module?.id ?? '')) {
-                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+                          await schemaProvider.service.saveTabField(fetchModuleId, fetchTabId, 'fileId', newSpreadsheetId, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
                         } else {
-                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw);
+                          await schemaProvider.service.saveTabField(fetchModuleId, fetchTabId, 'fileId', newSpreadsheetId);
                         }
                       } catch (se) {
-                        debugPrint('Failed to persist updated tabs with new fileId: $se');
+                        debugPrint('Failed to persist updated tab field with new fileId: $se');
                       }
 
                       // Persist updated cache locally (best-effort)
