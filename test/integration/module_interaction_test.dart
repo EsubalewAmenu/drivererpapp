@@ -91,7 +91,6 @@ void main() {
     when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
     when(() => mockSpreadsheets.values).thenReturn(mockValues);
     when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
-    final moduleFile = drive.File()..id = 'mod1'..name = 'Inventory';
     await workspaceProvider.saveUserAccessSpreadsheetId('ua_ws1');
     final header = ['id', 'module_name', 'dashboard', 'settings', 'tabs'];
     final rows = [ ['mod1', 'Inventory', 'dash_1', 'config_id', 'tabs_1'] ];
