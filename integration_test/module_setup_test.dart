@@ -5,15 +5,12 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
-import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
 import 'package:drivererpapp/providers/schema_provider.dart';
-import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
-import 'package:drivererpapp/screens/module_screen.dart';
 import 'package:drivererpapp/screens/schema_editor_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'helpers/test_helpers.dart';
@@ -109,7 +106,7 @@ void main() {
         .thenAnswer((_) async => 'new_mod_config_folder');
     // Seed saveRecord calls should resolve as Future<void>
     when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
-        .thenAnswer((_) async => null);
+        .thenAnswer((_) async {});
     // After seeding, getFileId for tab spreadsheets should return a non-null id
     when(() => mockDriveService.getFileId('new_mod_id', any()))
         .thenAnswer((inv) async {
@@ -120,9 +117,9 @@ void main() {
     when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'user_access_folder');
     when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'user_access_file');
     when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any()))
-        .thenAnswer((_) async => null);
+        .thenAnswer((_) async {});
     when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any()))
-        .thenAnswer((_) async => null);
+        .thenAnswer((_) async {});
     
     await tester.tap(find.text('ACTIVATE'));
     await tester.pumpAndSettle();

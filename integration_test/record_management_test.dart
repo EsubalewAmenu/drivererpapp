@@ -5,18 +5,12 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
-import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
 import 'package:drivererpapp/providers/schema_provider.dart';
-import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
-import 'package:drivererpapp/screens/record_detail_screen.dart';
-import 'package:drivererpapp/screens/schema_editor_screen.dart';
-import 'package:drivererpapp/screens/module/widgets/module_list_item.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'helpers/test_helpers.dart';
 
 void main() {

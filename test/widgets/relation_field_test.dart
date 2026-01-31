@@ -9,7 +9,7 @@ void main() {
     String? changed;
 
     await tester.pumpWidget(MaterialApp(
-      home: Scaffold(body: DynamicRelationField(column: col, value: null, module: null, onChanged: (v) => changed = v, data: {})),
+      home: Scaffold(body: DynamicRelationField(column: col, value: null, module: null, onChanged: (v) => changed = v, data: const {})),
     ));
 
     await tester.tap(find.byType(InkWell));

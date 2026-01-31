@@ -93,7 +93,7 @@ void main() {
           data: data,
           primaryColor: Colors.blue,
           onFieldChanged: (k, v) {},
-          controllers: {},
+          controllers: const {},
         ),
       ),
     ));
@@ -127,7 +127,7 @@ void main() {
             data: data,
             primaryColor: Colors.blue,
             onFieldChanged: (k, v) {},
-            controllers: {},
+            controllers: const {},
           ),
         ),
       ),
@@ -166,7 +166,7 @@ void main() {
           data: data,
           primaryColor: Colors.blue,
           onFieldChanged: (k, v) {},
-          controllers: {},
+          controllers: const {},
           settings: settings,
         ),
       ),
@@ -191,7 +191,7 @@ void main() {
       home: Scaffold(
         body: DynamicFormRenderer(
           columns: columns,
-          data: {},
+          data: const {},
           primaryColor: Colors.blue,
           onFieldChanged: (k, v) {
             lastKey = k;
@@ -245,7 +245,7 @@ void main() {
           data: data,
           primaryColor: Colors.blue,
           onFieldChanged: (k, v) {},
-          controllers: {},
+          controllers: const {},
         ),
       ),
     ));
@@ -281,7 +281,7 @@ void main() {
             data: data,
             primaryColor: Colors.blue,
             onFieldChanged: (k, v) {},
-            controllers: {},
+            controllers: const {},
           ),
         ),
       ),
@@ -314,7 +314,7 @@ void main() {
           data: data4,
           primaryColor: Colors.blue,
           onFieldChanged: (k, v) {},
-          controllers: {},
+          controllers: const {},
         ),
       ),
     ));
@@ -338,7 +338,7 @@ void main() {
           data: data3,
           primaryColor: Colors.blue,
           onFieldChanged: (k, v) {},
-          controllers: {},
+          controllers: const {},
         ),
       ),
     ));
@@ -359,10 +359,10 @@ void main() {
       home: Scaffold(
         body: DynamicFormRenderer(
           columns: columns2,
-          data: {},
+          data: const {},
           primaryColor: Colors.blue,
           onFieldChanged: (k, v) {},
-          controllers: {},
+          controllers: const {},
           settings: settings2,
         ),
       ),
@@ -388,13 +388,13 @@ void main() {
         body: SingleChildScrollView(
           child: DynamicFormRenderer(
             columns: columns,
-            data: {},
+            data: const {},
             primaryColor: Colors.blue,
             onFieldChanged: (k, v) {
               lastKey = k;
               lastValue = v;
             },
-            controllers: {},
+            controllers: const {},
           ),
         ),
       ),

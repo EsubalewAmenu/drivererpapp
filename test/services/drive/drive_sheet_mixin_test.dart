@@ -76,7 +76,7 @@ void main() {
     registerFallbackValue(sheets.Request());
     registerFallbackValue(drive.File());
     registerFallbackValue(drive.DownloadOptions.fullMedia);
-    registerFallbackValue(drive.Media(Stream.empty(), 0));
+    registerFallbackValue(drive.Media(const Stream.empty(), 0));
     registerFallbackValue(Uri.parse('https://example.com'));
 
     mockDriveApi = MockDriveApi();
@@ -323,10 +323,10 @@ void main() {
       });
 
       // Gviz metadata mock (for column types)
-      final gvizMeta = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"record_id","type":"string"},{"id":"B","label":"h2","type":"string"}],"rows":[]}});';
+      const gvizMeta = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"record_id","type":"string"},{"id":"B","label":"h2","type":"string"}],"rows":[]}});';
       
       // Gviz data mock for paginated result (LIMIT 1 OFFSET 1 on 102, 101, 100)
-      final gvizData = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"record_id","type":"string"},{"id":"B","label":"h2","type":"string"}],"rows":[{"c":[{"v":"101"},{"v":"v101"}]}]}});';
+      const gvizData = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"record_id","type":"string"},{"id":"B","label":"h2","type":"string"}],"rows":[{"c":[{"v":"101"},{"v":"v101"}]}]}});';
 
       when(() => mockHttpClient.get(any())).thenAnswer((inv) async {
          final url = (inv.positionalArguments[0] as Uri).toString();
@@ -391,10 +391,10 @@ void main() {
       ));
 
       // Mock metadata response (discovery)
-      final gvizMeta = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"name","type":"string"},{"id":"B","label":"age","type":"number"}],"rows":[]}});';
+      const gvizMeta = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"name","type":"string"},{"id":"B","label":"age","type":"number"}],"rows":[]}});';
       
       // Mock data response
-      final gvizData = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"name","type":"string"}],"rows":[{"c":[{"v":"Alice"}]}]}});';
+      const gvizData = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"name","type":"string"}],"rows":[{"c":[{"v":"Alice"}]}]}});';
 
       String? capturedUrl;
       when(() => mockHttpClient.get(any())).thenAnswer((inv) async {
@@ -459,8 +459,8 @@ void main() {
           values: [['email']]
         ));
 
-        final gvizMeta = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"email","type":"string"}],"rows":[]}});';
-        final gvizData = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"email","type":"string"}],"rows":[]}});';
+        const gvizMeta = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"email","type":"string"}],"rows":[]}});';
+        const gvizData = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"email","type":"string"}],"rows":[]}});';
 
         String? capturedUrl;
         when(() => mockHttpClient.get(any())).thenAnswer((inv) async {

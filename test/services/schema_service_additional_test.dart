@@ -1,4 +1,3 @@
-import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -18,7 +17,7 @@ void main() {
 
   test('cacheConfig and getCachedConfig roundtrip', () async {
     final svc = SchemaService(driveService: null, userEmail: null);
-    final modId = 'm_round';
+    const modId = 'm_round';
     final config = {
       'settings': {'a': {'value': 1}},
       'dashboard': {'cards': []},

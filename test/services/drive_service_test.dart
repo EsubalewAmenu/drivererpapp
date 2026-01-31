@@ -34,7 +34,7 @@ void main() {
     registerFallbackValue(sheets.Spreadsheet());
     registerFallbackValue(sheets.ValueRange());
     registerFallbackValue(sheets.ClearValuesRequest());
-    registerFallbackValue(drive.Media(Stream.empty(), 0));
+    registerFallbackValue(drive.Media(const Stream.empty(), 0));
     registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
     registerFallbackValue(Uri());
     registerFallbackValue(drive.Permission());
@@ -42,7 +42,7 @@ void main() {
     registerFallbackValue(drive.DownloadOptions.fullMedia);
     // UploadOptions may be passed in some calls (create/update) — register a fallback if available
     try {
-      registerFallbackValue(drive.UploadOptions());
+      registerFallbackValue(const drive.UploadOptions());
     } catch (_) {}
   });
 
@@ -89,12 +89,12 @@ void main() {
 
     // Fallback for download calls (when downloadOptions is provided) -> return Media
     when(() => mockFilesResource.get(any(), downloadOptions: any(named: 'downloadOptions'), supportsAllDrives: any(named: 'supportsAllDrives')))
-      .thenAnswer((_) async => drive.Media(Stream.empty(), 0));
+      .thenAnswer((_) async => drive.Media(const Stream.empty(), 0));
     when(() => mockFilesResource.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
       .thenAnswer((_) async => drive.File());
     when(() => mockFilesResource.create(any(), $fields: any(named: '\$fields')))
       .thenAnswer((_) async => drive.File());
-    when(() => mockFilesResource.delete(any())).thenAnswer((_) async => null);
+    when(() => mockFilesResource.delete(any())).thenAnswer((_) async {});
 
     // Generic HTTP fallback for GViz queries
     when(() => mockHttpClient.get(any())).thenAnswer((_) async => http.Response('{}', 200));
@@ -268,7 +268,7 @@ void main() {
     });
 
     test('getFileContent downloads and decodes string', () async {
-      final content = 'hello world';
+      const content = 'hello world';
       final List<int> bytes = utf8.encode(content);
       final stream = Stream<List<int>>.value(bytes);
       final media = drive.Media(stream, bytes.length);
@@ -506,7 +506,7 @@ void main() {
       ));
 
       // Gviz Mock Result (Two records, newest first as requested by DESC)
-      final gvizResponse = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"rows":[{"c":[{"v":"rec2"},{"v":"200"}]},{"c":[{"v":"rec1"},{"v":"100"}]}]}});';
+      const gvizResponse = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"rows":[{"c":[{"v":"rec2"},{"v":"200"}]},{"c":[{"v":"rec1"},{"v":"100"}]}]}});';
       when(() => mockHttpClient.get(any())).thenAnswer((_) async => http.Response(gvizResponse, 200));
 
       final results = await driveService.fetchRecords('mod1', 'MyModule', 'tab1', descending: true);
@@ -533,7 +533,7 @@ void main() {
         values: [['Name', 'Phone']],
       ));
 
-      final gvizResponse = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"rows":[{"c":[{"v":"Dawit"},{"v":12345}]}]}});';
+      const gvizResponse = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"rows":[{"c":[{"v":"Dawit"},{"v":12345}]}]}});';
       when(() => mockHttpClient.get(any(that: predicate((Uri uri) {
         final tq = uri.queryParameters['tq'] ?? '';
         // Should use lower() for Name (A). 
@@ -749,11 +749,11 @@ void main() {
     });
 
     test('updateCompanyLogo uploads, deletes old, and updates registry', () async {
-      final oldLogoId = 'old_logo_id';
-      final newLogoId = 'new_logo_id';
-      final rootId = 'root123';
-      final companyId = 'c1';
-      final folderId = 'f1';
+      const oldLogoId = 'old_logo_id';
+      const newLogoId = 'new_logo_id';
+      const rootId = 'root123';
+      const companyId = 'c1';
+      const folderId = 'f1';
 
       // 1. Mock getCompanies (to find folder and old logo)
       when(() => mockFilesResource.list(
@@ -768,7 +768,7 @@ void main() {
           ]));
 
       // 2. Mock delete old logo
-      when(() => mockFilesResource.delete(oldLogoId)).thenAnswer((_) async => null);
+      when(() => mockFilesResource.delete(oldLogoId)).thenAnswer((_) async {});
 
       // 3. Mock upload new logo
       when(() => mockFilesResource.create(any(), uploadMedia: any(named: 'uploadMedia')))

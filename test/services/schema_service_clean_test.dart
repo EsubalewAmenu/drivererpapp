@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,7 +7,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:drivererpapp/services/schema_service.dart';
 import 'package:drivererpapp/services/drive_service.dart';
-import 'package:drivererpapp/models/schema_models.dart';
 
 class MockDriveService extends Mock implements DriveService {}
 

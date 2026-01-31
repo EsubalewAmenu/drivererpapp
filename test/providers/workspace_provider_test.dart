@@ -91,7 +91,7 @@ void main() {
     test('registerNewCompany updates state and calls service', () async {
       final company = Company(id: 'c1', name: 'New Co', folderId: 'f1');
       when(() => mockDriveService.registerCompany(any(), any()))
-          .thenAnswer((_) async => null);
+          .thenAnswer((_) async {});
 
       await workspaceProvider.registerNewCompany('rootId', company);
 
@@ -225,7 +225,7 @@ void main() {
       
       workspaceProvider.setWorkspace(drive.File()..id = 'f1'..name = 'Old');
 
-      when(() => mockDriveService.updateCompany(any(), any())).thenAnswer((_) async => null);
+      when(() => mockDriveService.updateCompany(any(), any())).thenAnswer((_) async {});
 
       await workspaceProvider.updateCompanyName('New Name');
 

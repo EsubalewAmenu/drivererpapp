@@ -99,7 +99,7 @@ void main() {
               value: null,
               module: testModule,
               onChanged: (v) => selectedValue = v,
-              data: {},
+              data: const {},
             ),
           ),
         ),
@@ -185,7 +185,7 @@ void main() {
               value: null,
               module: testModule,
               onChanged: (_) {},
-              data: {'selected_dept': 'Engineering'},
+              data: const {'selected_dept': 'Engineering'},
             ),
           ),
         ),
@@ -231,7 +231,7 @@ void main() {
               value: null,
               module: testModule,
               onChanged: (_) {},
-              data: {}, // Missing selected_dept
+              data: const {}, // Missing selected_dept
             ),
           ),
         ),

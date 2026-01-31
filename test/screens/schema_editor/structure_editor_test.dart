@@ -15,7 +15,7 @@ void main() {
           builder: (context, setState) {
             return StructureEditor(
               tabs: tabsItems,
-              rawSettings: {},
+              rawSettings: const {},
               onTabsChanged: (newTabs) {
                 setState(() {
                   tabsItems.clear();

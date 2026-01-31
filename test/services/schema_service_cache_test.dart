@@ -9,7 +9,7 @@ void main() {
 
   test('cacheConfig and getCachedConfig roundtrip', () async {
     final svc = SchemaService();
-    final moduleId = 'm1';
+    const moduleId = 'm1';
     final config = {
       'settings': {'a': 1},
       'dashboard': {'cards': []},

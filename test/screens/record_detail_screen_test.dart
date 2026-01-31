@@ -85,10 +85,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // Trigger all statuses
-    final s_cols = [ColumnConfig(key: 'status', label: 'S', type: 'text')];
+    final sCols = [ColumnConfig(key: 'status', label: 'S', type: 'text')];
     final statuses = ['paid', 'completed', 'active', 'delivered', 'pending', 'cancelled', 'error', 'failed', 'inactive', 'unknown'];
     for (var s in statuses) {
-      await tester.pumpWidget(createScreen(columns: s_cols, data: {'status': s}));
+      await tester.pumpWidget(createScreen(columns: sCols, data: {'status': s}));
       await tester.pump();
     }
 
@@ -231,7 +231,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: RecordDetailScreen(
         data: data,
-        columns: [],
+        columns: const [],
         primaryColor: Colors.blue,
         title: 'Default',
         detailTemplate: template,

@@ -107,7 +107,7 @@ void main() {
     );
 
     // Simulate data coming from Sheet as JSON string
-    final encodedList = '["OptionA","OptionB"]';
+    const encodedList = '["OptionA","OptionB"]';
 
     await tester.pumpWidget(
       MultiProvider(
@@ -119,7 +119,7 @@ void main() {
             tab: listTab,
             primaryColor: Colors.blue,
             module: testModule,
-            initialData: {'options': encodedList},
+            initialData: const {'options': encodedList},
           ),
         ),
       ),
