@@ -651,6 +651,20 @@ class _ModuleScreenState extends State<ModuleScreen> {
           
           if (otherModule == null) {
             otherJson = await schemaProvider.service.getCachedConfig(resolvedOtherId);
+            // If not cached yet, sync directly from Drive using the known sheet IDs.
+            if (otherJson == null) {
+              final schemaService = Provider.of<SchemaProvider>(context, listen: false).service;
+              if (schemaService != null) {
+                try {
+                  otherJson = await schemaService.syncConfig(
+                    resolvedOtherId,
+                    settingsId: _settingsSheetIds[resolvedOtherId],
+                    dashboardId: _dashboardSheetIds[resolvedOtherId],
+                    tabsId: _tabsSheetIds[resolvedOtherId],
+                  );
+                } catch (_) {}
+              }
+            }
             // No asset fallback here; extensions that are active MUST have a config in cache or drive.
           }
 
