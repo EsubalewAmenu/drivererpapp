@@ -903,19 +903,27 @@ class _ModuleScreenState extends State<ModuleScreen> {
                     // the cache so data fetches use the external module's folder.
                     ModuleSchema sourceModule = module;
                     try {
-                      final parts = t.id.split('_');
-                      if (parts.length > 1) {
-                        final prefix = parts[0];
-                        final candidate = Provider.of<SchemaProvider>(context, listen: false).getFromMemory(prefix);
-                        if (candidate != null) {
-                          sourceModule = candidate;
+                      final provider = Provider.of<SchemaProvider>(context, listen: false);
+                      final resolvedSourceId = _tabSourceModuleIds[t.id];
+                      if (resolvedSourceId != null) {
+                        sourceModule = provider.getFromMemory(resolvedSourceId) ?? sourceModule;
+                      }
+
+                      if (sourceModule == module) {
+                        final parts = t.id.split('_');
+                        if (parts.length > 1) {
+                          final prefix = parts[0];
+                          final candidate = provider.getFromMemory(prefix);
+                          if (candidate != null) {
+                            sourceModule = candidate;
+                          }
                         }
                       }
 
                       // If still unresolved (common when tab id is just 'tickets'),
                       // search cached modules to find one that contains this tab id.
                       if (sourceModule == module) {
-                        final byTab = Provider.of<SchemaProvider>(context, listen: false).findModuleByTabId(t.id);
+                        final byTab = provider.findModuleByTabId(t.id);
                         if (byTab != null) sourceModule = byTab;
                       }
                     } catch (_) {}

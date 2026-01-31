@@ -743,11 +743,15 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           updateFields['detail_template'] = detailTemplate.toJson();
         }
 
-        if (currentModule.id == (widget.module?.id ?? '')) {
-          await schemaProvider.service.saveTabFields(currentModule.id, effectiveTabId, updateFields, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
-        } else {
-          await schemaProvider.service.saveTabFields(currentModule.id, effectiveTabId, updateFields);
-        }
+        // Persist updated tab fields to Drive (optimized row-by-row update)
+        // Pass the sheet IDs if available; SchemaService will log a warning if tabsId is missing.
+        await schemaProvider.service.saveTabFields(
+          currentModule.id, 
+          effectiveTabId, 
+          updateFields, 
+          settingsId: widget.settingsSheetId, 
+          tabsId: widget.tabsSheetId
+        );
       } catch (se) {
         debugPrint('Failed to persist updated tab configuration: $se');
       }
