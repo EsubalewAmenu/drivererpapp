@@ -103,7 +103,6 @@ void main() {
     final workspaceFile2 = drive.File()..id = 'ws2'..name = 'FAULTY ERP';
     workspaceProvider.setWorkspace(workspaceFile2);
     
-    final moduleFile = drive.File()..id = 'mod_err'..name = 'HR';
     // Provide a user_access sheet that contains the module row for ws2
     final mockSheetsApi2 = MockSheetsApi();
     final mockSpreadsheets2 = MockSpreadsheetsResource();
