@@ -102,7 +102,13 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       if (targetModule != null) {
         final tab = targetModule.tabs.firstWhere((t) => t.id == relatedTabId, orElse: () => targetModule!.tabs.first);
         try {
-          final records = await driveService.fetchRecords(targetModule.id, targetModule.name, tab.id);
+          final fileId = tab.fileId;
+          List<Map<String, dynamic>> records = [];
+          
+          if (fileId != null && fileId.isNotEmpty) {
+            records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000);
+          }
+
           final match = records.firstWhere((r) => (r['record_id']?.toString() == id) || (r['id']?.toString() == id), orElse: () => {});
           if (match.isNotEmpty) {
             final label = match['item_name']?.toString() ?? match['name']?.toString() ?? match.values.first.toString();
@@ -638,11 +644,16 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             // keeps the request scoped to the child sheet instead of pulling
             // the entire main sheet with embedded sub-tables.
             final childTabId = '${widget.tab.id}.' + fieldKey;
-            driveService.fetchRecords(
-              widget.module!.id,
-              widget.module!.name,
-              childTabId,
-            ).then((recs) {
+            final fileId = widget.tab.fileId;
+
+            Future<List<Map<String, dynamic>>> fetchTask;
+            if (fileId != null && fileId.isNotEmpty) {
+              fetchTask = driveService.fetchRecordsBySpreadsheetId(fileId, childTabId);
+            } else {
+              fetchTask = Future.value([]);
+            }
+
+            fetchTask.then((recs) {
               try {
                 final recordIdStr = _currentData['record_id']?.toString();
                 if (recordIdStr == null) {
@@ -676,12 +687,14 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 // to fetching the main tab (with embedded sub-tables) and
                 // extract the sub-table attached to the main record.
                 if (normalized.isEmpty) {
-                  driveService.fetchRecords(
-                    widget.module!.id,
-                    widget.module!.name,
-                    widget.tab.id,
-                    fetchSubTables: true,
-                  ).then((recs) {
+                  Future<List<Map<String, dynamic>>> fetchMainTask;
+                  if (fileId != null && fileId.isNotEmpty) {
+                    fetchMainTask = driveService.fetchRecordsBySpreadsheetId(fileId, widget.tab.id, fetchSubTables: true);
+                  } else {
+                    fetchMainTask = Future.value([]);
+                  }
+                  
+                  fetchMainTask.then((recs) {
                     try {
                       final recordIdStr = _currentData['record_id']?.toString();
                       if (recordIdStr == null) return;
@@ -805,9 +818,13 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     );
 
     try {
-      await driveProvider.driveService!.deleteRecord(
-        widget.module!.id,
-        widget.module!.name,
+      final spreadsheetId = widget.tab.fileId;
+      if (spreadsheetId == null || spreadsheetId.isEmpty) {
+        throw Exception("Spreadsheet ID missing for this tab");
+      }
+
+      await (driveProvider.driveService as dynamic).deleteRecordBySpreadsheetId(
+        spreadsheetId,
         widget.tab.id,
         recordId,
       );

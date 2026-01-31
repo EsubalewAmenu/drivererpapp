@@ -33,6 +33,7 @@ void main() {
     when(() => mockAuthService.authClient).thenReturn(null);
     when(() => mockAuthService.signInSilently()).thenAnswer((_) async {});
     when(() => mockDriveProvider.driveService).thenReturn(null);
+    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
     when(() => mockDriveProvider.updateClient(any())).thenReturn(null);
   });
 

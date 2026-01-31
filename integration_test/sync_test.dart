@@ -39,6 +39,7 @@ void main() {
       columns: [
         ColumnConfig(key: 'item', label: 'Item Name', type: 'text', isRequired: true),
       ],
+      fileId: 'stocks_sheet',
     );
 
     testModule = ModuleSchema(
@@ -75,8 +76,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // 1. Simulate Offline: Make saveRecord throw SocketException (Fast Fail)
-    when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
-        .thenThrow(Exception('Failed host lookup: www.googleapis.com'));
+    var saveAttempts = 0;
+    when(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any())).thenAnswer((_) async {
+      saveAttempts += 1;
+      if (saveAttempts == 1) throw Exception('Failed host lookup: www.googleapis.com');
+    });
 
     // 2. Fill and Save
     await tester.enterText(find.byType(TextField).first, 'Offline Item');
@@ -104,15 +108,11 @@ void main() {
     ScaffoldMessenger.of(tester.element(find.byType(DynamicFormScreen))).clearSnackBars();
     await tester.pumpAndSettle();
     
-    // 5. Simulate Online: Make saveRecord succeed
-    when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
-        .thenAnswer((_) async => {});
-
     // 6. Save again
     await tester.tap(find.text('SAVE'));
     await tester.pumpAndSettle();
 
     // 7. Verify success via verify call (even if UI was popped)
-    verify(() => mockDriveService.saveRecord('mod1', 'Inventory', 'stocks', any())).called(2);
+    verify(() => mockDriveService.saveRecordBySpreadsheetId('stocks_sheet', 'stocks', any())).called(2);
   });
 }

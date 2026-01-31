@@ -47,6 +47,9 @@ void main() {
     when(() => mockAuthService.isAuthenticated).thenReturn(true);
     when(() => mockAuthService.currentUser).thenReturn(null);
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
+    when(() => mockDriveService.readSettingsById(any())).thenAnswer((_) async => {'settings': {}});
+    when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => {'cards': []});
+    when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => []);
   });
 
   Widget createTestWidget({
@@ -115,10 +118,12 @@ void main() {
           ]
         }
       ],
-      'dashboard': {'cards': []},
-      'settings': {}
+      'dashboard': <String, dynamic>{'cards': []},
+      'settings': <String, dynamic>{}
     };
-    when(() => mockDriveService.readModuleConfig('config_id')).thenAnswer((_) async => moduleConfig);
+    when(() => mockDriveService.readSettingsById('config_id')).thenAnswer((_) async => moduleConfig['settings'] as Map<String, dynamic>);
+    when(() => mockDriveService.readDashboardById('dash_1')).thenAnswer((_) async => moduleConfig['dashboard'] as Map<String, dynamic>);
+    when(() => mockDriveService.readTabsById('tabs_1')).thenAnswer((_) async => moduleConfig['tabs'] as List<dynamic>);
 
     // 2. Mock Records
     final records = [
@@ -191,7 +196,7 @@ void main() {
     await tester.enterText(nameField, 'Widget Updated');
     
     // Mock Save
-    when(() => mockDriveService.saveRecord(any(), any(), any(), any())).thenAnswer((_) async => {});
+    when(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any())).thenAnswer((_) async => {});
 
     // Save
     await tester.tap(find.text('SAVE'));

@@ -60,7 +60,14 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
       // Try to find module that owns the tab
       ModuleSchema? targetModule = schemaProvider.findModuleByTabId(relatedTabId) ?? schemaProvider.findModuleByIdOrName(relatedTabId);
       if (targetModule != null) {
-        final records = await driveService.fetchRecords(targetModule.id, targetModule.name, relatedTabId);
+        final tab = targetModule.tabs.firstWhere((t) => t.id == relatedTabId, orElse: () => targetModule!.tabs.first);
+        final fileId = tab.fileId;
+        List<Map<String, dynamic>> records = [];
+        
+        if (fileId != null && fileId.isNotEmpty) {
+          records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000);
+        }
+
         final match = records.firstWhere((r) => (r['record_id']?.toString() == id.toString()) || (r['id']?.toString() == id.toString()), orElse: () => {});
         if (match.isNotEmpty) {
           final label = match['item_name']?.toString() ?? match['name']?.toString() ?? match.values.first.toString();
@@ -142,7 +149,11 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                     // Try module hint first
                     if (targetModule != null && driveService != null) {
                       try {
-                        fetched = await driveService.fetchRecords(targetModule.id, targetModule.name, tabId, searchQuery: query, limit: 10);
+                        final tab = targetModule.tabs.firstWhere((t) => t.id == tabId, orElse: () => targetModule!.tabs.first);
+                        final fileId = tab.fileId;
+                        if (fileId != null && fileId.isNotEmpty) {
+                          fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10);
+                        }
                       } catch (_) {
                         fetched = [];
                       }
@@ -153,7 +164,11 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                       try {
                         targetModule = schemaProvider.findModuleByTabId(tabId) ?? schemaProvider.findModuleByIdOrName(tabId);
                         if (targetModule != null && driveService != null) {
-                          fetched = await driveService.fetchRecords(targetModule.id, targetModule.name, tabId, searchQuery: query, limit: 10);
+                          final tab = targetModule.tabs.firstWhere((t) => t.id == tabId, orElse: () => targetModule!.tabs.first);
+                          final fileId = tab.fileId;
+                          if (fileId != null && fileId.isNotEmpty) {
+                            fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10);
+                          }
                         }
                       } catch (_) {}
                     }
@@ -178,7 +193,13 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                         final useModule = fallbackModule ?? moduleHint;
                         if (useModule != null && driveService != null) {
                           debugPrint('RelationField: server search empty, performing local fallback fetch for tab $tabId');
-                          final local = await driveService.fetchRecords(useModule.id, useModule.name, tabId, limit: 200);
+                          final tab = useModule.tabs.firstWhere((t) => t.id == tabId, orElse: () => useModule.tabs.first);
+                          final fileId = tab.fileId;
+                          List<Map<String, dynamic>> local = [];
+                          if (fileId != null && fileId.isNotEmpty) {
+                             local = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 200);
+                          }
+                          
                           final lowered = query.toLowerCase();
                           final filtered = local.where((item) {
                             try {

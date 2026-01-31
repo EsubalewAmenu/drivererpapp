@@ -55,9 +55,14 @@ void main() {
     binding.platformDispatcher.implicitView!.physicalSize = const Size(1024, 768);
     binding.platformDispatcher.implicitView!.devicePixelRatio = 1.0;
 
-    testTab = TabConfig(id: 't1', label: 'Tab 1', columns: [
-      ColumnConfig(key: 'name', label: 'Name', type: 'text'),
-    ]);
+    testTab = TabConfig(
+      id: 't1',
+      label: 'Tab 1',
+      fileId: 'sheet123',
+      columns: [
+        ColumnConfig(key: 'name', label: 'Name', type: 'text'),
+      ],
+    );
 
     testModule = ModuleSchema(
       id: 'mod1',
@@ -76,46 +81,53 @@ void main() {
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(null);
     when(() => mockSchemaProvider.getFromMemory(any())).thenReturn(null);
     when(() => mockSchemaService.getCachedConfig(any())).thenAnswer((_) async => {
-      'tabs': [
-        {
-          'id': 't1',
-          'fileId': 'sheet123',
-        }
-      ]
-    });
+          'tabs': [
+            {
+              'id': 't1',
+              'fileId': 'sheet123',
+            }
+          ]
+        });
     when(() => mockSchemaService.saveModuleConfig(any(), any())).thenAnswer((_) async {});
     when(() => mockSchemaProvider.updateMemoryCache(any(), any())).thenReturn(null);
     when(() => mockDriveService.createSpreadsheetInFolder(any(), any())).thenAnswer((_) async => 'new_sheet_id');
-    when(() => mockSchemaService.saveTabsPart(any(), any(), settingsId: any(named: 'settingsId'), tabsId: any(named: 'tabsId'))).thenAnswer((_) async {});
+    when(() => mockSchemaService.saveTabsPart(any(), any(), settingsId: any(named: 'settingsId'), tabsId: any(named: 'tabsId')))
+        .thenAnswer((_) async {});
     when(() => mockSchemaService.saveTabsPart(any(), any())).thenAnswer((_) async {});
+    when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'sheet123');
     when(() => mockDriveService.fetchRecords(
-      any(), any(), any(),
-      offset: any(named: 'offset'),
-      limit: any(named: 'limit'),
-      fetchSubTables: any(named: 'fetchSubTables'),
-      descending: any(named: 'descending'),
-      searchQuery: any(named: 'searchQuery'),
-      quickFilter: any(named: 'quickFilter'),
-    )).thenAnswer((_) async => [
-      {'name': 'Record 1', 'record_id': '100'},
-      {'name': 'Record 2', 'record_id': '200'},
-    ]);
+          any(),
+          any(),
+          any(),
+          offset: any(named: 'offset'),
+          limit: any(named: 'limit'),
+          fetchSubTables: any(named: 'fetchSubTables'),
+          descending: any(named: 'descending'),
+          searchQuery: any(named: 'searchQuery'),
+          quickFilter: any(named: 'quickFilter'),
+        )).thenAnswer((_) async => [
+          {'name': 'Record 1', 'record_id': '100'},
+          {'name': 'Record 2', 'record_id': '200'},
+        ]);
     // New code path uses spreadsheet-id based fetches; mock that too.
     when(() => mockDriveService.fetchRecordsBySpreadsheetId(
-      any(), any(),
-      offset: any(named: 'offset'),
-      limit: any(named: 'limit'),
-      fetchSubTables: any(named: 'fetchSubTables'),
-      descending: any(named: 'descending'),
-      searchQuery: any(named: 'searchQuery'),
-      quickFilter: any(named: 'quickFilter'),
-    )).thenAnswer((inv) async {
+          any(),
+          any(),
+          offset: any(named: 'offset'),
+          limit: any(named: 'limit'),
+          fetchSubTables: any(named: 'fetchSubTables'),
+          descending: any(named: 'descending'),
+          searchQuery: any(named: 'searchQuery'),
+          quickFilter: any(named: 'quickFilter'),
+        )).thenAnswer((inv) async {
       // Reuse same response as fetchRecords
       return [
         {'name': 'Record 1', 'record_id': '100'},
         {'name': 'Record 2', 'record_id': '200'},
       ];
     });
+    // Add stub for saving by spreadsheet id
+    when(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any())).thenAnswer((_) async => 'rec123');
   });
 
   Widget createModuleTabScreen() {

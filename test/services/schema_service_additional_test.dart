@@ -44,10 +44,12 @@ void main() {
     when(() => mockDrive.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'folder1');
     when(() => mockDrive.getFileId('folder1', 'me_settings')).thenAnswer((_) async => 'file123');
     when(() => mockDrive.getFileModifiedTime('file123')).thenAnswer((_) async => DateTime.utc(2020));
-    when(() => mockDrive.readModuleConfig('file123')).thenAnswer((_) async => {'settings': {'x': 1}});
+    when(() => mockDrive.readSettingsById('file123')).thenAnswer((_) async => {'x': 1});
+    when(() => mockDrive.readDashboardById(any())).thenAnswer((_) async => {'cards': []});
+    when(() => mockDrive.readTabsById(any())).thenAnswer((_) async => []);
 
     final svc = SchemaService(driveService: mockDrive, userEmail: 'me');
-    final res = await svc.syncConfig('m1');
+    final res = await svc.syncConfig('m1', settingsId: 'file123');
 
     expect(res, isNotNull);
     expect(res!['settings']['x'], 1);

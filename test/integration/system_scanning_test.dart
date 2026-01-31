@@ -39,6 +39,10 @@ void main() {
 
     when(() => mockAuthService.isAuthenticated).thenReturn(true);
     when(() => mockAuthService.currentUser).thenReturn(null);
+    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
+    when(() => mockDriveService.readSettingsById(any())).thenAnswer((_) async => {'settings': {}});
+    when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => {'cards': []});
+    when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => []);
   });
 
   Widget createTestWidget({

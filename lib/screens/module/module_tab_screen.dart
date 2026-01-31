@@ -20,6 +20,7 @@ class ModuleTabScreen extends StatefulWidget {
   final Map<String, SettingItem> settings;
   final ModuleSchema? module;
   final String? settingsSheetId;
+  final String? dashboardSheetId;
   final String? tabsSheetId;
 
   const ModuleTabScreen({
@@ -29,6 +30,7 @@ class ModuleTabScreen extends StatefulWidget {
     this.settings = const {},
     this.module,
     this.settingsSheetId,
+    this.dashboardSheetId,
     this.tabsSheetId,
   });
 
@@ -282,32 +284,19 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
       List<Map<String, dynamic>> fetchedData = [];
 
-      // Try to prefer a direct fileId from cached config (if available).
-      // If no file exists, create the spreadsheet and seed initial_data lazily.
-      try {
-        final schemaProvider = context.read<SchemaProvider>();
-        final cachedConfig = await schemaProvider.service.getCachedConfig(fetchModuleId);
-        String? tabFileId;
-        List<dynamic>? tabInitialData;
-        if (cachedConfig != null && cachedConfig['tabs'] != null) {
-          final tabsRaw = List<dynamic>.from(cachedConfig['tabs'] as List);
-          for (var t in tabsRaw) {
-            if (t is Map) {
-              final id = t['id']?.toString();
-              if (id == fetchTabId) {
-                tabFileId = t['fileId']?.toString();
-                try {
-                  tabInitialData = t['initial_data'] as List<dynamic>?;
-                } catch (_) {
-                  tabInitialData = null;
-                }
-                break;
-              }
-            }
-          }
-        }
-        debugPrint('ModuleTabScreen: cachedConfig for $fetchModuleId exists=${cachedConfig!=null} tabFileId=$tabFileId tabInitialDataCount=${tabInitialData?.length ?? 0}');
+      // 3. Resolve authoritative TabConfig for fileId and initialData
+      final latestModule = context.read<SchemaProvider>().getFromMemory(fetchModuleId);
+      final currentTabFromSchema = latestModule?.tabs.firstWhere(
+        (t) => t.id == fetchTabId, 
+        orElse: () => widget.tab
+      ) ?? widget.tab;
 
+      final tabFileId = currentTabFromSchema.fileId;
+      final tabInitialData = currentTabFromSchema.initialData;
+
+      debugPrint('ModuleTabScreen: tabFileId=$tabFileId tabInitialDataCount=${tabInitialData?.length ?? 0}');
+
+      try {
         if (tabFileId != null && tabFileId.isNotEmpty) {
           try {
             fetchedData = await _driveService.fetchRecordsBySpreadsheetId(
@@ -325,126 +314,59 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               } : null,
             );
           } catch (e) {
-            debugPrint('Error fetching by cached fileId $tabFileId: $e. Will recreate spreadsheet and persist new fileId.');
-            try {
-              debugPrint('Attempting to create new spreadsheet in folder $fetchModuleId with title $fetchTabId');
-              final newSpreadsheetId = await _driveService.createSpreadsheetInFolder(fetchModuleId, fetchTabId);
-              debugPrint('Created spreadsheet id=$newSpreadsheetId for $fetchTabId');
-
-              // Update cached config to store fileId for this tab so future loads use the file directly.
-                  try {
-                    if (cachedConfig != null && cachedConfig['tabs'] != null) {
-                      final tabsRaw = List<dynamic>.from(cachedConfig['tabs'] as List);
-                      for (var t in tabsRaw) {
-                        if (t is Map && t['id']?.toString() == fetchTabId) {
-                          t['fileId'] = newSpreadsheetId;
-                          break;
-                        }
-                      }
-                      // Persist updated tabs to Drive (best-effort)
-                      try {
-                        if (fetchModuleId == (widget.module?.id ?? '')) {
-                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
-                        } else {
-                          // When operating on an extension module, avoid using the host widget's
-                          // settings/tabs ids (which belong to the host). Let SchemaService
-                          // resolve the correct files for the target module instead.
-                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw);
-                        }
-                      } catch (se) {
-                        debugPrint('Failed to persist updated tabs with new fileId: $se');
-                      }
-
-                      // Persist updated cache locally (best-effort)
-                      try {
-                        await schemaProvider.service.cacheConfig(fetchModuleId, cachedConfig);
-                      } catch (_) {}
-                    }
-                  } catch (e) {
-                    debugPrint('Error updating cached config with recreated fileId: $e');
-                  }
-
-              // Prepare for seeding
-              tabFileId = newSpreadsheetId;
-              fetchedData = [];
-
-              if (tabInitialData != null && tabInitialData.isNotEmpty) {
-                if (mounted) {
-                  setState(() {
-                    _isSeeding = true;
-                    _seedingProgress = 0;
-                    _seedingTotal = tabInitialData?.length ?? 0;
-                    _seedingFileName = fetchTabId;
-                  });
-                }
-
-                Future.microtask(() async {
-                  try {
-                    // Use batch append to reduce API calls
-                    try {
-                      final records = tabInitialData!.map((rec) => rec is Map<String, dynamic> ? Map<String, dynamic>.from(rec) : Map<String, dynamic>.from(rec as Map)).toList();
-                      debugPrint('Seeding batch of ${records.length} records to spreadsheetId=$tabFileId sheet=$fetchTabId');
-                      await _driveService.saveRecordsBatchBySpreadsheetId(tabFileId!, fetchTabId, records);
-                      if (mounted) {
-                        setState(() {
-                          _seedingProgress = _seedingTotal;
-                        });
-                      }
-                    } catch (e) {
-                      debugPrint('Batch seeding failed for $fetchTabId: $e');
-                      // If batch fails, mark progress per-record as failed (no fallback per request)
-                      if (mounted) {
-                        setState(() {
-                          _seedingProgress = 0;
-                        });
-                      }
-                    }
-                  } catch (e) {
-                    debugPrint('Error during background seeding after recreate: $e');
-                  }
-
-                  if (mounted) {
-                    setState(() {
-                      _isSeeding = false;
-                      _seedingProgress = _seedingTotal;
-                    });
-                    try {
-                      await _loadData(refresh: true);
-                    } catch (_) {}
-                  }
-                });
-              }
-            } catch (e) {
-              debugPrint('Error recreating spreadsheet for $fetchTabId after missing fileId: $e');
-              // Fallback to normal fetch
-              fetchedData = await _driveService.fetchRecords(
-                fetchModuleId,
-                fetchModuleName,
-                fetchTabId,
-                offset: _currentOffset,
-                limit: _pageSize,
-                fetchSubTables: false, // Performance optimization for List View
-                descending: true,
-                searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
-                quickFilter: selectedFilter != null ? {
-                  'field': selectedFilter.field,
-                  'operator': selectedFilter.operator,
-                  'value': selectedFilter.value,
-                } : null,
-              );
-            }
+            debugPrint('Error fetching by spreadsheetId $tabFileId: $e');
+            fetchedData = [];
           }
         } else {
           fetchedData = [];
-
-          // If there were no records and no existing spreadsheet, create and seed lazily.
-          if ((fetchedData.isEmpty) && (tabInitialData != null && tabInitialData.isNotEmpty)) {
+           
+          // If tabFileId is null, try to find an existing one by name (Migration/Auto-link)
+          debugPrint('ModuleTabScreen: tabFileId is null, searching for spreadsheet by name: $fetchTabId in $fetchModuleId');
+          final foundId = await _driveService.getFileId(fetchModuleId, fetchTabId);
+          
+          if (foundId != null && foundId.isNotEmpty) {
+            debugPrint('ModuleTabScreen: Found existing spreadsheet by name: $foundId. Updating config.');
             try {
-              debugPrint('ModuleTabScreen: creating spreadsheet for $fetchTabId and seeding initial data');
+              // Same persistence logic as below
+              if (fetchModuleId == (widget.module?.id ?? '')) {
+                await schemaProvider.service.saveTabField(fetchModuleId, fetchTabId, 'fileId', foundId, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+              } else {
+                await schemaProvider.service.saveTabField(fetchModuleId, fetchTabId, 'fileId', foundId);
+              }
+              // Also update memory/cache if possible
+              final latest = schemaProvider.getFromMemory(fetchModuleId);
+              if (latest != null) {
+                final updatedTabs = latest.tabs.map((t) => t.id == fetchTabId ? t.copyWith(fileId: foundId) : t).toList();
+                schemaProvider.updateMemoryCache(fetchModuleId, latest.copyWith(tabs: updatedTabs));
+              }
+            } catch (e) {
+              debugPrint('Failed to auto-link existing spreadsheet ID to config: $e');
+            }
+
+            // Now fetch using the newly found ID
+            fetchedData = await _driveService.fetchRecordsBySpreadsheetId(
+              foundId,
+              fetchTabId,
+              offset: _currentOffset,
+              limit: _pageSize,
+              fetchSubTables: false,
+              descending: true,
+              searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
+              quickFilter: selectedFilter != null ? {
+                'field': selectedFilter.field,
+                'operator': selectedFilter.operator,
+                'value': selectedFilter.value,
+              } : null,
+            );
+          } else if (tabInitialData != null && tabInitialData.isNotEmpty) {
+            // Only create and seed if truly not found and we have data to seed
+            try {
+              debugPrint('ModuleTabScreen: No spreadsheet found and we have initial data. Creating now...');
               final newSpreadsheetId = await _driveService.createSpreadsheetInFolder(fetchModuleId, fetchTabId);
 
               // Update cached config to store fileId for this tab so future loads use the file directly.
                   try {
+                    final cachedConfig = await schemaProvider.service.getCachedConfig(fetchModuleId);
                     if (cachedConfig != null && cachedConfig['tabs'] != null) {
                       final tabsRaw = List<dynamic>.from(cachedConfig['tabs'] as List);
                       for (var t in tabsRaw) {
@@ -453,15 +375,15 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                           break;
                         }
                       }
-                      // Persist updated tabs to Drive (best-effort)
+                      // Persist updated tab field to Drive (best-effort optimized update)
                       try {
                         if (fetchModuleId == (widget.module?.id ?? '')) {
-                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+                          await schemaProvider.service.saveTabField(fetchModuleId, fetchTabId, 'fileId', newSpreadsheetId, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
                         } else {
-                          await schemaProvider.service.saveTabsPart(fetchModuleId, tabsRaw);
+                          await schemaProvider.service.saveTabField(fetchModuleId, fetchTabId, 'fileId', newSpreadsheetId);
                         }
                       } catch (se) {
-                        debugPrint('Failed to persist updated tabs with new fileId: $se');
+                        debugPrint('Failed to persist updated tab field with new fileId: $se');
                       }
 
                       // Persist updated cache locally (best-effort)
@@ -660,6 +582,19 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     final effectiveTabId = _effectiveTabId();
     final currentTab = latestModule?.tabs.firstWhere((t) => t.id == effectiveTabId, orElse: () => widget.tab) ?? widget.tab;
 
+    // Sync state if configuration changed from external source (e.g. extension viewed in host)
+    final remoteFilters = currentTab.quickFilters ?? [];
+    final remoteShow = currentTab.enableCustomFilters ?? true;
+    if (_activeFilters != remoteFilters || _showFilters != remoteShow) {
+      _activeFilters = List.from(remoteFilters);
+      _showFilters = remoteShow;
+      // Reset active filter if it no longer exists
+      if (_activeFilter != 'all' && _activeFilter != null) {
+        bool exists = _activeFilters.any((f) => f.key == _activeFilter);
+        if (!exists) _activeFilter = 'all';
+      }
+    }
+
     final theme = Theme.of(context);
 
     if (_errorMessage != null && _allData.isEmpty) {
@@ -786,7 +721,28 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         const SnackBar(content: Text('Saving configuration...'), duration: Duration(seconds: 5)),
       );
 
-      await schemaProvider.service.saveTabsPart(currentModule.id, updatedModule.tabs.map((t) => t.toJson()).toList(), settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+      // Persist updated tab fields to Drive (optimized row-by-row update)
+      try {
+        final Map<String, dynamic> updateFields = {
+          'quick_filters': filters.map((f) => f.toJson()).toList(),
+          'enable_custom_filters': enableFilters,
+        };
+        if (listTemplate != null) {
+          updateFields['list_template'] = listTemplate.toJson();
+        }
+        if (detailTemplate != null) {
+          updateFields['detail_template'] = detailTemplate.toJson();
+        }
+
+        if (currentModule.id == (widget.module?.id ?? '')) {
+          await schemaProvider.service.saveTabFields(currentModule.id, effectiveTabId, updateFields, settingsId: widget.settingsSheetId, tabsId: widget.tabsSheetId);
+        } else {
+          await schemaProvider.service.saveTabFields(currentModule.id, effectiveTabId, updateFields);
+        }
+      } catch (se) {
+        debugPrint('Failed to persist updated tab configuration: $se');
+      }
+
       schemaProvider.updateMemoryCache(currentModule.id, updatedModule);
 
       if (mounted) {

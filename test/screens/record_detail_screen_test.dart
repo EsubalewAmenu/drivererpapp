@@ -19,7 +19,8 @@ void main() {
     mockDrive = MockDriveProvider();
     mockService = MockDriveService();
     when(() => mockDrive.driveService).thenReturn(mockService);
-    when(() => mockService.deleteRecord(any(), any(), any(), any())).thenAnswer((_) async => {});
+    when(() => mockService.getFileId(any(), any())).thenAnswer((_) async => null);
+    when(() => mockService.deleteRecordBySpreadsheetId(any(), any(), any())).thenAnswer((_) async => {});
   });
 
   Widget createScreen({
@@ -28,6 +29,7 @@ void main() {
     Map<String, SettingItem> settings = const {},
     DetailTemplateConfig? template,
     ModuleSchema? module,
+    String? fileId,
   }) {
     return ChangeNotifierProvider<DriveProvider>.value(
       value: mockDrive,
@@ -39,7 +41,7 @@ void main() {
           primaryColor: Colors.blue,
           title: 'Test',
           detailTemplate: template,
-          tab: TabConfig(id: 't1', label: 'Test', columns: columns),
+          tab: TabConfig(id: 't1', label: 'Test', columns: columns, fileId: fileId),
           module: module,
         ),
       ),
@@ -319,6 +321,7 @@ void main() {
       columns: cols,
       data: data,
       module: module,
+      fileId: 'fid123',
     ));
     await tester.pumpAndSettle();
 
@@ -344,6 +347,6 @@ void main() {
     await tester.tap(find.text('DELETE'));
     await tester.pumpAndSettle();
 
-    verify(() => mockService.deleteRecord('m1', 'M1', 't1', 'r1')).called(1);
+    verify(() => mockService.deleteRecordBySpreadsheetId('fid123', 't1', 'r1')).called(1);
   });
 }

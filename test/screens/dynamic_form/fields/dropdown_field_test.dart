@@ -92,8 +92,8 @@ void main() {
       options: 'parent_rel.allowed_values' // Dependency
     );
 
-    final tab1 = TabConfig(id: 'tab1_id', label: 'Tab 1', columns: [parentRelCol, childSelectCol]);
-    final tab2 = TabConfig(id: 'tab2_id', label: 'Tab 2', columns: []);
+    final tab1 = TabConfig(id: 'tab1_id', label: 'Tab 1', fileId: 'tab1_sheet', columns: [parentRelCol, childSelectCol]);
+    final tab2 = TabConfig(id: 'tab2_id', label: 'Tab 2', fileId: 'tab2_sheet', columns: []);
     
     final module = ModuleSchema(
       id: 'test_mod_id', 
@@ -110,16 +110,9 @@ void main() {
     final formData = {'parent_rel': 'Parent Item 1'};
 
     // Setup Mock Response
-    when(() => mockDriveService.fetchRecords(
-      any(), 
-      any(), 
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+      any(),
       'tab2_id',
-      offset: any(named: 'offset'),
-      limit: any(named: 'limit'),
-      fetchSubTables: any(named: 'fetchSubTables'),
-      descending: any(named: 'descending'),
-      searchQuery: any(named: 'searchQuery'),
-      quickFilter: any(named: 'quickFilter'),
     )).thenAnswer((_) async => [
       {'name': 'Parent Item 1', 'allowed_values': '[Alpha, Beta]'},
       {'name': 'Parent Item 2', 'allowed_values': '[Gamma]'},
@@ -165,8 +158,8 @@ void main() {
       dynamicLabel: 'parent_rel.custom_label'
     );
 
-    final tab1 = TabConfig(id: 'tab1_id', label: 'Tab 1', columns: [parentRelCol, childSelectCol]);
-    final tab2 = TabConfig(id: 'tab2_id', label: 'Tab 2', columns: []);
+    final tab1 = TabConfig(id: 'tab1_id', label: 'Tab 1', fileId: 'tab1_sheet', columns: [parentRelCol, childSelectCol]);
+    final tab2 = TabConfig(id: 'tab2_id', label: 'Tab 2', fileId: 'tab2_sheet', columns: []);
     
     final module = ModuleSchema(
       id: 'test_mod_id', 
@@ -179,11 +172,7 @@ void main() {
       tabs: [tab1, tab2]
     );
 
-    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', 
-      descending: any(named: 'descending'),
-      searchQuery: any(named: 'searchQuery'),
-      quickFilter: any(named: 'quickFilter'),
-    ))
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(any(), 'tab2_id'))
         .thenAnswer((_) async => [
           {'name': 'Parent Item 1', 'custom_label': 'Category Selector', 'allowed_values': '[A, B]'},
         ]);
@@ -216,9 +205,9 @@ void main() {
       options: 'parent_rel.allowed_values',
     );
 
-    final tab1 = TabConfig(id: 'tab1_id', label: 'Tab 1', columns: [parentRelCol, childSelectCol]);
+    final tab1 = TabConfig(id: 'tab1_id', label: 'Tab 1', fileId: 'tab1_sheet', columns: [parentRelCol, childSelectCol]);
     // Define Tab 2 structure where 'allowed_values' depends on 'is_active'
-    final tab2 = TabConfig(id: 'tab2_id', label: 'Tab 2', columns: [
+    final tab2 = TabConfig(id: 'tab2_id', label: 'Tab 2', fileId: 'tab2_sheet', columns: [
       ColumnConfig(key: 'allowed_values', label: 'Values', type: 'text', dependsOn: 'is_active')
     ]);
     
@@ -234,11 +223,7 @@ void main() {
     );
 
     // Case 1: is_active is false
-    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', 
-      descending: any(named: 'descending'),
-      searchQuery: any(named: 'searchQuery'),
-      quickFilter: any(named: 'quickFilter'),
-    ))
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(any(), 'tab2_id'))
         .thenAnswer((_) async => [
           {'name': 'Parent Item 1', 'is_active': false, 'allowed_values': '[A, B]'},
         ]);
@@ -258,11 +243,7 @@ void main() {
     expect(find.byType(DropdownButtonFormField<String>), findsNothing);
 
     // Case 2: is_active is true
-    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', 
-      descending: any(named: 'descending'),
-      searchQuery: any(named: 'searchQuery'),
-      quickFilter: any(named: 'quickFilter'),
-    ))
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(any(), 'tab2_id'))
         .thenAnswer((_) async => [
           {'name': 'Parent Item 1', 'is_active': true, 'allowed_values': '[A, B]'},
         ]);
@@ -296,8 +277,8 @@ void main() {
       options: 'parent_rel.allowed_values',
     );
 
-    final tab1 = TabConfig(id: 'tab1_id', label: 'Tab 1', columns: [parentRelCol, childSelectCol]);
-    final tab2 = TabConfig(id: 'tab2_id', label: 'Tab 2', columns: []);
+    final tab1 = TabConfig(id: 'tab1_id', label: 'Tab 1', fileId: 'tab1_sheet', columns: [parentRelCol, childSelectCol]);
+    final tab2 = TabConfig(id: 'tab2_id', label: 'Tab 2', fileId: 'tab2_sheet', columns: []);
     
     final module = ModuleSchema(
       id: 'test_mod_id', name: 'Test Mod', icon: 'folder', primaryColor: '#000000', version: '1.0',
@@ -306,11 +287,7 @@ void main() {
     );
 
     int fetchCount = 0;
-    when(() => mockDriveService.fetchRecords(any(), any(), 'tab2_id', 
-      descending: any(named: 'descending'),
-      searchQuery: any(named: 'searchQuery'),
-      quickFilter: any(named: 'quickFilter'),
-    ))
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(any(), 'tab2_id'))
         .thenAnswer((_) async {
           fetchCount++;
           if (fetchCount == 1) {

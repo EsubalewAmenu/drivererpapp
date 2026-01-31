@@ -129,7 +129,12 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
             try {
               final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
               if (driveService != null) {
-                final records = await driveService.fetchRecords(widget.module!.id, widget.module!.name, relatedTabId);
+                final tab = widget.module!.tabs.firstWhere((t) => t.id == relatedTabId, orElse: () => widget.module!.tabs.first);
+                final fileId = tab.fileId;
+                List<Map<String, dynamic>> records = [];
+                if (fileId != null && fileId.isNotEmpty) {
+                   records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id);
+                }
                 
                 // Find the record where the first value (or name) matches targetValue
                 final record = records.firstWhere(

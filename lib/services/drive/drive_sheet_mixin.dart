@@ -184,9 +184,21 @@ mixin DriveSheetMixin {
       final createdDashboard = await retryOp(() => sheetsApi.spreadsheets.create(dashboardSpreadsheet));
       final dashboardId = createdDashboard.spreadsheetId!;
 
-      // Tabs spreadsheet (create empty now; individual tabs will be created as sheets)
+      // Tabs spreadsheet: include sheets for each tab during creation to avoid 'Sheet1'
+      final tabsList = (config['tabs'] as List? ?? []).cast<dynamic>();
+      final List<sheets.Sheet> initialTabsSheets = [];
+      for (var t in tabsList) {
+        final tid = (t is Map && t['id'] != null) ? t['id'].toString() : null;
+        if (tid != null) {
+          initialTabsSheets.add(sheets.Sheet(properties: sheets.SheetProperties(title: tid)));
+        }
+      }
+
       final tabsSpreadsheet = sheets.Spreadsheet(
         properties: sheets.SpreadsheetProperties(title: tabsTitle),
+        sheets: initialTabsSheets.isNotEmpty
+            ? initialTabsSheets
+            : [sheets.Sheet(properties: sheets.SheetProperties(title: 'meta'))],
       );
       final createdTabs = await retryOp(() => sheetsApi.spreadsheets.create(tabsSpreadsheet));
       final tabsId = createdTabs.spreadsheetId!;
@@ -234,22 +246,11 @@ mixin DriveSheetMixin {
         }
       }
 
-      // Tabs: create one sheet per tab id and write JSON content into A1
+      // Tabs: write tabs as A:B key/value rows (JSON values)
       if (config.containsKey('tabs')) {
-        final tabs = config['tabs'] as List? ?? [];
-        for (var t in tabs) {
-          final tid = (t['id'] as String?) ?? t.toString();
-          // create sheet
-          try {
-            await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
-              sheets.BatchUpdateSpreadsheetRequest(requests: [
-                sheets.Request(addSheet: sheets.AddSheetRequest(properties: sheets.SheetProperties(title: tid)))
-              ]),
-              tabsId,
-            ));
-          } catch (_) {}
-          final jsonStr = jsonEncode(t);
-          await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [[jsonStr]]), tabsId, '$tid!A1', valueInputOption: 'RAW'));
+        final tabs = (config['tabs'] as List? ?? []).cast<dynamic>();
+        if (tabs.isNotEmpty) {
+          await writeTabsById(tabsId, tabs);
         }
       }
 
@@ -283,20 +284,9 @@ mixin DriveSheetMixin {
       }
 
       if (config.containsKey('tabs') && tabsId != null) {
-        final tabs = config['tabs'] as List;
-        for (var t in tabs) {
-          final tid = (t['id'] as String?) ?? t.toString();
-          // ensure sheet exists
-          try {
-            await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
-              sheets.BatchUpdateSpreadsheetRequest(requests: [
-                sheets.Request(addSheet: sheets.AddSheetRequest(properties: sheets.SheetProperties(title: tid)))
-              ]),
-              tabsId,
-            ));
-          } catch (_) {}
-          final jsonStr = jsonEncode(t);
-          await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [[jsonStr]]), tabsId, '$tid!A1', valueInputOption: 'RAW'));
+        final tabs = (config['tabs'] as List).cast<dynamic>();
+        if (tabs.isNotEmpty) {
+          await writeTabsById(tabsId, tabs);
         }
       }
     } catch (e) {
@@ -313,7 +303,15 @@ mixin DriveSheetMixin {
       if (settingsMap.isEmpty) {
         debugPrint('Settings sheet is empty or missing for $fileId');
       } else {
-        config['settings'] = settingsMap.map((k, v) => MapEntry(k, jsonDecode(v)));
+        final settings = <String, dynamic>{};
+        settingsMap.forEach((k, v) {
+          try {
+            settings[k] = jsonDecode(v);
+          } catch (_) {
+            settings[k] = v;
+          }
+        });
+        config['settings'] = settings;
       }
 
       // Read meta to get dashboard and tabs spreadsheet IDs
@@ -337,108 +335,16 @@ mixin DriveSheetMixin {
             }
           }
         } catch (e) {
-          debugPrint('Error reading dashboard: $e');
-
-          // Attempt best-effort fallback: look for a sibling '<base>_dashboard' in the same folder as the settings file
-          try {
-            final fileMeta = await retryOp(() => driveApi.files.get(fileId, $fields: 'name, parents', supportsAllDrives: true)) as drive.File;
-            final name = fileMeta.name ?? '';
-            final parents = fileMeta.parents ?? [];
-            if (name.endsWith('_settings') && parents.isNotEmpty) {
-              final base = name.substring(0, name.length - '_settings'.length);
-              for (var p in parents) {
-                try {
-                  final list = await driveApi.files.list(
-                    q: "'${p}' in parents and name = '${base}_dashboard' and trashed = false",
-                    $fields: 'files(id, name)',
-                    includeItemsFromAllDrives: true,
-                    supportsAllDrives: true,
-                  );
-                  if (list.files != null && list.files!.isNotEmpty) {
-                    final found = list.files!.first;
-                    final fallbackId = found.id;
-                    // Try reading from the found spreadsheet id
-                    final resp2 = await retryOp(() => sheetsApi.spreadsheets.values.get(fallbackId!, 'cards!A1:Z'));
-                    if (resp2.values != null && resp2.values!.isNotEmpty) {
-                      final firstRow = resp2.values!.first;
-                      if (firstRow.isNotEmpty && firstRow.first is String && (firstRow.first as String).trim().startsWith('{')) {
-                        config['dashboard'] = resp2.values!.map((r) => jsonDecode(r.first as String)).toList();
-                      } else {
-                        final map = await _readMapFromSheet(fallbackId!, 'cards');
-                        if (map.isNotEmpty) config['dashboard'] = map.map((k, v) => MapEntry(k, jsonDecode(v)));
-                      }
-                      break;
-                    }
-                  }
-                } catch (_) {}
-              }
-            }
-          } catch (_) {}
+          debugPrint('Error reading dashboard by id $dashboardId: $e');
         }
       }
 
       if (tabsId != null) {
         try {
-          // Fetch spreadsheet metadata to list sheet names
-          final ss = await retryOp(() => sheetsApi.spreadsheets.get(tabsId));
-          final sheetTitles = ss.sheets?.map((s) => s.properties?.title ?? '').where((t) => t.isNotEmpty).toList() ?? [];
-          final tabs = <dynamic>[];
-          for (var title in sheetTitles) {
-            try {
-              final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(tabsId, '$title!A1'));
-              if (resp.values != null && resp.values!.isNotEmpty) {
-                final cell = resp.values!.first.first;
-                if (cell is String) {
-                  tabs.add(jsonDecode(cell));
-                }
-              }
-            } catch (_) {}
-          }
-          if (tabs.isNotEmpty) config['tabs'] = tabs;
+          final read = await readTabsById(tabsId);
+          if (read != null) config['tabs'] = read;
         } catch (e) {
           debugPrint('Error reading tabs: $e');
-
-          // Attempt fallback: look for '<base>_tabs' sibling in settings parent folder
-          try {
-            final fileMeta = await retryOp(() => driveApi.files.get(fileId, $fields: 'name, parents', supportsAllDrives: true)) as drive.File;
-            final name = fileMeta.name ?? '';
-            final parents = fileMeta.parents ?? [];
-            if (name.endsWith('_settings') && parents.isNotEmpty) {
-              final base = name.substring(0, name.length - '_settings'.length);
-              for (var p in parents) {
-                try {
-                  final list = await driveApi.files.list(
-                    q: "'${p}' in parents and name = '${base}_tabs' and trashed = false",
-                    $fields: 'files(id, name)',
-                    includeItemsFromAllDrives: true,
-                    supportsAllDrives: true,
-                  );
-                  if (list.files != null && list.files!.isNotEmpty) {
-                    final found = list.files!.first;
-                    final fallbackId = found.id;
-                    final ss = await retryOp(() => sheetsApi.spreadsheets.get(fallbackId!));
-                    final sheetTitles = ss.sheets?.map((s) => s.properties?.title ?? '').where((t) => t.isNotEmpty).toList() ?? [];
-                    final tabs = <dynamic>[];
-                    for (var title in sheetTitles) {
-                      try {
-                        final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(fallbackId!, '$title!A1'));
-                        if (resp.values != null && resp.values!.isNotEmpty) {
-                          final cell = resp.values!.first.first;
-                          if (cell is String) {
-                            tabs.add(jsonDecode(cell));
-                          }
-                        }
-                      } catch (_) {}
-                    }
-                    if (tabs.isNotEmpty) {
-                      config['tabs'] = tabs;
-                      break;
-                    }
-                  }
-                } catch (_) {}
-              }
-            }
-          } catch (_) {}
         }
       }
 
@@ -520,15 +426,41 @@ mixin DriveSheetMixin {
       final sheetTitles = ss.sheets?.map((s) => s.properties?.title ?? '').where((t) => t.isNotEmpty).toList() ?? [];
       final tabs = <dynamic>[];
       for (var title in sheetTitles) {
+        // Read tab as key/value rows in A:B — values are JSON-encoded.
         try {
-          final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(tabsId, '$title!A1'));
-          if (resp.values != null && resp.values!.isNotEmpty) {
-            final cell = resp.values!.first.first;
-            if (cell is String) {
-              tabs.add(jsonDecode(cell));
+          final map = await _readMapFromSheet(tabsId, title);
+          if (map.isNotEmpty) {
+            final decoded = <String, dynamic>{};
+            map.forEach((k, v) {
+              final key = k.toString();
+              final raw = (v ?? '').toString();
+              if (raw.trim().isEmpty || raw.trim() == 'null') {
+                decoded[key] = null;
+                return;
+              }
+              try {
+                decoded[key] = jsonDecode(raw);
+              } catch (_) {
+                decoded[key] = raw;
+              }
+            });
+            // Ensure required fields exist so callers (TabConfig.fromJson) don't crash
+            if (decoded['id'] == null || (decoded['id'] is String && (decoded['id'] as String).trim().isEmpty)) {
+              decoded['id'] = title;
             }
+            if (decoded['label'] == null || (decoded['label'] is String && (decoded['label'] as String).trim().isEmpty)) {
+              decoded['label'] = title;
+            }
+            tabs.add(decoded);
+            continue;
           }
-        } catch (_) {}
+          // If map is empty, still add an empty map to preserve sheet order
+          tabs.add(<String, dynamic>{'id': title, 'label': title});
+        } catch (e) {
+          debugPrint('Error reading tab sheet $title in $tabsId: $e');
+          // Add empty placeholder to keep behavior predictable
+          tabs.add(<String, dynamic>{'id': title, 'label': title});
+        }
       }
       if (tabs.isEmpty) return null;
       return tabs;
@@ -537,6 +469,7 @@ mixin DriveSheetMixin {
       return null;
     }
   }
+
 
   Future<void> _writeMapToSheet(String fileId, String sheetTitle, Map<String, dynamic> data) async {
     try {
@@ -565,9 +498,11 @@ mixin DriveSheetMixin {
       final map = <String, String>{};
       if (response.values != null) {
         for (var row in response.values!) {
-          if (row.length >= 2) {
-            map[row[0] as String] = row[1] as String;
-          }
+          if (row.length < 2) continue;
+          final key = row[0].toString().trim();
+          if (key.isEmpty) continue;
+          final val = row[1] == null ? '' : row[1].toString();
+          map[key] = val;
         }
       }
       return map;
@@ -642,11 +577,158 @@ mixin DriveSheetMixin {
           }
         }
 
-        final jsonStr = jsonEncode(t);
-        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [[jsonStr]]), tabsId, '$tid!A1', valueInputOption: 'RAW'));
+        // Always store tab as key/value rows in A:B. If the tab object is not
+        // a Map, store it under key 'raw'. Values are stored JSON-encoded.
+        try {
+          await retryOp(() => sheetsApi.spreadsheets.values.clear(sheets.ClearValuesRequest(), tabsId, '$tid!A:B'));
+
+          final rows = <List<Object>>[];
+          if (t is Map) {
+            for (var entry in (t as Map).entries) {
+              rows.add([entry.key.toString(), jsonEncode(entry.value)]);
+            }
+          } else {
+            rows.add(['raw', jsonEncode(t)]);
+          }
+
+          if (rows.isNotEmpty) {
+            await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: rows), tabsId, '$tid!A1', valueInputOption: 'RAW'));
+          }
+        } catch (e) {
+          debugPrint('Error writing tab $tid as key/value rows: $e');
+          rethrow;
+        }
       }
     } catch (e) {
       debugPrint('Error writing tabs to $tabsId: $e');
+      rethrow;
+    }
+  }
+
+  Future<String> createSpreadsheetInFolder(String folderId, String title) async {
+    try {
+      final spreadsheet = sheets.Spreadsheet(
+        properties: sheets.SpreadsheetProperties(title: title),
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: title))],
+      );
+      final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
+      final spreadsheetId = created.spreadsheetId!;
+
+      // Move to folder
+      final file = await retryOp(() => driveApi.files.get(spreadsheetId, $fields: 'parents', supportsAllDrives: true)) as drive.File;
+      final previousParents = file.parents?.join(',') ?? '';
+      if (previousParents.isNotEmpty) {
+        await retryOp(() => driveApi.files.update(drive.File(), spreadsheetId, addParents: folderId, removeParents: previousParents, $fields: 'id, parents'));
+      } else {
+        await retryOp(() => driveApi.files.update(drive.File(), spreadsheetId, addParents: folderId, $fields: 'id, parents'));
+      }
+      
+      return spreadsheetId;
+    } catch (e) {
+      debugPrint('Error creating spreadsheet $title in folder $folderId: $e');
+      rethrow;
+    }
+  }
+
+  /// Updates a single key/value pair in a specific tab's sheet (A:B rows).
+  Future<void> updateTabField(String tabsId, String tabId, String key, dynamic value) async {
+    try {
+      // 1. Fetch current rows to find the key
+      final range = '$tabId!A:B';
+      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(tabsId, range));
+      final rows = response.values ?? [];
+
+      int foundIndex = -1;
+      for (int i = 0; i < rows.length; i++) {
+        if (rows[i].isNotEmpty && rows[i].first?.toString() == key) {
+          foundIndex = i;
+          break;
+        }
+      }
+
+      final encodedValue = jsonEncode(value);
+
+      if (foundIndex != -1) {
+        // Update existing row. Columns are A (1) and B (2). Row is foundIndex + 1.
+        final updateRange = '$tabId!B${foundIndex + 1}';
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+              sheets.ValueRange(values: [
+                [encodedValue]
+              ]),
+              tabsId,
+              updateRange,
+              valueInputOption: 'RAW',
+            ));
+      } else {
+        // Append new key/value row
+        await retryOp(() => sheetsApi.spreadsheets.values.append(
+              sheets.ValueRange(values: [
+                [key, encodedValue]
+              ]),
+              tabsId,
+              range,
+              valueInputOption: 'RAW',
+            ));
+      }
+      debugPrint('DriveSheetMixin: updated tab field $key in $tabId for spreadsheet $tabsId');
+    } catch (e) {
+      debugPrint('Error updating tab field $key in $tabId: $e');
+      rethrow;
+    }
+  }
+
+  /// Updates multiple key/value pairs in a specific tab's sheet (A:B rows).
+  Future<void> updateTabFields(String tabsId, String tabId, Map<String, dynamic> fields) async {
+    if (fields.isEmpty) return;
+    try {
+      // 1. Fetch current rows to find keys
+      final range = '$tabId!A:B';
+      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(tabsId, range));
+      final rows = response.values ?? [];
+
+      final Map<String, int> keyToRowIndex = {};
+      for (int i = 0; i < rows.length; i++) {
+        if (rows[i].isNotEmpty) {
+          keyToRowIndex[rows[i].first?.toString() ?? ''] = i;
+        }
+      }
+
+      final List<List<Object>> toAppend = [];
+      
+      for (var entry in fields.entries) {
+        final key = entry.key;
+        final value = entry.value;
+        final encodedValue = jsonEncode(value);
+
+        if (keyToRowIndex.containsKey(key)) {
+          // Update existing row
+          final rowIndex = keyToRowIndex[key]!;
+          final updateRange = '$tabId!B${rowIndex + 1}';
+          await retryOp(() => sheetsApi.spreadsheets.values.update(
+                sheets.ValueRange(values: [
+                  [encodedValue]
+                ]),
+                tabsId,
+                updateRange,
+                valueInputOption: 'RAW',
+              ));
+        } else {
+          // Add to append list
+          toAppend.add([key, encodedValue]);
+        }
+      }
+
+      if (toAppend.isNotEmpty) {
+        await retryOp(() => sheetsApi.spreadsheets.values.append(
+              sheets.ValueRange(values: toAppend),
+              tabsId,
+              range,
+              valueInputOption: 'RAW',
+            ));
+      }
+      debugPrint('DriveSheetMixin: updated ${fields.length} tab fields in $tabId for spreadsheet $tabsId');
+    } catch (e) {
+      debugPrint('Error updating tab fields in $tabId: $e');
       rethrow;
     }
   }
@@ -661,71 +743,15 @@ mixin DriveSheetMixin {
     }
   }
 
-  /// Create a new spreadsheet and move it into the target folder. Returns new spreadsheet id.
-  Future<String> createSpreadsheetInFolder(String folderId, String title) async {
-    try {
-      final spreadsheet = sheets.Spreadsheet(properties: sheets.SpreadsheetProperties(title: title));
-      final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
-      final newId = created.spreadsheetId!;
-
-      final file = await retryOp(() => driveApi.files.get(newId, $fields: 'parents', supportsAllDrives: true)) as drive.File;
-      final previousParents = file.parents?.join(',') ?? '';
-      if (previousParents.isNotEmpty) {
-        await retryOp(() => driveApi.files.update(drive.File(), newId, addParents: folderId, removeParents: previousParents, $fields: 'id, parents'));
-      } else {
-        await retryOp(() => driveApi.files.update(drive.File(), newId, addParents: folderId, $fields: 'id, parents'));
-      }
-
-      return newId;
-    } catch (e) {
-      debugPrint('Error creating spreadsheet in folder $folderId: $e');
-      rethrow;
-    }
-  }
-
   Future<void> saveRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, Map<String, dynamic> data) async {
     try {
-      // 1. Find or Create Spreadsheet
+      // 1. Find Spreadsheet
       // Use sheetTitle as the spreadsheet name to save each tab in a separate file
       String targetSpreadsheetName = sheetTitle;
       String? spreadsheetId = await getFileId(moduleFolderId, targetSpreadsheetName);
       
       if (spreadsheetId == null) {
-        // Create new spreadsheet
-        final spreadsheet = sheets.Spreadsheet(
-          properties: sheets.SpreadsheetProperties(title: targetSpreadsheetName),
-        );
-        final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
-        spreadsheetId = created.spreadsheetId!;
-        
-        // Move to folder
-          final file = await retryOp(() async {
-            final result = await driveApi.files.get(spreadsheetId!, $fields: 'id, parents', supportsAllDrives: true);
-            return result as drive.File;
-          });
-        final previousParents = file.parents?.join(',') ?? '';
-        
-        if (previousParents.isNotEmpty) {
-           await retryOp(() async {
-             await driveApi.files.update(
-              drive.File(), 
-              spreadsheetId!, 
-              addParents: moduleFolderId, 
-              removeParents: previousParents,
-              $fields: 'id, parents',
-            );
-           });
-        } else {
-           await retryOp(() async {
-             await driveApi.files.update(
-              drive.File(), 
-              spreadsheetId!, 
-              addParents: moduleFolderId,
-              $fields: 'id, parents',
-            );
-           });
-        }
-        debugPrint('Created data spreadsheet: $targetSpreadsheetName ($spreadsheetId)');
+        throw Exception('Spreadsheet $targetSpreadsheetName not found in module folder $moduleFolderId. Development or provisioning error.');
       }
 
       // 2. Prepare Data with Technical Fields
@@ -1174,6 +1200,62 @@ mixin DriveSheetMixin {
       debugPrint('deleteRecord completed fully for $recordId');
     } catch (e) {
       debugPrint('Error deleting record: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> deleteRecordBySpreadsheetId(String spreadsheetId, String sheetTitle, String recordId) async {
+    try {
+      // 1. Identify Row Index
+      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
+      if (headerResponse.values == null || headerResponse.values!.isEmpty) throw Exception("Sheet is empty");
+      
+      final headers = headerResponse.values!.first.map((e) => e.toString()).toList();
+      final idColIndex = headers.indexOf('record_id');
+      if (idColIndex == -1) throw Exception("record_id column not found");
+
+      final colLetter = _getColLetter(idColIndex);
+      final idColResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!$colLetter:$colLetter'));
+      final idValues = idColResponse.values;
+      
+      int? rowIndex;
+      if (idValues != null) {
+        for (int i = 0; i < idValues.length; i++) {
+          if (idValues[i].isNotEmpty && idValues[i].first.toString() == recordId) {
+            rowIndex = i; // 0-indexed for deleteDimension
+            break;
+          }
+        }
+      }
+
+      if (rowIndex == null) throw Exception("Record not found in sheet");
+
+      // 2. Get Sheet ID (GID)
+      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+      final sheet = spreadsheet.sheets?.firstWhere((s) => s.properties?.title == sheetTitle);
+      final int? gid = sheet?.properties?.sheetId;
+
+      if (gid == null) throw Exception("Sheet GID not found");
+
+      // 3. Delete Row
+      final request = sheets.BatchUpdateSpreadsheetRequest(
+        requests: [
+          sheets.Request(
+            deleteDimension: sheets.DeleteDimensionRequest(
+              range: sheets.DimensionRange(
+                sheetId: gid,
+                dimension: 'ROWS',
+                startIndex: rowIndex,
+                endIndex: rowIndex + 1,
+              ),
+            ),
+          ),
+        ],
+      );
+
+      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(request, spreadsheetId));
+    } catch (e) {
+      debugPrint('Error deleting record by id: $e');
       rethrow;
     }
   }

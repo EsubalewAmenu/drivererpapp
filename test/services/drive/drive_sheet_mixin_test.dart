@@ -68,6 +68,17 @@ void main() {
   late TestDriveService service;
 
   setUp(() {
+    registerFallbackValue(sheets.ClearValuesRequest());
+    registerFallbackValue(sheets.ValueRange());
+    registerFallbackValue(sheets.Spreadsheet());
+    registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
+    registerFallbackValue(sheets.BatchUpdateSpreadsheetResponse());
+    registerFallbackValue(sheets.Request());
+    registerFallbackValue(drive.File());
+    registerFallbackValue(drive.DownloadOptions.fullMedia);
+    registerFallbackValue(drive.Media(Stream.empty(), 0));
+    registerFallbackValue(Uri.parse('https://example.com'));
+
     mockDriveApi = MockDriveApi();
     mockFiles = MockFilesResource();
     mockSheetsApi = MockSheetsApi();
@@ -82,23 +93,36 @@ void main() {
     when(() => mockSpreadsheets.values).thenReturn(mockValues);
     
     // Default metadata mock
-    when(() => mockSpreadsheets.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+    when(() => mockSpreadsheets.get(any(), ranges: any(named: 'ranges'), includeGridData: any(named: 'includeGridData')))
+      .thenAnswer((_) async => sheets.Spreadsheet(
       sheets: [
         sheets.Sheet(properties: sheets.SheetProperties(title: 'Main', sheetId: 0)),
         sheets.Sheet(properties: sheets.SheetProperties(title: 'Sheet1', sheetId: 1)),
+        sheets.Sheet(properties: sheets.SheetProperties(title: 'settings', sheetId: 2)),
+        sheets.Sheet(properties: sheets.SheetProperties(title: 'meta', sheetId: 3)),
+        sheets.Sheet(properties: sheets.SheetProperties(title: 'cards', sheetId: 4)),
       ],
     ));
 
-    registerFallbackValue(sheets.ClearValuesRequest());
-    registerFallbackValue(sheets.ValueRange());
-    registerFallbackValue(sheets.Spreadsheet());
-    registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
-    registerFallbackValue(sheets.Request());
-    registerFallbackValue(drive.File());
-    // Fallbacks for Drive API option/return types used as named args
-    registerFallbackValue(drive.DownloadOptions.fullMedia);
-    registerFallbackValue(drive.Media(Stream.empty(), 0));
-    registerFallbackValue(Uri.parse('https://example.com'));
+    // Stub batchUpdate
+    when(() => mockSpreadsheets.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
+
+    // Stub drive files update (for moving files/parents)
+    when(() => mockFiles.update(any(), any(), 
+      addParents: any(named: 'addParents'), 
+      removeParents: any(named: 'removeParents'),
+      enforceSingleParent: any(named: 'enforceSingleParent'),
+      $fields: any(named: r'$fields'),
+    )).thenAnswer((_) async => drive.File(id: 'updated_id'));
+
+    // Stub drive files get (for parents)
+    when(() => mockFiles.get(any(), $fields: any(named: r'$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
+      .thenAnswer((_) async => drive.File(id: 'file_id', parents: ['root']));
+
+    // Stub values get (default empty)
+    when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(values: []));
+    when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+      .thenAnswer((_) async => sheets.UpdateValuesResponse());
   });
 
   group('DriveSheetMixin', () {
@@ -262,7 +286,7 @@ void main() {
       verify(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW')).called(greaterThan(0));
     });
 
-    test('saveRecord creates new spreadsheet if not exists', () async {
+    test('saveRecord throws if spreadsheet not found', () async {
       // Create a service that returns null for getFileId
       final mockDriveApi2 = MockDriveApi();
       final mockFiles2 = MockFilesResource();
@@ -276,23 +300,11 @@ void main() {
 
       final service2 = TestDriveService2(mockDriveApi2, mockSheetsApi2, mockHttpClient);
 
-      when(() => mockSpreadsheets2.create(any())).thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'new_sid'));
-      when(() => mockFiles2.get(any(), $fields: any(named: '\$fields'))).thenAnswer((_) async => drive.File(id: 'new_sid', parents: []));
-        // Also handle calls that include supportsAllDrives named arg
-        when(() => mockFiles2.get(any(), $fields: any(named: '\$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
-          .thenAnswer((_) async => drive.File(id: 'new_sid', parents: []));
-      when(() => mockFiles2.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.File());
-      // For appendDataToSheet
-      when(() => mockSpreadsheets2.get(any())).thenAnswer((_) async => sheets.Spreadsheet(sheets: []));
-      when(() => mockSpreadsheets2.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
-      when(() => mockValues2.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(values: []));
-      when(() => mockValues2.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
-          .thenAnswer((_) async => sheets.AppendValuesResponse());
-
-      await service2.saveRecord('folderId', 'spreadsheetName', 'Sheet1', {'a': 1});
-
-      verify(() => mockSpreadsheets2.create(any())).called(1);
+      // simulate not found
+      // MockFilesResource already by default returns null for unexpected calls if not stubbed,
+      // but let's be explicit if needed.
+      
+      expect(() => service2.saveRecord('folderId', 'spreadsheetName', 'Sheet1', {'a': 1}), throwsException);
     });
 
     test('fetchRecords handles descending sort and pagination', () async {

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:json_annotation/json_annotation.dart';
 
 part 'schema_models.g.dart';
@@ -26,6 +27,28 @@ class ModuleSchema {
 
   factory ModuleSchema.fromJson(Map<String, dynamic> json) => _$ModuleSchemaFromJson(json);
   Map<String, dynamic> toJson() => _$ModuleSchemaToJson(this);
+
+  ModuleSchema copyWith({
+    String? id,
+    String? name,
+    String? icon,
+    String? primaryColor,
+    String? version,
+    Map<String, SettingItem>? settings,
+    DashboardConfig? dashboard,
+    List<TabConfig>? tabs,
+  }) {
+    return ModuleSchema(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      icon: icon ?? this.icon,
+      primaryColor: primaryColor ?? this.primaryColor,
+      version: version ?? this.version,
+      settings: settings ?? this.settings,
+      dashboard: dashboard ?? this.dashboard,
+      tabs: tabs ?? this.tabs,
+    );
+  }
 }
 
 @JsonSerializable(explicitToJson: true)
@@ -106,6 +129,8 @@ class TabConfig {
   final DetailTemplateConfig? detailTemplate;
   @JsonKey(name: 'initial_data')
   final List<Map<String, dynamic>>? initialData;
+  @JsonKey(name: 'fileId')
+  final String? fileId;
 
   TabConfig({
     required this.id,
@@ -116,6 +141,7 @@ class TabConfig {
     this.listTemplate,
     this.detailTemplate,
     this.initialData,
+    this.fileId,
   });
 
   TabConfig copyWith({
@@ -127,6 +153,7 @@ class TabConfig {
     ListTemplateConfig? listTemplate,
     DetailTemplateConfig? detailTemplate,
     List<Map<String, dynamic>>? initialData,
+    String? fileId,
   }) {
     return TabConfig(
       id: id ?? this.id,
@@ -137,11 +164,33 @@ class TabConfig {
       listTemplate: listTemplate ?? this.listTemplate,
       detailTemplate: detailTemplate ?? this.detailTemplate,
       initialData: initialData ?? this.initialData,
+      fileId: fileId ?? this.fileId,
     );
   }
 
   factory TabConfig.fromJson(Map<String, dynamic> json) => _$TabConfigFromJson(json);
   Map<String, dynamic> toJson() => _$TabConfigToJson(this);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is TabConfig &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          label == other.label &&
+          jsonEncode(quickFilters) == jsonEncode(other.quickFilters) &&
+          enableCustomFilters == other.enableCustomFilters &&
+          listTemplate == other.listTemplate &&
+          detailTemplate == other.detailTemplate;
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      label.hashCode ^
+      quickFilters.hashCode ^
+      enableCustomFilters.hashCode ^
+      listTemplate.hashCode ^
+      detailTemplate.hashCode;
 }
 
 @JsonSerializable(explicitToJson: true)
@@ -197,6 +246,23 @@ class ListTemplateConfig {
 
   factory ListTemplateConfig.fromJson(Map<String, dynamic> json) => _$ListTemplateConfigFromJson(json);
   Map<String, dynamic> toJson() => _$ListTemplateConfigToJson(this);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ListTemplateConfig &&
+          runtimeType == other.runtimeType &&
+          template == other.template &&
+          titleKey == other.titleKey &&
+          subtitleKey == other.subtitleKey &&
+          trailingKey == other.trailingKey;
+
+  @override
+  int get hashCode =>
+      template.hashCode ^
+      titleKey.hashCode ^
+      subtitleKey.hashCode ^
+      trailingKey.hashCode;
 }
 
 @JsonSerializable(explicitToJson: true)
@@ -291,6 +357,20 @@ class QuickFilter {
 
   factory QuickFilter.fromJson(Map<String, dynamic> json) => _$QuickFilterFromJson(json);
   Map<String, dynamic> toJson() => _$QuickFilterToJson(this);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is QuickFilter &&
+          runtimeType == other.runtimeType &&
+          key == other.key &&
+          label == other.label &&
+          field == other.field &&
+          operator == other.operator &&
+          value == other.value;
+
+  @override
+  int get hashCode => key.hashCode ^ label.hashCode ^ field.hashCode ^ operator.hashCode ^ value.hashCode;
 }
 
 @JsonSerializable(explicitToJson: true)

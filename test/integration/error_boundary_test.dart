@@ -45,6 +45,10 @@ void main() {
 
     when(() => mockAuthService.isAuthenticated).thenReturn(true);
     when(() => mockAuthService.currentUser).thenReturn(null);
+    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
+    when(() => mockDriveService.readSettingsById(any())).thenAnswer((_) async => {'settings': {}});
+    when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => {'cards': []});
+    when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => []);
   });
 
   Widget createTestWidget({
@@ -113,7 +117,11 @@ void main() {
     final rows = [ ['mod_err', 'HR', 'dash_x', 'conf_err', 'tabs_x'] ];
     when(() => mockValues2.get('ua_ws2', 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: [header, ...rows]));
     when(() => mockDriveService.getFileId('mod_err', 'config')).thenAnswer((_) async => 'conf_err');
-    when(() => mockDriveService.readModuleConfig('conf_err')).thenAnswer((_) async => throw const FormatException('Invalid JSON'));
+    
+    // Force all granular reads to fail so sync returns null
+    when(() => mockDriveService.readSettingsById('conf_err')).thenThrow(const FormatException('Invalid JSON'));
+    when(() => mockDriveService.readDashboardById('dash_x')).thenThrow(const FormatException('Invalid JSON'));
+    when(() => mockDriveService.readTabsById('tabs_x')).thenThrow(const FormatException('Invalid JSON'));
 
     // Trigger a refresh by pumping again with the same widget (Provider change triggers rebuild)
     await tester.pumpWidget(createTestWidget(
