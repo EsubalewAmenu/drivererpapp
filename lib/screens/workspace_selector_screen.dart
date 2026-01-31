@@ -157,10 +157,7 @@ class _WorkspaceSelectorScreenState extends State<WorkspaceSelectorScreen> {
               final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
               // Prefer the cached registry id from the provider to avoid an extra Drive lookup
               String? registryId = workspaceProvider.companiesRegistryId;
-              if (registryId == null) {
-                // Fallback: try to resolve from DriveService (rare)
-                registryId = await driveService.getFileId(widget.rootFolderId, 'companies');
-              }
+              registryId ??= await driveService.getFileId(widget.rootFolderId, 'companies');
               debugPrint('WorkspaceSelector: registryId=$registryId');
               if (registryId != null) {
                 final resp = await driveService.sheetsApi.spreadsheets.values.get(registryId, 'user_access!A2:C');

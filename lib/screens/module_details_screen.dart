@@ -1,13 +1,11 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/schema_service.dart';
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
 import '../providers/schema_provider.dart';
-import '../models/schema_models.dart';
 import '../providers/workspace_provider.dart';
 import '../utils/icon_lookup.dart';
 import 'dashboard_screen.dart';
@@ -133,12 +131,12 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       }
 
       // Create the module folder in Drive
-      final _createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
+      final createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
       dynamic createdModule;
-      if (_createdModuleRes is Future) {
-        createdModule = await _createdModuleRes;
+      if (createdModuleRes is Future) {
+        createdModule = await createdModuleRes;
       } else {
-        createdModule = _createdModuleRes;
+        createdModule = createdModuleRes;
       }
       if (createdModule == null || createdModule.id == null) {
         throw Exception('Failed to create module folder');
@@ -151,26 +149,23 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       // Create config folder and default config file now (so module has config immediately)
       try {
         if (_moduleJson != null) {
-          final _configFolderRes = (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
+          final configFolderRes = (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
           dynamic configFolderId;
-          if (_configFolderRes is Future) {
-            configFolderId = await _configFolderRes;
+          if (configFolderRes is Future) {
+            configFolderId = await configFolderRes;
           } else {
-            configFolderId = _configFolderRes;
+            configFolderId = configFolderRes;
           }
           if (configFolderId == null) {
             throw Exception('Failed to ensure config folder');
           }
           final userEmail = capturedUserEmail;
-          final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}' : 'config';
+          final configFileName = userEmail != null && userEmail.isNotEmpty ? userEmail : 'config';
           try {
-            // Create module config on Drive and capture its fileId if returned
-            dynamic _createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
-            dynamic createdCfgId;
-            if (_createCfgRes is Future) {
-              createdCfgId = await _createCfgRes;
-            } else {
-              createdCfgId = _createCfgRes;
+            // Create module config on Drive (result is ignored)
+            dynamic createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
+            if (createCfgRes is Future) {
+              await createCfgRes;
             }
 
             // Cache the created module JSON locally under the new module folder id
@@ -183,43 +178,6 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               try {
                 await provider.service.cacheConfig(assetKey, _moduleJson!);
               } catch (_) {}
-
-              // Also create an in-memory ModuleSchema so UI can pick it up immediately
-              final settingsRaw = _moduleJson!['settings'];
-              final settingsMap = <String, SettingItem>{};
-              if (settingsRaw != null && settingsRaw is Map<String, dynamic>) {
-                settingsRaw.forEach((k, v) {
-                  try {
-                    settingsMap[k] = SettingItem.fromJson(Map<String, dynamic>.from(v as Map));
-                  } catch (_) {}
-                });
-              }
-
-              final dashboardJson = _moduleJson!['dashboard'] != null ? Map<String, dynamic>.from(_moduleJson!['dashboard'] as Map) : null;
-              final dashboard = (dashboardJson != null && dashboardJson['cards'] != null)
-                  ? DashboardConfig.fromJson(dashboardJson)
-                  : DashboardConfig(cards: []);
-
-              final tabsRaw = _moduleJson!['tabs'];
-              final tabsList = tabsRaw != null ? List<dynamic>.from(tabsRaw as List) : [];
-              final tabs = tabsList.map((t) {
-                try {
-                  return TabConfig.fromJson(Map<String, dynamic>.from(t as Map));
-                } catch (_) {
-                  return TabConfig(id: 'err', label: 'Error Tab', columns: []);
-                }
-              }).toList();
-
-              final moduleSchema = ModuleSchema(
-                id: moduleFolderId,
-                name: settingsMap['name']?.value?.toString() ?? moduleName,
-                icon: settingsMap['icon']?.value?.toString() ?? '',
-                primaryColor: settingsMap['primaryColor']?.value?.toString() ?? '#2196F3',
-                version: settingsMap['version']?.value?.toString() ?? '1.0',
-                settings: settingsMap,
-                dashboard: dashboard,
-                tabs: tabs,
-              );
 
               // After activation, clear local cached configs and in-memory
               // entries for the extension (short key + folder id) and the
@@ -271,12 +229,12 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
 
       // Update user's access spreadsheet with module config ids.
       try {
-        final _rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
+        final rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
         dynamic rootFolderId;
-        if (_rootRes is Future) {
-          rootFolderId = await _rootRes;
+        if (rootRes is Future) {
+          rootFolderId = await rootRes;
         } else {
-          rootFolderId = _rootRes;
+          rootFolderId = rootRes;
         }
         if (rootFolderId != null) {
           try {

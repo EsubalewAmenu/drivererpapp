@@ -10,7 +10,6 @@ import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
-import 'package:drivererpapp/models/company_model.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -104,7 +103,6 @@ void main() {
     final workspaceFile2 = drive.File()..id = 'ws2'..name = 'FAULTY ERP';
     workspaceProvider.setWorkspace(workspaceFile2);
     
-    final moduleFile = drive.File()..id = 'mod_err'..name = 'HR';
     // Provide a user_access sheet that contains the module row for ws2
     final mockSheetsApi2 = MockSheetsApi();
     final mockSpreadsheets2 = MockSpreadsheetsResource();

@@ -94,7 +94,7 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
             SwitchListTile(
               title: const Text('Is Required'),
               value: _isRequired,
-              activeColor: theme.primaryColor,
+              activeThumbColor: theme.primaryColor,
               contentPadding: EdgeInsets.zero,
               onChanged: (val) {
                 setState(() => _isRequired = val);

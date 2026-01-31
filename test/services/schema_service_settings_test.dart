@@ -25,7 +25,7 @@ void main() {
     });
 
     test('writes directly when settingsId provided and caches', () async {
-      when(() => mockDrive.writeSettingsById('s1', any())).thenAnswer((_) async => null);
+      when(() => mockDrive.writeSettingsById('s1', any())).thenAnswer((_) async {});
       when(() => mockDrive.getFileModifiedTime('s1')).thenAnswer((_) async => DateTime.utc(2025));
 
       await svc.saveSettingsPart('mod1', {'a': 1}, settingsId: 's1');

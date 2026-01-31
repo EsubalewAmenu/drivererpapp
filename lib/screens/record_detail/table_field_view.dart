@@ -57,7 +57,7 @@ class TableFieldView extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(
-                color: theme.primaryColor.withOpacity(0.1),
+                color: theme.primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -77,13 +77,13 @@ class TableFieldView extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.cardTheme.color,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
+            border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
           ),
           clipBehavior: Clip.antiAlias,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              headingRowColor: WidgetStateProperty.all(theme.primaryColor.withOpacity(0.05)),
+              headingRowColor: WidgetStateProperty.all(theme.primaryColor.withValues(alpha: 0.05)),
               columnSpacing: 24,
               horizontalMargin: 16,
               columns: tableCols

@@ -5,17 +5,14 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
-import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
 import 'package:drivererpapp/providers/schema_provider.dart';
-import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/screens/workspace_selector_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'helpers/test_helpers.dart';
 
 void main() {
@@ -60,7 +57,6 @@ void main() {
     debugPrint('TEST: Starting dashboard_interaction_test (Period & Navigation)');
     
     final workspace = drive.File()..id = 'ws1'..name = 'ERP Lab';
-    final moduleFile = drive.File()..id = 'mod1'..name = 'CRM';
     
     // Mock the user_access sheet rows via Sheets API
     final mockValueRange = sheets.ValueRange(values: [

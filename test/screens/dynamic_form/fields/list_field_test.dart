@@ -12,7 +12,7 @@ void main() {
       home: Scaffold(
         body: DynamicListField(
           column: column,
-          value: ['Tag1'],
+          value: const ['Tag1'],
           primaryColor: Colors.blue,
           onChanged: (val) => result = val,
         ),

@@ -2,7 +2,6 @@ import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import 'dart:io';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 import '../../../providers/workspace_provider.dart';
@@ -182,7 +181,7 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
         shape: BoxShape.circle,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           )
@@ -224,7 +223,7 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: widget.primaryColor.withOpacity(0.1),
+                  color: widget.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(Icons.camera_alt_rounded, color: widget.primaryColor),
@@ -241,7 +240,7 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
               leading: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: widget.primaryColor.withOpacity(0.1),
+                  color: widget.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(Icons.photo_library_rounded, color: widget.primaryColor),
@@ -373,7 +372,7 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
                   filled: true,
                   fillColor: theme.cardTheme.color,
                   hintText: 'Scan or enter code',
-                  hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.5)),
+                  hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -397,7 +396,7 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: widget.primaryColor.withOpacity(0.1),
+                  color: widget.primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: widget.primaryColor),
                 ),

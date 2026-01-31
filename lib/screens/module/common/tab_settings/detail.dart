@@ -32,23 +32,23 @@ mixin _TabSettingsDetailMixin on State<TabSettingsScreen> {
             title: const Text('Conditional Title'),
             subtitle: const Text('Change title based on record data'),
             value: (this as _TabSettingsScreenState)._useConditionalTitle,
-            activeColor: this.widget.primaryColor,
+            activeThumbColor: widget.primaryColor,
             contentPadding: EdgeInsets.zero,
-            onChanged: (val) => this.setState(() => (this as _TabSettingsScreenState)._useConditionalTitle = val),
+            onChanged: (val) => setState(() => (this as _TabSettingsScreenState)._useConditionalTitle = val),
           ),
             if ((this as _TabSettingsScreenState)._useConditionalTitle) ...[
             const SizedBox(height: 8),
-            (this as _TabSettingsScreenState)._buildColumnDropdown('Condition (e.g. Is Individual?)', (this as _TabSettingsScreenState)._titleLogicCondition, (val) => this.setState(() => (this as _TabSettingsScreenState)._titleLogicCondition = val)),
+            (this as _TabSettingsScreenState)._buildColumnDropdown('Condition (e.g. Is Individual?)', (this as _TabSettingsScreenState)._titleLogicCondition, (val) => setState(() => (this as _TabSettingsScreenState)._titleLogicCondition = val)),
             const SizedBox(height: 12),
             Row(
               children: [
-                  Expanded(child: (this as _TabSettingsScreenState)._buildColumnDropdown('If True', (this as _TabSettingsScreenState)._titleLogicTruthy, (val) => this.setState(() => (this as _TabSettingsScreenState)._titleLogicTruthy = val))),
+                  Expanded(child: (this as _TabSettingsScreenState)._buildColumnDropdown('If True', (this as _TabSettingsScreenState)._titleLogicTruthy, (val) => setState(() => (this as _TabSettingsScreenState)._titleLogicTruthy = val))),
                 const SizedBox(width: 12),
-                  Expanded(child: (this as _TabSettingsScreenState)._buildColumnDropdown('If False', (this as _TabSettingsScreenState)._titleLogicFalsy, (val) => this.setState(() => (this as _TabSettingsScreenState)._titleLogicFalsy = val))),
+                  Expanded(child: (this as _TabSettingsScreenState)._buildColumnDropdown('If False', (this as _TabSettingsScreenState)._titleLogicFalsy, (val) => setState(() => (this as _TabSettingsScreenState)._titleLogicFalsy = val))),
               ],
             ),
           ] else
-            (this as _TabSettingsScreenState)._buildColumnDropdown('Main Title', (this as _TabSettingsScreenState)._detailTitleKey, (val) => this.setState(() => (this as _TabSettingsScreenState)._detailTitleKey = val)),
+            (this as _TabSettingsScreenState)._buildColumnDropdown('Main Title', (this as _TabSettingsScreenState)._detailTitleKey, (val) => setState(() => (this as _TabSettingsScreenState)._detailTitleKey = val)),
 
           const SizedBox(height: 24),
 
@@ -57,26 +57,26 @@ mixin _TabSettingsDetailMixin on State<TabSettingsScreen> {
             title: const Text('Conditional Subtitle'),
             subtitle: const Text('Change subtitle based on record data'),
             value: (this as _TabSettingsScreenState)._useConditionalSubtitle,
-            activeColor: this.widget.primaryColor,
+            activeThumbColor: widget.primaryColor,
             contentPadding: EdgeInsets.zero,
-            onChanged: (val) => this.setState(() => (this as _TabSettingsScreenState)._useConditionalSubtitle = val),
+            onChanged: (val) => setState(() => (this as _TabSettingsScreenState)._useConditionalSubtitle = val),
           ),
             if ((this as _TabSettingsScreenState)._useConditionalSubtitle) ...[
             const SizedBox(height: 8),
-            (this as _TabSettingsScreenState)._buildColumnDropdown('Condition Column', (this as _TabSettingsScreenState)._subtitleLogicCondition, (val) => this.setState(() => (this as _TabSettingsScreenState)._subtitleLogicCondition = val)),
+            (this as _TabSettingsScreenState)._buildColumnDropdown('Condition Column', (this as _TabSettingsScreenState)._subtitleLogicCondition, (val) => setState(() => (this as _TabSettingsScreenState)._subtitleLogicCondition = val)),
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(child: (this as _TabSettingsScreenState)._buildColumnDropdown('If True', (this as _TabSettingsScreenState)._subtitleLogicTruthy, (val) => this.setState(() => (this as _TabSettingsScreenState)._subtitleLogicTruthy = val))),
+                Expanded(child: (this as _TabSettingsScreenState)._buildColumnDropdown('If True', (this as _TabSettingsScreenState)._subtitleLogicTruthy, (val) => setState(() => (this as _TabSettingsScreenState)._subtitleLogicTruthy = val))),
                 const SizedBox(width: 12),
-                Expanded(child: (this as _TabSettingsScreenState)._buildColumnDropdown('If False', (this as _TabSettingsScreenState)._subtitleLogicFalsy, (val) => this.setState(() => (this as _TabSettingsScreenState)._subtitleLogicFalsy = val))),
+                Expanded(child: (this as _TabSettingsScreenState)._buildColumnDropdown('If False', (this as _TabSettingsScreenState)._subtitleLogicFalsy, (val) => setState(() => (this as _TabSettingsScreenState)._subtitleLogicFalsy = val))),
               ],
             ),
           ] else
-            (this as _TabSettingsScreenState)._buildColumnDropdown('Subtitle', (this as _TabSettingsScreenState)._detailSubtitleKey, (val) => this.setState(() => (this as _TabSettingsScreenState)._detailSubtitleKey = val), isOptional: true),
+            (this as _TabSettingsScreenState)._buildColumnDropdown('Subtitle', (this as _TabSettingsScreenState)._detailSubtitleKey, (val) => setState(() => (this as _TabSettingsScreenState)._detailSubtitleKey = val), isOptional: true),
 
           const SizedBox(height: 24),
-          (this as _TabSettingsScreenState)._buildColumnDropdown('Header Image', (this as _TabSettingsScreenState)._detailImageKey, (val) => this.setState(() => (this as _TabSettingsScreenState)._detailImageKey = val), isOptional: true),
+          (this as _TabSettingsScreenState)._buildColumnDropdown('Header Image', (this as _TabSettingsScreenState)._detailImageKey, (val) => setState(() => (this as _TabSettingsScreenState)._detailImageKey = val), isOptional: true),
 
           const SizedBox(height: 32),
           Text('FIELD VISIBILITY', style: _sectionHeaderStyle(theme)),
@@ -85,21 +85,21 @@ mixin _TabSettingsDetailMixin on State<TabSettingsScreen> {
             title: const Text('Show All Fields'),
             subtitle: const Text('Automatically display all visible columns'),
             value: (this as _TabSettingsScreenState)._detailShowAll,
-            activeColor: this.widget.primaryColor,
+            activeThumbColor: widget.primaryColor,
             contentPadding: EdgeInsets.zero,
-            onChanged: (val) => this.setState(() => (this as _TabSettingsScreenState)._detailShowAll = val),
+            onChanged: (val) => setState(() => (this as _TabSettingsScreenState)._detailShowAll = val),
           ),
 
             if (!(this as _TabSettingsScreenState)._detailShowAll) ...[
             const SizedBox(height: 16),
-            ...this.widget.tab.columns.where((c) => c.hidden != true).map((col) {
+            ...widget.tab.columns.where((c) => c.hidden != true).map((col) {
               return CheckboxListTile(
                 title: Text(col.label, style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
                 value: (this as _TabSettingsScreenState)._detailFields.contains(col.key),
-                activeColor: this.widget.primaryColor,
+                activeColor: widget.primaryColor,
                 contentPadding: EdgeInsets.zero,
                 onChanged: (val) {
-                  this.setState(() {
+                  setState(() {
                     if (val == true) {
                       (this as _TabSettingsScreenState)._detailFields.add(col.key);
                     } else {
@@ -117,24 +117,24 @@ mixin _TabSettingsDetailMixin on State<TabSettingsScreen> {
 
   Widget _buildDetailTemplateOption(String value, String title, String subtitle, IconData icon) {
     final isSelected = (this as _TabSettingsScreenState)._selectedDetailTemplate == value;
-    final theme = Theme.of(this.context);
+    final theme = Theme.of(context);
 
     return InkWell(
-      onTap: () => this.setState(() => (this as _TabSettingsScreenState)._selectedDetailTemplate = value),
+      onTap: () => setState(() => (this as _TabSettingsScreenState)._selectedDetailTemplate = value),
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? this.widget.primaryColor.withValues(alpha: 0.1) : theme.cardTheme.color,
+          color: isSelected ? widget.primaryColor.withValues(alpha: 0.1) : theme.cardTheme.color,
           border: Border.all(
-            color: isSelected ? this.widget.primaryColor : Colors.transparent,
+            color: isSelected ? widget.primaryColor : Colors.transparent,
             width: 2,
           ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
           children: [
-            Icon(icon, color: isSelected ? this.widget.primaryColor : theme.iconTheme.color),
+            Icon(icon, color: isSelected ? widget.primaryColor : theme.iconTheme.color),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -142,7 +142,7 @@ mixin _TabSettingsDetailMixin on State<TabSettingsScreen> {
                 children: [
                   Text(title, style: AppTheme.inter(
                     fontWeight: FontWeight.w600,
-                    color: isSelected ? this.widget.primaryColor : theme.textTheme.bodyLarge?.color,
+                    color: isSelected ? widget.primaryColor : theme.textTheme.bodyLarge?.color,
                   )),
                   Text(subtitle, style: AppTheme.inter(
                     fontSize: 12,
@@ -151,7 +151,7 @@ mixin _TabSettingsDetailMixin on State<TabSettingsScreen> {
                 ],
               ),
             ),
-            if (isSelected) Icon(Icons.check_circle, color: this.widget.primaryColor, size: 20),
+            if (isSelected) Icon(Icons.check_circle, color: widget.primaryColor, size: 20),
           ],
         ),
       ),

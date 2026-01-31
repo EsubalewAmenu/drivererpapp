@@ -29,9 +29,9 @@ class FormulaFieldView extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: (theme.cardTheme.color ?? theme.cardColor).withOpacity(0.5),
+            color: (theme.cardTheme.color ?? theme.cardColor).withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: borderColor.withOpacity(0.1)),
+            border: Border.all(color: borderColor.withValues(alpha: 0.1)),
           ),
           child: Row(
             children: [

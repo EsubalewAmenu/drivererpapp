@@ -75,7 +75,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: ModuleListItem(
-          item: {'name': 'Normal', 'is_urgent': true, 'urgent_msg': 'URGENT!'},
+          item: const {'name': 'Normal', 'is_urgent': true, 'urgent_msg': 'URGENT!'},
           tab: logicTab,
           primaryColor: Colors.red,
           onTap: () {},
@@ -89,7 +89,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: Scaffold(
         body: ModuleListItem(
-          item: {'name': 'Normal', 'is_urgent': 'false', 'urgent_msg': 'URGENT!'},
+          item: const {'name': 'Normal', 'is_urgent': 'false', 'urgent_msg': 'URGENT!'},
           tab: logicTab,
           primaryColor: Colors.red,
           onTap: () {},

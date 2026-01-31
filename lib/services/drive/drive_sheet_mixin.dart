@@ -241,7 +241,7 @@ mixin DriveSheetMixin {
           await _writeMapToSheet(dashboardId, 'cards', cards as Map<String, dynamic>);
         } else if (cards is List) {
           // write as rows of JSON
-          final rows = (cards as List).map((c) => [jsonEncode(c)]).toList();
+          final rows = (cards).map((c) => [jsonEncode(c)]).toList();
           await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: rows), dashboardId, 'cards!A1', valueInputOption: 'RAW'));
         }
       }
@@ -278,7 +278,7 @@ mixin DriveSheetMixin {
         if (cards is Map) {
           await _writeMapToSheet(dashboardId, 'cards', cards as Map<String, dynamic>);
         } else if (cards is List) {
-          final rows = (cards as List).map((c) => [jsonEncode(c)]).toList();
+          final rows = (cards).map((c) => [jsonEncode(c)]).toList();
           await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: rows), dashboardId, 'cards!A1', valueInputOption: 'RAW'));
         }
       }
@@ -538,7 +538,7 @@ mixin DriveSheetMixin {
       if (dashboard is Map) {
         await _writeMapToSheet(dashboardId, 'cards', dashboard as Map<String, dynamic>);
       } else if (dashboard is List) {
-        final rows = (dashboard as List).map((c) => [jsonEncode(c)]).toList();
+        final rows = (dashboard).map((c) => [jsonEncode(c)]).toList();
         await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: rows), dashboardId, 'cards!A1', valueInputOption: 'RAW'));
       }
     } catch (e) {
@@ -584,7 +584,7 @@ mixin DriveSheetMixin {
 
           final rows = <List<Object>>[];
           if (t is Map) {
-            for (var entry in (t as Map).entries) {
+            for (var entry in (t).entries) {
               rows.add([entry.key.toString(), jsonEncode(entry.value)]);
             }
           } else {
@@ -941,7 +941,9 @@ mixin DriveSheetMixin {
       // 4. Build union of headers from mainRecords only
       final unionHeaders = Set<String>.from(headers);
       for (var r in mainRecords) {
-        for (var k in r.keys) unionHeaders.add(k.toString());
+        for (var k in r.keys) {
+          unionHeaders.add(k.toString());
+        }
       }
       // Ensure technical fields present
       unionHeaders.add('record_id');
@@ -1127,7 +1129,7 @@ mixin DriveSheetMixin {
                   sheetId: gid,
                   dimension: 'ROWS',
                   startIndex: rowIndex as int,
-                  endIndex: (rowIndex as int) + 1,
+                  endIndex: (rowIndex) + 1,
                 ),
               ),
             ),
@@ -1136,7 +1138,7 @@ mixin DriveSheetMixin {
         spreadsheetId,
       ));
 
-      debugPrint('Deleted record $recordId from $sheetTitle at row ${(rowIndex as int) + 1}');
+      debugPrint('Deleted record $recordId from $sheetTitle at row ${(rowIndex) + 1}');
 
       // 5. Delete associated sub-table records (optional but good for cleanliness)
       final subTableSheets = spreadsheet.sheets
@@ -1844,11 +1846,11 @@ mixin DriveSheetMixin {
           finalRecords = await _fetchSheetData(spreadsheetId, sheetTitle, offset: offset, limit: limit);
 
           if (isSearch) {
-            finalRecords = finalRecords.where((item) => item.values.any((val) => val.toString().toLowerCase().contains(searchQuery!.toLowerCase()))).toList();
+            finalRecords = finalRecords.where((item) => item.values.any((val) => val.toString().toLowerCase().contains(searchQuery.toLowerCase()))).toList();
           }
 
           if (hasQuickFilter) {
-            final field = quickFilter!['field'] as String;
+            final field = quickFilter['field'] as String;
             final op = quickFilter['operator'] as String;
             final filterValue = quickFilter['value']?.toString().toLowerCase() ?? '';
 

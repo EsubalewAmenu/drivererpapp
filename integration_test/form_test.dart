@@ -5,29 +5,21 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
-import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
-import 'package:drivererpapp/screens/dynamic_form_screen.dart';
 import 'package:drivererpapp/screens/module_screen.dart';
-import 'package:drivererpapp/theme/app_theme.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'helpers/test_helpers.dart';
-
-class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late MockAuthService mockAuthService;
   late MockDriveService mockDriveService;
-  late MockGoogleSignInAccount mockAccount;
 
   setUpAll(() {
     initTestEnvironment();
@@ -37,7 +29,6 @@ void main() {
     final mocks = createTestMocks();
     mockAuthService = mocks.auth;
     mockDriveService = mocks.drive;
-    mockAccount = MockGoogleSignInAccount();
     registerFallbackValue(Uri.parse('http://localhost'));
   });
 

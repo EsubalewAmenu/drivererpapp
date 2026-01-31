@@ -10,8 +10,6 @@ import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
-import 'package:drivererpapp/models/company_model.dart';
-import 'package:drivererpapp/models/schema_models.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -93,7 +91,6 @@ void main() {
     when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
     when(() => mockSpreadsheets.values).thenReturn(mockValues);
     when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
-    final moduleFile = drive.File()..id = 'mod1'..name = 'Inventory';
     await workspaceProvider.saveUserAccessSpreadsheetId('ua_ws1');
     final header = ['id', 'module_name', 'dashboard', 'settings', 'tabs'];
     final rows = [ ['mod1', 'Inventory', 'dash_1', 'config_id', 'tabs_1'] ];

@@ -27,7 +27,7 @@ class CardPreviewWidget extends StatelessWidget {
         decoration: BoxDecoration(
           color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.withOpacity(0.1)),
+          border: Border.all(color: Colors.grey.withValues(alpha: 0.1)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,7 +81,7 @@ class CardPreviewWidget extends StatelessWidget {
                 color: primaryColor,
                 barWidth: 2,
                 dotData: FlDotData(show: false),
-                belowBarData: BarAreaData(show: true, color: primaryColor.withOpacity(0.1)),
+                belowBarData: BarAreaData(show: true, color: primaryColor.withValues(alpha: 0.1)),
               ),
             ],
           ),
@@ -108,8 +108,8 @@ class CardPreviewWidget extends StatelessWidget {
             centerSpaceRadius: 15,
             sections: [
               PieChartSectionData(value: 35, color: primaryColor, radius: 15, showTitle: false),
-              PieChartSectionData(value: 40, color: primaryColor.withOpacity(0.7), radius: 15, showTitle: false),
-              PieChartSectionData(value: 25, color: primaryColor.withOpacity(0.4), radius: 15, showTitle: false),
+              PieChartSectionData(value: 40, color: primaryColor.withValues(alpha: 0.7), radius: 15, showTitle: false),
+              PieChartSectionData(value: 25, color: primaryColor.withValues(alpha: 0.4), radius: 15, showTitle: false),
             ],
           ),
         );
@@ -147,7 +147,7 @@ class CardPreviewWidget extends StatelessWidget {
                  const SizedBox(width: 8),
                  Expanded(child: Container(height: 4, color: Colors.grey[200])),
                  const SizedBox(width: 8),
-                 Container(width: 10, height: 4, color: primaryColor.withOpacity(0.5)),
+                 Container(width: 10, height: 4, color: primaryColor.withValues(alpha: 0.5)),
                ],
              ),
            )),

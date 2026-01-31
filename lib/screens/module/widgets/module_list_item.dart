@@ -26,7 +26,7 @@ class ModuleListItem extends StatelessWidget {
   }
 
   dynamic _getValueFromLogic(Map<String, dynamic> data, ConditionalLogic? logic) {
-    if (logic == null || logic.conditionKey == null) return null;
+    if (logic == null) return null;
 
     final conditionValue = data[logic.conditionKey];
     bool isTruthy = false;
@@ -45,7 +45,7 @@ class ModuleListItem extends StatelessWidget {
     }
 
     final key = isTruthy ? logic.truthyKey : logic.falsyKey;
-    return (key != null && data.containsKey(key)) ? data[key] : null;
+    return (data.containsKey(key)) ? data[key] : null;
   }
 
   String _resolveTitle(Map<String, dynamic> item, ListTemplateConfig? config, TabConfig tab) {

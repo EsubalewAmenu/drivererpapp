@@ -1,11 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
-import '../services/schema_service.dart';
-import '../services/drive_service.dart';
 import '../providers/workspace_provider.dart';
 import '../providers/drive_provider.dart';
 import 'dashboard_screen.dart';
@@ -489,12 +486,12 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         }
 
       // Create the module folder in Drive
-      final _createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
+      final createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
       dynamic createdModule;
-      if (_createdModuleRes is Future) {
-        createdModule = await _createdModuleRes;
+      if (createdModuleRes is Future) {
+        createdModule = await createdModuleRes;
       } else {
-        createdModule = _createdModuleRes;
+        createdModule = createdModuleRes;
       }
       if (createdModule == null || createdModule.id == null) {
         throw Exception('Failed to create module folder');
@@ -526,12 +523,12 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
             }
             // After seeding, capture the created spreadsheet id and attach to the tab
             try {
-              final _existingIdRes = (driveService as dynamic).getFileId(moduleFolderId, tabId);
+              final existingIdRes = (driveService as dynamic).getFileId(moduleFolderId, tabId);
               dynamic existingId;
-              if (_existingIdRes is Future) {
-                existingId = await _existingIdRes;
+              if (existingIdRes is Future) {
+                existingId = await existingIdRes;
               } else {
-                existingId = _existingIdRes;
+                existingId = existingIdRes;
               }
               if (existingId != null) {
                 tab['fileId'] = existingId;
@@ -546,23 +543,20 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
       // Create config folder and default config file now (so module has config immediately)
       try {
         if (_moduleJson != null) {
-          final _configFolderRes = (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
+          final configFolderRes = (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
           dynamic configFolderId;
-          if (_configFolderRes is Future) {
-            configFolderId = await _configFolderRes;
+          if (configFolderRes is Future) {
+            configFolderId = await configFolderRes;
           } else {
-            configFolderId = _configFolderRes;
+            configFolderId = configFolderRes;
           }
           final userEmail = capturedUserEmail;
-          final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}' : 'config';
-          String? createdSettingsId;
+          final configFileName = userEmail != null && userEmail.isNotEmpty ? userEmail : 'config';
           try {
             if (configFolderId != null) {
-              final _createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
-              if (_createCfgRes is Future) {
-                createdSettingsId = await _createCfgRes as String?;
-              } else {
-                createdSettingsId = _createCfgRes as String?;
+              final createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
+              if (createCfgRes is Future) {
+                await createCfgRes;
               }
             } else {
               debugPrint('Config folder not created; skipping default config creation');
@@ -577,16 +571,16 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
 
       // Register the module in the company registry under 'modules' sheet.
       try {
-        final _rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
+        final rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
         dynamic rootFolderId;
-        if (_rootRes is Future) {
-          rootFolderId = await _rootRes;
+        if (rootRes is Future) {
+          rootFolderId = await rootRes;
         } else {
-          rootFolderId = _rootRes;
+          rootFolderId = rootRes;
         }
         if (rootFolderId != null) {
-          final _regRes = (driveService as dynamic).registerModule(rootFolderId, workspaceId, moduleName, moduleFolderId);
-          if (_regRes is Future) await _regRes;
+          final regRes = (driveService as dynamic).registerModule(rootFolderId, workspaceId, moduleName, moduleFolderId);
+          if (regRes is Future) await regRes;
 
           // Also ensure user's access spreadsheet is updated with this module info
           try {

@@ -171,7 +171,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     }
 
     final resultKey = isTruthy ? logic.truthyKey : logic.falsyKey;
-    return (resultKey != null && _currentData.containsKey(resultKey)) ? _currentData[resultKey]?.toString() ?? '' : '';
+    return (_currentData.containsKey(resultKey)) ? _currentData[resultKey]?.toString() ?? '' : '';
   }
 
   @override
@@ -241,7 +241,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   }
 
   Widget _buildModernHeader(BuildContext context) {
-    final theme = Theme.of(context);
     
     final headerTitle = _resolveTitle();
     final headerSubtitle = _resolveSubtitle();
@@ -472,8 +471,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             }
           } else {
             bool isTruthy = false;
-            if (dependentValue is bool) isTruthy = dependentValue;
-            else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
+            if (dependentValue is bool) {
+              isTruthy = dependentValue;
+            } else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
             else if (dependentValue is List) isTruthy = dependentValue.isNotEmpty;
             else isTruthy = dependentValue != null;
 
@@ -491,8 +491,9 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             }
           } else {
             bool isTruthy = false;
-            if (dependentValue is bool) isTruthy = dependentValue;
-            else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
+            if (dependentValue is bool) {
+              isTruthy = dependentValue;
+            } else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
             else if (dependentValue is List) isTruthy = dependentValue.isNotEmpty;
             else isTruthy = dependentValue != null;
 
@@ -569,8 +570,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                   color: theme.cardTheme.color,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Row(
-                  children: const [
+                child: const Row(
+                  children: [
                     SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
                     SizedBox(width: 12),
                   ],
@@ -643,7 +644,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             // filter rows by 'parent_record_id' (or common variants). This
             // keeps the request scoped to the child sheet instead of pulling
             // the entire main sheet with embedded sub-tables.
-            final childTabId = '${widget.tab.id}.' + fieldKey;
+            final childTabId = '${widget.tab.id}.$fieldKey';
             final fileId = widget.tab.fileId;
 
             Future<List<Map<String, dynamic>>> fetchTask;
@@ -674,8 +675,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                 }).toList();
 
                 final normalized = matchedRows.map((e) {
-                  if (e is Map) return Map<String, dynamic>.from(e);
-                  return {'value': e?.toString() ?? ''};
+                  return Map<String, dynamic>.from(e);
+                  return {'value': e.toString() ?? ''};
                 }).toList();
                 if (mounted) {
                   setState(() {
@@ -702,10 +703,10 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
                       final matched = recs.firstWhere((r) => r['record_id']?.toString() == recordIdStr || r['id']?.toString() == recordIdStr, orElse: () => {});
                       if (matched.isNotEmpty) {
                         dynamic fetched = matched[fieldKey];
-                        if (fetched == null) fetched = matched['${widget.tab.id}.' + fieldKey];
+                        fetched ??= matched['${widget.tab.id}.$fieldKey'];
                         if (fetched == null) {
                           for (var k in matched.keys) {
-                            if (k is String && k.endsWith('.' + fieldKey)) {
+                            if (k.endsWith('.$fieldKey')) {
                               fetched = matched[k];
                               break;
                             }

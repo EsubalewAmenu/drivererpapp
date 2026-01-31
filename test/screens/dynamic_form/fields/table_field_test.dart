@@ -24,7 +24,7 @@ void main() {
         home: Scaffold(
           body: DynamicTableField(
             column: column,
-            value: [
+            value: const [
               {'item_name': 'Existing Item', 'qty': '1'}
             ],
             primaryColor: Colors.blue,
@@ -78,7 +78,7 @@ void main() {
         home: Scaffold(
           body: DynamicTableField(
             column: column,
-            value: [
+            value: const [
               {'item_name': 'Item 1'},
               {'item_name': 'Item 2'},
             ],

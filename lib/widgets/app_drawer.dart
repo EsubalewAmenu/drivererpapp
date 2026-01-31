@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../models/company_model.dart';
 import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../providers/workspace_provider.dart';

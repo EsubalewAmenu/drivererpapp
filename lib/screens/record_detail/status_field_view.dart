@@ -42,9 +42,9 @@ class StatusFieldView extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: statusColor.withOpacity(0.2),
+            color: statusColor.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: statusColor.withOpacity(0.5)),
+            border: Border.all(color: statusColor.withValues(alpha: 0.5)),
           ),
           child: Text(
             value.toUpperCase(),

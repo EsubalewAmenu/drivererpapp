@@ -93,7 +93,6 @@ void main() {
     // Debug: print all text
     for (final element in find.byType(Text).evaluate()) {
       final textWidget = element.widget as Text;
-      print('Text on screen: "${textWidget.data}"');
     }
 
     expect(find.textContaining('System Error'), findsOneWidget);
@@ -112,7 +111,6 @@ void main() {
     // Debug: print all text
     for (final element in find.byType(Text).evaluate()) {
       final textWidget = element.widget as Text;
-      print('Text on screen (post-retry): "${textWidget.data}"');
     }
 
     expect(find.text('SELECT WORKSPACE'), findsOneWidget);

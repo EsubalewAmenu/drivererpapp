@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,8 +17,6 @@ class _FakeBundle extends AssetBundle {
 
 void main() {
   testWidgets('ModuleDetailsScreen shows features for Inventory and handles missing HR asset', (tester) async {
-    final infoInv = {'id': 'inv', 'name': 'Inventory', 'color': '#2196F3', 'desc': 'Desc', 'icon': 'help'};
-
     // HR with missing asset should show error message
     final infoHr = {'id': 'hr', 'name': 'HR', 'color': '#2196F3', 'desc': 'Desc', 'icon': 'help'};
     await tester.pumpWidget(MaterialApp(home: DefaultAssetBundle(bundle: _FakeBundle({}), child: ModuleDetailsScreen(moduleInfo: infoHr))));

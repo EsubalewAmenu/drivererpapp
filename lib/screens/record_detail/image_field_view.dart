@@ -42,7 +42,7 @@ class ImageFieldView extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.cardTheme.color,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: borderColor.withOpacity(0.2)),
+            border: Border.all(color: borderColor.withValues(alpha: 0.2)),
           ),
           clipBehavior: Clip.antiAlias,
           child: url.isNotEmpty

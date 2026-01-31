@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
@@ -35,7 +34,6 @@ class ModuleScreen extends StatefulWidget {
 class _ModuleScreenState extends State<ModuleScreen> {
   ModuleSchema? _fullModule;
   ModuleSchema? _baseModule;
-  bool _isLoadingSchema = false;
   String? _errorMessage;
 
   // Track spreadsheet IDs for the host module and any enabling extensions
@@ -218,7 +216,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
       final driveProvider = Provider.of<DriveProvider>(context, listen: false);
       final driveService = driveProvider.driveService;
-      final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
       final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
 
       List<List<dynamic>> uaRows = [];
@@ -331,7 +328,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
           });
           debugPrint('Enabled module entry -> id:$modId name:$name icon:$icon primaryColor:$primaryColor activated:$activated');
         } catch (e) {
-          debugPrint('Error loading enabled module entry "${rawKey}": $e');
+          debugPrint('Error loading enabled module entry "$rawKey": $e');
           continue;
         }
       }
@@ -344,12 +341,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
   String _normalizeKey(String value) => value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
   // Icons are resolved via `iconFromName` in `lib/utils/icon_lookup.dart`.
-
-  String _colorToHex(Color c) {
-    // Return #RRGGBB (drop alpha)
-    final hex = c.value.toRadixString(16).padLeft(8, '0');
-    return '#${hex.substring(2)}';
-  }
 
   Future<void> _loadSchema() async {
     debugPrint('ModuleScreen: Starting _loadSchema for ${widget.module.id}');
@@ -665,17 +656,15 @@ class _ModuleScreenState extends State<ModuleScreen> {
             // If not cached yet, sync directly from Drive using the known sheet IDs.
             if (otherJson == null) {
               final schemaService = Provider.of<SchemaProvider>(context, listen: false).service;
-              if (schemaService != null) {
-                try {
-                  otherJson = await schemaService.syncConfig(
-                    resolvedOtherId,
-                    settingsId: _settingsSheetIds[resolvedOtherId],
-                    dashboardId: _dashboardSheetIds[resolvedOtherId],
-                    tabsId: _tabsSheetIds[resolvedOtherId],
-                  );
-                } catch (_) {}
-              }
-            }
+              try {
+                otherJson = await schemaService.syncConfig(
+                  resolvedOtherId,
+                  settingsId: _settingsSheetIds[resolvedOtherId],
+                  dashboardId: _dashboardSheetIds[resolvedOtherId],
+                  tabsId: _tabsSheetIds[resolvedOtherId],
+                );
+              } catch (_) {}
+                        }
             // No asset fallback here; extensions that are active MUST have a config in cache or drive.
           }
 
@@ -778,7 +767,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
       if (mounted) {
         setState(() {
           _fullModule = mergedModuleResult;
-          _isLoadingSchema = false;
         });
       }
 
@@ -800,7 +788,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
       if (mounted) {
         setState(() {
           _errorMessage = "Error parsing blueprint: $e";
-          _isLoadingSchema = false;
         });
       }
     }
@@ -916,19 +903,27 @@ class _ModuleScreenState extends State<ModuleScreen> {
                     // the cache so data fetches use the external module's folder.
                     ModuleSchema sourceModule = module;
                     try {
-                      final parts = t.id.split('_');
-                      if (parts.length > 1) {
-                        final prefix = parts[0];
-                        final candidate = Provider.of<SchemaProvider>(context, listen: false).getFromMemory(prefix);
-                        if (candidate != null) {
-                          sourceModule = candidate;
+                      final provider = Provider.of<SchemaProvider>(context, listen: false);
+                      final resolvedSourceId = _tabSourceModuleIds[t.id];
+                      if (resolvedSourceId != null) {
+                        sourceModule = provider.getFromMemory(resolvedSourceId) ?? sourceModule;
+                      }
+
+                      if (sourceModule == module) {
+                        final parts = t.id.split('_');
+                        if (parts.length > 1) {
+                          final prefix = parts[0];
+                          final candidate = provider.getFromMemory(prefix);
+                          if (candidate != null) {
+                            sourceModule = candidate;
+                          }
                         }
                       }
 
                       // If still unresolved (common when tab id is just 'tickets'),
                       // search cached modules to find one that contains this tab id.
                       if (sourceModule == module) {
-                        final byTab = Provider.of<SchemaProvider>(context, listen: false).findModuleByTabId(t.id);
+                        final byTab = provider.findModuleByTabId(t.id);
                         if (byTab != null) sourceModule = byTab;
                       }
                     } catch (_) {}

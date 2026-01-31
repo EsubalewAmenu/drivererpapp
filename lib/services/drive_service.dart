@@ -8,6 +8,7 @@ import 'drive/drive_sheet_mixin.dart';
 import 'drive/drive_company_mixin.dart';
 
 class DriveService with DriveFolderMixin, DriveFileMixin, DriveSheetMixin, DriveCompanyMixin {
+  @override
   final http.Client authClient;
   @override
   late drive.DriveApi driveApi;
