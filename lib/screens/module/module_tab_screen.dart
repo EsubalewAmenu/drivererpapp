@@ -137,7 +137,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   void didUpdateWidget(ModuleTabScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     // If the tab config or module schema changed, we might need to update state
-    if (oldWidget.tab != widget.tab || oldWidget.module != widget.module) {
+    final tabChanged = oldWidget.tab.id != widget.tab.id;
+    final moduleChanged = oldWidget.module?.id != widget.module?.id;
+    if (tabChanged || moduleChanged) {
       debugPrint('Tab or Module schema updated for ${widget.tab.id}, updating sync state...');
       
       setState(() {
@@ -151,8 +153,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         }
       });
       
-      // If critical fields changed, reload data
-      if (oldWidget.tab.id != widget.tab.id) {
+      // If tab or module changed, reload data
+      if (tabChanged || moduleChanged) {
         _loadData(refresh: true);
       } else {
         _applyFilters();
