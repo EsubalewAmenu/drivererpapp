@@ -194,6 +194,11 @@ void main() {
     // Now open the module from Dashboard to see the tabs
     final inventoryCard = find.text('Inventory');
     expect(inventoryCard, findsAtLeast(1));
+    await tester.dragUntilVisible(
+      inventoryCard.first,
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
     await tester.tap(inventoryCard.first);
     await tester.pumpAndSettle();
 
