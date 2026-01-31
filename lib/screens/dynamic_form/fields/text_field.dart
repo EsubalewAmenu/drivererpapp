@@ -69,7 +69,8 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
     final isEmail = widget.column.type == 'email';
     final isPhone = widget.column.type == 'phone';
     final isCurrency = widget.column.type == 'currency';
-    final maxLines = widget.column.type == 'longtext' ? 4 : 1;
+    final isLongText = widget.column.type == 'long_text' || widget.column.type == 'longtext';
+    final maxLines = isLongText ? 4 : 1;
 
     final textColor = theme.textTheme.bodyMedium?.color ?? AppTheme.textColor;
     final hintColor = theme.disabledColor;
