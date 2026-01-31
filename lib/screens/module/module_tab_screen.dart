@@ -43,19 +43,22 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   
   String _effectiveTabId() {
     final tabId = widget.tab.id;
-    final modId = widget.module?.id;
-    if (modId != null && tabId.startsWith('${modId}_')) {
-      return tabId.substring(modId.length + 1);
-    }
-    // Handle cases where id was generated as `name_name` (e.g. deals_deals)
     if (tabId.contains('_')) {
       final parts = tabId.split('_');
-      // If all parts are identical (eg. ['deals','deals']) return single name
-      final allSame = parts.every((p) => p == parts[0]);
-      if (allSame) return parts.last;
+      if (parts.length > 1) {
+        final provider = context.read<SchemaProvider>();
+        final possibleModuleId = parts.first;
+        final candidateModule = provider.getFromMemory(possibleModuleId);
+        if (candidateModule != null) {
+          final remainder = parts.sublist(1).join('_');
+          final hasTab = candidateModule.tabs.any((t) => t.id == remainder);
+          if (hasTab && remainder.isNotEmpty) {
+            return remainder;
+          }
+        }
+      }
     }
-
-    return tabId;
+    return widget.tab.id;
   }
 
   String _sourceModuleId() {
@@ -65,7 +68,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       if (parts.isNotEmpty) {
         final possibleMod = parts[0];
         final provider = context.read<SchemaProvider>();
-        final mod = provider.findModuleByIdOrName(possibleMod);
+        final mod = provider.getFromMemory(possibleMod) ?? provider.findModuleByIdOrName(possibleMod);
         if (mod != null) {
           // Return the authoritative module id from cache when available.
           return mod.id;
