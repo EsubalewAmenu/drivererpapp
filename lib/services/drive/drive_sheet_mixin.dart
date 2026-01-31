@@ -165,66 +165,88 @@ mixin DriveSheetMixin {
       final dashboardTitle = '${fileName}_dashboard';
       final tabsTitle = '${fileName}_tabs';
 
-      // Settings spreadsheet with a 'settings' and 'meta' sheet
-      final settingsSpreadsheet = sheets.Spreadsheet(
-        properties: sheets.SpreadsheetProperties(title: settingsTitle),
-        sheets: [
-          sheets.Sheet(properties: sheets.SheetProperties(title: 'settings')),
-          sheets.Sheet(properties: sheets.SheetProperties(title: 'meta')),
-        ],
-      );
-      final createdSettings = await retryOp(() => sheetsApi.spreadsheets.create(settingsSpreadsheet));
-      final settingsId = createdSettings.spreadsheetId!;
+      // 1. Settings spreadsheet directly in target folder
+      final settingsFile = drive.File()
+        ..name = settingsTitle
+        ..mimeType = 'application/vnd.google-apps.spreadsheet'
+        ..parents = [folderId];
+      final createdSettings = await retryOp(() => driveApi.files.create(settingsFile, supportsAllDrives: true));
+      final settingsId = createdSettings.id!;
 
-      // Dashboard spreadsheet with a 'cards' sheet
-      final dashboardSpreadsheet = sheets.Spreadsheet(
-        properties: sheets.SpreadsheetProperties(title: dashboardTitle),
-        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'cards'))],
-      );
-      final createdDashboard = await retryOp(() => sheetsApi.spreadsheets.create(dashboardSpreadsheet));
-      final dashboardId = createdDashboard.spreadsheetId!;
+      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
+        sheets.BatchUpdateSpreadsheetRequest(
+          requests: [
+            sheets.Request(updateSheetProperties: sheets.UpdateSheetPropertiesRequest(
+              properties: sheets.SheetProperties(sheetId: 0, title: 'settings'),
+              fields: 'title',
+            )),
+            sheets.Request(addSheet: sheets.AddSheetRequest(properties: sheets.SheetProperties(title: 'meta'))),
+          ],
+        ),
+        settingsId,
+      ));
 
-      // Tabs spreadsheet: include sheets for each tab during creation to avoid 'Sheet1'
+      // 2. Dashboard spreadsheet directly in target folder
+      final dashboardFile = drive.File()
+        ..name = dashboardTitle
+        ..mimeType = 'application/vnd.google-apps.spreadsheet'
+        ..parents = [folderId];
+      final createdDashboard = await retryOp(() => driveApi.files.create(dashboardFile, supportsAllDrives: true));
+      final dashboardId = createdDashboard.id!;
+
+      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
+        sheets.BatchUpdateSpreadsheetRequest(
+          requests: [
+            sheets.Request(updateSheetProperties: sheets.UpdateSheetPropertiesRequest(
+              properties: sheets.SheetProperties(sheetId: 0, title: 'cards'),
+              fields: 'title',
+            )),
+          ],
+        ),
+        dashboardId,
+      ));
+
+      // 3. Tabs spreadsheet directly in target folder
+      final tabsFile = drive.File()
+        ..name = tabsTitle
+        ..mimeType = 'application/vnd.google-apps.spreadsheet'
+        ..parents = [folderId];
+      final createdTabs = await retryOp(() => driveApi.files.create(tabsFile, supportsAllDrives: true));
+      final tabsId = createdTabs.id!;
+
       final tabsList = (config['tabs'] as List? ?? []).cast<dynamic>();
-      final List<sheets.Sheet> initialTabsSheets = [];
-      for (var t in tabsList) {
-        final tid = (t is Map && t['id'] != null) ? t['id'].toString() : null;
-        if (tid != null) {
-          initialTabsSheets.add(sheets.Sheet(properties: sheets.SheetProperties(title: tid)));
+      final List<sheets.Request> tabRequests = [];
+      
+      if (tabsList.isNotEmpty) {
+        // Rename default Sheet1
+        final tid0 = (tabsList[0] is Map && tabsList[0]['id'] != null) ? tabsList[0]['id'].toString() : 'Sheet1';
+        tabRequests.add(sheets.Request(updateSheetProperties: sheets.UpdateSheetPropertiesRequest(
+          properties: sheets.SheetProperties(sheetId: 0, title: tid0),
+          fields: 'title',
+        )));
+        
+        // Add other tabs
+        for (var i = 1; i < tabsList.length; i++) {
+          final tid = (tabsList[i] is Map && tabsList[i]['id'] != null) ? tabsList[i]['id'].toString() : null;
+          if (tid != null) {
+            tabRequests.add(sheets.Request(addSheet: sheets.AddSheetRequest(properties: sheets.SheetProperties(title: tid))));
+          }
         }
+      } else {
+        tabRequests.add(sheets.Request(updateSheetProperties: sheets.UpdateSheetPropertiesRequest(
+          properties: sheets.SheetProperties(sheetId: 0, title: 'meta'),
+          fields: 'title',
+        )));
       }
 
-      final tabsSpreadsheet = sheets.Spreadsheet(
-        properties: sheets.SpreadsheetProperties(title: tabsTitle),
-        sheets: initialTabsSheets.isNotEmpty
-            ? initialTabsSheets
-            : [sheets.Sheet(properties: sheets.SheetProperties(title: 'meta'))],
-      );
-      final createdTabs = await retryOp(() => sheetsApi.spreadsheets.create(tabsSpreadsheet));
-      final tabsId = createdTabs.spreadsheetId!;
+      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
+        sheets.BatchUpdateSpreadsheetRequest(requests: tabRequests),
+        tabsId,
+      ));
 
       debugPrint('Created settings: $settingsTitle ($settingsId)');
       debugPrint('Created dashboard: $dashboardTitle ($dashboardId)');
       debugPrint('Created tabs: $tabsTitle ($tabsId)');
-
-      // Move all files into the target folder
-      Future<void> moveToFolder(String fid) async {
-        try {
-          final file = await retryOp(() => driveApi.files.get(fid, $fields: 'parents', supportsAllDrives: true)) as drive.File;
-          final previousParents = file.parents?.join(',') ?? '';
-          if (previousParents.isNotEmpty) {
-            await retryOp(() => driveApi.files.update(drive.File(), fid, addParents: folderId, removeParents: previousParents, $fields: 'id, parents'));
-          } else {
-            await retryOp(() => driveApi.files.update(drive.File(), fid, addParents: folderId, $fields: 'id, parents'));
-          }
-        } catch (e) {
-          debugPrint('Moving $fid to folder failed: $e');
-        }
-      }
-
-      await moveToFolder(settingsId);
-      await moveToFolder(dashboardId);
-      await moveToFolder(tabsId);
 
       // Store references to dashboard and tabs in settings.meta sheet for later lookup
       final metaMap = {'dashboard_id': dashboardId, 'tabs_id': tabsId};
@@ -607,21 +629,30 @@ mixin DriveSheetMixin {
 
   Future<String> createSpreadsheetInFolder(String folderId, String title) async {
     try {
-      final spreadsheet = sheets.Spreadsheet(
-        properties: sheets.SpreadsheetProperties(title: title),
-        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: title))],
-      );
-      final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
-      final spreadsheetId = created.spreadsheetId!;
+      final driveFile = drive.File()
+        ..name = title
+        ..mimeType = 'application/vnd.google-apps.spreadsheet'
+        ..parents = [folderId];
 
-      // Move to folder
-      final file = await retryOp(() => driveApi.files.get(spreadsheetId, $fields: 'parents', supportsAllDrives: true)) as drive.File;
-      final previousParents = file.parents?.join(',') ?? '';
-      if (previousParents.isNotEmpty) {
-        await retryOp(() => driveApi.files.update(drive.File(), spreadsheetId, addParents: folderId, removeParents: previousParents, $fields: 'id, parents'));
-      } else {
-        await retryOp(() => driveApi.files.update(drive.File(), spreadsheetId, addParents: folderId, $fields: 'id, parents'));
-      }
+      final created = await retryOp(() => driveApi.files.create(driveFile, supportsAllDrives: true));
+      final spreadsheetId = created.id!;
+      debugPrint('Created spreadsheet $title directly in folder: $spreadsheetId');
+
+      // Initialize renaming Sheet1 to the title
+      final batchReq = sheets.BatchUpdateSpreadsheetRequest(
+        requests: [
+          sheets.Request(
+            updateSheetProperties: sheets.UpdateSheetPropertiesRequest(
+              properties: sheets.SheetProperties(
+                sheetId: 0,
+                title: title,
+              ),
+              fields: 'title',
+            ),
+          ),
+        ],
+      );
+      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(batchReq, spreadsheetId));
       
       return spreadsheetId;
     } catch (e) {

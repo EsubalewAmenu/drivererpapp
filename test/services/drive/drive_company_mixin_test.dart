@@ -64,22 +64,22 @@ void main() {
 
       // Wire up nested resources on the actual mock instances
       when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
-      when(() => mockSpreadsheets.create(any())).thenAnswer((_) async => sheets.Spreadsheet()..spreadsheetId = 'fake_sheet_id');
       when(() => mockSpreadsheets.values).thenReturn(mockValues);
-      when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'))).thenAnswer((_) async => sheets.UpdateValuesResponse());
+      when(() => mockValues.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateValuesResponse());
+      when(() => mockSpreadsheets.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
 
       when(() => mockDriveApi.files).thenReturn(mockFiles);
       when(() => mockDriveApi.permissions).thenReturn(mockPermissions);
-      when(() => mockFiles.get(any(), $fields: any(named: r'$fields'), supportsAllDrives: any(named: 'supportsAllDrives'))).thenAnswer((_) async => drive.File()..parents = []);
-      when(() => mockFiles.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: r'$fields'))).thenAnswer((_) async => drive.File()..id = 'moved');
+      when(() => mockFiles.create(any(), supportsAllDrives: any(named: 'supportsAllDrives'))).thenAnswer((_) async => drive.File()..id = 'fake_sheet_id');
 
       final t = DummyDriveCompany(mockDriveApi, mockSheetsApi);
 
       final id = await t.ensureCompanyRegistry('root123');
 
       expect(id, equals('fake_sheet_id'));
-      verify(() => mockSpreadsheets.create(any())).called(1);
-      verify(() => mockValues.update(any(), 'fake_sheet_id', 'companies!A1', valueInputOption: 'RAW')).called(1);
+      verify(() => mockFiles.create(any(), supportsAllDrives: true)).called(1);
+      verify(() => mockSpreadsheets.batchUpdate(any(), 'fake_sheet_id')).called(1);
+      verify(() => mockValues.batchUpdate(any(), 'fake_sheet_id')).called(1);
     });
 
     test('ensureUserAccessSpreadsheet creates spreadsheet when missing and initializes headers', () async {
@@ -92,14 +92,12 @@ void main() {
       final mockPermissions = MockPermissionsResource();
 
       when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
-      when(() => mockSpreadsheets.create(any())).thenAnswer((_) async => sheets.Spreadsheet()..spreadsheetId = 'ua_new_id');
       when(() => mockSpreadsheets.values).thenReturn(mockValues);
-      when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'))).thenAnswer((_) async => sheets.UpdateValuesResponse());
+      when(() => mockSpreadsheets.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
 
       when(() => mockDriveApi.files).thenReturn(mockFiles);
       when(() => mockDriveApi.permissions).thenReturn(mockPermissions);
-      when(() => mockFiles.get(any(), $fields: any(named: r'$fields'), supportsAllDrives: any(named: 'supportsAllDrives'))).thenAnswer((_) async => drive.File()..parents = ['company_parent']);
-      when(() => mockFiles.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: r'$fields'))).thenAnswer((_) async => drive.File()..id = 'moved');
+      when(() => mockFiles.create(any(), supportsAllDrives: any(named: 'supportsAllDrives'))).thenAnswer((_) async => drive.File()..id = 'ua_new_id');
 
       when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(values: []));
 
@@ -110,7 +108,8 @@ void main() {
       final id = await t.ensureUserAccessSpreadsheet('ua_folder', 'user@example.com');
 
       expect(id, equals('ua_new_id'));
-      verify(() => mockValues.update(any(), 'ua_new_id', 'modules!A1', valueInputOption: 'RAW')).called(1);
+      verify(() => mockFiles.create(any(), supportsAllDrives: true)).called(1);
+      verify(() => mockSpreadsheets.batchUpdate(any(), 'ua_new_id')).called(1);
       verify(() => mockValues.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'), insertDataOption: any(named: 'insertDataOption'))).called(1);
     });
   });

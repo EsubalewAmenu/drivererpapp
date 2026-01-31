@@ -24,60 +24,59 @@ mixin DriveCompanyMixin {
       
       if (fileId != null) return fileId;
 
-      // 2. Create if not exists
-      final spreadsheet = sheets.Spreadsheet(
-        properties: sheets.SpreadsheetProperties(title: _registryFileName),
-        sheets: [
-          sheets.Sheet(
-            properties: sheets.SheetProperties(
-              title: 'companies',
-              gridProperties: sheets.GridProperties(frozenRowCount: 1)
+      // 2. Create spreadsheet directly in the root folder to save moves/API requests
+      final driveFile = drive.File()
+        ..name = _registryFileName
+        ..mimeType = 'application/vnd.google-apps.spreadsheet'
+        ..parents = [rootFolderId];
+
+      final created = await retryOp(() => driveApi.files.create(driveFile, supportsAllDrives: true));
+      fileId = created.id!;
+      debugPrint('Created companies registry directly in folder: $fileId');
+
+      // 3. Initialize sheets and headers in ONE batchUpdate where possible, 
+      // though values append is still safe for headers.
+      final batchReq = sheets.BatchUpdateSpreadsheetRequest(
+        requests: [
+          // Rename default sheet (0) to 'companies'
+          sheets.Request(
+            updateSheetProperties: sheets.UpdateSheetPropertiesRequest(
+              properties: sheets.SheetProperties(
+                sheetId: 0,
+                title: 'companies',
+                gridProperties: sheets.GridProperties(frozenRowCount: 1),
+              ),
+              fields: 'title,gridProperties.frozenRowCount',
             ),
           ),
-          sheets.Sheet(
-            properties: sheets.SheetProperties(
-              title: 'user_access',
-              gridProperties: sheets.GridProperties(frozenRowCount: 1)
+          // Add 'user_access' sheet
+          sheets.Request(
+            addSheet: sheets.AddSheetRequest(
+              properties: sheets.SheetProperties(
+                title: 'user_access',
+                gridProperties: sheets.GridProperties(frozenRowCount: 1),
+              ),
             ),
           ),
         ],
       );
-
-      final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
-      fileId = created.spreadsheetId!;
-
-      // 3. Move to root folder
-      final file = await driveApi.files.get(fileId, $fields: 'parents', supportsAllDrives: true) as drive.File;
-      final previousParents = file.parents?.join(',') ?? '';
-      
-      await driveApi.files.update(
-        drive.File(), 
-        fileId, 
-        addParents: rootFolderId, 
-        removeParents: previousParents,
-        $fields: 'id, parents',
-      );
+      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(batchReq, fileId!));
 
       // 4. Add Headers for both sheets
       final companyHeaders = ['id', 'name', 'folderId', 'logoUrl', 'role'];
       final userAccessHeaders = ['company_folder_id', 'email', 'spreadsheet_id'];
 
-      // Write headers to companies and user_access
-      await retryOp(() => sheetsApi.spreadsheets.values.update(
-        sheets.ValueRange(values: [companyHeaders]),
-        fileId!,
-        'companies!A1',
+      // Write headers to companies and user_access using batchUpdate for values
+      final valueBatchReq = sheets.BatchUpdateValuesRequest(
         valueInputOption: 'RAW',
-      ));
+        data: [
+          sheets.ValueRange(range: 'companies!A1', values: [companyHeaders]),
+          sheets.ValueRange(range: 'user_access!A1', values: [userAccessHeaders]),
+        ],
+      );
+      await retryOp(() => sheetsApi.spreadsheets.values.batchUpdate(valueBatchReq, fileId!));
 
-      await retryOp(() => sheetsApi.spreadsheets.values.update(
-        sheets.ValueRange(values: [userAccessHeaders]),
-        fileId!,
-        'user_access!A1',
-        valueInputOption: 'RAW',
-      ));
-
-      debugPrint('Created companies registry: $fileId');
+      debugPrint('Created companies registry and initialized headers: $fileId');
       return fileId;
     } catch (e) {
       debugPrint('Error ensuring company registry: $e');
@@ -356,36 +355,46 @@ mixin DriveCompanyMixin {
         return fileId;
       }
 
-      final spreadsheet = sheets.Spreadsheet(
-        properties: sheets.SpreadsheetProperties(title: userEmail),
-        sheets: [
-          sheets.Sheet(properties: sheets.SheetProperties(title: 'modules', gridProperties: sheets.GridProperties(frozenRowCount: 1)))
+      // Create spreadsheet directly in the target folder to save moves/API requests
+      final driveFile = drive.File()
+        ..name = userEmail
+        ..mimeType = 'application/vnd.google-apps.spreadsheet'
+        ..parents = [userAccessFolderId];
+
+      final created = await retryOp(() => driveApi.files.create(driveFile, supportsAllDrives: true));
+      final newId = created.id!;
+      debugPrint('Created user access spreadsheet directly in folder: $newId');
+
+      // Initialize renaming Sheet1 to modules, setting frozen row and headers in ONE batchUpdate
+      final batchReq = sheets.BatchUpdateSpreadsheetRequest(
+        requests: [
+          sheets.Request(
+            updateSheetProperties: sheets.UpdateSheetPropertiesRequest(
+              properties: sheets.SheetProperties(
+                sheetId: 0,
+                title: 'modules',
+                gridProperties: sheets.GridProperties(frozenRowCount: 1),
+              ),
+              fields: 'title,gridProperties.frozenRowCount',
+            ),
+          ),
+          sheets.Request(
+            updateCells: sheets.UpdateCellsRequest(
+              rows: [
+                sheets.RowData(
+                  values: ['id', 'module_name', 'dashboard', 'settings', 'tabs'].map((h) => sheets.CellData(
+                    userEnteredValue: sheets.ExtendedValue(stringValue: h),
+                  )).toList(),
+                ),
+              ],
+              fields: 'userEnteredValue',
+              start: sheets.GridCoordinate(sheetId: 0, rowIndex: 0, columnIndex: 0),
+            ),
+          ),
         ],
       );
-
-      final created = await retryOp(() => sheetsApi.spreadsheets.create(spreadsheet));
-      final newId = created.spreadsheetId!;
-      debugPrint('Created user access spreadsheet: $newId');
-
-      // Move into userAccessFolder
-      try {
-        final file = await driveApi.files.get(newId, $fields: 'parents', supportsAllDrives: true) as drive.File;
-        final previousParents = file.parents?.join(',') ?? '';
-        debugPrint('Moving user access spreadsheet. previousParents=$previousParents targetFolder=$userAccessFolderId');
-        if (previousParents.isNotEmpty) {
-          await driveApi.files.update(drive.File(), newId, addParents: userAccessFolderId, removeParents: previousParents, $fields: 'id, parents');
-        } else {
-          await driveApi.files.update(drive.File(), newId, addParents: userAccessFolderId, $fields: 'id, parents');
-        }
-        debugPrint('Moved user access spreadsheet $newId into folder $userAccessFolderId');
-      } catch (e) {
-        debugPrint('Error moving user access spreadsheet to folder: $e');
-      }
-
-      // Initialize headers
-      final headers = ['id', 'module_name', 'dashboard', 'settings', 'tabs'];
-      await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [headers]), newId, 'modules!A1', valueInputOption: 'RAW'));
-      debugPrint('Initialized headers for user access spreadsheet $newId');
+      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(batchReq, newId));
+      debugPrint('Initialized headers and renamed sheet for $newId');
 
       // Also register this per-user spreadsheet in the companies registry under user_access
       try {
