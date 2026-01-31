@@ -131,6 +131,12 @@ void main() {
     
     // Verify Dashboard loaded the module
     expect(find.text('Inventory'), findsOneWidget);
+    await tester.pumpAndSettle();
+    await tester.dragUntilVisible(
+      find.text('Inventory'),
+      find.byType(CustomScrollView),
+      const Offset(0, -200),
+    );
     await tester.tap(find.text('Inventory'));
     await tester.pumpAndSettle();
 
