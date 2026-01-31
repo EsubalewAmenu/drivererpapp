@@ -95,7 +95,9 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
             ? TextInputType.number 
             : (isEmail 
                 ? TextInputType.emailAddress 
-                : (isPhone ? TextInputType.phone : TextInputType.text)),
+                : (isPhone 
+                    ? TextInputType.phone 
+                    : (isLongText ? TextInputType.multiline : TextInputType.text))),
           maxLines: maxLines,
           style: AppTheme.inter(color: textColor),
           decoration: InputDecoration(
