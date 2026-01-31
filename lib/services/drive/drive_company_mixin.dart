@@ -417,7 +417,7 @@ mixin DriveCompanyMixin {
       int foundRow = -1;
       for (int i = 0; i < values.length; i++) {
         final rowVals = values[i];
-        debugPrint('Row ${i + 2}: ${rowVals}');
+        debugPrint('Row ${i + 2}: $rowVals');
         if (rowVals.isNotEmpty && rowVals[0] == moduleId) {
           foundRow = i + 2; // account for header row and 1-based indexing
           break;
@@ -529,7 +529,7 @@ mixin DriveCompanyMixin {
         await retryOp(() => sheetsApi.spreadsheets.batchUpdate(deleteReq, userAccessFileId));
       } else {
         // Fallback: clear the row's values
-        final colCount = 10;
+        const colCount = 10;
         final clearRange = 'modules!A$foundRow:${String.fromCharCode(65 + colCount - 1)}$foundRow';
         await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [List.filled(colCount, '')]), userAccessFileId, clearRange, valueInputOption: 'RAW'));
       }
@@ -638,7 +638,7 @@ mixin DriveCompanyMixin {
         await retryOp(() => sheetsApi.spreadsheets.batchUpdate(deleteReq, fileId));
       } else if (foundRow != -1) {
         // Fallback: clear the row
-        final colCount = 10;
+        const colCount = 10;
         final clearRange = 'companies!A$foundRow:${String.fromCharCode(65 + colCount - 1)}$foundRow';
         await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [List.filled(colCount, '')]), fileId, clearRange, valueInputOption: 'RAW'));
       }
@@ -663,7 +663,7 @@ mixin DriveCompanyMixin {
           if (userAccessSheetId != -1) {
             deleteRequests.add(sheets.Request(deleteDimension: sheets.DeleteDimensionRequest(range: sheets.DimensionRange(sheetId: userAccessSheetId, dimension: 'ROWS', startIndex: found - 1, endIndex: found))));
           } else {
-            final colCount = 10;
+            const colCount = 10;
             final clearRange = 'user_access!A$found:${String.fromCharCode(65 + colCount - 1)}$found';
             await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [List.filled(colCount, '')]), fileId, clearRange, valueInputOption: 'RAW'));
           }

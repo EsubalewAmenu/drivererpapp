@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../../models/schema_models.dart';
-import '../../../theme/app_theme.dart';
 
 class FilterEditorScreen extends StatefulWidget {
   final List<ColumnConfig> columns;
@@ -112,7 +111,7 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
             Text('Column', style: TextStyle(fontSize: 14, color: theme.disabledColor)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _selectedColumnKey,
+              initialValue: _selectedColumnKey,
               isExpanded: true,
               dropdownColor: theme.cardTheme.color,
               decoration: InputDecoration(
@@ -143,7 +142,7 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
             Text('Operator', style: TextStyle(fontSize: 14, color: theme.disabledColor)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _selectedOperator,
+              initialValue: _selectedOperator,
               isExpanded: true,
               dropdownColor: theme.cardTheme.color,
               decoration: InputDecoration(

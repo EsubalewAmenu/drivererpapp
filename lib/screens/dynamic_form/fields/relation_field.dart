@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import '../../../models/schema_models.dart';
 import '../../../providers/drive_provider.dart';
 import '../../../providers/schema_provider.dart';
-import '../../../providers/workspace_provider.dart';
 import '../../../theme/app_theme.dart';
 import '../conditional_utils.dart';
 
@@ -60,7 +59,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
       // Try to find module that owns the tab
       ModuleSchema? targetModule = schemaProvider.findModuleByTabId(relatedTabId) ?? schemaProvider.findModuleByIdOrName(relatedTabId);
       if (targetModule != null) {
-        final tab = targetModule.tabs.firstWhere((t) => t.id == relatedTabId, orElse: () => targetModule!.tabs.first);
+        final tab = targetModule.tabs.firstWhere((t) => t.id == relatedTabId, orElse: () => targetModule.tabs.first);
         final fileId = tab.fileId;
         List<Map<String, dynamic>> records = [];
         
@@ -125,7 +124,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
               final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
 
               // Show search dialog that queries when user types >=2 chars (limit 10)
-              Future<void> _showSearchDialog(String title, ModuleSchema? moduleHint, String tabId) async {
+              Future<void> showSearchDialog(String title, ModuleSchema? moduleHint, String tabId) async {
                 if (!mounted) return;
                 List<Map<String, dynamic>> results = [];
                 bool loading = false;
@@ -160,7 +159,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                     }
 
                     // If none and we have cached schemas, try to find another module
-                    if ((fetched.isEmpty) && schemaProvider != null) {
+                    if ((fetched.isEmpty)) {
                       try {
                         targetModule = schemaProvider.findModuleByTabId(tabId) ?? schemaProvider.findModuleByIdOrName(tabId);
                         if (targetModule != null && driveService != null) {
@@ -268,8 +267,9 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                                     itemBuilder: (context, idx) {
                                       final item = results[idx];
                                       String label = item.values.first.toString();
-                                      if (item.containsKey('item_name')) label = item['item_name']?.toString() ?? label;
-                                      else if (item.containsKey('name')) label = item['name']?.toString() ?? label;
+                                      if (item.containsKey('item_name')) {
+                                        label = item['item_name']?.toString() ?? label;
+                                      } else if (item.containsKey('name')) label = item['name']?.toString() ?? label;
                                       final recordId = item['record_id']?.toString() ?? item['id']?.toString();
                                       return ListTile(
                                         title: Text(label),
@@ -304,7 +304,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
               } catch (_) {}
 
               // Launch search dialog with the hint
-              await _showSearchDialog(relatedTabId, moduleHint, relatedTabId);
+              await showSearchDialog(relatedTabId, moduleHint, relatedTabId);
             } else {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Entity lookup configuration missing')));
             }

@@ -4,7 +4,7 @@ mixin _TabSettingsFiltersMixin on State<TabSettingsScreen> {
   Widget _buildFiltersTab(ThemeData theme) {
     // We update FAB visibility when switching to this tab
     (this as _TabSettingsScreenState)._tabController.addListener(() {
-      if (this.mounted) this.setState(() {});
+      if (mounted) setState(() {});
     });
 
     return ListView(
@@ -13,9 +13,9 @@ mixin _TabSettingsFiltersMixin on State<TabSettingsScreen> {
           title: const Text('Enable Filtering'),
           subtitle: const Text('Show filter options for this tab'),
           value: (this as _TabSettingsScreenState)._filtersEnabled,
-          activeColor: this.widget.primaryColor,
+          activeThumbColor: widget.primaryColor,
           onChanged: (val) {
-            this.setState(() => (this as _TabSettingsScreenState)._filtersEnabled = val);
+            setState(() => (this as _TabSettingsScreenState)._filtersEnabled = val);
           },
         ),
         if ((this as _TabSettingsScreenState)._filtersEnabled) ...[
@@ -40,8 +40,8 @@ mixin _TabSettingsFiltersMixin on State<TabSettingsScreen> {
             final filter = entry.value;
             return ListTile(
                 leading: CircleAvatar(
-                backgroundColor: this.widget.primaryColor.withValues(alpha: 0.1),
-                child: Icon(Icons.filter_alt_outlined, color: this.widget.primaryColor, size: 20),
+                backgroundColor: widget.primaryColor.withValues(alpha: 0.1),
+                child: Icon(Icons.filter_alt_outlined, color: widget.primaryColor, size: 20),
               ),
               title: Text(filter.label),
               subtitle: Text('${filter.field} ${filter.operator} ${filter.value}'),
@@ -84,14 +84,14 @@ mixin _TabSettingsFiltersMixin on State<TabSettingsScreen> {
 
   void _addFilter() async {
     final result = await Navigator.push<QuickFilter>(
-      this.context,
+      context,
       MaterialPageRoute(
-        builder: (context) => FilterEditorScreen(columns: this.widget.tab.columns),
+        builder: (context) => FilterEditorScreen(columns: widget.tab.columns),
       ),
     );
 
     if (result != null) {
-      this.setState(() {
+      setState(() {
         (this as _TabSettingsScreenState)._filters.add(result);
       });
     }
@@ -99,24 +99,24 @@ mixin _TabSettingsFiltersMixin on State<TabSettingsScreen> {
 
   void _editFilter(int index) async {
     final result = await Navigator.push<QuickFilter>(
-      this.context,
+      context,
       MaterialPageRoute(
         builder: (context) => FilterEditorScreen(
-          columns: this.widget.tab.columns,
+          columns: widget.tab.columns,
           existingFilter: (this as _TabSettingsScreenState)._filters[index],
         ),
       ),
     );
 
     if (result != null) {
-      this.setState(() {
+      setState(() {
         (this as _TabSettingsScreenState)._filters[index] = result;
       });
     }
   }
 
   void _removeFilter(int index) {
-    this.setState(() {
+    setState(() {
       (this as _TabSettingsScreenState)._filters.removeAt(index);
     });
   }

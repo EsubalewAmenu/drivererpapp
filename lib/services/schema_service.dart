@@ -22,9 +22,9 @@ class SchemaService {
   Future<Map<String, dynamic>?> getCachedConfig(String moduleId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final settingsStr = prefs.getString('$_cachePrefix${moduleId}$_settingsSuffix');
-      final dashboardStr = prefs.getString('$_cachePrefix${moduleId}$_dashboardSuffix');
-      final tabsStr = prefs.getString('$_cachePrefix${moduleId}$_tabsSuffix');
+      final settingsStr = prefs.getString('$_cachePrefix$moduleId$_settingsSuffix');
+      final dashboardStr = prefs.getString('$_cachePrefix$moduleId$_dashboardSuffix');
+      final tabsStr = prefs.getString('$_cachePrefix$moduleId$_tabsSuffix');
 
       if (settingsStr == null && dashboardStr == null && tabsStr == null) return null;
 
@@ -60,21 +60,21 @@ class SchemaService {
 
       if (config.containsKey('settings')) {
         try {
-          await prefs.setString('$_cachePrefix${moduleId}$_settingsSuffix', jsonEncode(config['settings']));
+          await prefs.setString('$_cachePrefix$moduleId$_settingsSuffix', jsonEncode(config['settings']));
           debugPrint('SchemaService: cached settings for module=$moduleId');
         } catch (_) {}
       }
 
       if (config.containsKey('dashboard')) {
         try {
-          await prefs.setString('$_cachePrefix${moduleId}$_dashboardSuffix', jsonEncode(config['dashboard']));
+          await prefs.setString('$_cachePrefix$moduleId$_dashboardSuffix', jsonEncode(config['dashboard']));
           debugPrint('SchemaService: cached dashboard for module=$moduleId');
         } catch (_) {}
       }
 
       if (config.containsKey('tabs')) {
         try {
-          await prefs.setString('$_cachePrefix${moduleId}$_tabsSuffix', jsonEncode(config['tabs']));
+          await prefs.setString('$_cachePrefix$moduleId$_tabsSuffix', jsonEncode(config['tabs']));
           debugPrint('SchemaService: cached tabs for module=$moduleId (count=${(config['tabs'] as List?)?.length ?? 0})');
         } catch (_) {}
       }
@@ -96,9 +96,9 @@ class SchemaService {
   Future<void> removeCachedConfig(String moduleId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('$_cachePrefix${moduleId}$_settingsSuffix');
-      await prefs.remove('$_cachePrefix${moduleId}$_dashboardSuffix');
-      await prefs.remove('$_cachePrefix${moduleId}$_tabsSuffix');
+      await prefs.remove('$_cachePrefix$moduleId$_settingsSuffix');
+      await prefs.remove('$_cachePrefix$moduleId$_dashboardSuffix');
+      await prefs.remove('$_cachePrefix$moduleId$_tabsSuffix');
       await prefs.remove('$_metaPrefix$moduleId');
     } catch (e) {
       debugPrint('Error removing cached config: $e');
@@ -238,7 +238,7 @@ class SchemaService {
         throw Exception('userEmail is required to save module config; legacy fallback disabled');
       }
 
-      final modifiedTime = await driveService!.getFileModifiedTime(fileId!);
+      final modifiedTime = await driveService!.getFileModifiedTime(fileId);
       if (modifiedTime != null) {
         await cacheConfig(moduleId, config.toJson(), fileId: fileId, modifiedTime: modifiedTime.toIso8601String());
       } else {
@@ -260,7 +260,7 @@ class SchemaService {
       return;
     }
 
-    if (resolvedSettingsId != null && resolvedSettingsId.isNotEmpty) {
+    if (resolvedSettingsId.isNotEmpty) {
       await driveService!.writeSettingsById(resolvedSettingsId, settings);
       final modifiedTime = await driveService!.getFileModifiedTime(resolvedSettingsId);
       await cacheConfig(moduleId, {'settings': settings}, fileId: resolvedSettingsId, modifiedTime: modifiedTime?.toIso8601String());

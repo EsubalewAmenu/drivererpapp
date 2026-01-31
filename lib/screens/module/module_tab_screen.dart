@@ -4,9 +4,7 @@ import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
 import '../../providers/drive_provider.dart';
 import '../../providers/schema_provider.dart'; // Add this
-import '../../providers/workspace_provider.dart';
 import '../../services/drive_service.dart';
-import '../../theme/app_theme.dart';
 import '../dynamic_form_screen.dart';
 import '../record_detail_screen.dart';
 import 'common/tab_settings_screen.dart';
@@ -238,10 +236,12 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         });
       }
     } else {
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
          _isLoadingMore = true;
          _hasErrorLoadingMore = false;
       });
+      }
     }
 
     // Fetch fresh data from DriveService
@@ -420,7 +420,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 setState(() {
                   _isSeeding = true;
                   _seedingProgress = 0;
-                  _seedingTotal = tabInitialData?.length ?? 0;
+                  _seedingTotal = tabInitialData.length ?? 0;
                   _seedingFileName = fetchTabId;
                 });
               }
@@ -429,7 +429,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 try {
                   // Batch seed to minimize API calls
                   try {
-                    final records = tabInitialData!.map((rec) => rec is Map<String, dynamic> ? Map<String, dynamic>.from(rec) : Map<String, dynamic>.from(rec as Map)).toList();
+                    final records = tabInitialData.map((rec) => Map<String, dynamic>.from(rec)).toList();
                     debugPrint('Seeding batch of ${records.length} records to newSpreadsheetId=$newSpreadsheetId sheet=$fetchTabId');
                     await _driveService.saveRecordsBatchBySpreadsheetId(newSpreadsheetId, fetchTabId, records);
                     if (mounted) {
@@ -808,7 +808,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 const SizedBox(height: 8),
                 Text(
                   _seedingFileName != null
-                      ? 'Creating file "${_seedingFileName}" and adding seed data...'
+                      ? 'Creating file "$_seedingFileName" and adding seed data...'
                       : 'Preparing data...',
                   textAlign: TextAlign.center,
                 ),
@@ -821,7 +821,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 const SizedBox(height: 8),
                 Text(
                   _seedingTotal > 0
-                      ? 'Seeding ${_seedingProgress}/${_seedingTotal} records...'
+                      ? 'Seeding $_seedingProgress/$_seedingTotal records...'
                       : 'Seeding...',
                   style: theme.textTheme.bodySmall,
                 ),

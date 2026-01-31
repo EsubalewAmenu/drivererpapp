@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
@@ -331,7 +330,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
           });
           debugPrint('Enabled module entry -> id:$modId name:$name icon:$icon primaryColor:$primaryColor activated:$activated');
         } catch (e) {
-          debugPrint('Error loading enabled module entry "${rawKey}": $e');
+          debugPrint('Error loading enabled module entry "$rawKey": $e');
           continue;
         }
       }
@@ -665,17 +664,15 @@ class _ModuleScreenState extends State<ModuleScreen> {
             // If not cached yet, sync directly from Drive using the known sheet IDs.
             if (otherJson == null) {
               final schemaService = Provider.of<SchemaProvider>(context, listen: false).service;
-              if (schemaService != null) {
-                try {
-                  otherJson = await schemaService.syncConfig(
-                    resolvedOtherId,
-                    settingsId: _settingsSheetIds[resolvedOtherId],
-                    dashboardId: _dashboardSheetIds[resolvedOtherId],
-                    tabsId: _tabsSheetIds[resolvedOtherId],
-                  );
-                } catch (_) {}
-              }
-            }
+              try {
+                otherJson = await schemaService.syncConfig(
+                  resolvedOtherId,
+                  settingsId: _settingsSheetIds[resolvedOtherId],
+                  dashboardId: _dashboardSheetIds[resolvedOtherId],
+                  tabsId: _tabsSheetIds[resolvedOtherId],
+                );
+              } catch (_) {}
+                        }
             // No asset fallback here; extensions that are active MUST have a config in cache or drive.
           }
 

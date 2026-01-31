@@ -80,8 +80,9 @@ class DynamicFormRenderer extends StatelessWidget {
 
     // Use simple truthy check if no explicit dependsValue provided
     bool isTruthy = false;
-    if (dependentValue is bool) isTruthy = dependentValue;
-    else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
+    if (dependentValue is bool) {
+      isTruthy = dependentValue;
+    } else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
     else isTruthy = dependentValue != null;
 
     return negate ? !isTruthy : isTruthy;

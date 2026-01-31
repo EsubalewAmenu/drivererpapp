@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../services/schema_service.dart';
@@ -133,12 +132,12 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       }
 
       // Create the module folder in Drive
-      final _createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
+      final createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
       dynamic createdModule;
-      if (_createdModuleRes is Future) {
-        createdModule = await _createdModuleRes;
+      if (createdModuleRes is Future) {
+        createdModule = await createdModuleRes;
       } else {
-        createdModule = _createdModuleRes;
+        createdModule = createdModuleRes;
       }
       if (createdModule == null || createdModule.id == null) {
         throw Exception('Failed to create module folder');
@@ -151,26 +150,26 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       // Create config folder and default config file now (so module has config immediately)
       try {
         if (_moduleJson != null) {
-          final _configFolderRes = (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
+          final configFolderRes = (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
           dynamic configFolderId;
-          if (_configFolderRes is Future) {
-            configFolderId = await _configFolderRes;
+          if (configFolderRes is Future) {
+            configFolderId = await configFolderRes;
           } else {
-            configFolderId = _configFolderRes;
+            configFolderId = configFolderRes;
           }
           if (configFolderId == null) {
             throw Exception('Failed to ensure config folder');
           }
           final userEmail = capturedUserEmail;
-          final configFileName = userEmail != null && userEmail.isNotEmpty ? '${userEmail}' : 'config';
+          final configFileName = userEmail != null && userEmail.isNotEmpty ? userEmail : 'config';
           try {
             // Create module config on Drive and capture its fileId if returned
-            dynamic _createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
+            dynamic createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
             dynamic createdCfgId;
-            if (_createCfgRes is Future) {
-              createdCfgId = await _createCfgRes;
+            if (createCfgRes is Future) {
+              createdCfgId = await createCfgRes;
             } else {
-              createdCfgId = _createCfgRes;
+              createdCfgId = createCfgRes;
             }
 
             // Cache the created module JSON locally under the new module folder id
@@ -271,12 +270,12 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
 
       // Update user's access spreadsheet with module config ids.
       try {
-        final _rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
+        final rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
         dynamic rootFolderId;
-        if (_rootRes is Future) {
-          rootFolderId = await _rootRes;
+        if (rootRes is Future) {
+          rootFolderId = await rootRes;
         } else {
-          rootFolderId = _rootRes;
+          rootFolderId = rootRes;
         }
         if (rootFolderId != null) {
           try {

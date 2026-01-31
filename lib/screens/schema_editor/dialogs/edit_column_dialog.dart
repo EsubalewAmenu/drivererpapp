@@ -144,7 +144,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               title: Text('Is Required', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
               value: _isRequired,
               onChanged: (val) => setState(() => _isRequired = val),
-              activeColor: theme.primaryColor,
+              activeThumbColor: theme.primaryColor,
               contentPadding: EdgeInsets.zero,
             ),
             SwitchListTile(

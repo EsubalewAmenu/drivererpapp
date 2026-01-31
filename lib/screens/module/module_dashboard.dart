@@ -443,7 +443,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
         case 'bar':
           content = BarChart(
             BarChartData(
-              gridData: FlGridData(show: false),
+              gridData: const FlGridData(show: false),
               borderData: FlBorderData(show: false),
               titlesData: FlTitlesData(
                 leftTitles: AxisTitles(
@@ -464,8 +464,8 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
                     }
                   )
                 ),
-                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
               barGroups: List.generate(values.length, (i) {
                 return BarChartGroupData(
@@ -563,7 +563,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
         default:
           content = LineChart(
              LineChartData(
-                gridData: FlGridData(show: false),
+                gridData: const FlGridData(show: false),
                 titlesData: FlTitlesData(
                   leftTitles: AxisTitles(
                     sideTitles: SideTitles(showTitles: true, reservedSize: 40, getTitlesWidget: (v, m) => Text(NumberFormat.compact().format(v), style: const TextStyle(fontSize: 10)))
@@ -585,8 +585,8 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
                       }
                     )
                   ),
-                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 ),
                 borderData: FlBorderData(show: false),
                 lineBarsData: [
@@ -595,7 +595,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
                     isCurved: true,
                     color: widget.primaryColor,
                     barWidth: 3,
-                    dotData: FlDotData(show: false),
+                    dotData: const FlDotData(show: false),
                     belowBarData: BarAreaData(
                       show: true,
                       color: widget.primaryColor.withValues(alpha: 0.1),
