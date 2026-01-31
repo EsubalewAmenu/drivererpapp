@@ -52,7 +52,6 @@ void main() {
     debugPrint('TEST: Starting record_management_test');
     
     final workspace = drive.File()..id = 'ws1'..name = 'ERP Lab';
-    final moduleFile = drive.File()..id = 'mod1'..name = 'Inventory';
     
     final uaRange = sheets.ValueRange(values: [
       ['id','module_name','dashboard','settings','tabs'],

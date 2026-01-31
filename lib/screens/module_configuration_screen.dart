@@ -552,14 +552,11 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
           }
           final userEmail = capturedUserEmail;
           final configFileName = userEmail != null && userEmail.isNotEmpty ? userEmail : 'config';
-          String? createdSettingsId;
           try {
             if (configFolderId != null) {
               final createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
               if (createCfgRes is Future) {
-                createdSettingsId = await createCfgRes as String?;
-              } else {
-                createdSettingsId = createCfgRes as String?;
+                await createCfgRes;
               }
             } else {
               debugPrint('Config folder not created; skipping default config creation');

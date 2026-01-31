@@ -105,7 +105,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   int _seedingProgress = 0;
   int _seedingTotal = 0;
   String? _seedingFileName;
-
   String? _errorMessage;
   String _searchQuery = '';
   String? _activeFilter;
@@ -132,18 +131,10 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
 
   void _onScroll() {
     if (_scrollController.hasClients && _scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      final isFilterEmpty = _activeFilter == null || _activeFilter == 'all';
-      
-      // Allow pagination if not loading, has more data, 
-      // AND (is not searching OR is searching with enough chars)
-      bool canLoadMore = !_isLoading && !_isLoadingMore && !_hasErrorLoadingMore && _hasMore;
-      bool isSearchActive = _searchQuery.isNotEmpty;
-      bool isSearchRemote = _searchQuery.length >= 2;
+      // Allow pagination if not currently busy and there is more data to fetch
+      final canLoadMore = !_isLoading && !_isLoadingMore && !_hasErrorLoadingMore && _hasMore;
 
       if (canLoadMore) {
-        // ALWAYS allow pagination if not currently busy.
-        // If it's a short search (<2 chars), we fetch more unfiltered data 
-        // from the server and then apply the local filter to find more matches.
         _loadData(refresh: false);
       }
     }
@@ -420,7 +411,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 setState(() {
                   _isSeeding = true;
                   _seedingProgress = 0;
-                  _seedingTotal = tabInitialData.length ?? 0;
+                  _seedingTotal = tabInitialData.length;
                   _seedingFileName = fetchTabId;
                 });
               }
@@ -614,8 +605,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         if (!exists) _activeFilter = 'all';
       }
     }
-
-    final theme = Theme.of(context);
 
     if (_errorMessage != null && _allData.isEmpty) {
       return ModuleErrorView(

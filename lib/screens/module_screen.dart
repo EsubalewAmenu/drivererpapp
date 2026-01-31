@@ -34,7 +34,6 @@ class ModuleScreen extends StatefulWidget {
 class _ModuleScreenState extends State<ModuleScreen> {
   ModuleSchema? _fullModule;
   ModuleSchema? _baseModule;
-  bool _isLoadingSchema = false;
   String? _errorMessage;
 
   // Track spreadsheet IDs for the host module and any enabling extensions
@@ -217,7 +216,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
       final driveProvider = Provider.of<DriveProvider>(context, listen: false);
       final driveService = driveProvider.driveService;
-      final workspaceId = Provider.of<WorkspaceProvider>(context, listen: false).currentWorkspace?.id;
       final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
 
       List<List<dynamic>> uaRows = [];
@@ -343,12 +341,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
   String _normalizeKey(String value) => value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
   // Icons are resolved via `iconFromName` in `lib/utils/icon_lookup.dart`.
-
-  String _colorToHex(Color c) {
-    // Return #RRGGBB (drop alpha)
-    final hex = c.value.toRadixString(16).padLeft(8, '0');
-    return '#${hex.substring(2)}';
-  }
 
   Future<void> _loadSchema() async {
     debugPrint('ModuleScreen: Starting _loadSchema for ${widget.module.id}');
@@ -775,7 +767,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
       if (mounted) {
         setState(() {
           _fullModule = mergedModuleResult;
-          _isLoadingSchema = false;
         });
       }
 
@@ -797,7 +788,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
       if (mounted) {
         setState(() {
           _errorMessage = "Error parsing blueprint: $e";
-          _isLoadingSchema = false;
         });
       }
     }

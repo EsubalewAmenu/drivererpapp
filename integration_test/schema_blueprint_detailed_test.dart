@@ -33,25 +33,6 @@ void main() {
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'file_id');
   });
 
-  Widget createTestWidget({
-    required WorkspaceProvider workspaceProvider,
-    required DriveProvider driveProvider,
-  }) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
-        ChangeNotifierProvider<WorkspaceProvider>.value(value: workspaceProvider),
-        ChangeNotifierProvider<DriveProvider>.value(value: driveProvider),
-        ChangeNotifierProvider<ThemeProvider>(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService, userEmail: 'user@example.com')),
-      ],
-      child: const MaterialApp(
-        home: Scaffold(body: Text('Initial')),
-        debugShowCheckedModeBanner: false,
-      ),
-    );
-  }
-
   testWidgets('Schema Blueprint Editor: Detailed Flow (Tabs, Columns, KPIs)', (tester) async {
     debugPrint('TEST: Starting schema_blueprint_detailed_test');
     

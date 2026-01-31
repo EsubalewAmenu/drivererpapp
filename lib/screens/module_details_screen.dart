@@ -6,7 +6,6 @@ import '../services/schema_service.dart';
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
 import '../providers/schema_provider.dart';
-import '../models/schema_models.dart';
 import '../providers/workspace_provider.dart';
 import '../utils/icon_lookup.dart';
 import 'dashboard_screen.dart';
@@ -163,13 +162,10 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
           final userEmail = capturedUserEmail;
           final configFileName = userEmail != null && userEmail.isNotEmpty ? userEmail : 'config';
           try {
-            // Create module config on Drive and capture its fileId if returned
+            // Create module config on Drive (result is ignored)
             dynamic createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
-            dynamic createdCfgId;
             if (createCfgRes is Future) {
-              createdCfgId = await createCfgRes;
-            } else {
-              createdCfgId = createCfgRes;
+              await createCfgRes;
             }
 
             // Cache the created module JSON locally under the new module folder id
@@ -182,43 +178,6 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               try {
                 await provider.service.cacheConfig(assetKey, _moduleJson!);
               } catch (_) {}
-
-              // Also create an in-memory ModuleSchema so UI can pick it up immediately
-              final settingsRaw = _moduleJson!['settings'];
-              final settingsMap = <String, SettingItem>{};
-              if (settingsRaw != null && settingsRaw is Map<String, dynamic>) {
-                settingsRaw.forEach((k, v) {
-                  try {
-                    settingsMap[k] = SettingItem.fromJson(Map<String, dynamic>.from(v as Map));
-                  } catch (_) {}
-                });
-              }
-
-              final dashboardJson = _moduleJson!['dashboard'] != null ? Map<String, dynamic>.from(_moduleJson!['dashboard'] as Map) : null;
-              final dashboard = (dashboardJson != null && dashboardJson['cards'] != null)
-                  ? DashboardConfig.fromJson(dashboardJson)
-                  : DashboardConfig(cards: []);
-
-              final tabsRaw = _moduleJson!['tabs'];
-              final tabsList = tabsRaw != null ? List<dynamic>.from(tabsRaw as List) : [];
-              final tabs = tabsList.map((t) {
-                try {
-                  return TabConfig.fromJson(Map<String, dynamic>.from(t as Map));
-                } catch (_) {
-                  return TabConfig(id: 'err', label: 'Error Tab', columns: []);
-                }
-              }).toList();
-
-              final moduleSchema = ModuleSchema(
-                id: moduleFolderId,
-                name: settingsMap['name']?.value?.toString() ?? moduleName,
-                icon: settingsMap['icon']?.value?.toString() ?? '',
-                primaryColor: settingsMap['primaryColor']?.value?.toString() ?? '#2196F3',
-                version: settingsMap['version']?.value?.toString() ?? '1.0',
-                settings: settingsMap,
-                dashboard: dashboard,
-                tabs: tabs,
-              );
 
               // After activation, clear local cached configs and in-memory
               // entries for the extension (short key + folder id) and the

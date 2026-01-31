@@ -241,7 +241,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   }
 
   Widget _buildModernHeader(BuildContext context) {
-    final theme = Theme.of(context);
     
     final headerTitle = _resolveTitle();
     final headerSubtitle = _resolveSubtitle();
