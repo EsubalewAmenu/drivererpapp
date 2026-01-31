@@ -68,6 +68,9 @@ void main() {
         .thenAnswer((_) async => drive.File()..id = 'ws123'..name = 'My Business');
     when(() => mockWorkspaceProvider.registerNewCompany(any(), any()))
         .thenAnswer((_) async {});
+    when(() => mockWorkspaceProvider.saveUserAccessSpreadsheetId(any())).thenAnswer((_) async {});
+    when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'ua_folder');
+    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'ua_sheet');
     when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'ws123'..name = 'My Business');
     when(() => mockWorkspaceProvider.companies).thenReturn(<Company>[]);
@@ -90,18 +93,6 @@ void main() {
     // Step 1: Identity
     expect(find.text('IDENTITY'), findsOneWidget);
     await tester.enterText(find.byType(TextField), 'My Business');
-    await tester.tap(find.text('CONTINUE'));
-    await tester.pumpAndSettle();
-
-    // Step 2: Industry
-    expect(find.text('INDUSTRY FOCUS'), findsOneWidget);
-    await tester.tap(find.text('Logistics'));
-    await tester.tap(find.text('CONTINUE'));
-    await tester.pumpAndSettle();
-
-    // Step 3: Toolkit
-    expect(find.text('INITIAL TOOLKIT'), findsOneWidget);
-    await tester.tap(find.text('Inventory'));
     await tester.tap(find.text('LAUNCH WORKSPACE'));
     
     verify(() => mockDriveService.createWorkspace('root123', 'My Business')).called(1);
@@ -115,7 +106,7 @@ void main() {
     await tester.tap(find.text('Create New Company'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('CONTINUE'));
+    await tester.tap(find.text('LAUNCH WORKSPACE'));
     await tester.pump();
     
     expect(find.text('Please enter a business name'), findsOneWidget);

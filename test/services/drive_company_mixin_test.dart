@@ -17,6 +17,8 @@ class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResour
 class SpreadsheetFake extends Fake implements sheets.Spreadsheet {}
 class ValueRangeFake extends Fake implements sheets.ValueRange {}
 class FileFake extends Fake implements drive.File {}
+class BatchUpdateSpreadsheetRequestFake extends Fake implements sheets.BatchUpdateSpreadsheetRequest {}
+class BatchUpdateValuesRequestFake extends Fake implements sheets.BatchUpdateValuesRequest {}
 
 class TestDriveCompanyService with DriveCompanyMixin {
   final drive.DriveApi _driveApi;
@@ -91,6 +93,8 @@ void main() {
     registerFallbackValue(SpreadsheetFake());
     registerFallbackValue(ValueRangeFake());
     registerFallbackValue(FileFake());
+    registerFallbackValue(BatchUpdateSpreadsheetRequestFake());
+    registerFallbackValue(BatchUpdateValuesRequestFake());
   });
   late MockDriveApi mockDriveApi;
   late MockFilesResource mockFiles;
