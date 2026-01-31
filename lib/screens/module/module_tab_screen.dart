@@ -22,6 +22,7 @@ class ModuleTabScreen extends StatefulWidget {
   final String? settingsSheetId;
   final String? dashboardSheetId;
   final String? tabsSheetId;
+  final String? sourceModuleId;
 
   const ModuleTabScreen({
     super.key, 
@@ -32,6 +33,7 @@ class ModuleTabScreen extends StatefulWidget {
     this.settingsSheetId,
     this.dashboardSheetId,
     this.tabsSheetId,
+    this.sourceModuleId,
   });
 
   @override
@@ -42,26 +44,40 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   late final DriveService _driveService;
   
   String _effectiveTabId() {
+    final provider = context.read<SchemaProvider>();
+    final moduleId = _sourceModuleId();
     final tabId = widget.tab.id;
+
+    if (moduleId.isNotEmpty && tabId.startsWith('${moduleId}_')) {
+      return tabId.substring(moduleId.length + 1);
+    }
+
+    final module = moduleId.isNotEmpty ? provider.getFromMemory(moduleId) : null;
+    if (module != null) {
+      final normalized = module.tabs.firstWhere(
+        (t) => t.id == tabId || t.label.toLowerCase() == widget.tab.label.toLowerCase(),
+        orElse: () => widget.tab,
+      );
+      if (normalized.id.isNotEmpty) {
+        return normalized.id;
+      }
+    }
+
     if (tabId.contains('_')) {
       final parts = tabId.split('_');
       if (parts.length > 1) {
-        final provider = context.read<SchemaProvider>();
-        final possibleModuleId = parts.first;
-        final candidateModule = provider.getFromMemory(possibleModuleId);
-        if (candidateModule != null) {
-          final remainder = parts.sublist(1).join('_');
-          final hasTab = candidateModule.tabs.any((t) => t.id == remainder);
-          if (hasTab && remainder.isNotEmpty) {
-            return remainder;
-          }
-        }
+        final allSame = parts.every((p) => p == parts[0]);
+        if (allSame) return parts.last;
       }
     }
-    return widget.tab.id;
+
+    return tabId;
   }
 
   String _sourceModuleId() {
+    if (widget.sourceModuleId != null && widget.sourceModuleId!.isNotEmpty) {
+      return widget.sourceModuleId!;
+    }
     final tabId = widget.tab.id;
     if (tabId.contains('_')) {
       final parts = tabId.split('_');
@@ -70,7 +86,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         final provider = context.read<SchemaProvider>();
         final mod = provider.getFromMemory(possibleMod) ?? provider.findModuleByIdOrName(possibleMod);
         if (mod != null) {
-          // Return the authoritative module id from cache when available.
           return mod.id;
         }
       }

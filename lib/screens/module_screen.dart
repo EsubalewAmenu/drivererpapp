@@ -42,6 +42,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
   final Map<String, String> _settingsSheetIds = {};
   final Map<String, String> _dashboardSheetIds = {};
   final Map<String, String> _tabsSheetIds = {};
+  final Map<String, String> _tabSourceModuleIds = {};
 
   @override
   void initState() {
@@ -604,6 +605,10 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
       final combinedTabs = <TabConfig>[];
       combinedTabs.addAll(tabs);
+      _tabSourceModuleIds.clear();
+      for (final baseTab in tabs) {
+        _tabSourceModuleIds[baseTab.id] = widget.module.id;
+      }
 
       final List<String> extensionKeys = [];
       final extSetting = settingsItems['extensions'];
@@ -716,6 +721,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             for (var ot in processedOtherTabs) {
               final newId = authoritativeId == ot.id ? ot.id : '${authoritativeId}_${ot.id}';
               combinedTabs.add(ot.copyWith(id: newId));
+              _tabSourceModuleIds[newId] = authoritativeId;
             }
 
             final otherSettingsItems = <String, SettingItem>{};
@@ -748,6 +754,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             for (var ot in otherModule.tabs) {
               final newId = otherModule.id == ot.id ? ot.id : '${otherModule.id}_${ot.id}';
               combinedTabs.add(ot.copyWith(id: newId));
+              _tabSourceModuleIds[newId] = otherModule.id;
             }
           }
         } catch (e) {
@@ -934,6 +941,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
                       settingsSheetId: _settingsSheetIds[sourceModule.id] ?? widget.settingsSheetId,
                       dashboardSheetId: _dashboardSheetIds[sourceModule.id] ?? widget.dashboardSheetId,
                       tabsSheetId: _tabsSheetIds[sourceModule.id] ?? widget.tabsSheetId,
+                      sourceModuleId: _tabSourceModuleIds[t.id] ?? sourceModule.id,
                     );
                   }),
                   _buildExtensionsTab(module, primaryColor),
