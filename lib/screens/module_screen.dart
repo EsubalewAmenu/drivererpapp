@@ -721,7 +721,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             for (var ot in processedOtherTabs) {
               final newId = authoritativeId == ot.id ? ot.id : '${authoritativeId}_${ot.id}';
               combinedTabs.add(ot.copyWith(id: newId));
-              _tabSourceModuleIds[newId] = authoritativeId;
+              _tabSourceModuleIds[newId] = moduleIdForCache;
             }
 
             final otherSettingsItems = <String, SettingItem>{};
