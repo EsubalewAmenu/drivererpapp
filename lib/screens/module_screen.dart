@@ -42,6 +42,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
   final Map<String, String> _settingsSheetIds = {};
   final Map<String, String> _dashboardSheetIds = {};
   final Map<String, String> _tabsSheetIds = {};
+  final Map<String, String> _tabSourceModuleIds = {};
 
   @override
   void initState() {
@@ -273,7 +274,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
               for (var r in uaRows) {
                 final rId = r.isNotEmpty ? (r[0]?.toString() ?? '') : '';
                 final rowName = r.length > 1 ? (r[1]?.toString() ?? '') : '';
-                if (rId.isNotEmpty && (rId == modId || rowName.toLowerCase() == name.toLowerCase())) {
+                if (rId.isNotEmpty && (rId == modId || _normalizeKey(rowName) == _normalizeKey(name))) {
                   activated = true;
                   rowId = rId;
                   // Extract IDs from A:E row (id, name, dashboard, settings, tabs)
@@ -339,6 +340,8 @@ class _ModuleScreenState extends State<ModuleScreen> {
     }
     return result;
   }
+
+  String _normalizeKey(String value) => value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
   // Icons are resolved via `iconFromName` in `lib/utils/icon_lookup.dart`.
 
@@ -602,6 +605,10 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
       final combinedTabs = <TabConfig>[];
       combinedTabs.addAll(tabs);
+      _tabSourceModuleIds.clear();
+      for (final baseTab in tabs) {
+        _tabSourceModuleIds[baseTab.id] = widget.module.id;
+      }
 
       final List<String> extensionKeys = [];
       final extSetting = settingsItems['extensions'];
@@ -609,8 +616,8 @@ class _ModuleScreenState extends State<ModuleScreen> {
         extensionKeys.addAll((extSetting.value as List).map((e) => e.toString()));
       }
 
-      final installedNames = <String>{};
-      final Map<String, String> nameToId = {};
+      final installedIds = <String>{};
+      final Map<String, String> normalizedKeyToId = {};
       try {
         final driveService = driveServiceFromProvider;
         if (driveService != null) {
@@ -625,15 +632,18 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 final r = List<dynamic>.from(row as List);
                 final rowId = r.isNotEmpty ? (r[0]?.toString() ?? '') : '';
                 final rowName = r.length > 1 ? (r[1]?.toString() ?? '') : '';
-                if (rowName.isNotEmpty) {
-                  installedNames.add(rowName.toLowerCase());
-                  nameToId[rowName.toLowerCase()] = rowId;
-                }
                 if (rowId.isNotEmpty) {
-                  nameToId[rowId.toLowerCase()] = rowId;
+                  final normalizedRowId = _normalizeKey(rowId);
+                  installedIds.add(normalizedRowId);
+                  normalizedKeyToId[normalizedRowId] = rowId;
                   if (r.length > 2 && r[2]?.toString().isNotEmpty == true) _dashboardSheetIds[rowId] = r[2]!.toString();
                   if (r.length > 3 && r[3]?.toString().isNotEmpty == true) _settingsSheetIds[rowId] = r[3]!.toString();
                   if (r.length > 4 && r[4]?.toString().isNotEmpty == true) _tabsSheetIds[rowId] = r[4]!.toString();
+                }
+                if (rowName.isNotEmpty) {
+                  final normalizedRowName = _normalizeKey(rowName);
+                  installedIds.add(normalizedRowName);
+                  normalizedKeyToId[normalizedRowName] = rowId;
                 }
               }
             }
@@ -645,7 +655,8 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
       for (final otherModuleId in extensionKeys) {
         try {
-          final String resolvedOtherId = nameToId[otherModuleId.toLowerCase()] ?? otherModuleId;
+          final String normalizedKey = _normalizeKey(otherModuleId);
+          final String resolvedOtherId = normalizedKeyToId[normalizedKey] ?? otherModuleId;
           ModuleSchema? otherModule = schemaProvider.getFromMemory(resolvedOtherId);
           Map<String, dynamic>? otherJson;
           
@@ -670,11 +681,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
           if (otherModule == null && otherJson != null) {
             final otherSettingsRaw = otherJson['settings'] is Map ? Map<String, dynamic>.from(otherJson['settings'] as Map) : <String, dynamic>{};
-            final candidateName = (otherSettingsRaw['name']?['value']?.toString() ?? otherModuleId).toLowerCase();
-
-            if (!installedNames.contains(candidateName) && 
-                !installedNames.contains(otherModuleId.toLowerCase()) && 
-                !installedNames.contains(resolvedOtherId.toLowerCase())) {
+            final candidateName = (otherSettingsRaw['name']?['value']?.toString() ?? otherModuleId);
+            final normalizedResolvedId = _normalizeKey(resolvedOtherId);
+            if (!installedIds.contains(normalizedResolvedId) && !installedIds.contains(normalizedKey)) {
               continue;
             }
 
@@ -705,11 +714,14 @@ class _ModuleScreenState extends State<ModuleScreen> {
             }
 
             final authoritativeId = otherSettingsRaw['id']?['value']?.toString() ?? otherModuleId;
-            final moduleIdForCache = nameToId[candidateName] ?? nameToId[otherModuleId.toLowerCase()] ?? authoritativeId;
+            final moduleIdForCache = normalizedKeyToId[_normalizeKey(candidateName)]
+              ?? normalizedKeyToId[normalizedKey]
+              ?? authoritativeId;
 
             for (var ot in processedOtherTabs) {
               final newId = authoritativeId == ot.id ? ot.id : '${authoritativeId}_${ot.id}';
               combinedTabs.add(ot.copyWith(id: newId));
+              _tabSourceModuleIds[newId] = moduleIdForCache;
             }
 
             final otherSettingsItems = <String, SettingItem>{};
@@ -742,6 +754,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             for (var ot in otherModule.tabs) {
               final newId = otherModule.id == ot.id ? ot.id : '${otherModule.id}_${ot.id}';
               combinedTabs.add(ot.copyWith(id: newId));
+              _tabSourceModuleIds[newId] = otherModule.id;
             }
           }
         } catch (e) {
@@ -850,9 +863,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
                     fileName = '${baseName}_settings';
                   } else if (index > 0 && index <= module.tabs.length) {
                     fileName = '${baseName}_tabs';
-                  } else {
-                    // Extensions tab or unknown — no file to show
-                    fileName = null;
                   }
 
                   _showHistory(context, module, fileName);
@@ -879,7 +889,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             ),
           ],
           elevation: 0,
-            bottom: TabBar(
+          bottom: TabBar(
             isScrollable: true,
             indicatorColor: primaryColor,
             labelColor: primaryColor,
@@ -931,6 +941,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
                       settingsSheetId: _settingsSheetIds[sourceModule.id] ?? widget.settingsSheetId,
                       dashboardSheetId: _dashboardSheetIds[sourceModule.id] ?? widget.dashboardSheetId,
                       tabsSheetId: _tabsSheetIds[sourceModule.id] ?? widget.tabsSheetId,
+                      sourceModuleId: _tabSourceModuleIds[t.id] ?? sourceModule.id,
                     );
                   }),
                   _buildExtensionsTab(module, primaryColor),

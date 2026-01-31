@@ -22,6 +22,7 @@ class ModuleTabScreen extends StatefulWidget {
   final String? settingsSheetId;
   final String? dashboardSheetId;
   final String? tabsSheetId;
+  final String? sourceModuleId;
 
   const ModuleTabScreen({
     super.key, 
@@ -32,6 +33,7 @@ class ModuleTabScreen extends StatefulWidget {
     this.settingsSheetId,
     this.dashboardSheetId,
     this.tabsSheetId,
+    this.sourceModuleId,
   });
 
   @override
@@ -42,32 +44,48 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   late final DriveService _driveService;
   
   String _effectiveTabId() {
+    final provider = context.read<SchemaProvider>();
+    final moduleId = _sourceModuleId();
     final tabId = widget.tab.id;
-    final modId = widget.module?.id;
-    if (modId != null && tabId.startsWith('${modId}_')) {
-      return tabId.substring(modId.length + 1);
+
+    if (moduleId.isNotEmpty && tabId.startsWith('${moduleId}_')) {
+      return tabId.substring(moduleId.length + 1);
     }
-    // Handle cases where id was generated as `name_name` (e.g. deals_deals)
+
+    final module = moduleId.isNotEmpty ? provider.getFromMemory(moduleId) : null;
+    if (module != null) {
+      final normalized = module.tabs.firstWhere(
+        (t) => t.id == tabId || t.label.toLowerCase() == widget.tab.label.toLowerCase(),
+        orElse: () => widget.tab,
+      );
+      if (normalized.id.isNotEmpty) {
+        return normalized.id;
+      }
+    }
+
     if (tabId.contains('_')) {
       final parts = tabId.split('_');
-      // If all parts are identical (eg. ['deals','deals']) return single name
-      final allSame = parts.every((p) => p == parts[0]);
-      if (allSame) return parts.last;
+      if (parts.length > 1) {
+        final allSame = parts.every((p) => p == parts[0]);
+        if (allSame) return parts.last;
+      }
     }
 
     return tabId;
   }
 
   String _sourceModuleId() {
+    if (widget.sourceModuleId != null && widget.sourceModuleId!.isNotEmpty) {
+      return widget.sourceModuleId!;
+    }
     final tabId = widget.tab.id;
     if (tabId.contains('_')) {
       final parts = tabId.split('_');
       if (parts.isNotEmpty) {
         final possibleMod = parts[0];
         final provider = context.read<SchemaProvider>();
-        final mod = provider.findModuleByIdOrName(possibleMod);
+        final mod = provider.getFromMemory(possibleMod) ?? provider.findModuleByIdOrName(possibleMod);
         if (mod != null) {
-          // Return the authoritative module id from cache when available.
           return mod.id;
         }
       }
@@ -137,7 +155,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   void didUpdateWidget(ModuleTabScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     // If the tab config or module schema changed, we might need to update state
-    if (oldWidget.tab != widget.tab || oldWidget.module != widget.module) {
+    final tabChanged = oldWidget.tab.id != widget.tab.id;
+    final moduleChanged = oldWidget.module?.id != widget.module?.id;
+    if (tabChanged || moduleChanged) {
       debugPrint('Tab or Module schema updated for ${widget.tab.id}, updating sync state...');
       
       setState(() {
@@ -151,8 +171,8 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         }
       });
       
-      // If critical fields changed, reload data
-      if (oldWidget.tab.id != widget.tab.id) {
+      // If tab or module changed, reload data
+      if (tabChanged || moduleChanged) {
         _loadData(refresh: true);
       } else {
         _applyFilters();

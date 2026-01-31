@@ -7,7 +7,7 @@
     "version": { "label": "Version", "type": "text", "value": "1.0" },
     "name": { "label": "Name", "type": "text", "value": "CRM" },
   
-    "extensions": ["deals", "support"]
+    "extensions": ["Deals", "Support Tickets"]
 
   },
   "dashboard": {
