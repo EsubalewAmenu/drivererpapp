@@ -36,6 +36,7 @@ void main() {
     registerFallbackValue(sheets.ClearValuesRequest());
     registerFallbackValue(drive.Media(const Stream.empty(), 0));
     registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest());
+    registerFallbackValue(sheets.BatchUpdateValuesRequest());
     registerFallbackValue(Uri());
     registerFallbackValue(drive.Permission());
     // Fallback values for Drive API option types used as named params
@@ -74,25 +75,19 @@ void main() {
     // Generic fallback stubs to ensure async methods return Futures of expected types
     when(() => mockFilesResource.list(
       q: any(named: 'q'),
-      $fields: any(named: '\$fields'),
-      includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
-      supportsAllDrives: any(named: 'supportsAllDrives'),
-    )).thenAnswer((_) async => drive.FileList(files: []));
-    when(() => mockFilesResource.list(
-      q: any(named: 'q'),
       $fields: any(named: r'$fields'),
       includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
       supportsAllDrives: any(named: 'supportsAllDrives'),
     )).thenAnswer((_) async => drive.FileList(files: []));
-    when(() => mockFilesResource.get(any(), $fields: any(named: '\$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
+    when(() => mockFilesResource.get(any(), $fields: any(named: r'$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
       .thenAnswer((_) async => drive.File());
 
     // Fallback for download calls (when downloadOptions is provided) -> return Media
     when(() => mockFilesResource.get(any(), downloadOptions: any(named: 'downloadOptions'), supportsAllDrives: any(named: 'supportsAllDrives')))
       .thenAnswer((_) async => drive.Media(const Stream.empty(), 0));
-    when(() => mockFilesResource.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
+    when(() => mockFilesResource.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: r'$fields')))
       .thenAnswer((_) async => drive.File());
-    when(() => mockFilesResource.create(any(), $fields: any(named: '\$fields')))
+    when(() => mockFilesResource.create(any(), $fields: any(named: r'$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
       .thenAnswer((_) async => drive.File());
     when(() => mockFilesResource.delete(any())).thenAnswer((_) async {});
 
@@ -110,6 +105,7 @@ void main() {
     when(() => mockSpreadsheetsResource.create(any())).thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'default_sheet'));
     // Fallback for batch updates
     when(() => mockSpreadsheetsResource.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
+    when(() => mockValuesResource.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateValuesResponse());
   });
 
   group('DriveFolderMixin', () {
@@ -351,20 +347,19 @@ void main() {
   group('DriveSheetMixin', () {
 
     test('createModuleConfig creates spreadsheet and updates config', () async {
-      // 1. Create three Spreadsheets (settings, dashboard, tabs)
+      // 1. Create three Files (settings, dashboard, tabs)
       int createCalls = 0;
-      when(() => mockSpreadsheetsResource.create(any())).thenAnswer((_) async {
+      when(() => mockFilesResource.create(any(), supportsAllDrives: any(named: 'supportsAllDrives')))
+          .thenAnswer((_) async {
         createCalls++;
-        if (createCalls == 1) return sheets.Spreadsheet(spreadsheetId: 'settings_id');
-        if (createCalls == 2) return sheets.Spreadsheet(spreadsheetId: 'dashboard_id');
-        return sheets.Spreadsheet(spreadsheetId: 'tabs_id');
+        if (createCalls == 1) return drive.File()..id = 'settings_id';
+        if (createCalls == 2) return drive.File()..id = 'dashboard_id';
+        return drive.File()..id = 'tabs_id';
       });
 
-      // 2. Move files (return previous parents for each)
-        when(() => mockFilesResource.get(any(), $fields: any(named: '\$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
-          .thenAnswer((inv) async => drive.File()..parents = ['old_parent']);
-      when(() => mockFilesResource.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.File());
+      // 2. BatchUpdate for sheet naming and headers
+      when(() => mockSpreadsheetsResource.batchUpdate(any(), any()))
+          .thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
 
       // 3. Values writes
       when(() => mockValuesResource.clear(any(), any(), any())).thenAnswer((_) async => sheets.ClearValuesResponse());
@@ -380,11 +375,10 @@ void main() {
       expect(result, 'settings_id');
 
       // Verify creation called three times (settings, dashboard, tabs)
-      verify(() => mockSpreadsheetsResource.create(any())).called(3);
+      verify(() => mockFilesResource.create(any(), supportsAllDrives: true)).called(3);
 
-      // Verify settings written to settings spreadsheet and tab written to tabs spreadsheet
+      // Verify settings written to settings spreadsheet and metadata initialized
       verify(() => mockValuesResource.update(any(), 'settings_id', 'settings!A1', valueInputOption: 'RAW')).called(1);
-      verify(() => mockValuesResource.update(any(), 'tabs_id', 'tab1!A1', valueInputOption: 'RAW')).called(1);
     });
 
     test('readModuleConfig reads and decodes config', () async {
@@ -606,37 +600,35 @@ void main() {
       // 1. Not found
       when(() => mockFilesResource.list(
         q: any(named: 'q'),
-        $fields: any(named: '\$fields'),
-        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+        $fields: any(named: r'$fields'),
         supportsAllDrives: any(named: 'supportsAllDrives'),
       )).thenAnswer((_) async => drive.FileList(files: []));
 
-      // 2. Create spreadsheet
-      when(() => mockSpreadsheetsResource.create(any()))
-          .thenAnswer((_) async => sheets.Spreadsheet(spreadsheetId: 'new_reg_id'));
+      // 2. Create file (spreadsheet type) directly in folder
+      when(() => mockFilesResource.create(any(), supportsAllDrives: any(named: 'supportsAllDrives')))
+          .thenAnswer((_) async => drive.File()..id = 'new_reg_id');
 
-      // 3. Move to root (get then update)
-        when(() => mockFilesResource.get(any(), $fields: any(named: '\$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
-          .thenAnswer((_) async => drive.File()..id = 'new_reg_id'..parents = ['old_parent']);
-      
-      when(() => mockFilesResource.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.File());
+      // 3. BatchUpdate for sheet name
+      when(() => mockSpreadsheetsResource.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
 
       // 4. Update headers
-      when(() => mockValuesResource.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
-          .thenAnswer((_) async => sheets.UpdateValuesResponse());
+      when(() => mockValuesResource.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateValuesResponse());
 
       final result = await driveService.ensureCompanyRegistry('root123');
 
       expect(result, 'new_reg_id');
+
+      verify(() => mockFilesResource.create(
+        any(that: isA<drive.File>()
+          .having((f) => f.name, 'name', 'companies')
+        ),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+        uploadOptions: any(named: 'uploadOptions'),
+      )).called(1);
       
-      verify(() => mockSpreadsheetsResource.create(any(that: isA<sheets.Spreadsheet>().having((s) => s.properties?.title, 'title', 'companies')))).called(1);
-      verify(() => mockFilesResource.update(any(), 'new_reg_id', addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields'))).called(1);
-      verify(() => mockValuesResource.update(
-        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'headers', ['id', 'name', 'folderId', 'logoUrl', 'role'])),
+      verify(() => mockValuesResource.batchUpdate(
+        any(that: isA<sheets.BatchUpdateValuesRequest>().having((v) => v.data?.first.values?.first, 'headers', ['id', 'name', 'folderId', 'logoUrl', 'role'])),
         'new_reg_id',
-        'companies!A1',
-        valueInputOption: 'RAW',
       )).called(1);
     });
 

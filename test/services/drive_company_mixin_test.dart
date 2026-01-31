@@ -17,6 +17,8 @@ class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResour
 class SpreadsheetFake extends Fake implements sheets.Spreadsheet {}
 class ValueRangeFake extends Fake implements sheets.ValueRange {}
 class FileFake extends Fake implements drive.File {}
+class BatchUpdateSpreadsheetRequestFake extends Fake implements sheets.BatchUpdateSpreadsheetRequest {}
+class BatchUpdateValuesRequestFake extends Fake implements sheets.BatchUpdateValuesRequest {}
 
 class TestDriveCompanyService with DriveCompanyMixin {
   final drive.DriveApi _driveApi;
@@ -91,6 +93,8 @@ void main() {
     registerFallbackValue(SpreadsheetFake());
     registerFallbackValue(ValueRangeFake());
     registerFallbackValue(FileFake());
+    registerFallbackValue(BatchUpdateSpreadsheetRequestFake());
+    registerFallbackValue(BatchUpdateValuesRequestFake());
   });
   late MockDriveApi mockDriveApi;
   late MockFilesResource mockFiles;
@@ -120,25 +124,21 @@ void main() {
     // getFileId returns null
     svc.onGetFileId = (folderId, name) async => null;
 
-    // sheets.spreadsheets.create returns spreadsheet with id
-    final created = sheets.Spreadsheet(spreadsheetId: 'sheet123');
-    when(() => mockSps.create(any())).thenAnswer((_) async => created);
+    // files.create returns a File with id
+    when(() => mockFiles.create(any(), supportsAllDrives: any(named: 'supportsAllDrives')))
+        .thenAnswer((_) async => drive.File()..id = 'sheet123');
 
-    // files.get returns a File with no parents
-    final file = drive.File()..parents = [];
-    when(() => mockFiles.get('sheet123', $fields: any(named: r'$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
-        .thenAnswer((_) async => file);
+    // batchUpdate ok
+    when(() => mockSps.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
 
-    // files.update ok
-    when(() => mockFiles.update(any(), 'sheet123', addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: r'$fields')))
-        .thenAnswer((_) async => drive.File());
-
-    // values.update ok
-    when(() => mockValues.update(any(), 'sheet123', any(), valueInputOption: any(named: 'valueInputOption')))
-        .thenAnswer((_) async => sheets.UpdateValuesResponse());
+    // values.batchUpdate ok
+    when(() => mockValues.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateValuesResponse());
 
     final fid = await svc.ensureCompanyRegistry('root1');
     expect(fid, 'sheet123');
+    verify(() => mockFiles.create(any(), supportsAllDrives: true)).called(1);
+    verify(() => mockSps.batchUpdate(any(), 'sheet123')).called(1);
+    verify(() => mockValues.batchUpdate(any(), 'sheet123')).called(1);
   });
 
   test('getCompanies returns parsed companies', () async {

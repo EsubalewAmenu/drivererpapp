@@ -22,8 +22,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   
   // Form Data
   final TextEditingController _nameController = TextEditingController();
-  String? _selectedIndustry;
-  final Set<String> _selectedModules = {};
 
   @override
   Widget build(BuildContext context) {
@@ -74,8 +72,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     if (_choice == 'join') return 'JOIN NETWORK';
     switch (_currentStep) {
       case 1: return 'IDENTITY';
-      case 2: return 'INDUSTRY FOCUS';
-      case 3: return 'INITIAL TOOLKIT';
       default: return '';
     }
   }
@@ -86,8 +82,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     
     switch (_currentStep) {
       case 1: return _buildIdentityStep(theme);
-      case 2: return _buildIndustryStep(theme);
-      case 3: return _buildToolkitStep(theme);
       default: return const SizedBox.shrink();
     }
   }
@@ -166,91 +160,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
-  Widget _buildIndustryStep(ThemeData theme) {
-    final industries = ['Retail', 'F&B', 'Logistics', 'Services', 'Manufacturing'];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Select your industry focus', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
-        const SizedBox(height: 32),
-        Expanded(
-          child: ListView.separated(
-            itemCount: industries.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final industry = industries[index];
-              final isSelected = _selectedIndustry == industry;
-              return InkWell(
-                onTap: () => setState(() => _selectedIndustry = industry),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: isSelected ? theme.primaryColor.withValues(alpha: 0.2) : theme.cardTheme.color,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isSelected ? theme.primaryColor : Colors.transparent),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(industry, style: AppTheme.inter(fontSize: 18, fontWeight: FontWeight.w600, color: isSelected ? theme.primaryColor : theme.textTheme.bodyLarge?.color)),
-                      const Spacer(),
-                      if (isSelected) Icon(Icons.check_circle_rounded, color: theme.primaryColor),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildToolkitStep(ThemeData theme) {
-    final modules = ['Inventory', 'CRM', 'HR', 'Finance', 'Deals'];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Choose your initial toolkit', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
-        const SizedBox(height: 32),
-        Expanded(
-          child: ListView.separated(
-            itemCount: modules.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              final module = modules[index];
-              final isSelected = _selectedModules.contains(module);
-              return InkWell(
-                onTap: () => setState(() {
-                  if (isSelected) {
-                    _selectedModules.remove(module);
-                  } else {
-                    _selectedModules.add(module);
-                  }
-                }),
-                child: Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: isSelected ? theme.primaryColor.withValues(alpha: 0.2) : theme.cardTheme.color,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isSelected ? theme.primaryColor : Colors.transparent),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(module, style: AppTheme.inter(fontSize: 18, fontWeight: FontWeight.w600, color: isSelected ? theme.primaryColor : theme.textTheme.bodyLarge?.color)),
-                      const Spacer(),
-                      if (isSelected) Icon(Icons.check_box_rounded, color: theme.primaryColor)
-                      else Icon(Icons.check_box_outline_blank_rounded, color: theme.textTheme.bodyMedium?.color),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildJoinStep(ThemeData theme) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,18 +194,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return FilledButton(
       onPressed: _isCreating ? null : () async {
         if (_choice == 'new') {
-          if (_currentStep < 3) {
-            if (_currentStep == 1 && _nameController.text.isEmpty) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Please enter a business name')),
-              );
-              return;
-            }
-            setState(() => _currentStep++);
-          } else {
-            // Finish Onboarding - Create Workspace & Modules
-            await _createWorkspaceAndModules();
+          if (_currentStep == 1 && _nameController.text.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please enter a business name')),
+            );
+            return;
           }
+          // Finish Onboarding - Create Workspace
+          await _createWorkspaceAndModules();
         } else {
           // Join Logic
           Navigator.pushAndRemoveUntil(
@@ -320,7 +225,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             child: CircularProgressIndicator(color: theme.colorScheme.onPrimary, strokeWidth: 2)
           )
         : Text(
-            _currentStep == 3 || _choice == 'join' ? 'LAUNCH WORKSPACE' : 'CONTINUE',
+            _currentStep == 1 || _choice == 'join' ? 'LAUNCH WORKSPACE' : 'CONTINUE',
             style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 1.5),
           ),
     );
@@ -337,12 +242,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final workspaceFolder = await driveService.createWorkspace(widget.rootFolderId, workspaceName);
       final workspaceId = workspaceFolder.id!;
       
-      // 2. Create Module Folders
-      for (final module in _selectedModules) {
-        await driveService.createWorkspace(workspaceId, module);
-      }
-      
-      // 3. Register Company in Registry
+      // 2. Register Company in Registry
       final newCompany = Company(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: workspaceName,

@@ -161,17 +161,11 @@ void main() {
       verify(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW')).called(3);
     });
 
-    test('createModuleConfig handles spreadsheet creation and moving', () async {
-      int callCount = 0;
-      when(() => mockSpreadsheets.create(any())).thenAnswer((_) async {
-        callCount++;
-        if (callCount == 1) return sheets.Spreadsheet(spreadsheetId: 'new_sid');
-        if (callCount == 2) return sheets.Spreadsheet(spreadsheetId: 'new_sid');
-        return sheets.Spreadsheet(spreadsheetId: 'new_sid');
-      });
-      when(() => mockFiles.get(any(), $fields: any(named: '\$fields'))).thenAnswer((_) async => drive.File(parents: ['p1']));
-      when(() => mockFiles.update(any(), any(), addParents: any(named: 'addParents'), removeParents: any(named: 'removeParents'), $fields: any(named: '\$fields')))
-          .thenAnswer((_) async => drive.File());
+    test('createModuleConfig handles spreadsheet creation directly in folder', () async {
+      when(() => mockFiles.create(any(), supportsAllDrives: any(named: 'supportsAllDrives')))
+          .thenAnswer((_) async => drive.File()..id = 'new_sid');
+      
+      when(() => mockSpreadsheets.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
 
       when(() => mockValues.clear(any(), any(), any())).thenAnswer((_) async => sheets.ClearValuesResponse());
       when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
@@ -180,7 +174,8 @@ void main() {
       final id = await service.createModuleConfig('folderId', 'fileName', {});
 
       expect(id, 'new_sid');
-      verify(() => mockSpreadsheets.create(any())).called(3);
+      // Should call driveApi.files.create for each of the 3 spreadsheets (settings, dashboard, tabs)
+      verify(() => mockFiles.create(any(), supportsAllDrives: true)).called(3);
     });
 
     test('saveRecord handles nested tables and Prima data', () async {
