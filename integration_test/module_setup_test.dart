@@ -110,8 +110,7 @@ void main() {
     // After seeding, getFileId for tab spreadsheets should return a non-null id
     when(() => mockDriveService.getFileId('new_mod_id', any()))
         .thenAnswer((inv) async {
-      final name = inv.positionalArguments[1] as String;
-      return '\${name}_sheet_id';
+      return '${inv.positionalArguments[1]}_sheet_id';
     });
     // Provide defaults for user access helpers in case activation attempts them
     when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'user_access_folder');

@@ -85,8 +85,6 @@ void main() {
     // 2. Mock a Module becoming available but with a corrupt config
     final workspaceFile2 = drive.File()..id = 'ws2'..name = 'FAULTY ERP';
     workspaceProvider.setWorkspace(workspaceFile2);
-    
-    final moduleFile = drive.File()..id = 'mod_err'..name = 'HR';
     // Now user_access contains a module row for mod_err
     final moduleRange = sheets.ValueRange(values: [
       ['id', 'module_name', 'dashboard', 'settings', 'tabs'],

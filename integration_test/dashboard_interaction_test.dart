@@ -57,7 +57,6 @@ void main() {
     debugPrint('TEST: Starting dashboard_interaction_test (Period & Navigation)');
     
     final workspace = drive.File()..id = 'ws1'..name = 'ERP Lab';
-    final moduleFile = drive.File()..id = 'mod1'..name = 'CRM';
     
     // Mock the user_access sheet rows via Sheets API
     final mockValueRange = sheets.ValueRange(values: [

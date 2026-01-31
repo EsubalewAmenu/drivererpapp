@@ -16,14 +16,11 @@ import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/screens/module_screen.dart';
 import 'helpers/test_helpers.dart';
 
-class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
-
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late MockAuthService mockAuthService;
   late MockDriveService mockDriveService;
-  late MockGoogleSignInAccount mockAccount;
 
   setUpAll(() {
     initTestEnvironment();
@@ -33,7 +30,6 @@ void main() {
     final mocks = createTestMocks();
     mockAuthService = mocks.auth;
     mockDriveService = mocks.drive;
-    mockAccount = MockGoogleSignInAccount();
     registerFallbackValue(Uri.parse('http://localhost'));
   });
 
