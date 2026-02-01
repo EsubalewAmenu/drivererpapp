@@ -64,7 +64,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
         List<Map<String, dynamic>> records = [];
         
         if (fileId != null && fileId.isNotEmpty) {
-          records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000);
+          records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000, fetchSubTables: false);
         }
 
         final match = records.firstWhere((r) => (r['record_id']?.toString() == id.toString()) || (r['id']?.toString() == id.toString()), orElse: () => {});

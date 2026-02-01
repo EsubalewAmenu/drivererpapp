@@ -133,7 +133,7 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
                 final fileId = tab.fileId;
                 List<Map<String, dynamic>> records = [];
                 if (fileId != null && fileId.isNotEmpty) {
-                   records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id);
+                   records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, fetchSubTables: false);
                 }
                 
                 // Find the record where the first value (or name) matches targetValue

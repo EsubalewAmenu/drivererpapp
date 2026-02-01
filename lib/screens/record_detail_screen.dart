@@ -106,7 +106,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           List<Map<String, dynamic>> records = [];
           
           if (fileId != null && fileId.isNotEmpty) {
-            records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000);
+            records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000, fetchSubTables: false);
           }
 
           final match = records.firstWhere((r) => (r['record_id']?.toString() == id) || (r['id']?.toString() == id), orElse: () => {});
@@ -649,7 +649,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
             Future<List<Map<String, dynamic>>> fetchTask;
             if (fileId != null && fileId.isNotEmpty) {
-              fetchTask = driveService.fetchRecordsBySpreadsheetId(fileId, childTabId);
+              fetchTask = driveService.fetchRecordsBySpreadsheetId(fileId, childTabId, fetchSubTables: false);
             } else {
               fetchTask = Future.value([]);
             }
