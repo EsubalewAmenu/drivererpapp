@@ -65,9 +65,13 @@ class _HistoryDialogState extends State<HistoryDialog> {
         final now = DateTime.now();
         
         String key;
-        if (date.year == now.year && date.month == now.month && date.day == now.day) {
+        final dateOnly = DateTime(date.year, date.month, date.day);
+        final nowOnly = DateTime(now.year, now.month, now.day);
+        final diff = nowOnly.difference(dateOnly).inDays;
+
+        if (diff == 0) {
           key = 'Today';
-        } else if (date.year == now.year && date.month == now.month && date.day == now.day - 1) {
+        } else if (diff == 1) {
           key = 'Yesterday';
         } else {
           key = DateFormat.yMMMd().format(date);

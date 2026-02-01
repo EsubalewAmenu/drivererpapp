@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:drivererpapp/screens/module/module_tab_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
@@ -12,7 +13,10 @@ import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/schema_service.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 
+import 'package:drivererpapp/services/auth_service.dart';
+
 class MockDriveProvider extends Mock implements DriveProvider {}
+class MockAuthService extends Mock implements AuthService {}
 class MockDriveService extends Mock implements DriveService {}
 class MockThemeProvider extends Mock implements ThemeProvider {}
 class MockSchemaProvider extends Mock implements SchemaProvider {}
@@ -23,13 +27,17 @@ class FakeQuickFilter extends Fake implements QuickFilter {}
 class FakeListTemplateConfig extends Fake implements ListTemplateConfig {}
 class FakeDetailTemplateConfig extends Fake implements DetailTemplateConfig {}
 
+class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
+
 void main() {
   late MockDriveProvider mockDriveProvider;
+  late MockAuthService mockAuthService;
   late MockDriveService mockDriveService;
   late MockThemeProvider mockThemeProvider;
   late MockSchemaProvider mockSchemaProvider;
   late MockSchemaService mockSchemaService;
   late MockWorkspaceProvider mockWorkspaceProvider;
+  late MockGoogleSignInAccount mockUser;
   late ModuleSchema testModule;
   late TabConfig testTab;
 
@@ -45,11 +53,18 @@ void main() {
 
   setUp(() {
     mockDriveProvider = MockDriveProvider();
+    mockAuthService = MockAuthService();
     mockDriveService = MockDriveService();
     mockThemeProvider = MockThemeProvider();
     mockSchemaProvider = MockSchemaProvider();
     mockSchemaService = MockSchemaService();
     mockWorkspaceProvider = MockWorkspaceProvider();
+    mockUser = MockGoogleSignInAccount();
+
+    when(() => mockUser.email).thenReturn('test@example.com');
+    when(() => mockUser.displayName).thenReturn('Test User');
+    when(() => mockAuthService.currentUser).thenReturn(mockUser);
+    when(() => mockAuthService.isAuthenticated).thenReturn(true);
 
     final binding = TestWidgetsFlutterBinding.ensureInitialized();
     binding.platformDispatcher.implicitView!.physicalSize = const Size(1024, 768);
@@ -137,6 +152,7 @@ void main() {
         Provider<DriveProvider>.value(value: mockDriveProvider),
         Provider<ThemeProvider>.value(value: mockThemeProvider),
         Provider<SchemaProvider>.value(value: mockSchemaProvider),
+        Provider<AuthService>.value(value: mockAuthService),
       ],
       child: MaterialApp(
         home: Scaffold(
@@ -210,6 +226,7 @@ void main() {
           Provider<DriveProvider>.value(value: mockDriveProvider),
           Provider<ThemeProvider>.value(value: mockThemeProvider),
           Provider<SchemaProvider>.value(value: mockSchemaProvider),
+          Provider<AuthService>.value(value: mockAuthService),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -515,6 +532,7 @@ void main() {
           ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
           ChangeNotifierProvider<ThemeProvider>.value(value: mockThemeProvider),
           ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
+          Provider<AuthService>.value(value: mockAuthService),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -682,6 +700,7 @@ void main() {
           Provider<DriveProvider>.value(value: mockDriveProvider),
           Provider<ThemeProvider>.value(value: mockThemeProvider),
           Provider<SchemaProvider>.value(value: mockSchemaProvider),
+          Provider<AuthService>.value(value: mockAuthService),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -793,6 +812,7 @@ void main() {
           Provider<DriveProvider>.value(value: mockDriveProvider),
           Provider<ThemeProvider>.value(value: mockThemeProvider),
           Provider<SchemaProvider>.value(value: mockSchemaProvider),
+          Provider<AuthService>.value(value: mockAuthService),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -864,6 +884,7 @@ void main() {
           Provider<DriveProvider>.value(value: mockDriveProvider),
           Provider<ThemeProvider>.value(value: mockThemeProvider),
           Provider<SchemaProvider>.value(value: mockSchemaProvider),
+          Provider<AuthService>.value(value: mockAuthService),
         ],
         child: MaterialApp(
           home: Scaffold(

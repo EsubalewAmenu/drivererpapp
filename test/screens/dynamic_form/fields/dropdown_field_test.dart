@@ -14,6 +14,10 @@ void main() {
   late MockDriveProvider mockDriveProvider;
   late MockDriveService mockDriveService;
 
+  setUpAll(() {
+    Provider.debugCheckInvalidValueType = null;
+  });
+
   setUp(() {
     mockDriveProvider = MockDriveProvider();
     mockDriveService = MockDriveService();
@@ -30,7 +34,7 @@ void main() {
   }) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+        Provider<DriveProvider>.value(value: mockDriveProvider),
       ],
       child: MaterialApp(
         home: Scaffold(
@@ -113,6 +117,7 @@ void main() {
     when(() => mockDriveService.fetchRecordsBySpreadsheetId(
       any(),
       'tab2_id',
+      fetchSubTables: any(named: 'fetchSubTables'),
     )).thenAnswer((_) async => [
       {'name': 'Parent Item 1', 'allowed_values': '[Alpha, Beta]'},
       {'name': 'Parent Item 2', 'allowed_values': '[Gamma]'},
@@ -172,8 +177,11 @@ void main() {
       tabs: [tab1, tab2]
     );
 
-    when(() => mockDriveService.fetchRecordsBySpreadsheetId(any(), 'tab2_id'))
-        .thenAnswer((_) async => [
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+      any(), 
+      'tab2_id',
+      fetchSubTables: any(named: 'fetchSubTables'),
+    )).thenAnswer((_) async => [
           {'name': 'Parent Item 1', 'custom_label': 'Category Selector', 'allowed_values': '[A, B]'},
         ]);
 
@@ -223,8 +231,11 @@ void main() {
     );
 
     // Case 1: is_active is false
-    when(() => mockDriveService.fetchRecordsBySpreadsheetId(any(), 'tab2_id'))
-        .thenAnswer((_) async => [
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+      any(), 
+      'tab2_id',
+      fetchSubTables: any(named: 'fetchSubTables'),
+    )).thenAnswer((_) async => [
           {'name': 'Parent Item 1', 'is_active': false, 'allowed_values': '[A, B]'},
         ]);
 
@@ -243,8 +254,11 @@ void main() {
     expect(find.byType(DropdownButtonFormField<String>), findsNothing);
 
     // Case 2: is_active is true
-    when(() => mockDriveService.fetchRecordsBySpreadsheetId(any(), 'tab2_id'))
-        .thenAnswer((_) async => [
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+      any(), 
+      'tab2_id',
+      fetchSubTables: any(named: 'fetchSubTables'),
+    )).thenAnswer((_) async => [
           {'name': 'Parent Item 1', 'is_active': true, 'allowed_values': '[A, B]'},
         ]);
 
@@ -287,8 +301,11 @@ void main() {
     );
 
     int fetchCount = 0;
-    when(() => mockDriveService.fetchRecordsBySpreadsheetId(any(), 'tab2_id'))
-        .thenAnswer((_) async {
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+      any(), 
+      'tab2_id',
+      fetchSubTables: any(named: 'fetchSubTables'),
+    )).thenAnswer((_) async {
           fetchCount++;
           if (fetchCount == 1) {
             return [{'name': 'P1', 'allowed_values': '[A]'}];
