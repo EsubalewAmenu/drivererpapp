@@ -5,7 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:drivererpapp/screens/module_details_screen.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
+import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/services/schema_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
@@ -21,6 +23,8 @@ class MockSheetsApi extends Mock implements sheets.SheetsApi {}
 class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
 class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 class MockAuthService extends Mock implements AuthService {}
+class MockSchemaProvider extends Mock implements SchemaProvider {}
+class MockSchemaService extends Mock implements SchemaService {}
 
 class TestAssetBundle extends CachingAssetBundle {
   final Map<String, String> assets;
@@ -52,15 +56,32 @@ void main() {
   late MockWorkspaceProvider mockWorkspaceProvider;
   late MockDriveService mockDriveService;
   late MockAuthService mockAuthService;
+  late MockSchemaProvider mockSchemaProvider;
+  late MockSchemaService mockSchemaService;
 
   setUp(() {
     mockDriveProvider = MockDriveProvider();
     mockWorkspaceProvider = MockWorkspaceProvider();
     mockDriveService = MockDriveService();
     mockAuthService = MockAuthService();
+    mockSchemaProvider = MockSchemaProvider();
+    mockSchemaService = MockSchemaService();
     
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
+    when(() => mockSchemaProvider.service).thenReturn(mockSchemaService);
+    when(() => mockSchemaService.cacheConfig(any(), any())).thenAnswer((_) async => true);
+    when(() => mockSchemaService.removeCachedConfig(any())).thenAnswer((_) async => true);
+    when(() => mockSchemaProvider.updateMemoryCache(any(), any())).thenReturn(null);
+    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'uas123');
+    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'uaf123');
+    when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
+    when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'sub123');
+    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any())).thenAnswer((_) async => {});
+    when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any())).thenAnswer((_) async => {});
+    when(() => mockDriveService.registerModule(any(), any(), any(), any())).thenAnswer((_) async => {});
+    when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'cfg123');
+
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'ws123'..name = 'My Workspace');
     when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
     when(() => mockAuthService.currentUser).thenReturn(_TestGoogleAccount('test@example.com'));
@@ -71,6 +92,7 @@ void main() {
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+        ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
         Provider<AuthService>.value(value: mockAuthService),
       ],
       child: MaterialApp(
@@ -86,6 +108,7 @@ void main() {
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+        ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
         Provider<AuthService>.value(value: mockAuthService),
       ],
       child: root,
@@ -252,8 +275,8 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    // Seeding is now deferred until the module's list view loads.
-    verifyNever(() => mockDriveService.saveRecord('mod123', 'Inventory', 't1', any()));
+    // Verification: seeding is removed from activation stage
+    verifyNever(() => mockDriveService.saveRecord(any(), any(), any(), any()));
     expect(find.byType(DashboardScreen), findsOneWidget);
     
     // Cleanup mock handler
