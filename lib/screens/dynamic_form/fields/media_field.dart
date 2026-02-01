@@ -79,12 +79,12 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
           height: 200,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: theme.cardTheme.color,
+            color: widget.column.readonly == true ? theme.dividerColor.withValues(alpha: 0.05) : theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: theme.dividerColor, style: BorderStyle.solid),
           ),
           child: InkWell(
-            onTap: _isUploading ? null : () => _showImageSourceSheet(context),
+            onTap: (_isUploading || widget.column.readonly == true) ? null : () => _showImageSourceSheet(context),
             borderRadius: BorderRadius.circular(12),
             child: Stack(
               children: [
@@ -148,13 +148,15 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
                           icon: Icons.edit_rounded, 
                           onTap: () => _showImageSourceSheet(context)
                         ),
-                        const SizedBox(width: 8),
-                        _buildActionButton(
-                          context, 
-                          icon: Icons.delete_outline_rounded, 
-                          color: Colors.red,
-                          onTap: () => widget.onChanged(''), // Clear value
-                        ),
+                        if (widget.column.readonly != true) ...[
+                          const SizedBox(width: 8),
+                          _buildActionButton(
+                            context, 
+                            icon: Icons.delete_outline_rounded, 
+                            color: Colors.red,
+                            onTap: () => widget.onChanged(''), // Clear value
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -346,6 +348,7 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
 
   Widget _buildScanner(BuildContext context) {
     final theme = Theme.of(context);
+    final isReadonly = widget.column.readonly == true;
     // We need a controller to show the value in the text field part of the scanner
     final controller = TextEditingController(text: widget.value);
     
@@ -367,10 +370,11 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
             Expanded(
               child: TextFormField(
                 controller: controller,
-                style: AppTheme.inter(color: theme.textTheme.bodyLarge?.color),
+                readOnly: isReadonly,
+                style: AppTheme.inter(color: isReadonly ? theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6) : theme.textTheme.bodyLarge?.color),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: theme.cardTheme.color,
+                  fillColor: isReadonly ? theme.dividerColor.withValues(alpha: 0.05) : theme.cardTheme.color,
                   hintText: 'Scan or enter code',
                   hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
                   border: OutlineInputBorder(
@@ -384,7 +388,7 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
             ),
             const SizedBox(width: 12),
             InkWell(
-              onTap: () {
+              onTap: isReadonly ? null : () {
                 // Mock scanner action
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanner started...')));
                 // Simulate scan result
@@ -396,11 +400,11 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: widget.primaryColor.withValues(alpha: 0.1),
+                  color: isReadonly ? theme.dividerColor.withValues(alpha: 0.2) : widget.primaryColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: widget.primaryColor),
+                  border: Border.all(color: isReadonly ? Colors.transparent : widget.primaryColor),
                 ),
-                child: Icon(Icons.qr_code_scanner_rounded, color: widget.primaryColor),
+                child: Icon(Icons.qr_code_scanner_rounded, color: isReadonly ? theme.disabledColor : Colors.white),
               ),
             ),
           ],
@@ -411,6 +415,7 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
 
   Widget _buildSignaturePad(BuildContext context) {
     final theme = Theme.of(context);
+    final isReadonly = widget.column.readonly == true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -428,19 +433,19 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
           height: 150,
           width: double.infinity,
           decoration: BoxDecoration(
-            color: theme.cardTheme.color,
+            color: isReadonly ? theme.dividerColor.withValues(alpha: 0.05) : theme.cardTheme.color,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: theme.dividerColor),
           ),
           child: InkWell(
-            onTap: () {
+            onTap: isReadonly ? null : () {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Signature pad coming soon')));
             },
             borderRadius: BorderRadius.circular(12),
             child: Center(
               child: Text(
-                'Tap to sign',
-                style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
+                isReadonly ? 'View Signature' : 'Tap to sign',
+                style: AppTheme.inter(color: isReadonly ? theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6) : theme.textTheme.bodyMedium?.color),
               ),
             ),
           ),

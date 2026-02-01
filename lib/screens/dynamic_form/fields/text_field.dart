@@ -99,10 +99,11 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
                     ? TextInputType.phone 
                     : (isLongText ? TextInputType.multiline : TextInputType.text))),
           maxLines: maxLines,
-          style: AppTheme.inter(color: textColor),
+          readOnly: widget.column.readonly == true,
+          style: AppTheme.inter(color: widget.column.readonly == true ? textColor.withValues(alpha: 0.6) : textColor),
           decoration: InputDecoration(
             filled: true,
-            fillColor: fillColor,
+            fillColor: widget.column.readonly == true ? theme.dividerColor.withValues(alpha: 0.05) : fillColor,
             hintText: 'Enter ${widget.column.label.toLowerCase()}',
             hintStyle: TextStyle(color: hintColor),
             prefixText: isCurrency ? '${widget.column.currencySymbol ?? '\$'} ' : null,
