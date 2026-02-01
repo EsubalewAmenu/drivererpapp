@@ -291,17 +291,12 @@ class _ModuleScreenState extends State<ModuleScreen> {
           // so memory/cache lookups resolve the provisioned schema correctly.
           final effectiveId = activated ? (rowId ?? modId) : modId;
 
-          // Try to load detailed info (favoring local cache)
+          // Try to load detailed info (favoring local cache or Drive indirectly via sync)
           try {
             Map<String, dynamic>? config = await schemaProvider.service.getCachedConfig(effectiveId);
             
-            // Only fallback to assets if module is NOT yet activated (Discovery phase)
-            if (config == null && !activated) {
-              final jsonString = await SchemaService.tryLoadModuleAsset(modId);
-              if (jsonString != null) {
-                config = jsonDecode(jsonString) as Map<String, dynamic>;
-              }
-            }
+            // REMOVED: Asset fallback deleted per request. Only cache and Drive should be used.
+            // if (config == null && !activated) { ... }
 
             if (config != null) {
               final settingsRaw = config['settings'] as Map<String, dynamic>?;
@@ -366,28 +361,11 @@ class _ModuleScreenState extends State<ModuleScreen> {
       _syncSchema(schemaService).then((newJson) async {
         debugPrint('ModuleScreen: _syncSchema finished with ${newJson != null}');
         if (newJson == null && mounted) {
-          // 3. Fallback to Assets ONLY for initial activation/new setup
-          debugPrint('No remote config found for ${widget.module.id}, checking assets...');
-          final fileName = widget.module.name.toLowerCase();
-          Map<String, dynamic> assetJson;
-          try {
-            final jsonString = await SchemaService.tryLoadModuleAsset(fileName);
-            if (jsonString != null) {
-              assetJson = jsonDecode(jsonString);
-            } else {
-              throw Exception('Asset not found');
-            }
-          } catch (e) {
-            debugPrint('Asset not found for $fileName, using default template');
-            assetJson = {
-              'settings': {
-                'name': {'label': 'Name', 'type': 'text', 'value': widget.module.name}
-              },
-              'dashboard': {'cards': []},
-              'tabs': [],
-            };
-          }
-          await _processJson(assetJson, isAssetFallback: true);
+          // If sync failed and not in cache, we just show error message or stay empty.
+          // Fallback to Assets removed per request.
+          setState(() {
+            _errorMessage = "Unable to load module data. Please check your connection.";
+          });
         }
       });
 
@@ -497,7 +475,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
     }
   }
 
-  Future<void> _processJson(Map<String, dynamic> jsonMap, {bool isAssetFallback = false}) async {
+  Future<void> _processJson(Map<String, dynamic> jsonMap) async {
     if (!mounted) return;
 
     final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
@@ -768,20 +746,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
         setState(() {
           _fullModule = mergedModuleResult;
         });
-      }
-
-      if (isAssetFallback && mounted) {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => SchemaEditorScreen(
-              module: baseModuleSchema,
-              isNewSetup: true,
-              settingsSheetId: widget.settingsSheetId,
-              dashboardSheetId: widget.dashboardSheetId,
-              tabsSheetId: widget.tabsSheetId,
-            ),
-          ),
-        ).then((_) => _loadSchema());
       }
     } catch (e) {
       debugPrint('Error in _processJson: $e');
