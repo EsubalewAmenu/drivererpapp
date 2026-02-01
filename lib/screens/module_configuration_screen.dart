@@ -19,6 +19,8 @@ class ModuleConfigurationScreen extends StatefulWidget {
 class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
   bool _isLoading = true;
   bool _isActivating = false;
+  String _statusMessage = "Starting activation...";
+  double _progress = 0.0;
   Map<String, dynamic>? _moduleJson;
   final Map<String, dynamic> _formValues = {};
 
@@ -100,10 +102,12 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
+          : _isActivating
+              ? _buildActivationProgress(theme, color)
+              : SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -167,6 +171,85 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                 ),
               ),
             ),
+    );
+  }
+
+  Widget _buildActivationProgress(ThemeData theme, Color color) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.2),
+                    width: 2,
+                  ),
+                ),
+                child: Center(
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircularProgressIndicator(
+                      color: color,
+                      strokeWidth: 3,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 64),
+            Text(
+              'ACTIVATING MODULE',
+              style: AppTheme.inter(
+                color: theme.textTheme.bodyMedium?.color,
+                fontSize: 12,
+                letterSpacing: 2.0,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                _statusMessage,
+                key: ValueKey<String>(_statusMessage),
+                style: AppTheme.sourceCodePro(
+                  color: theme.textTheme.bodyLarge?.color,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  height: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: _progress,
+                backgroundColor: theme.cardTheme.color,
+                color: color,
+                minHeight: 6,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '${(_progress * 100).toInt()}% Complete',
+              style: AppTheme.inter(
+                color: theme.disabledColor,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -421,7 +504,11 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
   }
 
   Future<void> _activateModule() async {
-    setState(() => _isActivating = true);
+    setState(() {
+      _isActivating = true;
+      _statusMessage = "Ensuring workspace connections...";
+      _progress = 0.1;
+    });
 
     try {
       final driveProvider = Provider.of<DriveProvider>(context, listen: false);
@@ -442,6 +529,13 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         // and it's marked `deactivated`, simply re-activate by flipping the
         // status back to `activated` and return — do not create folders or seed data.
         try {
+          if (mounted) {
+            setState(() {
+              _statusMessage = "Checking module status...";
+              _progress = 0.2;
+            });
+          }
+
           final userEmail = capturedUserEmail;
           if (userEmail != null && userEmail.isNotEmpty) {
             final userAccessFolderId = await (driveService as dynamic).ensureUserAccessFolder(workspaceId);
@@ -461,9 +555,25 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
                 if (rowName.trim().toLowerCase() == moduleName.toString().trim().toLowerCase()) {
                   final currentStatus = (statusIndex != -1 && row.length > statusIndex) ? row[statusIndex] : '';
                   if (currentStatus.toString().toLowerCase() == 'deactivated') {
+                    if (mounted) {
+                      setState(() {
+                        _statusMessage = "Re-activating $moduleName...";
+                        _progress = 0.5;
+                      });
+                    }
+
                     final moduleId = row.isNotEmpty ? row[0] : null;
                     if (moduleId != null && moduleId.isNotEmpty) {
                       await (driveService as dynamic).setUserAccessModuleStatus(userAccessFileId, moduleId, 'activated');
+                      
+                      if (mounted) {
+                        setState(() {
+                          _statusMessage = "Finalizing...";
+                          _progress = 1.0;
+                        });
+                      }
+                      await Future.delayed(const Duration(milliseconds: 500));
+
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$moduleName re-activated.')));
                         Navigator.pushAndRemoveUntil(
@@ -485,6 +595,13 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
           debugPrint('Error ensuring user access for re-activation check: $e');
         }
 
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Creating module folder...";
+          _progress = 0.3;
+        });
+      }
+
       // Create the module folder in Drive
       final createdModuleRes = (driveService as dynamic).createWorkspace(workspaceId, moduleName);
       dynamic createdModule;
@@ -500,6 +617,13 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
       
       // Auto-seed Initial Data
       if (_moduleJson != null && _moduleJson!['tabs'] != null) {
+        if (mounted) {
+          setState(() {
+            _statusMessage = "Seeding initial data...";
+            _progress = 0.4;
+          });
+        }
+
         final tabs = _moduleJson!['tabs'] as List;
         for (var tab in tabs) {
           if (tab is Map && tab['initial_data'] != null) {
@@ -540,6 +664,13 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         }
       }
 
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Configuring module defaults...";
+          _progress = 0.6;
+        });
+      }
+
       // Create config folder and default config file now (so module has config immediately)
       try {
         if (_moduleJson != null) {
@@ -569,6 +700,13 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         debugPrint('Error ensuring config folder during activation: $e');
       }
 
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Registering in workspace registry...";
+          _progress = 0.8;
+        });
+      }
+
       // Register the module in the company registry under 'modules' sheet.
       try {
         final rootRes = workspaceProvider.rootFolderId ?? (driveService as dynamic).checkRootFolder();
@@ -581,6 +719,13 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
         if (rootFolderId != null) {
           final regRes = (driveService as dynamic).registerModule(rootFolderId, workspaceId, moduleName, moduleFolderId);
           if (regRes is Future) await regRes;
+
+          if (mounted) {
+            setState(() {
+              _statusMessage = "Provisioning user access...";
+              _progress = 0.9;
+            });
+          }
 
           // Also ensure user's access spreadsheet is updated with this module info
           try {
@@ -608,6 +753,14 @@ class _ModuleConfigurationScreenState extends State<ModuleConfigurationScreen> {
       } catch (e) {
         debugPrint('Failed to register module in registry: $e');
       }
+
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Module ready!";
+          _progress = 1.0;
+        });
+      }
+      await Future.delayed(const Duration(milliseconds: 500));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

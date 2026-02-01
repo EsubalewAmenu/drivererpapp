@@ -45,6 +45,8 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
   
   Map<String, dynamic>? _rawSettings;
   bool _isSaving = false;
+  String _statusMessage = "Starting save...";
+  double _progress = 0.0;
 
   @override
   void initState() {
@@ -76,7 +78,9 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
+      appBar: widget.isNewSetup && _isSaving 
+        ? null 
+        : AppBar(
         title: Text(
           widget.isNewSetup ? 'COMPLETE SETUP' : 'BLUEPRINT EDITOR', 
           style: AppTheme.inter(
@@ -101,12 +105,12 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
           ],
         ),
         actions: [
-          if (_isSaving)
+          if (_isSaving && !widget.isNewSetup)
             const Center(child: Padding(
               padding: EdgeInsets.only(right: 16.0),
               child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
             ))
-          else
+          else if (!widget.isNewSetup || !_isSaving)
             TextButton(
               onPressed: _saveChanges,
               child: Text(
@@ -116,7 +120,9 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
             ),
         ],
       ),
-      body: TabBarView(
+      body: _isSaving && widget.isNewSetup
+          ? _buildProgressOverlay(theme, AppTheme.primaryColor)
+          : TabBarView(
         controller: _tabController,
         children: [
           StructureEditor(
@@ -457,5 +463,84 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
         _cards[index] = updatedCard;
       });
     }
+  }
+
+  Widget _buildProgressOverlay(ThemeData theme, Color color) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.2),
+                    width: 2,
+                  ),
+                ),
+                child: Center(
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircularProgressIndicator(
+                      color: color,
+                      strokeWidth: 3,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 64),
+            Text(
+              'ACTIVATING BLUEPRINT',
+              style: AppTheme.inter(
+                color: theme.textTheme.bodyMedium?.color,
+                fontSize: 12,
+                letterSpacing: 2.0,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 16),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: Text(
+                _statusMessage,
+                key: ValueKey<String>(_statusMessage),
+                style: AppTheme.sourceCodePro(
+                  color: theme.textTheme.bodyLarge?.color,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                  height: 1.5,
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: _progress,
+                backgroundColor: theme.cardTheme.color,
+                color: color,
+                minHeight: 6,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              '${(_progress * 100).toInt()}% Complete',
+              style: AppTheme.inter(
+                color: theme.disabledColor,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
