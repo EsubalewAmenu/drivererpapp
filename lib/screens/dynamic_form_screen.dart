@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
+import '../services/auth_service.dart';
 import 'dynamic_form/dynamic_form_renderer.dart';
 
 class DynamicFormScreen extends StatefulWidget {
@@ -42,12 +43,25 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     }
 
     // Initialize form data and controllers
+    final auth = context.read<AuthService>();
     for (var col in widget.tab.columns) {
       var initialValue = widget.initialData?[col.key];
       
       // Apply default value if no initial data and default exists
       if (initialValue == null && col.defaultValue != null) {
-        initialValue = col.defaultValue;
+        final def = col.defaultValue.toString();
+        if (def.startsWith('user.')) {
+          final userProp = def.substring(5);
+          if (userProp == 'email') {
+            initialValue = auth.currentUser?.email;
+          } else if (userProp == 'name') {
+            initialValue = auth.currentUser?.displayName;
+          } else {
+            initialValue = col.defaultValue;
+          }
+        } else {
+          initialValue = col.defaultValue;
+        }
       }
 
       _formData[col.key] = initialValue;
