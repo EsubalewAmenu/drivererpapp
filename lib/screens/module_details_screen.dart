@@ -218,39 +218,9 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                 await provider.service.cacheConfig(assetKey, _moduleJson!);
               } catch (_) {}
 
-              // After activation, clear local cached configs and in-memory
-              // entries for the extension (short key + folder id) and the
-              // host module so subsequent opens will fetch fresh data from
-              // Drive and avoid stale prefixed ids.
-              WidgetsBinding.instance.addPostFrameCallback((_) async {
-                try {
-                  if (!mounted) return;
-                  try {
-                    await provider.service.removeCachedConfig(assetKey);
-                  } catch (_) {}
-                  try {
-                    await provider.service.removeCachedConfig(moduleFolderId);
-                  } catch (_) {}
-                  if (widget.hostModuleId != null && widget.hostModuleId!.isNotEmpty) {
-                    try {
-                      await provider.service.removeCachedConfig(widget.hostModuleId!);
-                    } catch (_) {}
-                  }
-
-                  // Clear in-memory entries so UI will re-resolve from Drive
-                  try {
-                    provider.updateMemoryCache(moduleFolderId, null);
-                    try { provider.updateMemoryCache(assetKey, null); } catch (_) {}
-                    if (widget.hostModuleId != null && widget.hostModuleId!.isNotEmpty) {
-                      try { provider.updateMemoryCache(widget.hostModuleId!, null); } catch (_) {}
-                    }
-                  } catch (e) {
-                    debugPrint('Error clearing in-memory cache post-activation: $e');
-                  }
-                } catch (e) {
-                  debugPrint('Error clearing local cache post-activation: $e');
-                }
-              });
+              // Do not remove cached configurations here; keeping them saves
+              // time and avoids unnecessary re-syncs immediately after activation.
+              // The system will update these caches naturally during the next sync.
             } catch (e) {
               debugPrint('Failed to cache module config locally after activation: $e');
             }
