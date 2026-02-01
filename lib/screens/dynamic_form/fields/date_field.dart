@@ -49,7 +49,7 @@ class DynamicDateField extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             InkWell(
-              onTap: () async {
+              onTap: column.readonly == true ? null : () async {
                 final date = await showDatePicker(
                   context: context,
                   initialDate: DateTime.now(),
@@ -76,7 +76,7 @@ class DynamicDateField extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                 decoration: BoxDecoration(
-                  color: theme.cardTheme.color,
+                  color: column.readonly == true ? theme.dividerColor.withValues(alpha: 0.05) : theme.cardTheme.color,
                   borderRadius: BorderRadius.circular(12),
                   // Show red border if error
                   border: state.hasError 
@@ -85,12 +85,14 @@ class DynamicDateField extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.calendar_today_rounded, color: borderColor, size: 20),
+                    Icon(Icons.calendar_today_rounded, color: column.readonly == true ? borderColor.withValues(alpha: 0.5) : borderColor, size: 20),
                     const SizedBox(width: 12),
                     Text(
                       state.value ?? 'Select Date',
                       style: AppTheme.inter(
-                        color: state.value != null ? theme.textTheme.titleMedium?.color : theme.disabledColor,
+                        color: column.readonly == true 
+                            ? (state.value != null ? theme.textTheme.titleMedium?.color?.withValues(alpha: 0.6) : theme.disabledColor) 
+                            : (state.value != null ? theme.textTheme.titleMedium?.color : theme.disabledColor),
                       ),
                     ),
                   ],

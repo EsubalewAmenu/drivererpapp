@@ -19,10 +19,12 @@ class DynamicBooleanField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isReadonly = column.readonly == true;
+    
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: theme.cardTheme.color,
+        color: isReadonly ? theme.dividerColor.withValues(alpha: 0.05) : theme.cardTheme.color,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.transparent),
       ),
@@ -34,14 +36,14 @@ class DynamicBooleanField extends StatelessWidget {
               style: AppTheme.inter(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
-                color: theme.textTheme.bodyLarge?.color,
+                color: isReadonly ? theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6) : theme.textTheme.bodyLarge?.color,
               ),
             ),
           ),
           Switch(
             value: value,
             activeThumbColor: primaryColor,
-            onChanged: onChanged,
+            onChanged: isReadonly ? null : onChanged,
           ),
         ],
       ),

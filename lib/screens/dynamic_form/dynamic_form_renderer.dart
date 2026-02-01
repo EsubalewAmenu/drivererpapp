@@ -93,6 +93,8 @@ class DynamicFormRenderer extends StatelessWidget {
 
     switch (col.type) {
       case 'text':
+      case 'long_text':
+      case 'longtext':
       case 'number':
       case 'currency':
       case 'email':

@@ -69,7 +69,8 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
     final isEmail = widget.column.type == 'email';
     final isPhone = widget.column.type == 'phone';
     final isCurrency = widget.column.type == 'currency';
-    final maxLines = widget.column.type == 'longtext' ? 4 : 1;
+    final isLongText = widget.column.type == 'long_text' || widget.column.type == 'longtext';
+    final maxLines = isLongText ? 4 : 1;
 
     final textColor = theme.textTheme.bodyMedium?.color ?? AppTheme.textColor;
     final hintColor = theme.disabledColor;
@@ -94,12 +95,15 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
             ? TextInputType.number 
             : (isEmail 
                 ? TextInputType.emailAddress 
-                : (isPhone ? TextInputType.phone : TextInputType.text)),
+                : (isPhone 
+                    ? TextInputType.phone 
+                    : (isLongText ? TextInputType.multiline : TextInputType.text))),
           maxLines: maxLines,
-          style: AppTheme.inter(color: textColor),
+          readOnly: widget.column.readonly == true,
+          style: AppTheme.inter(color: widget.column.readonly == true ? textColor.withValues(alpha: 0.6) : textColor),
           decoration: InputDecoration(
             filled: true,
-            fillColor: fillColor,
+            fillColor: widget.column.readonly == true ? theme.dividerColor.withValues(alpha: 0.05) : fillColor,
             hintText: 'Enter ${widget.column.label.toLowerCase()}',
             hintStyle: TextStyle(color: hintColor),
             prefixText: isCurrency ? '${widget.column.currencySymbol ?? '\$'} ' : null,

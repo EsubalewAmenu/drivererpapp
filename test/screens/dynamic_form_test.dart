@@ -6,19 +6,31 @@ import 'package:drivererpapp/screens/dynamic_form_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/services/auth_service.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
+class MockAuthService extends Mock implements AuthService {}
+
+class _TestGoogleAccount extends Fake implements GoogleSignInAccount {
+  final String _email;
+  _TestGoogleAccount(this._email);
+  @override
+  String get email => _email;
+}
 
 void main() {
   late MockDriveProvider mockDriveProvider;
   late MockDriveService mockDriveService;
+  late MockAuthService mockAuthService;
   late TabConfig testTab;
   late ModuleSchema testModule;
 
   setUp(() {
     mockDriveProvider = MockDriveProvider();
     mockDriveService = MockDriveService();
+    mockAuthService = MockAuthService();
 
     testTab = TabConfig(
       id: 'items',
@@ -42,18 +54,21 @@ void main() {
     );
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    when(() => mockAuthService.currentUser).thenReturn(_TestGoogleAccount('test@example.com'));
   });
 
-  Widget createDynamicFormScreen() {
+  Widget createDynamicFormScreen({TabConfig? tab, Map<String, dynamic>? initialData}) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+        ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
       ],
       child: MaterialApp(
         home: DynamicFormScreen(
-          tab: testTab,
+          tab: tab ?? testTab,
           primaryColor: Colors.amber,
           module: testModule,
+          initialData: initialData,
         ),
       ),
     );
@@ -109,21 +124,10 @@ void main() {
     // Simulate data coming from Sheet as JSON string
     const encodedList = '["OptionA","OptionB"]';
 
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
-        ],
-        child: MaterialApp(
-          home: DynamicFormScreen(
-            tab: listTab,
-            primaryColor: Colors.blue,
-            module: testModule,
-            initialData: const {'options': encodedList},
-          ),
-        ),
-      ),
-    );
+    await tester.pumpWidget(createDynamicFormScreen(
+      tab: listTab,
+      initialData: const {'options': encodedList},
+    ));
 
     expect(find.text('OptionA'), findsOneWidget);
     expect(find.text('OptionB'), findsOneWidget);

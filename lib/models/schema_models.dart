@@ -396,6 +396,7 @@ class ColumnConfig {
   final dynamic dependsValue;
   @JsonKey(name: 'depends_operator')
   final String? dependsOperator;
+  final bool? readonly;
 
   ColumnConfig({
     required this.key,
@@ -412,6 +413,7 @@ class ColumnConfig {
     this.currencySymbol,
     this.dependsValue,
     this.dependsOperator,
+    this.readonly,
   });
 
   ColumnConfig copyWith({
@@ -429,6 +431,7 @@ class ColumnConfig {
     String? currencySymbol,
     dynamic dependsValue,
     String? dependsOperator,
+    bool? readonly,
   }) {
     return ColumnConfig(
       key: key ?? this.key,
@@ -445,9 +448,41 @@ class ColumnConfig {
       currencySymbol: currencySymbol ?? this.currencySymbol,
       dependsValue: dependsValue ?? this.dependsValue,
       dependsOperator: dependsOperator ?? this.dependsOperator,
+      readonly: readonly ?? this.readonly,
     );
   }
 
-  factory ColumnConfig.fromJson(Map<String, dynamic> json) => _$ColumnConfigFromJson(json);
+  factory ColumnConfig.fromJson(Map<String, dynamic> json) {
+    // Robustly handle 'readonly' as both boolean and string "true"
+    bool? readonlyValue;
+    if (json.containsKey('readonly')) {
+      final val = json['readonly'];
+      if (val is bool) {
+        readonlyValue = val;
+      } else if (val is String) {
+        readonlyValue = val.toLowerCase() == 'true';
+      }
+    }
+    
+    return ColumnConfig(
+      key: json['key'] as String,
+      label: json['label'] as String,
+      type: json['type'] as String,
+      options: json['options'],
+      formula: json['formula'] as String?,
+      dependsOn: json['depends_on'] as String?,
+      defaultValue: json['default'],
+      columns: (json['columns'] as List<dynamic>?)
+          ?.map((e) => ColumnConfig.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      hidden: json['hidden'] as bool?,
+      dynamicLabel: json['dynamic_label'] as String?,
+      isRequired: json['required'] as bool?,
+      currencySymbol: json['currency_symbol'] as String?,
+      dependsValue: json['depends_value'],
+      dependsOperator: json['depends_operator'] as String?,
+      readonly: readonlyValue,
+    );
+  }
   Map<String, dynamic> toJson() => _$ColumnConfigToJson(this);
 }

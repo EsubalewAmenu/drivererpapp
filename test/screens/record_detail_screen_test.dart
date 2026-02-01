@@ -5,22 +5,27 @@ import 'package:provider/provider.dart';
 import 'package:drivererpapp/screens/record_detail_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
+import 'package:drivererpapp/services/auth_service.dart';
 
 import 'package:drivererpapp/services/drive_service.dart';
 
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
+class MockAuthService extends Mock implements AuthService {}
 
 void main() {
   late MockDriveProvider mockDrive;
   late MockDriveService mockService;
+  late MockAuthService mockAuth;
 
   setUp(() {
     mockDrive = MockDriveProvider();
     mockService = MockDriveService();
+    mockAuth = MockAuthService();
     when(() => mockDrive.driveService).thenReturn(mockService);
     when(() => mockService.getFileId(any(), any())).thenAnswer((_) async => null);
     when(() => mockService.deleteRecordBySpreadsheetId(any(), any(), any())).thenAnswer((_) async => {});
+    when(() => mockAuth.currentUser).thenReturn(null);
   });
 
   Widget createScreen({
@@ -31,8 +36,11 @@ void main() {
     ModuleSchema? module,
     String? fileId,
   }) {
-    return ChangeNotifierProvider<DriveProvider>.value(
-      value: mockDrive,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<DriveProvider>.value(value: mockDrive),
+        ChangeNotifierProvider<AuthService>.value(value: mockAuth),
+      ],
       child: MaterialApp(
         home: RecordDetailScreen(
           columns: columns,
@@ -264,14 +272,9 @@ void main() {
       ],
     };
 
-    await tester.pumpWidget(MaterialApp(
-      home: RecordDetailScreen(
-        data: data,
-        columns: columns,
-        primaryColor: Colors.blue,
-        title: 'Items List',
-        tab: TabConfig(id: 't1', label: 'Test', columns: columns),
-      ),
+    await tester.pumpWidget(createScreen(
+      columns: columns,
+      data: data,
     ));
     await tester.pumpAndSettle();
 
@@ -286,13 +289,18 @@ void main() {
     final columns = [ColumnConfig(key: 'name', label: 'Name', type: 'text')];
     final data = {'name': 'Alice', 'record_id': 'r1'};
 
-    await tester.pumpWidget(MaterialApp(
-      home: RecordDetailScreen(
-        data: data,
-        columns: columns,
-        primaryColor: Colors.blue,
-        title: 'Alice',
-        tab: TabConfig(id: 't1', label: 'Test', columns: columns),
+    await tester.pumpWidget(createScreen(
+      columns: columns,
+      data: data,
+      module: ModuleSchema(
+        id: 'm1',
+        name: 'M1',
+        icon: 'box',
+        primaryColor: '#000000',
+        version: '1.0.0',
+        settings: {},
+        dashboard: DashboardConfig(cards: []),
+        tabs: [],
       ),
     ));
 

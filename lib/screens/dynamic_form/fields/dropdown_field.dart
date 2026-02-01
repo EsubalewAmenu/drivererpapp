@@ -133,7 +133,7 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
                 final fileId = tab.fileId;
                 List<Map<String, dynamic>> records = [];
                 if (fileId != null && fileId.isNotEmpty) {
-                   records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id);
+                   records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, fetchSubTables: false);
                 }
                 
                 // Find the record where the first value (or name) matches targetValue
@@ -293,16 +293,17 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
         _isLoading 
           ? const LinearProgressIndicator()
           : DropdownButtonFormField<String>(
-          initialValue: _options.contains(widget.value) ? widget.value : null,
+          value: _options.contains(widget.value) ? widget.value : null,
           dropdownColor: fillColor,
-          style: TextStyle(color: textColor),
+          onChanged: widget.column.readonly == true ? null : widget.onChanged,
+          style: TextStyle(color: widget.column.readonly == true ? textColor.withValues(alpha: 0.6) : textColor),
           hint: Text(
             'Select ${widget.column.label}',
             style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
           ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: fillColor,
+            fillColor: widget.column.readonly == true ? theme.dividerColor.withValues(alpha: 0.05) : fillColor,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -314,7 +315,6 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
               child: Text(opt),
             );
           }).toList(),
-          onChanged: widget.onChanged,
           validator: (value) {
             if (widget.column.isRequired == true) {
               if (value == null || value.isEmpty) {

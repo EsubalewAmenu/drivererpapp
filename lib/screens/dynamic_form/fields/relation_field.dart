@@ -64,7 +64,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
         List<Map<String, dynamic>> records = [];
         
         if (fileId != null && fileId.isNotEmpty) {
-          records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000);
+          records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 1000, fetchSubTables: false);
         }
 
         final match = records.firstWhere((r) => (r['record_id']?.toString() == id.toString()) || (r['id']?.toString() == id.toString()), orElse: () => {});
@@ -93,7 +93,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
         ),
         const SizedBox(height: 8),
         InkWell(
-          onTap: () async {
+          onTap: widget.column.readonly == true ? null : () async {
                 // Check dependency first
                 if (widget.column.dependsOn != null) {
                   final parentKey = widget.column.dependsOn!;
@@ -151,7 +151,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                         final tab = targetModule.tabs.firstWhere((t) => t.id == tabId, orElse: () => targetModule!.tabs.first);
                         final fileId = tab.fileId;
                         if (fileId != null && fileId.isNotEmpty) {
-                          fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10);
+                          fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10, fetchSubTables: false);
                         }
                       } catch (_) {
                         fetched = [];
@@ -166,7 +166,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                           final tab = targetModule.tabs.firstWhere((t) => t.id == tabId, orElse: () => targetModule!.tabs.first);
                           final fileId = tab.fileId;
                           if (fileId != null && fileId.isNotEmpty) {
-                            fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10);
+                            fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10, fetchSubTables: false);
                           }
                         }
                       } catch (_) {}
@@ -196,7 +196,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                           final fileId = tab.fileId;
                           List<Map<String, dynamic>> local = [];
                           if (fileId != null && fileId.isNotEmpty) {
-                             local = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 200);
+                             local = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 200, fetchSubTables: false);
                           }
                           
                           final lowered = query.toLowerCase();
@@ -313,22 +313,25 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
             decoration: BoxDecoration(
-              color: theme.cardTheme.color,
+              color: widget.column.readonly == true ? theme.dividerColor.withValues(alpha: 0.05) : theme.cardTheme.color,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.transparent),
             ),
             child: Row(
               children: [
-                Icon(Icons.link_rounded, color: theme.textTheme.bodyMedium?.color, size: 20),
+                Icon(Icons.link_rounded, color: widget.column.readonly == true ? theme.disabledColor : theme.textTheme.bodyMedium?.color, size: 20),
                 const SizedBox(width: 12),
                 Text(
                   _displayLabel ?? widget.value?.toString() ?? 'Select ${widget.column.label}',
                   style: AppTheme.inter(
-                    color: widget.value != null ? theme.textTheme.bodyLarge?.color : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
+                    color: widget.column.readonly == true 
+                        ? (widget.value != null ? theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6) : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.3))
+                        : (widget.value != null ? theme.textTheme.bodyLarge?.color : theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
                   ),
                 ),
                 const Spacer(),
-                Icon(Icons.arrow_drop_down_rounded, color: theme.textTheme.bodyMedium?.color),
+                if (widget.column.readonly != true)
+                   Icon(Icons.arrow_drop_down_rounded, color: theme.textTheme.bodyMedium?.color),
               ],
             ),
           ),
