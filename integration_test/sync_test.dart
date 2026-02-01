@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/schema_provider.dart';
+import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dynamic_form_screen.dart';
 import 'helpers/test_helpers.dart';
 
@@ -52,10 +53,16 @@ void main() {
   testWidgets('Direct Save Error Reporting', (tester) async {
     debugPrint('TEST: Starting sync_test (Direct Save Error reporting) flow');
     final driveProvider = TestDriveProvider(mockDriveService);
+    final mockAuth = MockAuthService();
+    final mockUser = MockGoogleSignInAccount();
+    when(() => mockUser.email).thenReturn('test@example.com');
+    when(() => mockUser.displayName).thenReturn('Test User');
+    when(() => mockAuth.currentUser).thenReturn(mockUser);
 
     await tester.pumpWidget(
       MultiProvider(
         providers: [
+          ChangeNotifierProvider<AuthService>.value(value: mockAuth),
           ChangeNotifierProvider<DriveProvider>.value(value: driveProvider),
           ChangeNotifierProvider<SchemaProvider>(create: (_) => SchemaProvider(driveService: mockDriveService)),
         ],
