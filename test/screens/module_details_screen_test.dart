@@ -58,6 +58,9 @@ void main() {
   late MockAuthService mockAuthService;
   late MockSchemaProvider mockSchemaProvider;
   late MockSchemaService mockSchemaService;
+  late MockSheetsApi mockSheetsApi;
+  late MockSpreadsheetsResource mockSpreadsheetsResource;
+  late MockValuesResource mockValuesResource;
 
   setUp(() {
     mockDriveProvider = MockDriveProvider();
@@ -66,15 +69,21 @@ void main() {
     mockAuthService = MockAuthService();
     mockSchemaProvider = MockSchemaProvider();
     mockSchemaService = MockSchemaService();
+    mockSheetsApi = MockSheetsApi();
+    mockSpreadsheetsResource = MockSpreadsheetsResource();
+    mockValuesResource = MockValuesResource();
     
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheetsResource);
+    when(() => mockSpreadsheetsResource.values).thenReturn(mockValuesResource);
+    when(() => mockValuesResource.get(any(), any())).thenAnswer((_) async => sheets.ValueRange());
+
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
     when(() => mockSchemaProvider.service).thenReturn(mockSchemaService);
     when(() => mockSchemaService.cacheConfig(any(), any())).thenAnswer((_) async => true);
     when(() => mockSchemaService.removeCachedConfig(any())).thenAnswer((_) async => true);
     when(() => mockSchemaProvider.updateMemoryCache(any(), any())).thenReturn(null);
-    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'uas123');
-    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'uaf123');
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
     when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'sub123');
     when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any())).thenAnswer((_) async => {});
@@ -83,6 +92,7 @@ void main() {
     when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'cfg123');
 
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'ws123'..name = 'My Workspace');
+    when(() => mockWorkspaceProvider.lastUserAccessSpreadsheetId).thenReturn('uas123');
     when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
     when(() => mockAuthService.currentUser).thenReturn(_TestGoogleAccount('test@example.com'));
   });

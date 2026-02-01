@@ -158,42 +158,4 @@ void main() {
     expect(list[0].logoUrl, 'http://logo');
     expect(list[1].id, 'c2');
   });
-
-  test('registerCompany appends and ensures user_access folder', () async {
-    svc.onGetFileId = (root, name) async => 'sheet123';
-    when(() => mockValues.append(any(), 'sheet123', 'companies!A1', valueInputOption: any(named: 'valueInputOption'), insertDataOption: any(named: 'insertDataOption')))
-        .thenAnswer((_) async => sheets.AppendValuesResponse());
-
-    // ensureUserAccessFolder uses getOrCreateSubFolder - default returns sub_user_access
-    final company = Company(id: 'cid', name: 'CName', folderId: 'f_comp');
-    when(() => mockSps.values).thenReturn(mockValues);
-
-    await svc.registerCompany('root1', company);
-    // no exception, success
-  });
-
-  test('ensureUserAccessSpreadsheet returns existing and upserts registry', () async {
-    // Simulate existing file
-    svc.onGetFileId = (folderId, name) async => 'ua_file_1';
-
-    // files.get for userAccessFolder should return a File with parents containing company folder
-    final folderFile = drive.File();
-    folderFile.parents = ['company_folder_1'];
-    when(() => mockFiles.get('ua_folder', $fields: any(named: r'$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
-        .thenAnswer((_) async => folderFile);
-
-    // checkRootFolder returns root id
-    svc.onCheckRootFolder = () async => 'rootX';
-
-    svc.onGetFileId = (folderId, name) async {
-      if (folderId == 'ua_folder') return 'ua_file_1';
-      return null;
-    };
-
-    // Call and expect existing id returned and upsert recorded
-    final res = await svc.ensureUserAccessSpreadsheet('ua_folder', 'user@example.com');
-    expect(res, 'ua_file_1');
-    expect(svc.lastUpsertCompany, 'company_folder_1');
-    expect(svc.lastUpsertUser, 'user@example.com');
-  });
 }

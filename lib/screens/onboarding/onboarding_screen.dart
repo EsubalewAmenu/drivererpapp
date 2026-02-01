@@ -366,7 +366,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             });
           }
 
-          createdUserSpreadsheetId = await driveService.ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
+          createdUserSpreadsheetId = await driveService.createUserAccessSpreadsheet(userAccessFolderId, userEmail);
           debugPrint('Created per-user spreadsheet for new company: $createdUserSpreadsheetId');
           // Persist in provider for immediate and future use
           try {

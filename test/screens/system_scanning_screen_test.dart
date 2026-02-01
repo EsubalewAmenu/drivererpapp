@@ -71,7 +71,6 @@ void main() {
 
   testWidgets('SystemScanningScreen scans and redirects to selector', (WidgetTester tester) async {
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
-    when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => []);
 
     await tester.pumpWidget(createScanningScreen());
     await tester.pump(); // PostFrame
@@ -99,7 +98,6 @@ void main() {
     expect(find.text('RETRY CONNECTION'), findsOneWidget);
 
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
-    when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => []);
 
     await tester.tap(find.text('RETRY CONNECTION'));
     await tester.pump();
@@ -134,7 +132,6 @@ void main() {
     SharedPreferences.setMockInitialValues({'last_workspace_id': 'ws_saved'});
     
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
-    when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => []);
 
     await tester.pumpWidget(createScanningScreen(autoRestore: false));
     await tester.pump(); 

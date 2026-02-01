@@ -89,38 +89,5 @@ void main() {
       verify(() => mockSpreadsheets.batchUpdate(any(), 'fake_sheet_id')).called(1);
       verify(() => mockValues.batchUpdate(any(), 'fake_sheet_id')).called(1);
     });
-
-    test('ensureUserAccessSpreadsheet creates spreadsheet when missing and initializes headers', () async {
-      final mockSheetsApi = MockSheetsApi();
-      final mockSpreadsheets = MockSpreadsheetsResource();
-      final mockValues = MockValuesResource();
-
-      final mockDriveApi = MockDriveApi();
-      final mockFiles = MockFilesResource();
-      final mockPermissions = MockPermissionsResource();
-
-      when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
-      when(() => mockSpreadsheets.values).thenReturn(mockValues);
-      when(() => mockSpreadsheets.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
-
-      when(() => mockDriveApi.files).thenReturn(mockFiles);
-      when(() => mockDriveApi.permissions).thenReturn(mockPermissions);
-      when(() => mockFiles.create(any(), supportsAllDrives: any(named: 'supportsAllDrives'))).thenAnswer((_) async => drive.File()..id = 'ua_new_id');
-      when(() => mockFiles.get(any(), $fields: any(named: r'$fields'), supportsAllDrives: any(named: 'supportsAllDrives'))).thenAnswer((_) async => drive.File()..parents = ['company123']);
-
-      when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(values: []));
-
-      when(() => mockValues.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'), insertDataOption: any(named: 'insertDataOption'))).thenAnswer((_) async => sheets.AppendValuesResponse());
-      when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'))).thenAnswer((_) async => sheets.UpdateValuesResponse());
-      when(() => mockValues.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateValuesResponse());
-
-      final t = DummyDriveCompany(mockDriveApi, mockSheetsApi);
-
-      final id = await t.ensureUserAccessSpreadsheet('ua_folder', 'user@example.com');
-
-      expect(id, equals('ua_new_id'));
-      verify(() => mockFiles.create(any(), supportsAllDrives: any(named: 'supportsAllDrives'))).called(greaterThanOrEqualTo(1));
-      verify(() => mockSpreadsheets.batchUpdate(any(), any())).called(greaterThanOrEqualTo(1));
-    });
   });
 }

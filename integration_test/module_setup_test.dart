@@ -88,9 +88,10 @@ void main() {
     // 4. Activate Module
     when(() => mockDriveService.createWorkspace(any(), any())).thenAnswer((_) async {
       // After creating the workspace, update the user_access sheet mock
+      // We provide the IDs immediately to avoid refresh timing issues in the test
       final installedRange = sheets.ValueRange(values: [
         ['id', 'module_name', 'dashboard', 'settings', 'tabs'],
-        ['new_mod_id', 'Inventory', '', '', '']
+        ['new_mod_id', 'Inventory', 'dash_id', 'config_id', 'tabs_id']
       ]);
       when(() => mockValues.get('ua1', 'modules!A1:Z'))
           .thenAnswer((_) async => installedRange);
@@ -113,8 +114,6 @@ void main() {
       return '${inv.positionalArguments[1]}_sheet_id';
     });
     // Provide defaults for user access helpers in case activation attempts them
-    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'user_access_folder');
-    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'user_access_file');
     when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any()))
         .thenAnswer((_) async {});
     when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any()))
@@ -169,11 +168,11 @@ void main() {
     
     // Provide generic mocks for the new granular read methods
     when(() => mockDriveService.readSettingsById('config_id')).thenAnswer((_) async => <String, dynamic>{
-      'id': 'new_mod_id',
-      'name': 'Inventory',
-      'icon': 'inventory',
-      'primaryColor': '#3B82F6',
-      'version': '1.0.0',
+      'id': {'label': 'ID', 'type': 'text', 'value': 'new_mod_id'},
+      'name': {'label': 'Name', 'type': 'text', 'value': 'Inventory'},
+      'icon': {'label': 'Icon', 'type': 'text', 'value': 'inventory'},
+      'primaryColor': {'label': 'Color', 'type': 'text', 'value': '#3B82F6'},
+      'version': {'label': 'Version', 'type': 'text', 'value': '1.0.0'},
     });
     when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => <Map<String, dynamic>>[
        {'id': 't1', 'label': 'Stock Adjustment', 'columns': []}
@@ -182,8 +181,8 @@ void main() {
     await tester.tap(find.text('ACTIVATE'));
     await tester.pumpAndSettle();
 
-    // Force Dashboard refresh
-    workspaceProvider.setWorkspace(workspace);
+    // Force Dashboard refresh with a fresh workspace instance
+    workspaceProvider.setWorkspace(drive.File()..id = 'ws1'..name = 'Test Workspace');
     await tester.pumpAndSettle();
 
     debugPrint('STEP 8b: Tapping newly activated module');

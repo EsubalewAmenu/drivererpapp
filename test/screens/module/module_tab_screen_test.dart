@@ -95,6 +95,7 @@ void main() {
     when(() => mockSchemaProvider.service).thenReturn(mockSchemaService);
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(null);
     when(() => mockSchemaProvider.getFromMemory(any())).thenReturn(null);
+    when(() => mockSchemaService.cacheConfig(any(), any())).thenAnswer((_) async {});
     when(() => mockSchemaService.getCachedConfig(any())).thenAnswer((_) async => {
           'tabs': [
             {
@@ -252,7 +253,7 @@ void main() {
   });
 
   testWidgets('ModuleTabScreen loads more data on scroll', (WidgetTester tester) async {
-    reset(mockDriveService);
+    // reset(mockDriveService);
     
     when(() => mockDriveService.fetchRecords(
       'mod1', 

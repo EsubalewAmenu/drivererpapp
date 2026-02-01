@@ -179,7 +179,7 @@ class SchemaService {
   }
 
   /// Saves the module configuration to Drive and updates the local cache.
-  Future<void> saveModuleConfig(String moduleId, ModuleSchema config) async {
+  Future<void> saveModuleConfig(String moduleId, ModuleSchema config, {String? userAccessFileId}) async {
     if (driveService == null) throw Exception('DriveService not initialized');
 
     try {
@@ -209,30 +209,22 @@ class SchemaService {
           debugPrint('SchemaService: Created new settings file for module $moduleId: $fileId');
         }
 
-        try {
-          String companyFolderId = moduleId;
+        if (userAccessFileId != null) {
           try {
-            final file = await driveService!.driveApi.files.get(moduleId, $fields: 'parents') as dynamic;
-            final parents = (file.parents as List?) ?? [];
-            if (parents.isNotEmpty) companyFolderId = parents.first as String;
-          } catch (_) {}
+            final dashboardId = await driveService!.getFileId(configFolderId, '${userEmail}_dashboard');
+            final tabsId = await driveService!.getFileId(configFolderId, '${userEmail}_tabs');
 
-          final userAccessFolderId = await driveService!.ensureUserAccessFolder(companyFolderId);
-          final userAccessFileId = await driveService!.ensureUserAccessSpreadsheet(userAccessFolderId, userEmail!);
-
-          final dashboardId = await driveService!.getFileId(configFolderId, '${userEmail}_dashboard');
-          final tabsId = await driveService!.getFileId(configFolderId, '${userEmail}_tabs');
-
-          await driveService!.upsertUserAccessModule(
-            userAccessFileId,
-            moduleId,
-            config.name,
-            dashboardId ?? '',
-            fileId,
-            tabsId ?? '',
-          );
-        } catch (e) {
-          debugPrint('Error updating user access spreadsheet: $e');
+            await driveService!.upsertUserAccessModule(
+              userAccessFileId,
+              moduleId,
+              config.name,
+              dashboardId ?? '',
+              fileId,
+              tabsId ?? '',
+            );
+          } catch (e) {
+            debugPrint('Error updating user access spreadsheet: $e');
+          }
         }
       } else {
         throw Exception('userEmail is required to save module config; legacy fallback disabled');

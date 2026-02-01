@@ -40,22 +40,6 @@ mixin DriveFolderMixin {
       rethrow;
     }
   }
-
-  /// Lists subfolders (workspaces) inside the root folder.
-  Future<List<drive.File>> listWorkspaces(String rootFolderId) async {
-    try {
-      final fileList = await driveApi.files.list(
-        q: "'$rootFolderId' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
-        $fields: 'files(id, name)',
-        includeItemsFromAllDrives: true,
-        supportsAllDrives: true,
-      );
-      return fileList.files ?? [];
-    } catch (e) {
-      debugPrint('Error listing workspaces: $e');
-      rethrow;
-    }
-  }
   
   /// Creates a new workspace folder inside the root folder.
   Future<drive.File> createWorkspace(String rootFolderId, String workspaceName) async {

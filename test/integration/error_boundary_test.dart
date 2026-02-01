@@ -139,7 +139,7 @@ void main() {
     }
     await tester.pumpAndSettle();
 
-    // Verify it doesn't crash but navigates to setup because of missing config/asset
-    expect(find.text('COMPLETE SETUP'), findsOneWidget);
+    // Verify it doesn't crash but shows an error message since fallback was removed
+    expect(find.text('Unable to load module data. Please check your connection.'), findsOneWidget);
   });
 }
