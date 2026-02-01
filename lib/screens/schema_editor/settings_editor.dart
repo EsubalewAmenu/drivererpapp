@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
+import '../../utils/icon_lookup.dart';
 import 'dialogs/edit_setting_dialog.dart';
 
 class SettingsEditor extends StatefulWidget {
@@ -169,9 +170,12 @@ class _SettingsEditorState extends State<SettingsEditor> {
           dense: true,
         );
       case 'text':
+      case 'long_text':
+      case 'longtext':
         return TextFormField(
           initialValue: widget.settingsValues[key]?.toString(),
           style: AppTheme.inter(color: textColor),
+          maxLines: (type.startsWith('long')) ? 3 : 1,
           decoration: InputDecoration(
             isDense: true,
             hintText: 'Enter value',
@@ -179,6 +183,22 @@ class _SettingsEditorState extends State<SettingsEditor> {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           onChanged: (val) => widget.onSettingChanged(key, val),
+        );
+      case 'number':
+        return TextFormField(
+          initialValue: widget.settingsValues[key]?.toString(),
+          style: AppTheme.inter(color: textColor),
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'Enter number',
+            hintStyle: TextStyle(color: hintColor),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          onChanged: (val) {
+            final numVal = double.tryParse(val) ?? 0;
+            widget.onSettingChanged(key, numVal);
+          },
         );
       case 'list':
         List<String> currentList = (widget.settingsValues[key] as List?)?.cast<String>() ?? [];
@@ -197,6 +217,62 @@ class _SettingsEditorState extends State<SettingsEditor> {
               onPressed: () => _showAddListItemDialog(key, currentList),
             ),
           ],
+        );
+      case 'icon':
+        return TextFormField(
+          initialValue: widget.settingsValues[key]?.toString(),
+          style: AppTheme.inter(color: textColor),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'e.g. inventory',
+            hintStyle: TextStyle(color: hintColor),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            prefixIcon: Icon(iconFromName(widget.settingsValues[key]?.toString()), color: theme.primaryColor),
+          ),
+          onChanged: (val) {
+            widget.onSettingChanged(key, val);
+            setState(() {}); // Refresh to update prefix icon
+          },
+        );
+      case 'color':
+        final colorStr = widget.settingsValues[key]?.toString() ?? '#000000';
+        Color previewColor = Colors.transparent;
+        try {
+          if (colorStr.startsWith('#')) {
+             final hex = colorStr.replaceFirst('#', '');
+             if (hex.length == 6) {
+               previewColor = Color(int.parse('0xFF$hex'));
+             } else if (hex.length == 8) {
+               previewColor = Color(int.parse('0x$hex'));
+             }
+          }
+        } catch (_) {}
+        
+        return TextFormField(
+          initialValue: colorStr,
+          style: AppTheme.inter(color: textColor),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: 'e.g. #FF5722',
+            hintStyle: TextStyle(color: hintColor),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            prefixIcon: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  color: previewColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white24),
+                ),
+              ),
+            ),
+          ),
+          onChanged: (val) {
+            widget.onSettingChanged(key, val);
+            setState(() {}); // Refresh to update color preview
+          },
         );
       default:
         return Text('Unsupported type: $type', style: const TextStyle(color: Colors.red));

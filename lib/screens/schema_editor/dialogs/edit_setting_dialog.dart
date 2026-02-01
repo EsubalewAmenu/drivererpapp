@@ -80,7 +80,7 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
               initialValue: _type,
               dropdownColor: theme.cardTheme.color,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-              items: ['text', 'boolean', 'list', 'number']
+              items: ['text', 'boolean', 'list', 'number', 'icon', 'color']
                   .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
                   .toList(),
               onChanged: (val) {
