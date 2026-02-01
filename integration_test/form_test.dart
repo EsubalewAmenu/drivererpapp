@@ -87,7 +87,7 @@ void main() {
       dashboard: DashboardConfig(cards: []),
     );
 
-    when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => [workspace]);
+    when(() => mockDriveService.getCompanies('root123')).thenAnswer((_) async => []);
     // user_access sheet maps installed modules for the workspace
     final uaRange = sheets.ValueRange(values: [
       ['id','module_name','dashboard','settings','tabs'],

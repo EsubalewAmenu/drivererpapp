@@ -50,7 +50,7 @@ void main() {
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
     when(() => mockDriveService.ensureCompanyRegistry(any())).thenAnswer((_) async => 'companies_sheet_id');
     when(() => mockDriveService.getCompanies(any())).thenAnswer((_) async => []);
-    when(() => mockDriveService.listWorkspaces(any())).thenAnswer((_) async => []);
+    when(() => mockDriveService.getCompanies(any())).thenAnswer((_) async => []);
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
   });
 
