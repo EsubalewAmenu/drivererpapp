@@ -1146,7 +1146,10 @@ mixin DriveSheetMixin {
 
       // 3. Get Sheet ID (GID)
       final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
-      final sheet = spreadsheet.sheets?.firstWhere((s) => s.properties?.title == sheetTitle);
+      final sheet = spreadsheet.sheets?.firstWhere(
+        (s) => s.properties?.title == sheetTitle,
+        orElse: () => spreadsheet.sheets!.first,
+      );
       final int? gid = sheet?.properties?.sheetId;
       if (gid == null) throw Exception("Could not find sheet GID");
 
@@ -1265,7 +1268,10 @@ mixin DriveSheetMixin {
 
       // 2. Get Sheet ID (GID)
       final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
-      final sheet = spreadsheet.sheets?.firstWhere((s) => s.properties?.title == sheetTitle);
+      final sheet = spreadsheet.sheets?.firstWhere(
+        (s) => s.properties?.title == sheetTitle,
+        orElse: () => spreadsheet.sheets!.first,
+      );
       final int? gid = sheet?.properties?.sheetId;
 
       if (gid == null) throw Exception("Sheet GID not found");
@@ -1421,7 +1427,10 @@ mixin DriveSheetMixin {
       // 2. Fetch Spreadsheet Metadata (to get sheet ID and titles)
       final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
       final allSheetTitles = spreadsheet.sheets?.map((s) => s.properties?.title ?? '').toList() ?? [];
-      final targetSheet = spreadsheet.sheets?.firstWhere((s) => s.properties?.title == sheetTitle);
+      final targetSheet = spreadsheet.sheets?.firstWhere(
+        (s) => s.properties?.title == sheetTitle,
+        orElse: () => spreadsheet.sheets!.first,
+      );
       final int? gid = targetSheet?.properties?.sheetId;
 
       // 3. Read All Sheets to Find Sub-tables (Only if fetching sub-tables)
@@ -1846,7 +1855,10 @@ mixin DriveSheetMixin {
       // 1. Fetch Spreadsheet Metadata
       final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
       final allSheetTitles = spreadsheet.sheets?.map((s) => s.properties?.title ?? '').toList() ?? [];
-      final targetSheet = spreadsheet.sheets?.firstWhere((s) => s.properties?.title == sheetTitle);
+      final targetSheet = spreadsheet.sheets?.firstWhere(
+        (s) => s.properties?.title == sheetTitle,
+        orElse: () => spreadsheet.sheets!.first, 
+      );
       final int? gid = targetSheet?.properties?.sheetId;
 
       // 2. Fetch sub-tables if requested

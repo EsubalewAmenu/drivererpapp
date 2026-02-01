@@ -44,20 +44,27 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   String _effectiveTabId() {
     final provider = context.read<SchemaProvider>();
     final moduleId = _sourceModuleId();
-    final tabId = widget.tab.id;
+    String tabId = widget.tab.id;
 
-    if (moduleId.isNotEmpty && tabId.startsWith('${moduleId}_')) {
-      return tabId.substring(moduleId.length + 1);
+    // Robustly strip prefixes (including potential double-prefixes if they occurred)
+    if (moduleId.isNotEmpty) {
+      while (tabId.startsWith('${moduleId}_')) {
+        tabId = tabId.substring(moduleId.length + 1);
+      }
     }
 
     final module = moduleId.isNotEmpty ? provider.getFromMemory(moduleId) : null;
     if (module != null) {
-      final normalized = module.tabs.firstWhere(
-        (t) => t.id == tabId || t.label.toLowerCase() == widget.tab.label.toLowerCase(),
-        orElse: () => widget.tab,
-      );
-      if (normalized.id.isNotEmpty) {
-        return normalized.id;
+      // Try to find a matches-by-label or matches-by-id in the original module
+      try {
+        final normalized = module.tabs.firstWhere(
+          (t) => t.id == tabId || t.label.toLowerCase() == widget.tab.label.toLowerCase(),
+        );
+        if (normalized.id.isNotEmpty) {
+          return normalized.id;
+        }
+      } catch (_) {
+        // Fallback to whatever we have
       }
     }
 
@@ -144,27 +151,23 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   void didUpdateWidget(ModuleTabScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     // If the tab config or module schema changed, we might need to update state
-    final tabChanged = oldWidget.tab.id != widget.tab.id;
+    final idChanged = oldWidget.tab.id != widget.tab.id;
+    final instanceChanged = oldWidget.tab != widget.tab;
     final moduleChanged = oldWidget.module?.id != widget.module?.id;
-    if (tabChanged || moduleChanged) {
+    
+    if (idChanged || instanceChanged || moduleChanged) {
       debugPrint('Tab or Module schema updated for ${widget.tab.id}, updating sync state...');
-      
-      setState(() {
-        _activeFilters = List.from(widget.tab.quickFilters ?? []);
-        _showFilters = widget.tab.enableCustomFilters ?? true;
-        
-        // Reset active filter if it no longer exists in the new list
-        if (_activeFilter != 'all' && _activeFilter != null) {
-          bool exists = _activeFilters.any((f) => f.key == _activeFilter);
-          if (!exists) _activeFilter = 'all';
-        }
-      });
-      
-      // If tab or module changed, reload data
-      if (tabChanged || moduleChanged) {
+      if (mounted) {
+        setState(() {
+          _activeFilters = List.from(widget.tab.quickFilters ?? []);
+          _showFilters = widget.tab.enableCustomFilters ?? true;
+          // Only clear active filter if it doesn't exist in the new list
+          if (_activeFilter != null && _activeFilter != 'all') {
+            final exists = _activeFilters.any((f) => f.key == _activeFilter);
+            if (!exists) _activeFilter = 'all';
+          }
+        });
         _loadData(refresh: true);
-      } else {
-        _applyFilters();
       }
     }
   }
