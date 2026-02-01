@@ -73,8 +73,6 @@ void main() {
     when(() => mockSchemaService.cacheConfig(any(), any())).thenAnswer((_) async => true);
     when(() => mockSchemaService.removeCachedConfig(any())).thenAnswer((_) async => true);
     when(() => mockSchemaProvider.updateMemoryCache(any(), any())).thenReturn(null);
-    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'uas123');
-    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'uaf123');
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
     when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'sub123');
     when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any())).thenAnswer((_) async => {});

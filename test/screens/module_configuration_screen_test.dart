@@ -78,8 +78,6 @@ void main() {
     );
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
-    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'ua_folder');
-    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'ua_file');
     when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'sub_folder');
     when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any())).thenAnswer((_) async => {});
     when(() => mockDriveService.saveRecord(any(), any(), any(), any())).thenAnswer((_) async => 'rec123');

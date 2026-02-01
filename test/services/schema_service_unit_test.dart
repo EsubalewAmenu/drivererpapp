@@ -47,8 +47,6 @@ void main() {
     when(() => mockDriveService.readSettingsById(any())).thenAnswer((_) async => null);
     when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => null);
     when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => null);
-    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'ua_folder');
-    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'ua_sheet');
     when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any())).thenAnswer((_) async => {});
   });
 

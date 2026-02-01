@@ -46,9 +46,9 @@ class SchemaProvider extends ChangeNotifier {
   }
 
   /// Saves the schema and updates memory.
-  Future<bool> saveConfig(ModuleSchema config) async {
+  Future<bool> saveConfig(ModuleSchema config, {String? userAccessFileId}) async {
     try {
-      await _schemaService.saveModuleConfig(config.id, config);
+      await _schemaService.saveModuleConfig(config.id, config, userAccessFileId: userAccessFileId);
       updateMemoryCache(config.id, config);
       return true;
     } catch (e) {

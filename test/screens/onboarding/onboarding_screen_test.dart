@@ -69,8 +69,6 @@ void main() {
     when(() => mockWorkspaceProvider.registerNewCompany(any(), any()))
         .thenAnswer((_) async {});
     when(() => mockWorkspaceProvider.saveUserAccessSpreadsheetId(any())).thenAnswer((_) async {});
-    when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'ua_folder');
-    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'ua_sheet');
     when(() => mockWorkspaceProvider.setWorkspace(any())).thenReturn(null);
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'ws123'..name = 'My Business');
     when(() => mockWorkspaceProvider.companies).thenReturn(<Company>[]);

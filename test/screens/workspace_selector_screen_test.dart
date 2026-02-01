@@ -92,8 +92,6 @@ void main() {
     when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
     when(() => mockValues.get(any(), 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
-    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'uaFolder');
-    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'uaSpreadsheet');
 
     await tester.pumpWidget(createSelectorScreen());
     await tester.tap(find.text('Test Corp'));

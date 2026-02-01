@@ -113,8 +113,6 @@ void main() {
       return '${inv.positionalArguments[1]}_sheet_id';
     });
     // Provide defaults for user access helpers in case activation attempts them
-    when(() => mockDriveService.ensureUserAccessFolder(any())).thenAnswer((_) async => 'user_access_folder');
-    when(() => mockDriveService.ensureUserAccessSpreadsheet(any(), any())).thenAnswer((_) async => 'user_access_file');
     when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any()))
         .thenAnswer((_) async {});
     when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any()))
