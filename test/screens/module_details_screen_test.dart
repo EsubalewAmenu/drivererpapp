@@ -83,6 +83,7 @@ void main() {
     when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'cfg123');
 
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'ws123'..name = 'My Workspace');
+    when(() => mockWorkspaceProvider.lastUserAccessSpreadsheetId).thenReturn('uas123');
     when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
     when(() => mockAuthService.currentUser).thenReturn(_TestGoogleAccount('test@example.com'));
   });

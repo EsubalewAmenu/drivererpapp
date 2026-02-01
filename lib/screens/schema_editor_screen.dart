@@ -195,10 +195,10 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
 
       if (userEmail == null || workspaceId == null) throw Exception('Missing user or workspace');
 
-      final uaFolderId = await driveService.ensureUserAccessFolder(workspaceId);
-      final uaFileId = await driveService.ensureUserAccessSpreadsheet(uaFolderId, userEmail);
-
-      await driveService.setUserAccessModuleStatus(uaFileId, widget.module.id, 'deactivated');
+      final uaFileId = workspaceProvider.lastUserAccessSpreadsheetId;
+      if (uaFileId != null) {
+        await driveService.setUserAccessModuleStatus(uaFileId, widget.module.id, 'deactivated');
+      }
 
       // Refresh workspace provider to force dashboards/lists to reload
       if (workspaceProvider.currentWorkspace != null) workspaceProvider.setWorkspace(workspaceProvider.currentWorkspace!);
@@ -238,9 +238,10 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
       await driveService.deleteFile(widget.module.id);
 
       if (userEmail != null) {
-        final uaFolderId = await driveService.ensureUserAccessFolder(workspaceId);
-        final uaFileId = await driveService.ensureUserAccessSpreadsheet(uaFolderId, userEmail);
-        await driveService.removeUserAccessModule(uaFileId, widget.module.id);
+        final uaFileId = workspaceProvider.lastUserAccessSpreadsheetId;
+        if (uaFileId != null) {
+          await driveService.removeUserAccessModule(uaFileId, widget.module.id);
+        }
       }
 
       // Clear any cached configs and in-memory entries for this module

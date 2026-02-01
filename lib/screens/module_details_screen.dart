@@ -102,10 +102,9 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
         }
 
         final userEmail = capturedUserEmail;
-        if (userEmail != null && userEmail.isNotEmpty) {
-          final userAccessFolderId = await (driveService as dynamic).ensureUserAccessFolder(workspaceId);
-          final userAccessFileId = await (driveService as dynamic).ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
+        final userAccessFileId = workspaceProvider.lastUserAccessSpreadsheetId;
 
+        if (userEmail != null && userEmail.isNotEmpty && userAccessFileId != null) {
           try {
             final headerResp = await (driveService as dynamic).sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A1:Z1');
             final headerRow = (headerResp.values != null && headerResp.values!.isNotEmpty) ? List<String>.from(headerResp.values!.first.map((e) => e.toString())) : <String>[];
@@ -289,14 +288,15 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               final dashboardId = await (driveService as dynamic).getFileId(configFolderId, '${userEmail}_dashboard');
               final tabsId = await (driveService as dynamic).getFileId(configFolderId, '${userEmail}_tabs');
 
-              final userAccessFolderId = await (driveService as dynamic).ensureUserAccessFolder(workspaceId);
-              final userAccessFileId = await (driveService as dynamic).ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
+              final userAccessFileId = workspaceProvider.lastUserAccessSpreadsheetId;
 
-              await (driveService as dynamic).upsertUserAccessModule(userAccessFileId, moduleFolderId, moduleName, dashboardId ?? '', settingsId ?? '', tabsId ?? '');
-              try {
-                await (driveService as dynamic).setUserAccessModuleStatus(userAccessFileId, moduleFolderId, 'activated');
-              } catch (e) {
-                debugPrint('Error setting module status to activated: $e');
+              if (userAccessFileId != null) {
+                await (driveService as dynamic).upsertUserAccessModule(userAccessFileId, moduleFolderId, moduleName, dashboardId ?? '', settingsId ?? '', tabsId ?? '');
+                try {
+                  await (driveService as dynamic).setUserAccessModuleStatus(userAccessFileId, moduleFolderId, 'activated');
+                } catch (e) {
+                  debugPrint('Error setting module status to activated: $e');
+                }
               }
             }
           } catch (e) {
