@@ -19,6 +19,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   int _currentStep = 0;
   String? _choice; // 'new' or 'join'
   bool _isCreating = false;
+  String _statusMessage = "Initializing...";
+  double _progress = 0.0;
   
   // Form Data
   final TextEditingController _nameController = TextEditingController();
@@ -77,6 +79,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildStepContent(ThemeData theme) {
+    if (_isCreating) return _buildProgressStep(theme);
     if (_currentStep == 0) return _buildChoiceStep(theme);
     if (_choice == 'join') return _buildJoinStep(theme);
     
@@ -84,6 +87,79 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       case 1: return _buildIdentityStep(theme);
       default: return const SizedBox.shrink();
     }
+  }
+
+  Widget _buildProgressStep(ThemeData theme) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Center(
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: theme.primaryColor.withValues(alpha: 0.2),
+                width: 2,
+              ),
+            ),
+            child: const Center(
+              child: SizedBox(
+                width: 40,
+                height: 40,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3,
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 64),
+        Text(
+          'PROVISIONING WORKSPACE',
+          style: AppTheme.inter(
+            color: theme.textTheme.bodyMedium?.color,
+            fontSize: 12,
+            letterSpacing: 2.0,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 16),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: Text(
+            _statusMessage,
+            key: ValueKey<String>(_statusMessage),
+            style: AppTheme.sourceCodePro(
+              color: theme.textTheme.bodyLarge?.color,
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              height: 1.5,
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: LinearProgressIndicator(
+            value: _progress,
+            backgroundColor: theme.cardTheme.color,
+            color: theme.primaryColor,
+            minHeight: 6,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          '${(_progress * 100).toInt()}% Complete',
+          style: AppTheme.inter(
+            color: theme.disabledColor,
+            fontSize: 14,
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildChoiceStep(ThemeData theme) {
@@ -189,7 +265,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Widget _buildFooter(ThemeData theme) {
-    if (_currentStep == 0) return const SizedBox.shrink();
+    if (_currentStep == 0 || _isCreating) return const SizedBox.shrink();
 
     return FilledButton(
       onPressed: _isCreating ? null : () async {
@@ -232,7 +308,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _createWorkspaceAndModules() async {
-    setState(() => _isCreating = true);
+    setState(() {
+      _isCreating = true;
+      _statusMessage = "Creating core workspace folder...";
+      _progress = 0.1;
+    });
+
     try {
       final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
       if (driveService == null) throw Exception("Not authenticated");
@@ -242,6 +323,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       final workspaceFolder = await driveService.createWorkspace(widget.rootFolderId, workspaceName);
       final workspaceId = workspaceFolder.id!;
       
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Initializing company in registry...";
+          _progress = 0.3;
+        });
+      }
+
       // 2. Register Company in Registry
       final newCompany = Company(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -256,6 +344,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         newCompany
       );
 
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Ensuring user access folder...";
+          _progress = 0.6;
+        });
+      }
+
       // Create per-user access spreadsheet under the new company's user_access folder
       String? createdUserSpreadsheetId;
       try {
@@ -263,6 +358,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         final userEmail = authService.currentUser?.email;
         if (userEmail != null && userEmail.isNotEmpty) {
           final userAccessFolderId = await driveService.getOrCreateSubFolder(workspaceId, 'user_access');
+          
+          if (mounted) {
+            setState(() {
+              _statusMessage = "Provisioning per-user spreadsheet...";
+              _progress = 0.8;
+            });
+          }
+
           createdUserSpreadsheetId = await driveService.ensureUserAccessSpreadsheet(userAccessFolderId, userEmail);
           debugPrint('Created per-user spreadsheet for new company: $createdUserSpreadsheetId');
           // Persist in provider for immediate and future use
@@ -277,6 +380,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       } catch (e) {
         debugPrint('Failed to create per-user spreadsheet during onboarding: $e');
       }
+
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Finalizing your workspace...";
+          _progress = 1.0;
+        });
+      }
+
+      // Small delay so user can see 100%
+      await Future.delayed(const Duration(milliseconds: 500));
 
       // Set global workspace
       if (mounted) {
