@@ -1,0 +1,78 @@
+
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "stock_ledger" },
+    "icon": { "label": "Icon", "type": "icon", "value": "shopping_cart" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Stock Ledger" },
+  
+    "depends_on": ["inventory"]
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Low Stock Alerts",
+        "formula": "=COUNTIF(variants!G:G, \"<10\")",
+        "format": "number",
+        "color": "#F44336"
+      }
+    ]
+  },
+  "tabs": [
+      {
+        "id": "stock_ledger",
+        "label": "Stock Ledger",
+        "enable_custom_filters": true,
+        "list_template": {
+          "template": "standard",
+          "title_key": "item_ref",
+          "subtitle_key": "type",
+          "trailing_key": "qty"
+        },
+        "detail_template": {
+          "template": "standard",
+          "title_key": "item_ref",
+          "subtitle_key": "type",
+          "show_all_fields": true
+        },
+        "quick_filters": [
+          { "label": "Stock In", "key": "stock_in", "field": "type", "operator": "==", "value": "In" },
+          { "label": "Stock Out", "key": "stock_out", "field": "type", "operator": "==", "value": "Out" }
+        ],
+        "columns": [
+          { "key": "date", "label": "Date", "type": "date" },
+          { "key": "type", "label": "Type", "type": "select", "options": ["In", "Out"] },
+          { "key": "item_ref", "label": "Item", "type": "relation", "options": "variants", "display_field": "full_name" },
+          { "key": "qty", "label": "Qty", "type": "number" },
+          { "key": "notes", "label": "Note", "type": "text" }
+        ],
+        "initial_data": [
+          {
+            "record_id": 1,
+            "date": "2024-03-01",
+            "type": "In",
+            "item_ref": 101,
+            "qty": 10,
+            "notes": "Initial Apple Shipment"
+          },
+          {
+            "record_id": 2,
+            "date": "2024-03-01",
+            "type": "In",
+            "item_ref": 102,
+            "qty": 5,
+            "notes": "Initial Apple Shipment"
+          },
+          {
+            "record_id": 3,
+            "date": "2024-03-05",
+            "type": "In",
+            "item_ref": 103,
+            "qty": 50,
+            "notes": "Accessory Restock"
+          }
+        ]
+      }
+  ]
+}

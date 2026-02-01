@@ -5,9 +5,8 @@
     "primaryColor": { "label": "Primary Color", "type": "color", "value": "#2196F3" },
     "version": { "label": "Version", "type": "text", "value": "1.0" },
     "name": { "label": "Name", "type": "text", "value": "Inventory" },
-    
-    "extensions": ["variants", "multi_warehouse", "procurement"]
 
+    "extensions": ["Stock Ledger", "Purchase Orders"]
 
   },
   "dashboard": {"cards": [
@@ -28,6 +27,23 @@
       {
         "id": "products",
         "label": "Product Families",
+        "enable_custom_filters": true,
+        "list_template": {
+          "template": "standard",
+          "title_key": "name",
+          "subtitle_key": "category",
+          "trailing_key": "brand"
+        },
+        "detail_template": {
+          "template": "standard",
+          "title_key": "name",
+          "subtitle_key": "category",
+          "show_all_fields": true
+        },
+        "quick_filters": [
+          { "label": "With Variants", "key": "has_variants", "field": "has_variants", "operator": "==", "value": true },
+          { "label": "Without Variants", "key": "no_variants", "field": "has_variants", "operator": "==", "value": false }
+        ],
         "columns": [
           { "key": "name", "label": "Product Name", "type": "text", "required": true },
           { "key": "category", "label": "Category", "type": "select", "options": ["Computers", "Accessories"] },
@@ -106,136 +122,6 @@
             "qty_on_hand": 50
           }
         ]
-      },
-      {
-        "id": "stock_ledger",
-        "label": "Stock Adjustment",
-        "columns": [
-          { "key": "date", "label": "Date", "type": "date" },
-          { "key": "type", "label": "Type", "type": "select", "options": ["In", "Out"] },
-          { "key": "item_ref", "label": "Item", "type": "relation", "options": "variants", "display_field": "full_name" },
-          { "key": "qty", "label": "Qty", "type": "number" },
-          { "key": "notes", "label": "Note", "type": "text" }
-        ],
-        "initial_data": [
-          {
-            "record_id": 1,
-            "date": "2024-03-01",
-            "type": "In",
-            "item_ref": 101,
-            "qty": 10,
-            "notes": "Initial Apple Shipment"
-          },
-          {
-            "record_id": 2,
-            "date": "2024-03-01",
-            "type": "In",
-            "item_ref": 102,
-            "qty": 5,
-            "notes": "Initial Apple Shipment"
-          },
-          {
-            "record_id": 3,
-            "date": "2024-03-05",
-            "type": "In",
-            "item_ref": 103,
-            "qty": 50,
-            "notes": "Accessory Restock"
-          }
-        ]
-      },
-      {
-      "id": "purchase_orders",
-      "label": "Purchase Orders",
-      "depends_on": "settings.enable_procurement",
-      "list_template": {
-        "template": "standard",
-        "title_key": "po_number",
-        "subtitle_key": "supplier",
-        "trailing_key": "status"
-      },
-      "columns": [
-        { "key": "po_number", "label": "PO #", "type": "text", "required": true },
-        { 
-          "key": "supplier", 
-          "label": "Supplier", 
-          "type": "relation", 
-          "options": "crm.contacts", 
-          "display_field": "name" 
-        },
-        { "key": "date", "label": "Order Date", "type": "date" },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Draft", "Ordered", "Received", "Cancelled"] },
-        { 
-          "key": "items", 
-          "label": "Order Items", 
-          "type": "table",
-          "columns": [
-            { 
-              "key": "sku_ref", 
-              "label": "Item", 
-              "type": "relation", 
-              "options": "variants", 
-              "display_field": "full_name" 
-            },
-            { "key": "qty", "label": "Qty", "type": "number" },
-            { "key": "cost", "label": "Unit Cost", "type": "currency" },
-            { 
-              "key": "line_total", 
-              "label": "Total", 
-              "type": "formula", 
-              "formula": "=qty * cost" 
-            }
-          ]
-        },
-        {
-          "key": "grand_total",
-          "label": "Grand Total",
-          "type": "rollup",
-          "source_tab": "self.items",
-          "source_field": "line_total",
-          "function": "sum"
-        }
-      ],
-      "initial_data": [
-        {
-          "record_id": 501,
-          "po_number": "PO-2024-APPLE-01",
-          "supplier": 1,
-          "date": "2024-03-01",
-          "status": "Received",
-          "items": [
-            {
-              "sku_ref": 101,
-              "qty": 10,
-              "cost": 1200,
-              "line_total": 12000
-            },
-            {
-              "sku_ref": 102,
-              "qty": 5,
-              "cost": 2100,
-              "line_total": 10500
-            }
-          ],
-          "grand_total": 22500
-        },
-        {
-          "record_id": 502,
-          "po_number": "PO-2024-ACC-02",
-          "supplier": 1,
-          "date": "2024-03-10",
-          "status": "Ordered",
-          "items": [
-            {
-              "sku_ref": 103,
-              "qty": 50,
-              "cost": 25,
-              "line_total": 1250
-            }
-          ],
-          "grand_total": 1250
-        }
-      ]
       }
     ]
 }

@@ -1,0 +1,129 @@
+
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "purchase_orders" },
+    "icon": { "label": "Icon", "type": "icon", "value": "shopping_cart" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Purchase Orders" },
+  
+    "depends_on": ["inventory"]
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Low Stock Alerts",
+        "formula": "=COUNTIF(variants!G:G, \"<10\")",
+        "format": "number",
+        "color": "#F44336"
+      }
+    ]
+  },
+  "tabs": [
+      {
+      "id": "purchase_orders",
+      "label": "Purchase Orders",
+      "enable_custom_filters": true,
+      "list_template": {
+        "template": "standard",
+        "title_key": "po_number",
+        "subtitle_key": "supplier",
+        "trailing_key": "status"
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "po_number",
+        "subtitle_key": "supplier",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Draft", "key": "draft", "field": "status", "operator": "==", "value": "Draft" },
+        { "label": "Ordered", "key": "ordered", "field": "status", "operator": "==", "value": "Ordered" },
+        { "label": "Received", "key": "received", "field": "status", "operator": "==", "value": "Received" },
+        { "label": "Cancelled", "key": "cancelled", "field": "status", "operator": "==", "value": "Cancelled" }
+      ],
+      "columns": [
+        { "key": "po_number", "label": "PO #", "type": "text", "required": true },
+        { 
+          "key": "supplier", 
+          "label": "Supplier", 
+          "type": "relation", 
+          "options": "crm.contacts", 
+          "display_field": "name" 
+        },
+        { "key": "date", "label": "Order Date", "type": "date" },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Draft", "Ordered", "Received", "Cancelled"] },
+        { 
+          "key": "items", 
+          "label": "Order Items", 
+          "type": "table",
+          "columns": [
+            { 
+              "key": "sku_ref", 
+              "label": "Item", 
+              "type": "relation", 
+              "options": "variants", 
+              "display_field": "full_name" 
+            },
+            { "key": "qty", "label": "Qty", "type": "number" },
+            { "key": "cost", "label": "Unit Cost", "type": "currency" },
+            { 
+              "key": "line_total", 
+              "label": "Total", 
+              "type": "formula", 
+              "formula": "=qty * cost" 
+            }
+          ]
+        },
+        {
+          "key": "grand_total",
+          "label": "Grand Total",
+          "type": "rollup",
+          "source_tab": "self.items",
+          "source_field": "line_total",
+          "function": "sum"
+        }
+      ],
+      "initial_data": [
+        {
+          "record_id": 501,
+          "po_number": "PO-2024-APPLE-01",
+          "supplier": 1,
+          "date": "2024-03-01",
+          "status": "Received",
+          "items": [
+            {
+              "sku_ref": 101,
+              "qty": 10,
+              "cost": 1200,
+              "line_total": 12000
+            },
+            {
+              "sku_ref": 102,
+              "qty": 5,
+              "cost": 2100,
+              "line_total": 10500
+            }
+          ],
+          "grand_total": 22500
+        },
+        {
+          "record_id": 502,
+          "po_number": "PO-2024-ACC-02",
+          "supplier": 1,
+          "date": "2024-03-10",
+          "status": "Ordered",
+          "items": [
+            {
+              "sku_ref": 103,
+              "qty": 50,
+              "cost": 25,
+              "line_total": 1250
+            }
+          ],
+          "grand_total": 1250
+        }
+      ]
+      }
+  ]
+}
