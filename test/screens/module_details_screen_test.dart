@@ -275,9 +275,8 @@ void main() {
     await tester.pump();
     await tester.pumpAndSettle();
 
-    // Verify seeding occurred during activation
-    verify(() => mockDriveService.saveRecord('mod123', 'Inventory', 't1', {'name': 'Item 1'})).called(1);
-    verify(() => mockDriveService.saveRecord('mod123', 'Inventory', 't1', {'name': 'Item 2'})).called(1);
+    // Verification: seeding is removed from activation stage
+    verifyNever(() => mockDriveService.saveRecord(any(), any(), any(), any()));
     expect(find.byType(DashboardScreen), findsOneWidget);
     
     // Cleanup mock handler

@@ -179,44 +179,10 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       }
       final moduleFolderId = createdModule.id!;
 
-      // Auto-seed Initial Data
-      if (_moduleJson != null && _moduleJson!['tabs'] != null) {
-        if (mounted) {
-          setState(() {
-            _statusMessage = "Seeding initial data...";
-            _progress = 0.5;
-          });
-        }
-
-        final tabs = _moduleJson!['tabs'] as List;
-        for (var tab in tabs) {
-          if (tab is Map && tab['initial_data'] != null) {
-            final initialData = tab['initial_data'] as List;
-            final tabId = tab['id'];
-
-            for (var record in initialData) {
-              if (record is Map<String, dynamic>) {
-                try {
-                  final res = (driveService as dynamic).saveRecord(
-                    moduleFolderId,
-                    moduleName,
-                    tabId,
-                    record,
-                  );
-                  if (res is Future) await res;
-                } catch (e) {
-                  debugPrint('Error seeding record for $tabId: $e');
-                }
-              }
-            }
-          }
-        }
-      }
-
       if (mounted) {
         setState(() {
           _statusMessage = "Configuring module defaults...";
-          _progress = 0.7;
+          _progress = 0.6;
         });
       }
 
