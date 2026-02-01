@@ -58,6 +58,9 @@ void main() {
   late MockAuthService mockAuthService;
   late MockSchemaProvider mockSchemaProvider;
   late MockSchemaService mockSchemaService;
+  late MockSheetsApi mockSheetsApi;
+  late MockSpreadsheetsResource mockSpreadsheetsResource;
+  late MockValuesResource mockValuesResource;
 
   setUp(() {
     mockDriveProvider = MockDriveProvider();
@@ -66,7 +69,15 @@ void main() {
     mockAuthService = MockAuthService();
     mockSchemaProvider = MockSchemaProvider();
     mockSchemaService = MockSchemaService();
+    mockSheetsApi = MockSheetsApi();
+    mockSpreadsheetsResource = MockSpreadsheetsResource();
+    mockValuesResource = MockValuesResource();
     
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheetsResource);
+    when(() => mockSpreadsheetsResource.values).thenReturn(mockValuesResource);
+    when(() => mockValuesResource.get(any(), any())).thenAnswer((_) async => sheets.ValueRange());
+
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
     when(() => mockSchemaProvider.service).thenReturn(mockSchemaService);

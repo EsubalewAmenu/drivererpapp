@@ -155,24 +155,6 @@ void main() {
       )).called(1);
     });
 
-    test('listWorkspaces returns list of folders', () async {
-      final fileList = drive.FileList(files: [
-        drive.File()..id = 'ws1'..name = 'Workspace 1'
-      ]);
-
-      when(() => mockFilesResource.list(
-        q: any(named: 'q'),
-        $fields: any(named: '\$fields'),
-        includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
-        supportsAllDrives: any(named: 'supportsAllDrives'),
-      )).thenAnswer((_) async => fileList);
-
-      final result = await driveService.listWorkspaces('root123');
-
-      expect(result.length, 1);
-      expect(result.first.name, 'Workspace 1');
-    });
-
     test('createWorkspace creates folder with parent', () async {
       when(() => mockFilesResource.create(any(), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => drive.File()..id = 'new_ws'..name = 'My Workspace');

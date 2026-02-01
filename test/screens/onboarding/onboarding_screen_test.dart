@@ -66,6 +66,10 @@ void main() {
   testWidgets('OnboardingScreen full flow: Create New Company', (WidgetTester tester) async {
     when(() => mockDriveService.createWorkspace(any(), any()))
         .thenAnswer((_) async => drive.File()..id = 'ws123'..name = 'My Business');
+    when(() => mockDriveService.getOrCreateSubFolder(any(), any()))
+        .thenAnswer((_) async => 'folder123');
+    when(() => mockDriveService.createUserAccessSpreadsheet(any(), any()))
+        .thenAnswer((_) async => 'uas123');
     when(() => mockWorkspaceProvider.registerNewCompany(any(), any()))
         .thenAnswer((_) async {});
     when(() => mockWorkspaceProvider.saveUserAccessSpreadsheetId(any())).thenAnswer((_) async {});

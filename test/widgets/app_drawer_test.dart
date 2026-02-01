@@ -122,7 +122,6 @@ void main() {
 
   testWidgets('AppDrawer switching workspace navigates to scan results', (WidgetTester tester) async {
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
-    when(() => mockDriveService.listWorkspaces('root123')).thenAnswer((_) async => [drive.File()..name = 'WS 1'..id = '1']);
 
     await tester.pumpWidget(createDrawer());
     

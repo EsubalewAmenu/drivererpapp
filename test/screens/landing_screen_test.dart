@@ -4,10 +4,12 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:drivererpapp/screens/landing_screen.dart';
 import 'package:drivererpapp/screens/system_scanning_screen.dart';
+import 'package:drivererpapp/screens/workspace_selector_screen.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
+import 'package:drivererpapp/models/company_model.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class MockAuthService extends Mock implements AuthService {}
@@ -32,8 +34,13 @@ void main() {
     when(() => mockAuthService.isAuthenticated).thenReturn(false);
     when(() => mockAuthService.authClient).thenReturn(null);
     when(() => mockAuthService.signInSilently()).thenAnswer((_) async {});
-    when(() => mockDriveProvider.driveService).thenReturn(null);
+    when(() => mockWorkspaceProvider.isLoading).thenReturn(false);
+    when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
+    when(() => mockWorkspaceProvider.companies).thenReturn(<Company>[]);
+    when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
+    when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
+    when(() => mockDriveService.ensureCompanyRegistry(any())).thenAnswer((_) async => 'reg123');
     when(() => mockDriveProvider.updateClient(any())).thenReturn(null);
   });
 
@@ -104,16 +111,14 @@ void main() {
   });
 
   testWidgets('LandingScreen should auto-navigate if already authenticated silently', (WidgetTester tester) async {
-    when(() => mockAuthService.signInSilently()).thenAnswer((_) async {
-       when(() => mockAuthService.isAuthenticated).thenReturn(true);
-       when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
-    });
+    when(() => mockAuthService.isAuthenticated).thenReturn(true);
+    when(() => mockAuthService.signInSilently()).thenAnswer((_) async {});
+    when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
     
     await tester.pumpWidget(createLandingScreen());
     await tester.pump(); // PostFrame
-    await tester.pump(const Duration(milliseconds: 100)); 
     await tester.pumpAndSettle(); 
 
-    expect(find.byType(SystemScanningScreen), findsOneWidget);
+    expect(find.byType(WorkspaceSelectorScreen), findsOneWidget);
   });
 }

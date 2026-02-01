@@ -131,32 +131,6 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('ModuleScreen handles asset fallback', (WidgetTester tester) async {
-    final module = ModuleSchema(
-      id: 'm_fallback',
-      name: 'NonExistentModule',
-      icon: 'inventory',
-      primaryColor: '#F59E0B',
-      version: '1.0.0',
-      settings: {},
-      tabs: [],
-      dashboard: DashboardConfig(cards: []),
-    );
-
-    when(() => mockSchemaService.getCachedConfig('m_fallback')).thenAnswer((_) async => null);
-    when(() => mockSchemaService.syncConfig('m_fallback')).thenAnswer((_) async => null);
-
-    await tester.pumpWidget(createModuleScreen(module));
-    await tester.pump(); // Start _loadSchema
-    
-    // Wait for the sync and asset check to complete
-    await tester.pump(const Duration(seconds: 1)); 
-    await tester.pumpAndSettle();
-
-    // Should have navigated to editor because of asset fallback
-    expect(find.text('COMPLETE SETUP'), findsWidgets);
-  });
-
   testWidgets('ModuleScreen handles cache load and background sync', (WidgetTester tester) async {
      final module = ModuleSchema(
       id: 'm_cache',

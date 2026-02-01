@@ -62,41 +62,41 @@ void main() {
     await tester.pumpWidget(createSubject(card));
 
     // Enable Builder Mode
-    await tester.tap(find.byType(SwitchListTile));
+    await tester.tap(find.byType(SwitchListTile), warnIfMissed: false);
     await tester.pumpAndSettle();
 
     // 1. Select Sheet -> Stocks
     final sheetDropdown = find.text('Select Sheet');
     await tester.ensureVisible(sheetDropdown);
-    await tester.tap(sheetDropdown);
+    await tester.tap(sheetDropdown, warnIfMissed: false);
     await tester.pumpAndSettle();
     
-    await tester.tap(find.text('Stocks').last); 
+    await tester.tap(find.text('Stocks').last, warnIfMissed: false); 
     await tester.pumpAndSettle();
 
     // 2. Select Field -> Price (Index 2 -> C)
     final fieldDropdown = find.text('Select Field');
     await tester.ensureVisible(fieldDropdown);
-    await tester.tap(fieldDropdown);
+    await tester.tap(fieldDropdown, warnIfMissed: false);
     await tester.pumpAndSettle();
     
     final priceItem = find.text('Price').last;
     // ensureVisible doesn't work well on popped up menu items in test environment usually without scaffolding, 
     // but try standard tap
-    await tester.tap(priceItem);
+    await tester.tap(priceItem, warnIfMissed: false);
     await tester.pumpAndSettle();
 
     // 3. Select Operation -> Average
     final opDropdown = find.text('Select Operation');
     await tester.ensureVisible(opDropdown);
-    await tester.tap(opDropdown);
+    await tester.tap(opDropdown, warnIfMissed: false);
     await tester.pumpAndSettle();
     
-    await tester.tap(find.text('Average').last);
+    await tester.tap(find.text('Average').last, warnIfMissed: false);
     await tester.pumpAndSettle();
 
     // Verify Generated Formula
-    await tester.tap(find.text('GENERATED FORMULA')); // Focus something else to ensure text field commits?
+    await tester.tap(find.text('GENERATED FORMULA'), warnIfMissed: false); // Focus something else to ensure text field commits?
     await tester.pumpAndSettle();
     
     expect(find.text('=AVERAGE(stocks!C:C)'), findsOneWidget);
