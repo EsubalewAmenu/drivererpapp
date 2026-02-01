@@ -55,7 +55,7 @@
         { "key": "priority", "label": "Priority", "type": "select", "options": ["Low", "Medium", "High", "Critical"] },
         { "key": "status", "label": "Status", "type": "select", "options": ["Open", "In Progress", "Resolved"] },
         { "key": "description", "label": "Details", "type": "long_text" },
-        { "key": "assigned_to", "label": "Assigned Agent", "type": "email" }
+        { "key": "assigned_to", "label": "Assigned Agent", "type": "email", "default": "user.email" }
       ]
     }
   ]
