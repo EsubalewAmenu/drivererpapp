@@ -151,7 +151,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                         final tab = targetModule.tabs.firstWhere((t) => t.id == tabId, orElse: () => targetModule!.tabs.first);
                         final fileId = tab.fileId;
                         if (fileId != null && fileId.isNotEmpty) {
-                          fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10);
+                          fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10, fetchSubTables: false);
                         }
                       } catch (_) {
                         fetched = [];
@@ -166,7 +166,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                           final tab = targetModule.tabs.firstWhere((t) => t.id == tabId, orElse: () => targetModule!.tabs.first);
                           final fileId = tab.fileId;
                           if (fileId != null && fileId.isNotEmpty) {
-                            fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10);
+                            fetched = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, searchQuery: query, limit: 10, fetchSubTables: false);
                           }
                         }
                       } catch (_) {}
@@ -196,7 +196,7 @@ class _DynamicRelationFieldState extends State<DynamicRelationField> {
                           final fileId = tab.fileId;
                           List<Map<String, dynamic>> local = [];
                           if (fileId != null && fileId.isNotEmpty) {
-                             local = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 200);
+                             local = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, limit: 200, fetchSubTables: false);
                           }
                           
                           final lowered = query.toLowerCase();
