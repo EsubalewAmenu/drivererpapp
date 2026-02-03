@@ -47,7 +47,7 @@ class _EditTabDialogState extends State<EditTabDialog> {
           ),
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
-            initialValue: _template,
+            value: _template,
             decoration: const InputDecoration(labelText: 'Detail Template'),
             dropdownColor: theme.cardColor,
             style: TextStyle(color: theme.textTheme.bodyLarge?.color),

@@ -749,6 +749,9 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         if (detailTemplate != null) {
           updateFields['detail_template'] = detailTemplate.toJson();
         }
+        if (loadSubTableDataAutomatically != null) {
+          updateFields['load_sub_table_data_automatically'] = loadSubTableDataAutomatically;
+        }
 
         // Persist updated tab fields to Drive (optimized row-by-row update)
         // Pass the sheet IDs if available; SchemaService will log a warning if tabsId is missing.

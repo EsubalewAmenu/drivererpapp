@@ -186,7 +186,8 @@ class TabConfig {
           jsonEncode(quickFilters) == jsonEncode(other.quickFilters) &&
           enableCustomFilters == other.enableCustomFilters &&
           listTemplate == other.listTemplate &&
-          detailTemplate == other.detailTemplate;
+          detailTemplate == other.detailTemplate &&
+          loadSubTableDataAutomatically == other.loadSubTableDataAutomatically;
 
   @override
   int get hashCode =>
@@ -195,7 +196,8 @@ class TabConfig {
       quickFilters.hashCode ^
       enableCustomFilters.hashCode ^
       listTemplate.hashCode ^
-      detailTemplate.hashCode;
+      detailTemplate.hashCode ^
+      loadSubTableDataAutomatically.hashCode;
 }
 
 @JsonSerializable(explicitToJson: true)
