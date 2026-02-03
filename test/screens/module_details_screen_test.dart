@@ -8,6 +8,7 @@ import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/schema_service.dart';
+import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
@@ -48,9 +49,12 @@ class _TestGoogleAccount extends Fake implements GoogleSignInAccount {
   String get email => _email;
 }
 
+class FakeModuleSchema extends Fake implements ModuleSchema {}
+
 void main() {
   setUpAll(() {
     Provider.debugCheckInvalidValueType = null;
+    registerFallbackValue(FakeModuleSchema());
   });
   late MockDriveProvider mockDriveProvider;
   late MockWorkspaceProvider mockWorkspaceProvider;
@@ -89,7 +93,7 @@ void main() {
     when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any())).thenAnswer((_) async => {});
     when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any())).thenAnswer((_) async => {});
     when(() => mockDriveService.registerModule(any(), any(), any(), any())).thenAnswer((_) async => {});
-    when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'cfg123');
+    when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => {'settings': 'cfg123', 'dashboard': 'dash123', 'tabs': 'tabs123'});
 
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'ws123'..name = 'My Workspace');
     when(() => mockWorkspaceProvider.lastUserAccessSpreadsheetId).thenReturn('uas123');
@@ -156,7 +160,7 @@ void main() {
     when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
     when(() => mockSpreadsheets.values).thenReturn(mockValues);
     when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
-    when(() => mockValues.get(any(), 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
+    when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(values: []));
 
     await tester.pumpWidget(createModuleDetailsScreen(info));
 
@@ -267,7 +271,7 @@ void main() {
     when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
     when(() => mockSpreadsheets.values).thenReturn(mockValues);
     when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
-    when(() => mockValues.get(any(), 'modules!A1:Z')).thenAnswer((_) async => sheets.ValueRange(values: []));
+    when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(values: []));
 
     await tester.pumpWidget(createModuleDetailsScreenWithBundle(info, bundle: TestAssetBundle(assets: assets)));
     await tester.pumpAndSettle(); // Load config

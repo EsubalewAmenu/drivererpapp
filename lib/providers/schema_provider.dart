@@ -53,7 +53,7 @@ class SchemaProvider extends ChangeNotifier {
     String? tabsId,
   }) async {
     try {
-      await _schemaService.saveModuleConfig(
+      final success = await _schemaService.saveModuleConfig(
         config.id, 
         config, 
         userAccessFileId: userAccessFileId,
@@ -61,8 +61,11 @@ class SchemaProvider extends ChangeNotifier {
         dashboardId: dashboardId,
         tabsId: tabsId,
       );
-      updateMemoryCache(config.id, config);
-      return true;
+      if (success) {
+        updateMemoryCache(config.id, config);
+        return true;
+      }
+      return false;
     } catch (e) {
       debugPrint('Error saving config: $e');
       return false;

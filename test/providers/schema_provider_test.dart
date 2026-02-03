@@ -59,10 +59,13 @@ void main() {
 
       when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'folder123');
       when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
-      when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'new_file_id');
+      when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => {'settings': 'new_file_id', 'dashboard': 'd_id', 'tabs': 't_id'});
       when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.now());
+      when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
+      when(() => mockDriveService.writeDashboardById(any(), any())).thenAnswer((_) async => {});
+      when(() => mockDriveService.writeTabsById(any(), any())).thenAnswer((_) async => {});
       
-      final result = await schemaProvider.saveConfig(module);
+      final result = await schemaProvider.saveConfig(module, settingsId: 'new_file_id');
       expect(result, isTrue);
       expect(schemaProvider.getFromMemory('m1'), module);
     });

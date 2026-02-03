@@ -180,7 +180,7 @@ class SchemaService {
 
   /// Saves the module configuration to Drive and updates the local cache.
   /// Relay on provided spreadsheet IDs for settings, dashboard, and tabs.
-  Future<void> saveModuleConfig(String moduleId, ModuleSchema config, {
+  Future<bool> saveModuleConfig(String moduleId, ModuleSchema config, {
     String? userAccessFileId,
     String? settingsId,
     String? dashboardId,
@@ -194,7 +194,7 @@ class SchemaService {
       if (userEmail != null) {
         if (fileId == null || fileId.isEmpty) {
           debugPrint('SchemaService: Cannot saveModuleConfig for $moduleId - settingsId is missing.');
-          return;
+          return false;
         }
 
         final configMap = config.toJson();
@@ -243,6 +243,7 @@ class SchemaService {
       } else {
         await cacheConfig(moduleId, config.toJson());
       }
+      return true;
     } catch (e) {
       debugPrint('Error saving module config: $e');
       rethrow;
