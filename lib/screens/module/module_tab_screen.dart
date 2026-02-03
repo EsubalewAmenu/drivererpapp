@@ -684,12 +684,14 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       final newFilters = result['filters'] as List<QuickFilter>;
       final newListTemplate = result['listTemplate'] as ListTemplateConfig;
       final newDetailTemplate = result['detailTemplate'] as DetailTemplateConfig;
+      final newLoadAuto = result['load_sub_table_data_automatically'] as bool?;
 
       _saveConfiguration(
         enableFilters: newEnabled,
         filters: newFilters,
         listTemplate: newListTemplate,
         detailTemplate: newDetailTemplate,
+        loadSubTableDataAutomatically: newLoadAuto,
       );
     }
   }
@@ -699,6 +701,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     required List<QuickFilter> filters,
     ListTemplateConfig? listTemplate,
     DetailTemplateConfig? detailTemplate,
+    bool? loadSubTableDataAutomatically,
   }) async {
     try {
       final schemaProvider = context.read<SchemaProvider>();
@@ -711,6 +714,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
         enableCustomFilters: enableFilters,
         listTemplate: listTemplate,
         detailTemplate: detailTemplate,
+        loadSubTableDataAutomatically: loadSubTableDataAutomatically,
       );
 
       final effectiveTabId = _effectiveTabId();

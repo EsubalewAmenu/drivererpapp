@@ -43,6 +43,7 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
   String? _detailSubtitleKey;
   String? _detailImageKey;
   late bool _detailShowAll;
+  late bool _loadSubTableAutomatically;
   List<String> _detailFields = [];
 
   // Conditional Logic State (List)
@@ -127,6 +128,7 @@ class _TabSettingsScreenState extends State<TabSettingsScreen> with SingleTicker
     }
     
     _detailShowAll = detailConfig?.showAllFields ?? true;
+    _loadSubTableAutomatically = widget.tab.loadSubTableDataAutomatically ?? true;
     _detailFields = List.from(detailConfig?.detailKeys ?? []);
 
     // Initialize logic

@@ -14,12 +14,14 @@ class EditTabDialog extends StatefulWidget {
 class _EditTabDialogState extends State<EditTabDialog> {
   late TextEditingController _labelController;
   late String _template;
+  late bool _loadAuto;
 
   @override
   void initState() {
     super.initState();
     _labelController = TextEditingController(text: widget.tab.label);
     _template = widget.tab.detailTemplate?.template ?? 'standard';
+    _loadAuto = widget.tab.loadSubTableDataAutomatically ?? true;
   }
 
   @override
@@ -57,6 +59,14 @@ class _EditTabDialogState extends State<EditTabDialog> {
               if (val != null) setState(() => _template = val);
             },
           ),
+          const SizedBox(height: 16),
+          SwitchListTile(
+            title: const Text('Auto-load Sub-tables'),
+            subtitle: const Text('Fetch sub-data automatically on entry'),
+            value: _loadAuto,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (val) => setState(() => _loadAuto = val),
+          ),
         ],
       ),
       actions: [
@@ -73,6 +83,7 @@ class _EditTabDialogState extends State<EditTabDialog> {
               detailTemplate: (widget.tab.detailTemplate ?? DetailTemplateConfig()).copyWith(
                 template: _template,
               ),
+              loadSubTableDataAutomatically: _loadAuto,
             );
             
             Navigator.pop(context, updatedTab);

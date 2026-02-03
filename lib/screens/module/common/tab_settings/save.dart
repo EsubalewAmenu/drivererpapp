@@ -16,6 +16,7 @@ mixin _TabSettingsSaveMixin on State<TabSettingsScreen> {
     return {
       'enableFilters': (this as _TabSettingsScreenState)._filtersEnabled,
       'filters': (this as _TabSettingsScreenState)._filters,
+      'load_sub_table_data_automatically': (this as _TabSettingsScreenState)._loadSubTableAutomatically,
       'listTemplate': ListTemplateConfig(
         template: (this as _TabSettingsScreenState)._selectedTemplate,
         titleKey: (this as _TabSettingsScreenState)._listUseConditionalTitle ? null : (this as _TabSettingsScreenState)._titleKey,
