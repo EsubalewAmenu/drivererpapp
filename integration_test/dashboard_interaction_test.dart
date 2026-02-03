@@ -66,14 +66,14 @@ void main() {
     when(() => mockValues.get('ua1', 'modules!A1:Z'))
         .thenAnswer((_) async => mockValueRange);
     when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_id');
-    when(() => mockDriveService.readModuleConfig('config_id')).thenAnswer((_) async => <String, dynamic>{
+    when(() => mockDriveService.readSettingsById('config_id')).thenAnswer((_) async => <String, dynamic>{
       'id': 'mod1',
       'name': 'CRM',
       'icon': 'trending_up',
       'primaryColor': '#4F46E5',
-      'tabs': [],
-      'dashboard': {'cards': []}
     });
+    when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => <String, dynamic>{'cards': []});
+    when(() => mockDriveService.readTabsById('tabs_id')).thenAnswer((_) async => <Map<String, dynamic>>[]);
 
     final workspaceProvider = WorkspaceProvider();
     workspaceProvider.setWorkspace(workspace);

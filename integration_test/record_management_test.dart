@@ -63,18 +63,18 @@ void main() {
     // Config for Inventory
     when(() => mockDriveService.getFileId('mod1', 'config')).thenAnswer((_) async => 'config_id');
     when(() => mockDriveService.getFileId('mod1', 'stocks')).thenAnswer((_) async => 'stocks_id');
-    when(() => mockDriveService.readModuleConfig('config_id')).thenAnswer((_) async => <String, dynamic>{
+    
+    when(() => mockDriveService.readSettingsById('conf1')).thenAnswer((_) async => <String, dynamic>{
       'id': 'mod1',
       'name': 'Inventory',
       'icon': 'inventory',
       'primaryColor': '#F59E0B',
       'version': '1.0.0',
-      'tabs': <dynamic>[
-        {'id': 'stocks', 'label': 'Stocks', 'columns': [{'key': 'item_name', 'label': 'Item Name', 'type': 'text'}]}
-      ],
-      'dashboard': <String, dynamic>{'cards': <dynamic>[]},
-      'settings': <String, dynamic>{}
     });
+    when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => <String, dynamic>{'cards': []});
+    when(() => mockDriveService.readTabsById('tabs1')).thenAnswer((_) async => <Map<String, dynamic>>[
+      {'id': 'stocks', 'label': 'Stocks', 'columns': [{'key': 'item_name', 'label': 'Item Name', 'type': 'text'}]}
+    ]);
 
     // Mock records for Inventory -> Stocks
     when(() => mockDriveService.fetchRecords('mod1', 'Inventory', 'stocks',
