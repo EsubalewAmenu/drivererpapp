@@ -127,6 +127,8 @@ class TabConfig {
   final ListTemplateConfig? listTemplate;
   @JsonKey(name: 'detail_template')
   final DetailTemplateConfig? detailTemplate;
+  @JsonKey(name: 'load_sub_table_data_automatically')
+  final bool? loadSubTableDataAutomatically;
   @JsonKey(name: 'initial_data')
   final List<Map<String, dynamic>>? initialData;
   @JsonKey(name: 'fileId')
@@ -140,6 +142,7 @@ class TabConfig {
     this.enableCustomFilters = true,
     this.listTemplate,
     this.detailTemplate,
+    this.loadSubTableDataAutomatically = true,
     this.initialData,
     this.fileId,
   });
@@ -152,6 +155,7 @@ class TabConfig {
     bool? enableCustomFilters,
     ListTemplateConfig? listTemplate,
     DetailTemplateConfig? detailTemplate,
+    bool? loadSubTableDataAutomatically,
     List<Map<String, dynamic>>? initialData,
     String? fileId,
   }) {
@@ -163,6 +167,7 @@ class TabConfig {
       enableCustomFilters: enableCustomFilters ?? this.enableCustomFilters,
       listTemplate: listTemplate ?? this.listTemplate,
       detailTemplate: detailTemplate ?? this.detailTemplate,
+      loadSubTableDataAutomatically: loadSubTableDataAutomatically ?? this.loadSubTableDataAutomatically,
       initialData: initialData ?? this.initialData,
       fileId: fileId ?? this.fileId,
     );

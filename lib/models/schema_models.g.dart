@@ -106,6 +106,8 @@ TabConfig _$TabConfigFromJson(Map<String, dynamic> json) => TabConfig(
       : DetailTemplateConfig.fromJson(
           json['detail_template'] as Map<String, dynamic>,
         ),
+  loadSubTableDataAutomatically:
+      json['load_sub_table_data_automatically'] as bool? ?? true,
   initialData: (json['initial_data'] as List<dynamic>?)
       ?.map((e) => e as Map<String, dynamic>)
       .toList(),
@@ -120,6 +122,7 @@ Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
   'enable_custom_filters': instance.enableCustomFilters,
   'list_template': instance.listTemplate?.toJson(),
   'detail_template': instance.detailTemplate?.toJson(),
+  'load_sub_table_data_automatically': instance.loadSubTableDataAutomatically,
   'initial_data': instance.initialData,
   'fileId': instance.fileId,
 };
@@ -244,6 +247,7 @@ ColumnConfig _$ColumnConfigFromJson(Map<String, dynamic> json) => ColumnConfig(
   currencySymbol: json['currency_symbol'] as String?,
   dependsValue: json['depends_value'],
   dependsOperator: json['depends_operator'] as String?,
+  readonly: json['readonly'] as bool?,
 );
 
 Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
@@ -262,4 +266,5 @@ Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
       'currency_symbol': instance.currencySymbol,
       'depends_value': instance.dependsValue,
       'depends_operator': instance.dependsOperator,
+      'readonly': instance.readonly,
     };
