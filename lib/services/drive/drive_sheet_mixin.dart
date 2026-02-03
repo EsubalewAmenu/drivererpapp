@@ -158,7 +158,8 @@ mixin DriveSheetMixin {
   }
 
   /// Creates a Google Sheet for configuration with multiple sheets.
-  Future<String> createModuleConfig(String folderId, String fileName, Map<String, dynamic> config) async {
+  /// Returns a map of the created spreadsheet IDs: {'settings': id, 'dashboard': id, 'tabs': id}.
+  Future<Map<String, String>> createModuleConfig(String folderId, String fileName, Map<String, dynamic> config) async {
     try {
       // We'll create three separate spreadsheets: settings, dashboard, and tabs.
       final settingsTitle = '${fileName}_settings';
@@ -180,7 +181,6 @@ mixin DriveSheetMixin {
               properties: sheets.SheetProperties(sheetId: 0, title: 'settings'),
               fields: 'title',
             )),
-            sheets.Request(addSheet: sheets.AddSheetRequest(properties: sheets.SheetProperties(title: 'meta'))),
           ],
         ),
         settingsId,
@@ -234,7 +234,7 @@ mixin DriveSheetMixin {
         }
       } else {
         tabRequests.add(sheets.Request(updateSheetProperties: sheets.UpdateSheetPropertiesRequest(
-          properties: sheets.SheetProperties(sheetId: 0, title: 'meta'),
+          properties: sheets.SheetProperties(sheetId: 0, title: 'tabs'),
           fields: 'title',
         )));
       }
@@ -247,10 +247,6 @@ mixin DriveSheetMixin {
       debugPrint('Created settings: $settingsTitle ($settingsId)');
       debugPrint('Created dashboard: $dashboardTitle ($dashboardId)');
       debugPrint('Created tabs: $tabsTitle ($tabsId)');
-
-      // Store references to dashboard and tabs in settings.meta sheet for later lookup
-      final metaMap = {'dashboard_id': dashboardId, 'tabs_id': tabsId};
-      await _writeMapToSheet(settingsId, 'meta', metaMap);
 
       // Write initial content
       await _writeMapToSheet(settingsId, 'settings', config['settings'] ?? {});
@@ -276,7 +272,11 @@ mixin DriveSheetMixin {
         }
       }
 
-      return settingsId;
+      return {
+        'settings': settingsId,
+        'dashboard': dashboardId,
+        'tabs': tabsId,
+      };
     } catch (e) {
       debugPrint('Error creating module config: $e');
       rethrow;
@@ -285,98 +285,13 @@ mixin DriveSheetMixin {
 
   /// Updates the module configuration in the spreadsheet.
   Future<void> updateModuleConfig(String fileId, Map<String, dynamic> config) async {
-    // fileId is settings spreadsheet id. Lookup meta to find dashboard and tabs sheets
+    // fileId is settings spreadsheet id. 
     try {
       if (config.containsKey('settings')) {
         await _writeMapToSheet(fileId, 'settings', config['settings'] ?? {});
       }
-
-      final meta = await _readMapFromSheet(fileId, 'meta');
-      final dashboardId = meta['dashboard_id'];
-      final tabsId = meta['tabs_id'];
-
-      if (config.containsKey('dashboard') && dashboardId != null) {
-        final cards = config['dashboard'];
-        if (cards is Map) {
-          await _writeMapToSheet(dashboardId, 'cards', cards as Map<String, dynamic>);
-        } else if (cards is List) {
-          final rows = (cards).map((c) => [jsonEncode(c)]).toList();
-          await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: rows), dashboardId, 'cards!A1', valueInputOption: 'RAW'));
-        }
-      }
-
-      if (config.containsKey('tabs') && tabsId != null) {
-        final tabs = (config['tabs'] as List).cast<dynamic>();
-        if (tabs.isNotEmpty) {
-          await writeTabsById(tabsId, tabs);
-        }
-      }
     } catch (e) {
       debugPrint('Error updating module config: $e');
-    }
-  }
-
-  /// Reads the module configuration from the spreadsheet.
-  Future<Map<String, dynamic>?> readModuleConfig(String fileId) async {
-    final config = <String, dynamic>{};
-    try {
-      // Settings are stored in this spreadsheet (fileId)
-      final settingsMap = await _readMapFromSheet(fileId, 'settings');
-      if (settingsMap.isEmpty) {
-        debugPrint('Settings sheet is empty or missing for $fileId');
-      } else {
-        final settings = <String, dynamic>{};
-        settingsMap.forEach((k, v) {
-          try {
-            settings[k] = jsonDecode(v);
-          } catch (_) {
-            settings[k] = v;
-          }
-        });
-        config['settings'] = settings;
-      }
-
-      // Read meta to get dashboard and tabs spreadsheet IDs
-      final meta = await _readMapFromSheet(fileId, 'meta');
-      final dashboardId = meta['dashboard_id'];
-      final tabsId = meta['tabs_id'];
-
-      if (dashboardId != null) {
-        // Read cards sheet; prefer A1 JSON rows or A:B map
-        try {
-          final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(dashboardId, 'cards!A1:Z'));
-          if (resp.values != null && resp.values!.isNotEmpty) {
-            final firstRow = resp.values!.first;
-            // decide if rows contain JSON strings
-            if (firstRow.isNotEmpty && firstRow.first is String && (firstRow.first as String).trim().startsWith('{')) {
-              config['dashboard'] = resp.values!.map((r) => jsonDecode(r.first as String)).toList();
-            } else {
-              // fallback: map form
-              final map = await _readMapFromSheet(dashboardId, 'cards');
-              if (map.isNotEmpty) config['dashboard'] = map.map((k, v) => MapEntry(k, jsonDecode(v)));
-            }
-          }
-        } catch (e) {
-          debugPrint('Error reading dashboard by id $dashboardId: $e');
-        }
-      }
-
-      if (tabsId != null) {
-        try {
-          final read = await readTabsById(tabsId);
-          if (read != null) config['tabs'] = read;
-        } catch (e) {
-          debugPrint('Error reading tabs: $e');
-        }
-      }
-
-      if (config.isEmpty || (config['settings'] == null && config['tabs'] == null)) {
-        return null;
-      }
-      return config;
-    } catch (e) {
-      debugPrint('Error reading module config: $e');
-      return null;
     }
   }
 
@@ -530,16 +445,6 @@ mixin DriveSheetMixin {
       return map;
     } catch (e) {
       debugPrint('Error reading sheet $sheetTitle: $e');
-      return {};
-    }
-  }
-
-  /// Read the 'meta' sheet from a settings spreadsheet id.
-  Future<Map<String, String>> readMetaBySettingsId(String settingsId) async {
-    try {
-      return await _readMapFromSheet(settingsId, 'meta');
-    } catch (e) {
-      debugPrint('Error reading meta for $settingsId: $e');
       return {};
     }
   }
@@ -760,16 +665,6 @@ mixin DriveSheetMixin {
       debugPrint('DriveSheetMixin: updated ${fields.length} tab fields in $tabId for spreadsheet $tabsId');
     } catch (e) {
       debugPrint('Error updating tab fields in $tabId: $e');
-      rethrow;
-    }
-  }
-
-  /// Write the 'meta' sheet for a settings spreadsheet.
-  Future<void> writeMetaBySettingsId(String settingsId, Map<String, String> meta) async {
-    try {
-      await _writeMapToSheet(settingsId, 'meta', meta.cast<String, dynamic>());
-    } catch (e) {
-      debugPrint('Error writing meta to $settingsId: $e');
       rethrow;
     }
   }

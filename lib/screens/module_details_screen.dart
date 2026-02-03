@@ -186,6 +186,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       }
 
       // Create config folder and default config file now (so module has config immediately)
+      Map<String, String>? configIds;
       try {
         if (_moduleJson != null) {
           final configFolderRes = (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
@@ -201,10 +202,13 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
           final userEmail = capturedUserEmail;
           final configFileName = userEmail != null && userEmail.isNotEmpty ? userEmail : 'config';
           try {
-            // Create module config on Drive (result is ignored)
+            // Create module config on Drive (capturing IDs to avoid subsequent getFileId lookups)
             dynamic createCfgRes = (driveService as dynamic).createModuleConfig(configFolderId, configFileName, _moduleJson!);
             if (createCfgRes is Future) {
-              await createCfgRes;
+              final result = await createCfgRes;
+              if (result is Map) configIds = Map<String, String>.from(result);
+            } else if (createCfgRes is Map) {
+              configIds = Map<String, String>.from(createCfgRes);
             }
 
             // Cache the created module JSON locally under the new module folder id
@@ -217,10 +221,6 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               try {
                 await provider.service.cacheConfig(assetKey, _moduleJson!);
               } catch (_) {}
-
-              // Do not remove cached configurations here; keeping them saves
-              // time and avoids unnecessary re-syncs immediately after activation.
-              // The system will update these caches naturally during the next sync.
             } catch (e) {
               debugPrint('Failed to cache module config locally after activation: $e');
             }
@@ -252,16 +252,22 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
           try {
             final userEmail = capturedUserEmail;
             if (userEmail != null && userEmail.isNotEmpty) {
-              // Ensure config folder and fetch created config file ids
-              final configFolderId = await (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
-              final settingsId = await (driveService as dynamic).getFileId(configFolderId, '${userEmail}_settings');
-              final dashboardId = await (driveService as dynamic).getFileId(configFolderId, '${userEmail}_dashboard');
-              final tabsId = await (driveService as dynamic).getFileId(configFolderId, '${userEmail}_tabs');
+              // Use IDs captured during creation; avoid getFileId by filename
+              final settingsId = configIds?['settings'];
+              final dashboardId = configIds?['dashboard'];
+              final tabsId = configIds?['tabs'];
 
               final userAccessFileId = workspaceProvider.lastUserAccessSpreadsheetId;
 
               if (userAccessFileId != null) {
-                await (driveService as dynamic).upsertUserAccessModule(userAccessFileId, moduleFolderId, moduleName, dashboardId ?? '', settingsId ?? '', tabsId ?? '');
+                await (driveService as dynamic).upsertUserAccessModule(
+                  userAccessFileId, 
+                  moduleFolderId, 
+                  moduleName, 
+                  dashboardId ?? '', 
+                  settingsId ?? '', 
+                  tabsId ?? ''
+                );
                 try {
                   await (driveService as dynamic).setUserAccessModuleStatus(userAccessFileId, moduleFolderId, 'activated');
                 } catch (e) {
