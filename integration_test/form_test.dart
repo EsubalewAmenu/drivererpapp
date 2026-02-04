@@ -251,10 +251,10 @@ void main() {
     await tester.tap(find.text('Apple Inc.'));
     await safePumpAndSettle();
 
-    await tester.tap(find.text('Add Item'));
+    await tester.tap(find.text('Add').last);
     await safePumpAndSettle();
     await tester.enterText(find.widgetWithText(TextFormField, 'Enter component name'), 'Screen');
-    await tester.tap(find.text('Save Item'));
+    await tester.tap(find.text('Add').last);
     await safePumpAndSettle();
 
     // Verify Photo Field Interaction
