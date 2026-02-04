@@ -41,7 +41,7 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
           columns: widget.column.columns ?? [],
           initialData: rowData,
           primaryColor: widget.primaryColor,
-          title: 'Edit ${widget.column.label} Item',
+          title: 'Edit ${widget.column.label}',
           module: widget.module,
         ),
       ),
@@ -63,7 +63,7 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
           columns: widget.column.columns ?? const [],
           initialData: const {},
           primaryColor: widget.primaryColor,
-          title: 'Add ${widget.column.label} Item',
+          title: 'Add New ${widget.column.label}',
           module: widget.module,
         ),
       ),
@@ -99,8 +99,8 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
               onPressed: _addRow,
               icon: Icon(Icons.add, size: 16, color: widget.primaryColor),
               label: Text(
-                'Add Item',
-                style: TextStyle(color: widget.primaryColor),
+                'Add',
+                style: TextStyle(color: widget.primaryColor, fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -109,16 +109,22 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
         if (widget.value.isEmpty)
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
               color: theme.cardTheme.color,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: borderColor.withValues(alpha: 0.2)),
+              border: Border.all(color: borderColor.withValues(alpha: 0.1)),
             ),
             child: Center(
-              child: Text(
-                'No items added yet',
-                style: TextStyle(color: borderColor),
+              child: Column(
+                children: [
+                   Icon(Icons.list_alt_rounded, color: borderColor.withValues(alpha: 0.5), size: 32),
+                   const SizedBox(height: 8),
+                   Text(
+                    'No ${widget.column.label.toLowerCase()} added yet',
+                    style: TextStyle(color: borderColor.withValues(alpha: 0.7)),
+                  ),
+                ],
               ),
             ),
           )
@@ -136,23 +142,53 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
               separatorBuilder: (context, index) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final item = widget.value[index];
-                // Try to find a meaningful label for the row
-                String title = 'Item ${index + 1}';
-                String subtitle = '';
+                final subCols = widget.column.columns ?? [];
                 
-                // Simple heuristic to find a title field
-                for (var col in (widget.column.columns ?? [])) {
-                  if (col.type == 'text' || col.type == 'relation') {
-                    if (item[col.key] != null) {
-                      title = item[col.key].toString();
+                // Refined heuristic to find meaningful labels
+                final titleKeys = ['phone', 'email', 'name', 'title', 'label', 'value'];
+                final subtitleKeys = ['type', 'category', 'status', 'tag'];
+                
+                String? foundTitle;
+                String? foundSubtitle;
+
+                // 1. Try preferred title keys
+                for (var key in titleKeys) {
+                  final col = subCols.where((c) => c.key.toLowerCase().contains(key)).firstOrNull;
+                  if (col != null && item[col.key] != null && item[col.key].toString().trim().isNotEmpty) {
+                    foundTitle = item[col.key].toString();
+                    break;
+                  }
+                }
+
+                // 2. Try preferred subtitle keys (ensure it's different from title)
+                for (var key in subtitleKeys) {
+                  final col = subCols.where((c) => c.key.toLowerCase().contains(key)).firstOrNull;
+                  if (col != null && item[col.key] != null && item[col.key].toString().trim().isNotEmpty) {
+                    final val = item[col.key].toString();
+                    if (val != foundTitle) {
+                      foundSubtitle = val;
                       break;
                     }
                   }
                 }
 
+                // 3. Fallback title: first non-hidden field with data
+                if (foundTitle == null) {
+                  for (var col in subCols) {
+                    if (col.hidden != true && item[col.key] != null && item[col.key].toString().trim().isNotEmpty) {
+                      foundTitle = item[col.key].toString();
+                      break;
+                    }
+                  }
+                }
+
+                final title = foundTitle ?? '${widget.column.label} ${index + 1}';
+                final subtitle = foundSubtitle ?? '';
+
                 return ListTile(
-                  title: Text(title, style: TextStyle(fontWeight: FontWeight.w500, color: theme.textTheme.bodyLarge?.color)),
+                  title: Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: theme.textTheme.bodyLarge?.color)),
                   subtitle: subtitle.isNotEmpty ? Text(subtitle, style: TextStyle(color: theme.textTheme.bodyMedium?.color)) : null,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -294,9 +330,9 @@ class _RowEditorState extends State<_RowEditor> {
                   onPressed: () {
                     Navigator.pop(context, _formData);
                   },
-                  child: const Text(
-                    'Save Item',
-                    style: TextStyle(
+                  child: Text(
+                    widget.title.startsWith('Add') ? 'Add' : 'Save Changes',
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
