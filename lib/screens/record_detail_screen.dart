@@ -649,118 +649,125 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     );
   }
 
-  void _loadSubTableField(String fieldKey, ColumnConfig col) {
+  Future<void> _loadSubTableField(String fieldKey, ColumnConfig col) async {
     final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
     if (driveService == null || widget.module == null || _currentData['record_id'] == null) return;
 
     if (_loadingTableFields.contains(fieldKey)) return;
 
-    setState(() {
-      _loadingTableFields.add(fieldKey);
-      _attemptedTableFields.add(fieldKey);
-    });
+    if (mounted) {
+      setState(() {
+        _loadingTableFields.add(fieldKey);
+        _attemptedTableFields.add(fieldKey);
+      });
+    }
 
     final childTabId = '${widget.tab.id}.$fieldKey';
     final fileId = widget.tab.fileId;
 
-    Future<List<Map<String, dynamic>>> fetchTask;
-    if (fileId != null && fileId.isNotEmpty) {
-      fetchTask = driveService.fetchRecordsBySpreadsheetId(fileId, childTabId, fetchSubTables: false);
-    } else {
-      fetchTask = Future.value([]);
-    }
+    try {
+      List<Map<String, dynamic>> recs = [];
+      if (fileId != null && fileId.isNotEmpty) {
+        recs = await driveService.fetchRecordsBySpreadsheetId(fileId, childTabId, fetchSubTables: false);
+      }
 
-    fetchTask.then((recs) {
-      try {
-        final recordIdStr = _currentData['record_id']?.toString();
-        if (recordIdStr == null) {
-          if (mounted) setState(() { _currentData[fieldKey] = []; });
-          return;
+      final recordIdStr = _currentData['record_id']?.toString();
+      if (recordIdStr == null) {
+        if (mounted) setState(() { _currentData[fieldKey] = []; });
+        return;
+      }
+
+      final matchedRows = recs.where((r) {
+        try {
+          final v = r['parent_record_id'] ?? r['parent_record'] ?? r['parent_id'];
+          return v?.toString() == recordIdStr;
+        } catch (_) {
+          return false;
         }
+      }).toList();
 
-        final matchedRows = recs.where((r) {
-          try {
-            final v = r['parent_record_id'] ?? r['parent_record'] ?? r['parent_id'];
-            return v?.toString() == recordIdStr;
-          } catch (_) {
-            return false;
-          }
-        }).toList();
+      final normalized = matchedRows.map((e) => Map<String, dynamic>.from(e)).toList();
 
-        final normalized = matchedRows.map((e) => Map<String, dynamic>.from(e)).toList();
-
-        if (normalized.isNotEmpty) {
-          if (mounted) {
-            setState(() {
-              _currentData[fieldKey] = normalized;
-            });
-          }
-        } else {
-          // Fallback to main tab
-          Future<List<Map<String, dynamic>>> fetchMainTask;
-          if (fileId != null && fileId.isNotEmpty) {
-            fetchMainTask = driveService.fetchRecordsBySpreadsheetId(fileId, widget.tab.id, fetchSubTables: true);
-          } else {
-            fetchMainTask = Future.value([]);
-          }
-
-          fetchMainTask.then((mainRecs) {
-            try {
-              final recordIdStr = _currentData['record_id']?.toString();
-              if (recordIdStr == null) return;
-
-              final matched = mainRecs.firstWhere((r) => r['record_id']?.toString() == recordIdStr || r['id']?.toString() == recordIdStr, orElse: () => {});
-              if (matched.isNotEmpty) {
-                dynamic fetched = matched[fieldKey];
-                fetched ??= matched['${widget.tab.id}.$fieldKey'];
-                if (fetched == null) {
-                  for (var k in matched.keys) {
-                    if (k.endsWith('.$fieldKey')) {
-                      fetched = matched[k];
-                      break;
-                    }
-                  }
-                }
-
-                if (fetched is String) {
-                  try {
-                    final decoded = jsonDecode(fetched);
-                    fetched = decoded;
-                  } catch (_) {}
-                }
-
-                if (fetched is List) {
-                  final norm = fetched.map((e) => e is Map ? Map<String, dynamic>.from(e) : {'value': e?.toString() ?? ''}).toList();
-                  if (mounted) setState(() => _currentData[fieldKey] = norm);
-                } else if (fetched is Map) {
-                  if (mounted) setState(() => _currentData[fieldKey] = [Map<String, dynamic>.from(fetched)]);
-                } else if (fetched != null) {
-                  if (mounted) setState(() => _currentData[fieldKey] = [{'value': fetched.toString()}]);
-                } else {
-                  if (mounted) setState(() => _currentData[fieldKey] = []);
-                }
-              }
-            } catch (e) {
-              debugPrint('Fallback sub-table error for $fieldKey: $e');
-              if (mounted) setState(() => _currentData[fieldKey] = []);
-            }
+      if (normalized.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _currentData[fieldKey] = normalized;
           });
         }
-      } catch (e) {
-        debugPrint('Error processing sub-table results for $fieldKey: $e');
+      } else {
+        // Fallback to main tab
+        List<Map<String, dynamic>> mainRecs = [];
+        if (fileId != null && fileId.isNotEmpty) {
+          mainRecs = await driveService.fetchRecordsBySpreadsheetId(fileId, widget.tab.id, fetchSubTables: true);
+        }
+
+        final recordIdStr = _currentData['record_id']?.toString();
+        if (recordIdStr != null) {
+          final matched = mainRecs.firstWhere((r) => r['record_id']?.toString() == recordIdStr || r['id']?.toString() == recordIdStr, orElse: () => {});
+          if (matched.isNotEmpty) {
+            dynamic fetched = matched[fieldKey];
+            fetched ??= matched['${widget.tab.id}.$fieldKey'];
+            if (fetched == null) {
+              for (var k in matched.keys) {
+                if (k.endsWith('.$fieldKey')) {
+                  fetched = matched[k];
+                  break;
+                }
+              }
+            }
+
+            if (fetched is String) {
+              try {
+                final decoded = jsonDecode(fetched);
+                fetched = decoded;
+              } catch (_) {}
+            }
+
+            if (fetched is List) {
+              final norm = fetched.map((e) => e is Map ? Map<String, dynamic>.from(e) : {'value': e?.toString() ?? ''}).toList();
+              if (mounted) setState(() => _currentData[fieldKey] = norm);
+            } else if (fetched is Map) {
+              if (mounted) setState(() => _currentData[fieldKey] = [Map<String, dynamic>.from(fetched)]);
+            } else if (fetched != null) {
+              if (mounted) setState(() => _currentData[fieldKey] = [{'value': fetched.toString()}]);
+            } else {
+              if (mounted) setState(() => _currentData[fieldKey] = []);
+            }
+          }
+        }
       }
-    }).catchError((e) {
-      debugPrint('Error fetching sub-sheet $childTabId for $fieldKey: $e');
-    }).whenComplete(() {
+    } catch (e) {
+      debugPrint('Error loading sub-table field $fieldKey: $e');
+      if (mounted) setState(() => _currentData[fieldKey] = []);
+    } finally {
       if (mounted) {
         setState(() {
           _loadingTableFields.remove(fieldKey);
         });
       }
-    });
+    }
   }
 
   void _editRecord(BuildContext context) async {
+    // Ensure all table fields are loaded before editing to prevent data loss or empty items in form
+    final tableCols = widget.columns.where((c) => c.type == 'table').toList();
+    final List<Future<void>> loadTasks = [];
+
+    for (var col in tableCols) {
+      if (!_attemptedTableFields.contains(col.key)) {
+        loadTasks.add(_loadSubTableField(col.key, col));
+      }
+    }
+
+    if (loadTasks.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Preparing record for edit...'), duration: Duration(seconds: 2)),
+      );
+      await Future.wait(loadTasks);
+    }
+
+    if (!mounted) return;
+
     final result = await Navigator.push<Map<String, dynamic>>(
       context,
       MaterialPageRoute(
