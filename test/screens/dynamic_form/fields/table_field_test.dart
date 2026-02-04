@@ -36,14 +36,14 @@ void main() {
 
     expect(find.text('ORDER ITEMS'), findsOneWidget);
     expect(find.text('Existing Item'), findsOneWidget);
-    expect(find.text('Add Item'), findsOneWidget);
+    expect(find.text('Add'), findsOneWidget);
 
     // Tap Add Item
-    await tester.tap(find.text('Add Item'));
+    await tester.tap(find.text('Add'));
     await tester.pumpAndSettle();
 
     // Dialog should appear with sub-fields
-    expect(find.text('Add Order Items Item'), findsOneWidget);
+    expect(find.text('Add New Order Items'), findsOneWidget);
     expect(find.text('ITEM NAME'), findsOneWidget);
     expect(find.text('QTY'), findsOneWidget);
 
@@ -52,7 +52,7 @@ void main() {
     await tester.enterText(find.widgetWithText(TextFormField, 'Enter qty'), '5');
 
     // Save
-    await tester.tap(find.text('Save Item'));
+    await tester.tap(find.text('Add').last); // The button in dialog
     await tester.pumpAndSettle();
 
     expect(changedValue!.length, 2);
@@ -96,9 +96,9 @@ void main() {
     await tester.tap(find.byIcon(Icons.edit).first);
     await tester.pumpAndSettle();
     
-    expect(find.text('Edit Order Items Item'), findsOneWidget);
+    expect(find.text('Edit Order Items'), findsOneWidget);
     await tester.enterText(find.widgetWithText(TextFormField, 'Enter item name'), 'Updated Item');
-    await tester.tap(find.text('Save Item'));
+    await tester.tap(find.text('Save Changes'));
     await tester.pumpAndSettle();
 
     expect(changedValue!.length, 2);
