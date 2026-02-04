@@ -668,11 +668,16 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
     try {
       List<Map<String, dynamic>> recs = [];
       if (fileId != null && fileId.isNotEmpty) {
-        recs = await driveService.fetchRecordsBySpreadsheetId(fileId, childTabId, fetchSubTables: false);
+        try {
+          recs = await driveService.fetchRecordsBySpreadsheetId(fileId, childTabId, fetchSubTables: false);
+        } catch (e) {
+          debugPrint('Sub-sheet $childTabId not found or inaccessible: $e. Falling back to inline data.');
+          recs = [];
+        }
       }
 
       final recordIdStr = _currentData['record_id']?.toString();
-      if (recordIdStr == null) {
+      if (recordIdStr == null || recordIdStr.isEmpty) {
         if (mounted) setState(() { _currentData[fieldKey] = []; });
         return;
       }
@@ -680,7 +685,8 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       final matchedRows = recs.where((r) {
         try {
           final v = r['parent_record_id'] ?? r['parent_record'] ?? r['parent_id'];
-          return v?.toString() == recordIdStr;
+          final vStr = v?.toString();
+          return vStr != null && vStr.isNotEmpty && vStr == recordIdStr;
         } catch (_) {
           return false;
         }
@@ -695,45 +701,25 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           });
         }
       } else {
-        // Fallback to main tab
-        List<Map<String, dynamic>> mainRecs = [];
-        if (fileId != null && fileId.isNotEmpty) {
-          mainRecs = await driveService.fetchRecordsBySpreadsheetId(fileId, widget.tab.id, fetchSubTables: true);
+        // Fallback to inline data already in _currentData or attempt a single record re-fetch
+        // Check if _currentData already has a JSON string that needs decoding
+        final existingValue = _currentData[fieldKey];
+        if (existingValue is String && existingValue.trim().startsWith('[')) {
+          try {
+            final decoded = jsonDecode(existingValue);
+            if (decoded is List) {
+              final norm = decoded.map((e) => e is Map ? Map<String, dynamic>.from(e) : {'value': e?.toString() ?? ''}).toList();
+              if (mounted) setState(() => _currentData[fieldKey] = norm);
+              return;
+            }
+          } catch (_) {}
         }
 
-        final recordIdStr = _currentData['record_id']?.toString();
-        if (recordIdStr != null) {
-          final matched = mainRecs.firstWhere((r) => r['record_id']?.toString() == recordIdStr || r['id']?.toString() == recordIdStr, orElse: () => {});
-          if (matched.isNotEmpty) {
-            dynamic fetched = matched[fieldKey];
-            fetched ??= matched['${widget.tab.id}.$fieldKey'];
-            if (fetched == null) {
-              for (var k in matched.keys) {
-                if (k.endsWith('.$fieldKey')) {
-                  fetched = matched[k];
-                  break;
-                }
-              }
-            }
-
-            if (fetched is String) {
-              try {
-                final decoded = jsonDecode(fetched);
-                fetched = decoded;
-              } catch (_) {}
-            }
-
-            if (fetched is List) {
-              final norm = fetched.map((e) => e is Map ? Map<String, dynamic>.from(e) : {'value': e?.toString() ?? ''}).toList();
-              if (mounted) setState(() => _currentData[fieldKey] = norm);
-            } else if (fetched is Map) {
-              if (mounted) setState(() => _currentData[fieldKey] = [Map<String, dynamic>.from(fetched)]);
-            } else if (fetched != null) {
-              if (mounted) setState(() => _currentData[fieldKey] = [{'value': fetched.toString()}]);
-            } else {
-              if (mounted) setState(() => _currentData[fieldKey] = []);
-            }
-          }
+        // If not found in child sheet and not found inline, final check of main tab (limit to JUST this record's potential data)
+        // We only do this if we suspect the initial fetch was missing columns or bloat.
+        // For efficiency, we only fetch if we don't already have a value.
+        if (existingValue == null || (existingValue is String && existingValue.isEmpty)) {
+            if (mounted) setState(() => _currentData[fieldKey] = []);
         }
       }
     } catch (e) {

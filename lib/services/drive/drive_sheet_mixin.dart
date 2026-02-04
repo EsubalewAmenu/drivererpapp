@@ -1750,9 +1750,12 @@ mixin DriveSheetMixin {
       // 1. Fetch Spreadsheet Metadata
       final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
       final allSheetTitles = spreadsheet.sheets?.map((s) => s.properties?.title ?? '').toList() ?? [];
+      
+      // Find the specific sheet by title. 
+      // Do NOT default to the first sheet if a specific title was requested but not found.
       final targetSheet = spreadsheet.sheets?.firstWhere(
         (s) => s.properties?.title == sheetTitle,
-        orElse: () => spreadsheet.sheets!.first, 
+        orElse: () => throw Exception('Sheet with title "$sheetTitle" not found in spreadsheet $spreadsheetId'),
       );
       final int? gid = targetSheet?.properties?.sheetId;
 
@@ -1816,17 +1819,18 @@ mixin DriveSheetMixin {
 
       // 4. If requested, fetch and attach nested sub-tables
       if (fetchSubTables && finalRecords.isNotEmpty) {
-        // Build a map of parent record_id -> list of subs
-        final subTables = <String, List<Map<String, dynamic>>>{};
         for (var sub in subTableSheets) {
           try {
+            // Build a map of parent record_id -> list of subs for THIS sub-sheet ONLY
+            final subTables = <String, List<Map<String, dynamic>>>{};
             final subRecords = await _fetchSheetData(spreadsheetId, sub);
+            
             // Derive field name from sub-sheet title: sheet.subname -> subname
             final parts = sub.split('.');
             final fieldName = parts.length > 1 ? parts.sublist(1).join('.') : 'sub';
 
             for (var s in subRecords) {
-              final parentId = s['parent_record_id']?.toString();
+              final parentId = s['parent_record_id']?.toString() ?? s['parent_record']?.toString() ?? s['parent_id']?.toString();
               if (parentId != null) {
                 subTables[parentId] = subTables[parentId] ?? [];
                 subTables[parentId]!.add(s);
@@ -1835,7 +1839,7 @@ mixin DriveSheetMixin {
 
             // Attach to main records
             for (var main in finalRecords) {
-              final recordId = main['record_id']?.toString();
+              final recordId = main['record_id']?.toString() ?? main['id']?.toString();
               if (recordId != null) {
                 main[fieldName] = subTables[recordId] ?? [];
               }
