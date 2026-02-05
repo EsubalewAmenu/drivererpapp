@@ -664,35 +664,43 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
 
     final childTabId = '${widget.tab.id}.$fieldKey';
     final fileId = widget.tab.fileId;
+    final recordIdStr = _currentData['record_id']?.toString();
+
+    if (recordIdStr == null || recordIdStr.isEmpty) {
+      if (mounted) setState(() { _currentData[fieldKey] = []; });
+      return;
+    }
 
     try {
       List<Map<String, dynamic>> recs = [];
       if (fileId != null && fileId.isNotEmpty) {
         try {
-          recs = await driveService.fetchRecordsBySpreadsheetId(fileId, childTabId, fetchSubTables: false);
+          // Use server-side search by parent_record_id for efficiency
+          recs = await driveService.fetchRecordsBySpreadsheetId(
+            fileId, 
+            childTabId, 
+            fetchSubTables: false,
+            quickFilter: {'field': 'parent_record_id', 'operator': '==', 'value': recordIdStr},
+            limit: 1000, 
+          );
+          
+          // If no records found with parent_record_id, try parent_id as fallback
+          if (recs.isEmpty) {
+             recs = await driveService.fetchRecordsBySpreadsheetId(
+              fileId, 
+              childTabId, 
+              fetchSubTables: false,
+              quickFilter: {'field': 'parent_id', 'operator': '==', 'value': recordIdStr},
+              limit: 1000, 
+            );
+          }
         } catch (e) {
-          debugPrint('Sub-sheet $childTabId not found or inaccessible: $e. Falling back to inline data.');
+          debugPrint('Sub-sheet $childTabId search failed or not found: $e. Falling back to inline data.');
           recs = [];
         }
       }
 
-      final recordIdStr = _currentData['record_id']?.toString();
-      if (recordIdStr == null || recordIdStr.isEmpty) {
-        if (mounted) setState(() { _currentData[fieldKey] = []; });
-        return;
-      }
-
-      final matchedRows = recs.where((r) {
-        try {
-          final v = r['parent_record_id'] ?? r['parent_record'] ?? r['parent_id'];
-          final vStr = v?.toString();
-          return vStr != null && vStr.isNotEmpty && vStr == recordIdStr;
-        } catch (_) {
-          return false;
-        }
-      }).toList();
-
-      final normalized = matchedRows.map((e) => Map<String, dynamic>.from(e)).toList();
+      final normalized = recs.map((e) => Map<String, dynamic>.from(e)).toList();
 
       if (normalized.isNotEmpty) {
         if (mounted) {
