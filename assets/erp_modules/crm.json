@@ -100,7 +100,7 @@
           "label": "Phone Number(s)", 
           "type": "table",
           "columns": [
-            { "key": "phone", "label": "Phone", "type": "phone" }
+            { "key": "phone", "label": "Phone", "type": "phone", "required": true }
           ]
         },
         { 
@@ -108,7 +108,7 @@
           "label": "Email Address(es)", 
           "type": "table",
           "columns": [
-            { "key": "email", "label": "Email", "type": "email" }
+            { "key": "email", "label": "Email", "type": "email", "required": true }
           ]
         },
         { 
@@ -116,7 +116,7 @@
           "label": "Social Media", 
           "type": "table",
           "columns": [
-            { "key": "link", "label": "Link", "type": "text" }
+            { "key": "link", "label": "Link", "type": "text", "required": true }
           ]
         },
         { "key": "website", "label": "Website", "type": "text", "depends_on": "type", "depends_value": "Company" },
