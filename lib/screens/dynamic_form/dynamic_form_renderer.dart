@@ -187,6 +187,7 @@ class DynamicFormRenderer extends StatelessWidget {
           primaryColor: primaryColor,
           onChanged: (val) => onFieldChanged(col.key, val),
           module: module,
+          settings: settings,
         );
 
       default:

@@ -9,6 +9,7 @@ class DynamicTableField extends StatefulWidget {
   final Color primaryColor;
   final Function(List<Map<String, dynamic>>) onChanged;
   final ModuleSchema? module;
+  final Map<String, SettingItem> settings;
 
   const DynamicTableField({
     super.key,
@@ -17,6 +18,7 @@ class DynamicTableField extends StatefulWidget {
     required this.primaryColor,
     required this.onChanged,
     this.module,
+    this.settings = const {},
   });
 
   @override
@@ -43,6 +45,7 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
           primaryColor: widget.primaryColor,
           title: 'Edit ${widget.column.label}',
           module: widget.module,
+          settings: widget.settings,
         ),
       ),
     );
@@ -65,6 +68,7 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
           primaryColor: widget.primaryColor,
           title: 'Add New ${widget.column.label}',
           module: widget.module,
+          settings: widget.settings,
         ),
       ),
     );
@@ -227,6 +231,7 @@ class _RowEditor extends StatefulWidget {
   final Color primaryColor;
   final String title;
   final ModuleSchema? module;
+  final Map<String, SettingItem> settings;
 
   const _RowEditor({
     required this.columns,
@@ -234,6 +239,7 @@ class _RowEditor extends StatefulWidget {
     required this.primaryColor,
     required this.title,
     this.module,
+    this.settings = const {},
   });
 
   @override
@@ -243,6 +249,7 @@ class _RowEditor extends StatefulWidget {
 class _RowEditorState extends State<_RowEditor> {
   late Map<String, dynamic> _formData;
   final Map<String, TextEditingController> _controllers = {};
+  final _formKey = GlobalKey<FormState>();
 
   @override
   void initState() {
@@ -253,10 +260,15 @@ class _RowEditorState extends State<_RowEditor> {
 
   void _initializeControllers() {
     for (var col in widget.columns) {
-      if (['text', 'number', 'currency'].contains(col.type)) {
-        _controllers[col.key] = TextEditingController(
-          text: _formData[col.key]?.toString() ?? '',
-        );
+      // Use the same controller initialization logic as DynamicFormScreen
+      if (col.type != 'image' && col.type != 'date' && col.type != 'list' && col.type != 'boolean' && col.type != 'table') {
+        final initialValue = _formData[col.key];
+        final ctrl = TextEditingController(text: initialValue?.toString() ?? '');
+        // Ensure the form data is updated when the controller changes
+        ctrl.addListener(() {
+          _formData[col.key] = ctrl.text;
+        });
+        _controllers[col.key] = ctrl;
       }
     }
   }
@@ -301,17 +313,21 @@ class _RowEditorState extends State<_RowEditor> {
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
-                child: DynamicFormRenderer(
-                  columns: widget.columns,
-                  data: _formData,
-                  primaryColor: widget.primaryColor,
-                  controllers: _controllers,
-                  module: widget.module,
-                  onFieldChanged: (key, value) {
-                    setState(() {
-                      _formData[key] = value;
-                    });
-                  },
+                child: Form(
+                  key: _formKey,
+                  child: DynamicFormRenderer(
+                    columns: widget.columns,
+                    data: _formData,
+                    primaryColor: widget.primaryColor,
+                    controllers: _controllers,
+                    module: widget.module,
+                    settings: widget.settings,
+                    onFieldChanged: (key, value) {
+                      setState(() {
+                        _formData[key] = value;
+                      });
+                    },
+                  ),
                 ),
               ),
             ),
@@ -328,7 +344,10 @@ class _RowEditorState extends State<_RowEditor> {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.pop(context, _formData);
+                    if (_formKey.currentState!.validate()) {
+                      _formKey.currentState!.save();
+                      Navigator.pop(context, _formData);
+                    }
                   },
                   child: Text(
                     widget.title.startsWith('Add') ? 'Add' : 'Save Changes',
