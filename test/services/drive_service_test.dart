@@ -354,7 +354,9 @@ void main() {
       };
 
       final result = await driveService.createModuleConfig('folder123', 'mod_config.xlsx', config);
-      expect(result, 'settings_id');
+      expect(result['settings'], 'settings_id');
+      expect(result['dashboard'], 'dashboard_id');
+      expect(result['tabs'], 'tabs_id');
 
       // Verify creation called three times (settings, dashboard, tabs)
       verify(() => mockFilesResource.create(any(), supportsAllDrives: true)).called(3);
@@ -363,7 +365,7 @@ void main() {
       verify(() => mockValuesResource.update(any(), 'settings_id', 'settings!A1', valueInputOption: 'RAW')).called(1);
     });
 
-    test('readModuleConfig reads and decodes config', () async {
+    test('readSettingsById reads and decodes config', () async {
       // settings sheet (fileId = settings spreadsheet)
       when(() => mockValuesResource.get('sheet123', 'settings!A:B'))
           .thenAnswer((_) async => sheets.ValueRange(values: [
@@ -371,32 +373,11 @@ void main() {
             ['darkMode', 'true']
           ]));
 
-      // meta sheet should point to dashboard and tabs spreadsheet IDs
-      when(() => mockValuesResource.get('sheet123', 'meta!A:B'))
-          .thenAnswer((_) async => sheets.ValueRange(values: [
-            ['dashboard_id', 'dash123'],
-            ['tabs_id', 'tabs123']
-          ]));
+      final settings = await driveService.readSettingsById('sheet123');
 
-      // dashboard cards empty
-      when(() => mockValuesResource.get('dash123', 'cards!A1:Z'))
-          .thenAnswer((_) async => sheets.ValueRange(values: []));
-      when(() => mockValuesResource.get('dash123', 'cards!A:B'))
-          .thenAnswer((_) async => sheets.ValueRange(values: []));
-
-      // tabs spreadsheet metadata: one sheet named 'tab1'
-      when(() => mockSpreadsheetsResource.get('tabs123')).thenAnswer((_) async => sheets.Spreadsheet(sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tab1'))]));
-      when(() => mockValuesResource.get('tabs123', 'tab1!A1'))
-          .thenAnswer((_) async => sheets.ValueRange(values: [['{"id":"tab1", "label":"Tab 1"}']]));
-
-      final config = await driveService.readModuleConfig('sheet123');
-
-      expect(config!['settings'], isMap);
-      expect(config['settings']['appName'], 'Test App');
-      expect(config['settings']['darkMode'], true);
-
-      expect(config['tabs'], isList);
-      expect(config['tabs'].first['id'], 'tab1');
+      expect(settings, isMap);
+      expect(settings!['appName'], 'Test App');
+      expect(settings['darkMode'], true);
     });
 
     test('saveRecord appends data to sheets', () async {

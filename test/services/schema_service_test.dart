@@ -42,7 +42,7 @@ void main() {
     when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'config_folder_id');
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => null);
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => null);
-    when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'new_file_id');
+    when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => {'settings': 'new_file_id', 'dashboard': 'd_id', 'tabs': 't_id'});
     when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
     when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any())).thenAnswer((_) async => {});
   });
@@ -105,19 +105,19 @@ void main() {
     expect(meta?['modifiedTime'], equals(newTime.toIso8601String()));
   });
 
-  test('saveModuleConfig creates new remote config if not exists', () async {
+  test('saveModuleConfig updates remote config if settingsId provided', () async {
     final module = ModuleSchema(
       id: 'mod1', name: 'M1', icon: 'i', primaryColor: '#0', version: '1', settings: {},
       tabs: [], dashboard: DashboardConfig(cards: [])
     );
 
-    when(() => mockDriveService.getFileId('config_folder_id', 'test@example.com_settings')).thenAnswer((_) async => null);
-    when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'new_file_id');
-    when(() => mockDriveService.getFileModifiedTime('new_file_id')).thenAnswer((_) async => DateTime.now());
+    when(() => mockDriveService.getFileModifiedTime('sid123')).thenAnswer((_) async => DateTime.now());
 
-    await schemaService.saveModuleConfig('mod1', module);
+    await schemaService.saveModuleConfig('mod1', module, settingsId: 'sid123');
 
-    verify(() => mockDriveService.createModuleConfig('config_folder_id', 'test@example.com_settings', any())).called(1);
+    verify(() => mockDriveService.updateModuleConfig('sid123', any())).called(1);
+    // Verified that createModuleConfig is NOT called as a fallback anymore
+    verifyNever(() => mockDriveService.createModuleConfig(any(), any(), any()));
   });
 
   test('tryLoadModuleAsset returns mapped asset content and null on missing', () async {

@@ -98,17 +98,14 @@ void main() {
     // Per-user config parts (refactored): settings, dashboard, tabs
     when(() => mockDriveService.getFileId('mod1', 'settings')).thenAnswer((_) async => 'mod1_settings');
     when(() => mockDriveService.getFileModifiedTime('mod1_settings')).thenAnswer((_) async => DateTime.now());
-    when(() => mockDriveService.readModuleConfig('mod1_settings')).thenAnswer((_) async => moduleSchema.toJson());
     when(() => mockDriveService.readSettingsById('mod1_settings')).thenAnswer((_) async => moduleSchema.toJson()['settings'] as Map<String, dynamic>);
 
     when(() => mockDriveService.getFileId('mod1', 'dashboard')).thenAnswer((_) async => 'mod1_dashboard');
     when(() => mockDriveService.getFileModifiedTime('mod1_dashboard')).thenAnswer((_) async => DateTime.now());
-    when(() => mockDriveService.readModuleConfig('mod1_dashboard')).thenAnswer((_) async => moduleSchema.toJson());
     when(() => mockDriveService.readDashboardById('mod1_dashboard')).thenAnswer((_) async => moduleSchema.toJson()['dashboard'] as Map<String, dynamic>);
 
     when(() => mockDriveService.getFileId('mod1', 'tabs')).thenAnswer((_) async => 'mod1_tabs');
     when(() => mockDriveService.getFileModifiedTime('mod1_tabs')).thenAnswer((_) async => DateTime.now());
-    when(() => mockDriveService.readModuleConfig('mod1_tabs')).thenAnswer((_) async => moduleSchema.toJson());
     when(() => mockDriveService.readTabsById('mod1_tabs')).thenAnswer((_) async => moduleSchema.toJson()['tabs'] as List<dynamic>);
     when(() => mockDriveService.getFileId('mod1', 'stocks')).thenAnswer((_) async => 'stocks_sheet');
     when(() => mockDriveService.fetchRecordsBySpreadsheetId(
@@ -254,10 +251,10 @@ void main() {
     await tester.tap(find.text('Apple Inc.'));
     await safePumpAndSettle();
 
-    await tester.tap(find.text('Add Item'));
+    await tester.tap(find.text('Add').last);
     await safePumpAndSettle();
     await tester.enterText(find.widgetWithText(TextFormField, 'Enter component name'), 'Screen');
-    await tester.tap(find.text('Save Item'));
+    await tester.tap(find.text('Add').last);
     await safePumpAndSettle();
 
     // Verify Photo Field Interaction

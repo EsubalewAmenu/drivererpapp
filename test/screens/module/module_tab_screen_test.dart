@@ -104,7 +104,7 @@ void main() {
             }
           ]
         });
-    when(() => mockSchemaService.saveModuleConfig(any(), any())).thenAnswer((_) async {});
+    when(() => mockSchemaService.saveModuleConfig(any(), any())).thenAnswer((_) async => true);
     when(() => mockSchemaProvider.updateMemoryCache(any(), any())).thenReturn(null);
     when(() => mockDriveService.createSpreadsheetInFolder(any(), any())).thenAnswer((_) async => 'new_sheet_id');
     when(() => mockSchemaService.saveTabsPart(any(), any(), settingsId: any(named: 'settingsId'), tabsId: any(named: 'tabsId')))

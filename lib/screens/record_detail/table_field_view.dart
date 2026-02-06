@@ -5,13 +5,24 @@ import '../../theme/app_theme.dart';
 class TableFieldView extends StatelessWidget {
   final ColumnConfig col;
   final List<Map<String, dynamic>> items;
+  final bool isLoading;
+  final bool isAttempted;
+  final VoidCallback? onLoad;
 
-  const TableFieldView({super.key, required this.col, required this.items});
+  const TableFieldView({
+    super.key,
+    required this.col,
+    required this.items,
+    this.isLoading = false,
+    this.isAttempted = false,
+    this.onLoad,
+  });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final tableCols = col.columns ?? [];
+
     if (items.isEmpty) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -26,14 +37,38 @@ class TableFieldView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.cardTheme.color,
-              borderRadius: BorderRadius.circular(12),
+          GestureDetector(
+            onTap: (!isLoading && !isAttempted) ? onLoad : null,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.cardTheme.color,
+                borderRadius: BorderRadius.circular(12),
+                border: (!isAttempted && !isLoading) 
+                    ? Border.all(color: theme.primaryColor.withValues(alpha: 0.3)) 
+                    : null,
+              ),
+              child: isLoading
+                  ? Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: theme.primaryColor)))
+                  : isAttempted
+                      ? Text('No items', style: AppTheme.inter(fontSize: 14, color: theme.textTheme.bodyLarge?.color))
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.download, size: 16, color: theme.primaryColor),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Tap to load ${col.label.toLowerCase()}',
+                              style: AppTheme.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: theme.primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
             ),
-            child: Text('No items', style: AppTheme.inter(fontSize: 14, color: theme.textTheme.bodyLarge?.color)),
           ),
         ],
       );

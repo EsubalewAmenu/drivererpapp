@@ -97,9 +97,9 @@ void main() {
           .thenAnswer((_) async => installedRange);
       return drive.File()..id = 'new_mod_id';
     });
-    // Ensure createModuleConfig used during activation returns an id
+    // Ensure createModuleConfig used during activation returns an id map
     when(() => mockDriveService.createModuleConfig(any(), any(), any()))
-      .thenAnswer((_) async => 'created_cfg_id');
+      .thenAnswer((_) async => {'settings': 'created_cfg_id', 'dashboard': 'created_dash_id', 'tabs': 'created_tabs_id'});
     // Ensure checkRootFolder resolves
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root_folder_id');
     // Ensure config folder creation returns an id (async)
@@ -151,11 +151,6 @@ void main() {
     when(() => mockDriveService.readSettingsById(any())).thenAnswer((_) async => <String, dynamic>{});
     when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => <String, dynamic>{'cards': <dynamic>[]});
     when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => <Map<String, dynamic>>[]);
-    when(() => mockDriveService.readModuleConfig(any())).thenAnswer((_) async => <String, dynamic>{
-      'tabs': <dynamic>[],
-      'dashboard': <String, dynamic>{'cards': <dynamic>[]},
-      'settings': <String, dynamic>{}
-    });
 
     // Should be in COMPLETE SETUP (SchemaEditorScreen) or show structure
     final hasCompleteSetup = find.text('COMPLETE SETUP').evaluate().isNotEmpty;
@@ -163,7 +158,7 @@ void main() {
     expect(hasCompleteSetup || hasStructure, isTrue);
 
     // 6. Save/Activate in Editor
-    when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => 'config_id');
+    when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => {'settings': 'config_id', 'dashboard': 'dash_id', 'tabs': 'tabs_id'});
     when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
     
     // Provide generic mocks for the new granular read methods

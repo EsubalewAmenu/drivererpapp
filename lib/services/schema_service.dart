@@ -179,17 +179,23 @@ class SchemaService {
   }
 
   /// Saves the module configuration to Drive and updates the local cache.
-  Future<void> saveModuleConfig(String moduleId, ModuleSchema config, {String? userAccessFileId}) async {
+  /// Relay on provided spreadsheet IDs for settings, dashboard, and tabs.
+  Future<bool> saveModuleConfig(String moduleId, ModuleSchema config, {
+    String? userAccessFileId,
+    String? settingsId,
+    String? dashboardId,
+    String? tabsId,
+  }) async {
     if (driveService == null) throw Exception('DriveService not initialized');
 
     try {
-      String? fileId;
+      final String? fileId = settingsId;
 
       if (userEmail != null) {
-        final configFolderId = await driveService!.getOrCreateSubFolder(moduleId, 'config');
-        final fileName = '${userEmail}_settings';
-
-        fileId = await driveService!.getFileId(configFolderId, fileName);
+        if (fileId == null || fileId.isEmpty) {
+          debugPrint('SchemaService: Cannot saveModuleConfig for $moduleId - settingsId is missing.');
+          return false;
+        }
 
         final configMap = config.toJson();
 
@@ -202,18 +208,19 @@ class SchemaService {
           }
         } catch (_) {}
 
-        if (fileId != null) {
-          await driveService!.updateModuleConfig(fileId, configMap);
-        } else {
-          fileId = await driveService!.createModuleConfig(configFolderId, fileName, configMap);
-          debugPrint('SchemaService: Created new settings file for module $moduleId: $fileId');
+        // Update settings
+        await driveService!.updateModuleConfig(fileId, configMap);
+        
+        // Explicitly update dashboard and tabs using provided IDs
+        if (dashboardId != null && dashboardId.isNotEmpty && configMap['dashboard'] != null) {
+          await driveService!.writeDashboardById(dashboardId, configMap['dashboard']);
+        }
+        if (tabsId != null && tabsId.isNotEmpty && configMap['tabs'] != null) {
+          await driveService!.writeTabsById(tabsId, configMap['tabs'] as List);
         }
 
         if (userAccessFileId != null) {
           try {
-            final dashboardId = await driveService!.getFileId(configFolderId, '${userEmail}_dashboard');
-            final tabsId = await driveService!.getFileId(configFolderId, '${userEmail}_tabs');
-
             await driveService!.upsertUserAccessModule(
               userAccessFileId,
               moduleId,
@@ -236,6 +243,7 @@ class SchemaService {
       } else {
         await cacheConfig(moduleId, config.toJson());
       }
+      return true;
     } catch (e) {
       debugPrint('Error saving module config: $e');
       rethrow;

@@ -93,7 +93,7 @@ void main() {
     when(() => mockDriveService.sheetsApi.spreadsheets.values.get('ua1', 'modules!A1:Z'))
         .thenAnswer((_) async => moduleRange);
     when(() => mockDriveService.getFileId('mod_err', 'config')).thenAnswer((_) async => 'conf_err');
-    when(() => mockDriveService.readModuleConfig('conf_err')).thenAnswer((_) async => throw const FormatException('Invalid JSON'));
+    when(() => mockDriveService.readSettingsById('conf_err')).thenAnswer((_) async => throw const FormatException('Invalid JSON'));
 
     // Trigger a refresh by pumping again with the same widget (Provider change triggers rebuild)
     await tester.pumpWidget(createTestWidget(

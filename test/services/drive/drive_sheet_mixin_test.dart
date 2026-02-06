@@ -126,39 +126,28 @@ void main() {
   });
 
   group('DriveSheetMixin', () {
-    test('readModuleConfig reads from sheets', () async {
+    test('readSettingsById reads from sheets', () async {
       when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(
         values: [['key1', '"value1"']]
       ));
 
-      final config = await service.readModuleConfig('fileId');
+      final settings = await service.readSettingsById('fileId');
 
-      expect(config!['settings'], contains('key1'));
-      expect(config['settings']['key1'], 'value1');
+      expect(settings, contains('key1'));
+      expect(settings!['key1'], 'value1');
     });
 
-    test('updateModuleConfig writes to sheets', () async {
+    test('updateModuleConfig writes to settings sheet', () async {
       when(() => mockValues.clear(any(), any(), any())).thenAnswer((_) async => sheets.ClearValuesResponse());
       when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
           .thenAnswer((_) async => sheets.UpdateValuesResponse());
 
-      // meta should point to dashboard and tabs spreadsheets
-      when(() => mockValues.get('fileId', 'meta!A:B')).thenAnswer((_) async => sheets.ValueRange(values: [
-        ['dashboard_id', 'dash123'],
-        ['tabs_id', 'tabs123']
-      ]));
-
-      // Dashboard and tabs writes
-      when(() => mockSpreadsheets.get('tabs123')).thenAnswer((_) async => sheets.Spreadsheet(sheets: []));
-
       await service.updateModuleConfig('fileId', {
         'settings': {'s1': 'v1'},
-        'dashboard': {'cards': []},
-        'tabs': [{'id': 't1', 'label': 'T1', 'columns': []}],
       });
 
-      // Expect one update for settings + one for dashboard + one for the tab sheet
-      verify(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW')).called(3);
+      // Expect one update for settings
+      verify(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW')).called(1);
     });
 
     test('createModuleConfig handles spreadsheet creation directly in folder', () async {
@@ -171,9 +160,11 @@ void main() {
       when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
           .thenAnswer((_) async => sheets.UpdateValuesResponse());
 
-      final id = await service.createModuleConfig('folderId', 'fileName', {});
+      final ids = await service.createModuleConfig('folderId', 'fileName', {});
 
-      expect(id, 'new_sid');
+      expect(ids['settings'], 'new_sid');
+      expect(ids['dashboard'], 'new_sid');
+      expect(ids['tabs'], 'new_sid');
       // Should call driveApi.files.create for each of the 3 spreadsheets (settings, dashboard, tabs)
       verify(() => mockFiles.create(any(), supportsAllDrives: true)).called(3);
     });
@@ -241,119 +232,6 @@ void main() {
        verify(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW')).called(1);
     });
 
-    test('readModuleConfig parses settings and tabs', () async {
-      when(() => mockValues.get('file_id', 'settings!A:B')).thenAnswer((_) async => sheets.ValueRange(
-        values: [['key', '"val"'], ['key2', '123']]
-      ));
-
-      when(() => mockValues.get('file_id', 'meta!A:B')).thenAnswer((_) async => sheets.ValueRange(values: [
-        ['dashboard_id', 'dash1'],
-        ['tabs_id', 'tabs1']
-      ]));
-
-      when(() => mockSpreadsheets.get('tabs1')).thenAnswer((_) async => sheets.Spreadsheet(
-        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 't1'))]
-      ));
-
-      when(() => mockValues.get('tabs1', 't1!A1')).thenAnswer((_) async => sheets.ValueRange(values: [['{"id":"t1","label":"T1"}']]));
-
-      // Dashboard may be read during config parsing; ensure it returns an empty range instead of null
-      when(() => mockValues.get('dash1', any())).thenAnswer((_) async => sheets.ValueRange(values: []));
-
-      final result = await service.readModuleConfig('file_id');
-      expect(result!['settings'], isNotNull);
-      expect(result['tabs'], isNotNull);
-    });
-
-    test('updateModuleConfig writes to sheets', () async {
-      // ensure meta read returns something so method doesn't hit a null future
-      when(() => mockValues.get(any(), 'meta!A:B')).thenAnswer((_) async => sheets.ValueRange(values: []));
-      when(() => mockValues.clear(any(), any(), any())).thenAnswer((_) async => sheets.ClearValuesResponse());
-      when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
-          .thenAnswer((_) async => sheets.UpdateValuesResponse());
-
-      await service.updateModuleConfig('file_id', {
-        'settings': <String, dynamic>{'a': 1},
-        'tabs': <dynamic>[], 
-        'dashboard': <String, dynamic>{},
-        'metadata': <String, dynamic>{}
-      });
-      verify(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW')).called(greaterThan(0));
-    });
-
-    test('saveRecord throws if spreadsheet not found', () async {
-      // Create a service that returns null for getFileId
-      final mockDriveApi2 = MockDriveApi();
-      final mockFiles2 = MockFilesResource();
-      final mockSheetsApi2 = MockSheetsApi();
-      final mockSpreadsheets2 = MockSpreadsheetsResource();
-      final mockValues2 = MockValuesResource();
-      
-      when(() => mockDriveApi2.files).thenReturn(mockFiles2);
-      when(() => mockSheetsApi2.spreadsheets).thenReturn(mockSpreadsheets2);
-      when(() => mockSpreadsheets2.values).thenReturn(mockValues2);
-
-      final service2 = TestDriveService2(mockDriveApi2, mockSheetsApi2, mockHttpClient);
-
-      // simulate not found
-      // MockFilesResource already by default returns null for unexpected calls if not stubbed,
-      // but let's be explicit if needed.
-      
-      expect(() => service2.saveRecord('folderId', 'spreadsheetName', 'Sheet1', {'a': 1}), throwsException);
-    });
-
-    test('fetchRecords handles descending sort and pagination', () async {
-      when(() => mockSpreadsheets.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
-        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'Main'))]
-      ));
-
-      when(() => mockValues.get(any(), any())).thenAnswer((inv) async {
-        final range = inv.positionalArguments[1] as String;
-        if (range.contains('1:1')) return sheets.ValueRange(values: [['record_id', 'val']]);
-        return sheets.ValueRange(values: [
-          ['100', 'v100'],
-          ['101', 'v101'],
-          ['102', 'v102'],
-        ]);
-      });
-
-      // Gviz metadata mock (for column types)
-      const gvizMeta = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"record_id","type":"string"},{"id":"B","label":"h2","type":"string"}],"rows":[]}});';
-      
-      // Gviz data mock for paginated result (LIMIT 1 OFFSET 1 on 102, 101, 100)
-      const gvizData = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"id":"A","label":"record_id","type":"string"},{"id":"B","label":"h2","type":"string"}],"rows":[{"c":[{"v":"101"},{"v":"v101"}]}]}});';
-
-      when(() => mockHttpClient.get(any())).thenAnswer((inv) async {
-         final url = (inv.positionalArguments[0] as Uri).toString();
-         if (url.contains('SELECT%20*%20LIMIT%200')) {
-           return http.Response(gvizMeta, 200);
-         }
-         return http.Response(gvizData, 200);
-      });
-
-      // Descending should sort by record_id (strings)
-      final results = await service.fetchRecords('folderId', 'Spreadsheet', 'Main', descending: true, offset: 1, limit: 1);
-      
-      expect(results.length, 1);
-      expect(results.first['record_id'], '101'); // 102, 101, 100 -> skip 1 -> 101
-    });
-
-    test('_fetchSheetData handles empty rows and mismatched columns', () async {
-      when(() => mockValues.get(any(), any())).thenAnswer((inv) async {
-        final range = inv.positionalArguments[1] as String;
-        if (range.contains('1:1')) return sheets.ValueRange(values: [['h1', 'h2']]);
-        return sheets.ValueRange(values: [
-          ['v1', 'v2'],
-          ['v3'], // missing column
-          ['', ''], // empty row
-        ]);
-      });
-
-      final results = await service.fetchRecords('folderId', 'Spreadsheet', 'Main', fetchSubTables: false);
-      expect(results.length, 2);
-      expect(results[1]['h2'], isNull);
-    });
-
     test('_readMapFromSheet handles various row lengths and errors', () async {
       when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(
         values: [
@@ -363,9 +241,9 @@ void main() {
         ]
       ));
 
-      final config = await service.readModuleConfig('fileId');
+      final settings = await service.readSettingsById('fileId');
       // key2 should be ignored because it has < 2 elements
-      expect(config!['settings'].length, 2); 
+      expect(settings!.length, 2); 
     });
 
     test('retryOp fails after retries', () async {

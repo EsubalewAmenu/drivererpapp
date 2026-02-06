@@ -89,6 +89,14 @@ mixin _TabSettingsDetailMixin on State<TabSettingsScreen> {
             contentPadding: EdgeInsets.zero,
             onChanged: (val) => setState(() => (this as _TabSettingsScreenState)._detailShowAll = val),
           ),
+          SwitchListTile(
+            title: const Text('Auto-load Tables'),
+            subtitle: const Text('Automatically fetch sub-table data on entry'),
+            value: (this as _TabSettingsScreenState)._loadSubTableAutomatically,
+            activeThumbColor: widget.primaryColor,
+            contentPadding: EdgeInsets.zero,
+            onChanged: (val) => setState(() => (this as _TabSettingsScreenState)._loadSubTableAutomatically = val),
+          ),
 
             if (!(this as _TabSettingsScreenState)._detailShowAll) ...[
             const SizedBox(height: 16),

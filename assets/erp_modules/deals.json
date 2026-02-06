@@ -23,6 +23,7 @@
       "id": "deals",
       "label": "Sales Pipeline",
       "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
       "list_template": {
         "template": "kanban", 
         "group_by": "stage",
