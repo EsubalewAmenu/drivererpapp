@@ -684,16 +684,6 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             limit: 1000, 
           );
           
-          // If no records found with parent_record_id, try parent_id as fallback
-          if (recs.isEmpty) {
-             recs = await driveService.fetchRecordsBySpreadsheetId(
-              fileId, 
-              childTabId, 
-              fetchSubTables: false,
-              quickFilter: {'field': 'parent_id', 'operator': '==', 'value': recordIdStr},
-              limit: 1000, 
-            );
-          }
         } catch (e) {
           debugPrint('Sub-sheet $childTabId search failed or not found: $e. Falling back to inline data.');
           recs = [];
