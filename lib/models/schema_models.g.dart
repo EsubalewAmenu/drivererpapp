@@ -72,7 +72,7 @@ DashboardCard _$DashboardCardFromJson(Map<String, dynamic> json) =>
     DashboardCard(
       label: json['label'] as String,
       formula: json['formula'] as String,
-      format: json['format'] as String,
+      format: json['format'] as String?,
       type: json['type'] as String? ?? 'kpi',
       config: json['config'] as Map<String, dynamic>?,
     );

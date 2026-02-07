@@ -292,7 +292,7 @@ void main() {
       // Mock headers fetch
       when(() => mockValues.get(any(), any())).thenAnswer((inv) async {
         final range = inv.positionalArguments[1] as String;
-        if (range.contains('1:1')) return sheets.ValueRange(values: [['name', 'age']]);
+        if (range.contains('A1:ZZ1')) return sheets.ValueRange(values: [['name', 'age']]);
         return sheets.ValueRange(values: [
           ['Alice', '30'],
           ['Bob', '25'],
@@ -315,7 +315,7 @@ void main() {
       // Mock headers fetch
       when(() => mockValues.get(any(), any())).thenAnswer((inv) async {
         final range = inv.positionalArguments[1] as String;
-        if (range.contains('1:1')) return sheets.ValueRange(values: [['name']]);
+        if (range.contains('A1:ZZ1')) return sheets.ValueRange(values: [['name']]);
         return sheets.ValueRange(values: [['Alice']]);
       });
 
@@ -353,12 +353,12 @@ void main() {
 
     test('DriveSheetMixin saveRecord updates existing record if record_id matches', () async {
       // Mock headers
-      when(() => mockValues.get(any(), 'Sheet1!1:1'))
+      when(() => mockValues.get(any(), "'Sheet1'!A1:ZZ1"))
           .thenAnswer((_) async => sheets.ValueRange(values: [['record_id', 'name']]));
       
-      // Mock finding the record ID in the sheet
-      // Headers are at row 1. record_id 'r1' is at row 2.
-      when(() => mockValues.get(any(), 'Sheet1!A:A'))
+      // Mock finding the record ID in the sheet. 
+      // The code calls 'Sheet1'!A:A (or similar for the id column)
+      when(() => mockValues.get(any(), any(that: contains('A:A'))))
           .thenAnswer((_) async => sheets.ValueRange(values: [['record_id'], ['r1']]));
 
       when(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW'))
@@ -372,7 +372,7 @@ void main() {
       verify(() => mockValues.update(
         any(), 
         any(), 
-        'Sheet1!2:2', 
+        "'Sheet1'!2:2", 
         valueInputOption: 'RAW'
       )).called(1);
       
@@ -381,7 +381,7 @@ void main() {
 
     test('DriveSheetMixin deleteRecord calls batchUpdate with deleteDimension', () async {
       // Mock headers
-      when(() => mockValues.get(any(), 'Sheet1!1:1'))
+      when(() => mockValues.get(any(), "'Sheet1'!A1:ZZ1"))
           .thenAnswer((_) async => sheets.ValueRange(values: [['record_id']]));
       
       // Mock finding IDs

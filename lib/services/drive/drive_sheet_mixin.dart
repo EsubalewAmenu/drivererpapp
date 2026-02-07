@@ -410,8 +410,8 @@ mixin DriveSheetMixin {
 
   Future<void> _writeMapToSheet(String fileId, String sheetTitle, Map<String, dynamic> data) async {
     try {
-      // Clear first to avoid stale data
-      await sheetsApi.spreadsheets.values.clear(sheets.ClearValuesRequest(), fileId, '$sheetTitle!A:B');
+      // Clear first to avoid stale data. Use quoted sheet title for robustness.
+      await sheetsApi.spreadsheets.values.clear(sheets.ClearValuesRequest(), fileId, "'$sheetTitle'!A:B");
       
       debugPrint('DriveSheetMixin: writing ${data.length} entries to $sheetTitle in $fileId');
       final rows = data.entries.map((e) => [e.key, jsonEncode(e.value)]).toList();
@@ -420,7 +420,7 @@ mixin DriveSheetMixin {
       await sheetsApi.spreadsheets.values.update(
         valueRange,
         fileId,
-        '$sheetTitle!A1',
+        "'$sheetTitle'!A1",
         valueInputOption: 'RAW',
       );
     } catch (e) {
@@ -431,7 +431,8 @@ mixin DriveSheetMixin {
 
   Future<Map<String, String>> _readMapFromSheet(String fileId, String sheetTitle) async {
     try {
-      final response = await sheetsApi.spreadsheets.values.get(fileId, '$sheetTitle!A:B');
+      // Use quoted sheet title for robustness.
+      final response = await sheetsApi.spreadsheets.values.get(fileId, "'$sheetTitle'!A:B");
       final map = <String, String>{};
       if (response.values != null) {
         for (var row in response.values!) {
@@ -831,11 +832,11 @@ mixin DriveSheetMixin {
         debugPrint('Created sheet for batch: $sheetTitle');
       }
 
-      // 2. Read existing headers
-      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
+      // 2. Read existing headers. Use quotes and trimming for robustness.
+      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, "'$sheetTitle'!A1:ZZ1"));
       List<String> headers = [];
       if (headerResponse.values != null && headerResponse.values!.isNotEmpty) {
-        headers = headerResponse.values!.first.map((e) => e.toString()).toList();
+        headers = headerResponse.values!.first.map((e) => e.toString().trim()).toList();
       }
 
       // 3. Prepare main records and extract nested sub-tables
@@ -881,7 +882,7 @@ mixin DriveSheetMixin {
         await retryOp(() => sheetsApi.spreadsheets.values.append(
           sheets.ValueRange(values: [finalHeaders]),
           spreadsheetId,
-          '$sheetTitle!A1',
+          "'$sheetTitle'!A1",
           valueInputOption: 'RAW',
         ));
         headers = finalHeaders;
@@ -892,7 +893,7 @@ mixin DriveSheetMixin {
           await retryOp(() => sheetsApi.spreadsheets.values.update(
             sheets.ValueRange(values: [headers]),
             spreadsheetId,
-            '$sheetTitle!1:1',
+            "'$sheetTitle'!A1",
             valueInputOption: 'RAW',
           ));
         }
@@ -1215,12 +1216,12 @@ mixin DriveSheetMixin {
       debugPrint('Created sheet: $sheetTitle');
     }
 
-    // 2. Handle Headers
-    final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
+    // 2. Handle Headers. Use quotes and trimming for robustness.
+    final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, "'$sheetTitle'!A1:ZZ1"));
     List<String> headers = [];
     
     if (headerResponse.values != null && headerResponse.values!.isNotEmpty) {
-      headers = headerResponse.values!.first.map((e) => e.toString()).toList();
+      headers = headerResponse.values!.first.map((e) => e.toString().trim()).toList();
     }
 
     if (headers.isEmpty) {
@@ -1228,7 +1229,7 @@ mixin DriveSheetMixin {
       await retryOp(() => sheetsApi.spreadsheets.values.append(
         sheets.ValueRange(values: [headers]),
         spreadsheetId,
-        '$sheetTitle!A1',
+        "'$sheetTitle'!A1",
         valueInputOption: 'RAW',
       ));
     } else {
@@ -1238,7 +1239,7 @@ mixin DriveSheetMixin {
         await retryOp(() => sheetsApi.spreadsheets.values.update(
           sheets.ValueRange(values: [headers]),
           spreadsheetId,
-          '$sheetTitle!1:1',
+          "'$sheetTitle'!A1",
           valueInputOption: 'RAW',
         ));
       }
@@ -1253,7 +1254,7 @@ mixin DriveSheetMixin {
       final idColIndex = headers.indexOf(idKey);
       if (idColIndex != -1) {
         final colLetter = _getColLetter(idColIndex);
-        final idColResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!$colLetter:$colLetter'));
+        final idColResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, "'$sheetTitle'!$colLetter:$colLetter"));
         final idValues = idColResponse.values;
         if (idValues != null) {
           for (int i = 0; i < idValues.length; i++) {
@@ -1272,7 +1273,7 @@ mixin DriveSheetMixin {
       await retryOp(() => sheetsApi.spreadsheets.values.update(
         sheets.ValueRange(values: [row]),
         spreadsheetId,
-        '$sheetTitle!$recordRowIndex:$recordRowIndex',
+        "'$sheetTitle'!$recordRowIndex:$recordRowIndex",
         valueInputOption: 'RAW',
       ));
       debugPrint('Updated data in $sheetTitle at row $recordRowIndex');
@@ -1280,7 +1281,7 @@ mixin DriveSheetMixin {
       await retryOp(() => sheetsApi.spreadsheets.values.append(
         sheets.ValueRange(values: [row]),
         spreadsheetId,
-        '$sheetTitle!A1',
+        "'$sheetTitle'!A1",
         valueInputOption: 'RAW',
       ));
       debugPrint('Appended data to $sheetTitle');
@@ -1309,18 +1310,21 @@ mixin DriveSheetMixin {
   }) async {
     try {
       debugPrint('fetchRecords: moduleFolderId=$moduleFolderId spreadsheetName=$spreadsheetName sheetTitle=$sheetTitle offset=$offset limit=$limit search=${searchQuery!=null}');
-      // 1. Find Spreadsheet
-      String targetSpreadsheetName = sheetTitle;
-      String? spreadsheetId = await getFileId(moduleFolderId, targetSpreadsheetName);
+      // 1. Find Spreadsheet. Try spreadsheetName first, then fallback to sheetTitle.
+      String? spreadsheetId = await getFileId(moduleFolderId, spreadsheetName);
+      if (spreadsheetId == null && spreadsheetName != sheetTitle) {
+        spreadsheetId = await getFileId(moduleFolderId, sheetTitle);
+      }
       
       if (spreadsheetId == null) {
-        debugPrint('fetchRecords: no spreadsheet found for $targetSpreadsheetName in $moduleFolderId');
+        debugPrint('fetchRecords: no spreadsheet found for "$spreadsheetName" (or fallback "$sheetTitle") in $moduleFolderId');
         return [];
       }
       debugPrint('fetchRecords: resolved spreadsheetId=$spreadsheetId');
+      final sid = spreadsheetId!; // Non-null alias for stability
 
       // 2. Fetch Spreadsheet Metadata (to get sheet ID and titles)
-      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(sid));
       final allSheetTitles = spreadsheet.sheets?.map((s) => s.properties?.title ?? '').toList() ?? [];
       final targetSheet = spreadsheet.sheets?.firstWhere(
         (s) => s.properties?.title == sheetTitle,
@@ -1470,26 +1474,22 @@ mixin DriveSheetMixin {
   }) async {
     try {
       debugPrint(' _fetchSheetData: spreadsheetId=$spreadsheetId sheetTitle=$sheetTitle offset=$offset limit=$limit');
-      // Always fetch headers first (Row 1)
-      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
+      // Always fetch headers first (Row 1). Use A1:ZZ1 with sheet name in quotes for robustness.
+      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, "'$sheetTitle'!A1:ZZ1"));
       final headerValues = headerResponse.values;
       if (headerValues == null || headerValues.isEmpty) return [];
       
-      final headers = headerValues.first.map((e) => e.toString()).toList();
+      // Trim headers to avoid key mismatches due to trailing spaces
+      final headers = headerValues.first.map((e) => e.toString().trim()).toList();
 
       // Calculate Data Range
       String range;
+      final startRow = 2 + offset;
       if (limit != null) {
-        // Rows are 1-indexed. Header is 1. Data starts at 2.
-        // offset 0 -> row 2
-        // offset 20 -> row 22
-        final startRow = 2 + offset;
         final endRow = startRow + limit - 1;
-        range = '$sheetTitle!A$startRow:ZZ$endRow';
+        range = "'$sheetTitle'!A$startRow:ZZ$endRow";
       } else {
-        // Fetch remaining from offset
-        final startRow = 2 + offset;
-        range = '$sheetTitle!A$startRow:ZZ';
+        range = "'$sheetTitle'!A$startRow:ZZ";
       }
 
       final response = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, range));
@@ -1539,10 +1539,13 @@ mixin DriveSheetMixin {
         if (start != -1 && end != -1) {
           final jsonStr = body.substring(start, end + 1);
           final decoded = jsonDecode(jsonStr);
-          final cols = decoded['table']['cols'] as List;
-          final types = cols.map((c) => c['type'].toString()).toList();
-          _columnTypesCache[cacheKey] = types;
-          return types;
+          final table = decoded['table'];
+          if (table != null && table['cols'] != null) {
+            final cols = table['cols'] as List;
+            final types = cols.map((c) => (c as Map)['type']?.toString() ?? 'string').toList();
+            _columnTypesCache[cacheKey] = types;
+            return types;
+          }
         }
       }
     } catch (e) {
@@ -1562,10 +1565,10 @@ mixin DriveSheetMixin {
     bool descending = false,
   }) async {
     try {
-      // 1. Get headers for column mapping
-      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
-      final headers = headerResponse.values?.first.map((e) => e.toString()).toList() ?? [];
-      if (headers.isEmpty) return [];
+      // 1. Get raw headers from Row 1 for query building and fallback
+      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, "'$sheetTitle'!A1:ZZ1"));
+      final rawHeaders = headerResponse.values?.first.map((e) => e.toString().trim()).toList() ?? [];
+      if (rawHeaders.isEmpty) return [];
 
       // 2. Build Query
       String tq = "SELECT *";
@@ -1575,7 +1578,7 @@ mixin DriveSheetMixin {
       if (query != null && query.isNotEmpty) {
         final searchParts = <String>[];
         // Limit to first 50 columns to keep query string manageable
-        final searchLimit = headers.length > 50 ? 50 : headers.length;
+        final searchLimit = rawHeaders.length > 50 ? 50 : rawHeaders.length;
         
         // Try to get actual column types from Gviz metadata
         final actualTypes = await _getSheetColumnTypes(spreadsheetId, gid);
@@ -1585,13 +1588,12 @@ mixin DriveSheetMixin {
           'qty', 'quantity', 'price', 'amount', 'total', 'cost', 
           'tax', 'discount', 'date', 'time', 'lat', 'long', 'zip', 'postcode', 
           'balance', 'ledger', 'credit', 'debit', 'value', 'count', 'score', 'percent',
-          'is_', 'has_', 'can_', 'are_', 'was_', 'is ', 'has ', 'can ', 'are ', 'was ', '?',
-          'record_id', 'parent_record_id', 'sub_record_id', 'tin', 'phone', 'mobile'
+          'is_', 'has_', 'can_', 'are_', 'was_', 'phone', 'mobile', 'tel'
         ];
 
         for (var i = 0; i < searchLimit; i++) {
           final col = _indexToColumn(i);
-          final header = headers[i].toLowerCase();
+          final header = rawHeaders[i].toLowerCase();
           
           bool isText = true;
           if (actualTypes.length > i) {
@@ -1609,7 +1611,7 @@ mixin DriveSheetMixin {
             }
           } else {
             // For text columns
-            searchParts.add("lower($col) contains '${query.toLowerCase().replaceAll("'", "\\'")}'");
+            searchParts.add("lower($col) contains '${query.toLowerCase().replaceAll("'", "''")}'");
           }
         }
         if (searchParts.isNotEmpty) {
@@ -1623,25 +1625,37 @@ mixin DriveSheetMixin {
         final op = filter['operator'] as String;
         final val = filter['value'];
         
-        final fieldIndex = headers.indexOf(field);
+        final fieldIndex = rawHeaders.indexOf(field);
         if (fieldIndex != -1) {
           final col = _indexToColumn(fieldIndex);
           String? clause;
           
+          // Try to get actual column type from Gviz metadata if available
+          final actualTypes = await _getSheetColumnTypes(spreadsheetId, gid);
+          bool isNumericCol = false;
+          if (actualTypes.length > fieldIndex) {
+            final typeStr = actualTypes[fieldIndex].toLowerCase();
+            isNumericCol = typeStr == 'number' || typeStr == 'boolean';
+          }
+
           // Stringify value for Gviz
           String gvizVal = val.toString();
-          bool isNumeric = num.tryParse(gvizVal) != null;
-          bool isBool = gvizVal.toLowerCase() == 'true' || gvizVal.toLowerCase() == 'false';
-          String escapedVal = gvizVal.replaceAll("'", "\\'");
+          // Use heuristic if metadata didn't definitely say it's numeric
+          bool isNumericVal = num.tryParse(gvizVal) != null;
+          bool isBoolVal = gvizVal.toLowerCase() == 'true' || gvizVal.toLowerCase() == 'false';
+          String escapedVal = gvizVal.replaceAll("'", "''");
           
+          // If the column is definitely numeric OR (no metadata AND looks numeric), omit quotes
+          bool useNoQuotes = isNumericCol || (actualTypes.isEmpty && (isNumericVal || isBoolVal));
+
           if (op == '==' || op == '=') {
-            if (isNumeric || isBool) {
+            if (useNoQuotes) {
               clause = "$col = $gvizVal";
             } else {
               clause = "$col = '$escapedVal'";
             }
           } else if (op == '!=') {
-            if (isNumeric || isBool) {
+            if (useNoQuotes) {
               clause = "$col != $gvizVal";
             } else {
               clause = "$col != '$escapedVal'";
@@ -1649,10 +1663,10 @@ mixin DriveSheetMixin {
           } else if (op == 'contains') {
             clause = "lower($col) contains '${escapedVal.toLowerCase()}'";
           } else if (op == '>' || op == '>=' || op == '<' || op == '<=') {
-            clause = isNumeric ? "$col $op $gvizVal" : "$col $op '$escapedVal'";
-          } else if (op == 'startsWith' || op == 'startsWidth') {
+            clause = useNoQuotes ? "$col $op $gvizVal" : "$col $op '$escapedVal'";
+          } else if (op == 'startsWith') {
             clause = "lower($col) starts with '${escapedVal.toLowerCase()}'";
-          } else if (op == 'endsWith' || op == 'endsWidth') {
+          } else if (op == 'endsWith') {
             clause = "lower($col) ends with '${escapedVal.toLowerCase()}'";
           }
           
@@ -1666,15 +1680,17 @@ mixin DriveSheetMixin {
         tq += " WHERE ${whereClauses.join(' AND ')}";
       }
       
-      final recordIdIndex = headers.indexOf('record_id');
-      if (recordIdIndex != -1) {
-        tq += " ORDER BY ${_indexToColumn(recordIdIndex)} ${descending ? 'DESC' : 'ASC'}";
+      // Case-insensitive record_id lookup in rawHeaders
+      final ridIdx = rawHeaders.indexWhere((h) => h.toLowerCase() == 'record_id');
+      if (ridIdx != -1) {
+        tq += " ORDER BY ${_indexToColumn(ridIdx)} ${descending ? 'DESC' : 'ASC'}";
       }
 
       tq += " LIMIT $limit OFFSET $offset";
 
       // 3. Request from Google Vis API
       final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(tq)}${gid != null ? '&gid=$gid' : ''}&headers=1';
+      debugPrint('GViz Search URL: $url');
       
       final response = await authClient.get(Uri.parse(url));
       if (response.statusCode != 200) {
@@ -1700,21 +1716,43 @@ mixin DriveSheetMixin {
       final table = decoded['table'];
       if (table == null || table['rows'] == null) return [];
 
+      final List<dynamic> gvizCols = table['cols'] ?? [];
+      final List<String> effectiveHeaders = [];
+      
+      // Robustly align headers even if GViz skips columns or Sheets API response starts at non-A1
+      for (int i = 0; i < gvizCols.length; i++) {
+        String label = (gvizCols[i]['label']?.toString() ?? '').trim();
+        // If GViz label is generic or missing, and we have a raw header for this physical index, use it
+        if ((label.isEmpty || label.length == 1) && i < rawHeaders.length) {
+          effectiveHeaders.add(rawHeaders[i]);
+        } else if (label.isNotEmpty) {
+          effectiveHeaders.add(label);
+        } else {
+          effectiveHeaders.add('col_$i');
+        }
+      }
+
       final List<Map<String, dynamic>> results = [];
       final rows = table['rows'] as List;
 
       for (var row in rows) {
         final cells = row['c'] as List;
         final record = <String, dynamic>{};
-        for (var i = 0; i < headers.length; i++) {
+        bool isEmptyRow = true;
+        for (var i = 0; i < effectiveHeaders.length; i++) {
           if (i < cells.length && cells[i] != null) {
-            final cell = cells[i] as Map<String, dynamic>;
-            record[headers[i]] = cell['v'];
+            final cell = cells[i] is Map ? cells[i] as Map : {};
+            // v is raw value, f is formatted string (fallback if v is null for objects)
+            final val = cell['v'] ?? cell['f'];
+            record[effectiveHeaders[i]] = val;
+            if (val != null && val.toString().trim().isNotEmpty) isEmptyRow = false;
           } else {
-            record[headers[i]] = null;
+            record[effectiveHeaders[i]] = null;
           }
         }
-        results.add(record);
+        if (!isEmptyRow) {
+          results.add(record);
+        }
       }
       return results;
     } catch (e) {
