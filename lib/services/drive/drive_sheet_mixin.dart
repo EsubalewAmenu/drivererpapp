@@ -410,8 +410,8 @@ mixin DriveSheetMixin {
 
   Future<void> _writeMapToSheet(String fileId, String sheetTitle, Map<String, dynamic> data) async {
     try {
-      // Clear first to avoid stale data
-      await sheetsApi.spreadsheets.values.clear(sheets.ClearValuesRequest(), fileId, '$sheetTitle!A:B');
+      // Clear first to avoid stale data. Use quoted sheet title for robustness.
+      await sheetsApi.spreadsheets.values.clear(sheets.ClearValuesRequest(), fileId, "'$sheetTitle'!A:B");
       
       debugPrint('DriveSheetMixin: writing ${data.length} entries to $sheetTitle in $fileId');
       final rows = data.entries.map((e) => [e.key, jsonEncode(e.value)]).toList();
@@ -420,7 +420,7 @@ mixin DriveSheetMixin {
       await sheetsApi.spreadsheets.values.update(
         valueRange,
         fileId,
-        '$sheetTitle!A1',
+        "'$sheetTitle'!A1",
         valueInputOption: 'RAW',
       );
     } catch (e) {
@@ -431,7 +431,8 @@ mixin DriveSheetMixin {
 
   Future<Map<String, String>> _readMapFromSheet(String fileId, String sheetTitle) async {
     try {
-      final response = await sheetsApi.spreadsheets.values.get(fileId, '$sheetTitle!A:B');
+      // Use quoted sheet title for robustness.
+      final response = await sheetsApi.spreadsheets.values.get(fileId, "'$sheetTitle'!A:B");
       final map = <String, String>{};
       if (response.values != null) {
         for (var row in response.values!) {
@@ -1538,10 +1539,13 @@ mixin DriveSheetMixin {
         if (start != -1 && end != -1) {
           final jsonStr = body.substring(start, end + 1);
           final decoded = jsonDecode(jsonStr);
-          final cols = decoded['table']['cols'] as List;
-          final types = cols.map((c) => c['type'].toString()).toList();
-          _columnTypesCache[cacheKey] = types;
-          return types;
+          final table = decoded['table'];
+          if (table != null && table['cols'] != null) {
+            final cols = table['cols'] as List;
+            final types = cols.map((c) => (c as Map)['type']?.toString() ?? 'string').toList();
+            _columnTypesCache[cacheKey] = types;
+            return types;
+          }
         }
       }
     } catch (e) {
@@ -1584,7 +1588,7 @@ mixin DriveSheetMixin {
           'qty', 'quantity', 'price', 'amount', 'total', 'cost', 
           'tax', 'discount', 'date', 'time', 'lat', 'long', 'zip', 'postcode', 
           'balance', 'ledger', 'credit', 'debit', 'value', 'count', 'score', 'percent',
-          'is_', 'has_', 'can_', 'are_', 'was_'
+          'is_', 'has_', 'can_', 'are_', 'was_', 'phone', 'mobile', 'tel'
         ];
 
         for (var i = 0; i < searchLimit; i++) {

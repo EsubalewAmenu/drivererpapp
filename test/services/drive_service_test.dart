@@ -362,12 +362,12 @@ void main() {
       verify(() => mockFilesResource.create(any(), supportsAllDrives: true)).called(3);
 
       // Verify settings written to settings spreadsheet and metadata initialized
-      verify(() => mockValuesResource.update(any(), 'settings_id', 'settings!A1', valueInputOption: 'RAW')).called(1);
+      verify(() => mockValuesResource.update(any(), 'settings_id', "'settings'!A1", valueInputOption: 'RAW')).called(1);
     });
 
     test('readSettingsById reads and decodes config', () async {
       // settings sheet (fileId = settings spreadsheet)
-      when(() => mockValuesResource.get('sheet123', 'settings!A:B'))
+      when(() => mockValuesResource.get('sheet123', "'settings'!A:B"))
           .thenAnswer((_) async => sheets.ValueRange(values: [
             ['appName', '"Test App"'],
             ['darkMode', 'true']
@@ -406,7 +406,7 @@ void main() {
       verify(() => mockValuesResource.append(
         any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'values', containsAll(['val1', 'val2']))),
         'sheet123',
-        'tab1!A1',
+        "'tab1'!A1",
         valueInputOption: 'RAW',
       )).called(1);
     });
@@ -424,14 +424,14 @@ void main() {
       ));
 
       // Mock Header Call
-      when(() => mockValuesResource.get(any(), 'tab1!1:1')).thenAnswer((_) async => sheets.ValueRange(
+      when(() => mockValuesResource.get(any(), "'tab1'!A1:ZZ1")).thenAnswer((_) async => sheets.ValueRange(
         values: [
           ['col1', 'col2'],
         ],
       ));
 
       // Mock Data Call (Initial fetch uses A2:ZZ)
-      when(() => mockValuesResource.get(any(), 'tab1!A2:ZZ')).thenAnswer((_) async => sheets.ValueRange(
+      when(() => mockValuesResource.get(any(), "'tab1'!A2:ZZ")).thenAnswer((_) async => sheets.ValueRange(
         values: [
           ['val1', 'val2'],
         ],
@@ -458,12 +458,12 @@ void main() {
       ));
 
       // Header (Gviz also needs headers)
-      when(() => mockValuesResource.get(any(), 'tab1!1:1')).thenAnswer((_) async => sheets.ValueRange(
+      when(() => mockValuesResource.get(any(), "'tab1'!A1:ZZ1")).thenAnswer((_) async => sheets.ValueRange(
         values: [['col1', 'record_id']],
       ));
 
       // Gviz Mock Result (Two records, newest first as requested by DESC)
-      const gvizResponse = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"rows":[{"c":[{"v":"rec2"},{"v":"200"}]},{"c":[{"v":"rec1"},{"v":"100"}]}]}});';
+      const gvizResponse = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"label":"col1"},{"label":"record_id"}],"rows":[{"c":[{"v":"rec2"},{"v":"200"}]},{"c":[{"v":"rec1"},{"v":"100"}]}]}});';
       when(() => mockHttpClient.get(any())).thenAnswer((_) async => http.Response(gvizResponse, 200));
 
       final results = await driveService.fetchRecords('mod1', 'MyModule', 'tab1', descending: true);
@@ -486,11 +486,11 @@ void main() {
       ));
 
       // Header: Name and Phone (numeric keyword)
-      when(() => mockValuesResource.get(any(), 'contacts!1:1')).thenAnswer((_) async => sheets.ValueRange(
+      when(() => mockValuesResource.get(any(), "'contacts'!A1:ZZ1")).thenAnswer((_) async => sheets.ValueRange(
         values: [['Name', 'Phone']],
       ));
 
-      const gvizResponse = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"rows":[{"c":[{"v":"Dawit"},{"v":12345}]}]}});';
+      const gvizResponse = '/*-google-javascript-data-lite-*/google.visualization.Query.setResponse({"status":"ok","table":{"cols":[{"label":"Name"},{"label":"Phone"}],"rows":[{"c":[{"v":"Dawit"},{"v":12345}]}]}});';
       when(() => mockHttpClient.get(any(that: predicate((Uri uri) {
         final tq = uri.queryParameters['tq'] ?? '';
         // Should use lower() for Name (A). 
@@ -522,12 +522,12 @@ void main() {
       ));
 
       // Mock Headings & Data for main tab
-      when(() => mockValuesResource.get('sheet123', 'tab1!1:1')).thenAnswer((_) async => sheets.ValueRange(values: [['record_id', 'name']]));
-      when(() => mockValuesResource.get('sheet123', 'tab1!A2:ZZ')).thenAnswer((_) async => sheets.ValueRange(values: [['r1', 'Record 1']]));
+      when(() => mockValuesResource.get('sheet123', "'tab1'!A1:ZZ1")).thenAnswer((_) async => sheets.ValueRange(values: [['record_id', 'name']]));
+      when(() => mockValuesResource.get('sheet123', "'tab1'!A2:ZZ")).thenAnswer((_) async => sheets.ValueRange(values: [['r1', 'Record 1']]));
 
       // Mock Headings & Data for sub-tab
-      when(() => mockValuesResource.get('sheet123', 'tab1.items!1:1')).thenAnswer((_) async => sheets.ValueRange(values: [['parent_record_id', 'item_name']]));
-      when(() => mockValuesResource.get('sheet123', 'tab1.items!A2:ZZ')).thenAnswer((_) async => sheets.ValueRange(values: [['r1', 'Sub Item 1']]));
+      when(() => mockValuesResource.get('sheet123', "'tab1.items'!A1:ZZ1")).thenAnswer((_) async => sheets.ValueRange(values: [['parent_record_id', 'item_name']]));
+      when(() => mockValuesResource.get('sheet123', "'tab1.items'!A2:ZZ")).thenAnswer((_) async => sheets.ValueRange(values: [['r1', 'Sub Item 1']]));
 
       final results = await driveService.fetchRecords('mod1', 'MyModule', 'tab1', fetchSubTables: true);
 
