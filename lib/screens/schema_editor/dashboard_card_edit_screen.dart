@@ -22,7 +22,7 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
   late TextEditingController _labelController;
   late TextEditingController _customFormulaController;
   late TextEditingController _conditionController;
-  late String _format;
+  String? _format;
   late String _mode; // 'builder', 'custom'
 
   // Builder State

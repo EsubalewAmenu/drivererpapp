@@ -13,20 +13,30 @@
   "dashboard": {
     "cards": [
       {
-        "label": "Total Customers",
-        "formula": "=COUNTIF(contacts!D:D, \"Customer\")",
+        "label": "Total Contacts",
+        "formula": "=COUNTA(contacts!A:A)",
+        "type": "kpi",
         "format": "number"
       },
-
       {
-        "label": "Pipeline Value",
-        "formula": "=SUM(deals!D:D)", 
-        "format": "currency"
+        "label": "Contacts by Status",
+        "formula": "=QUERY(contacts, \"SELECT F, count(A) GROUP BY F\")",
+        "type": "pie"
       },
       {
-        "label": "Open Tickets",
-        "formula": "=COUNTIF(tickets!C:C, \"Open\")",
-        "format": "number"
+        "label": "Sources Breakdown",
+        "formula": "=QUERY(contacts, \"SELECT H, count(A) GROUP BY H\")",
+        "type": "bar"
+      },
+      {
+        "label": "Monthly Growth",
+        "formula": "=QUERY(contacts, \"SELECT month(M), count(A) GROUP BY month(M)\")",
+        "type": "line"
+      },
+      {
+        "label": "Recent Additions",
+        "formula": "=QUERY(contacts, \"SELECT B, F, H ORDER BY L DESC LIMIT 5\")",
+        "type": "list"
       }
     ]
   },

@@ -96,7 +96,7 @@ class DashboardConfig {
 class DashboardCard {
   final String label;
   final String formula;
-  final String format;
+  final String? format;
   final String type; // 'kpi', 'line', 'bar', 'pie'
   
   // Optional config for charts (e.g. {xAxisLabel: 'Date', yAxisLabel: 'Sales'})
@@ -105,7 +105,7 @@ class DashboardCard {
   DashboardCard({
     required this.label,
     required this.formula,
-    required this.format,
+    this.format,
     this.type = 'kpi',
     this.config,
   });
