@@ -4,10 +4,22 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'drive/drive_folder_mixin.dart';
 import 'drive/drive_file_mixin.dart';
-import 'drive/drive_sheet_mixin.dart';
+import 'drive/drive_sheet/mixin.dart';
+import 'drive/drive_sheet/fetch.dart';
+import 'drive/drive_sheet/crud.dart';
+import 'drive/drive_sheet/config.dart';
+import 'drive/drive_sheet/gviz.dart';
 import 'drive/drive_company_mixin.dart';
 
-class DriveService with DriveFolderMixin, DriveFileMixin, DriveSheetMixin, DriveCompanyMixin {
+class DriveService with 
+    DriveFolderMixin, 
+    DriveFileMixin, 
+    DriveSheetMixin, 
+    DriveSheetGviz,
+    DriveSheetFetch, 
+    DriveSheetCrud, 
+    DriveSheetConfig, 
+    DriveCompanyMixin {
   @override
   final http.Client authClient;
   @override
