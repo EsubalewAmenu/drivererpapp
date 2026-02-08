@@ -272,6 +272,8 @@ mixin DriveSheetFetch on DriveSheetMixin, DriveSheetGviz {
             clause = useNoQuotes ? "$col $op $gvizVal" : "$col $op '$escapedVal'";
           } else if (op == 'startsWith') {
             clause = "lower($col) starts with '${escapedVal.toLowerCase()}'";
+          } else if (op == 'endsWith') {
+            clause = "lower($col) ends with '${escapedVal.toLowerCase()}'";
           }
           if (clause != null) whereClauses.add(clause);
         }

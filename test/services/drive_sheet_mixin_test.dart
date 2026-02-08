@@ -6,7 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:googleapis/sheets/v4.dart' as sheets;
 
 import 'package:googleapis/drive/v3.dart' as drive;
-import 'package:drivererpapp/services/drive/drive_sheet_mixin.dart';
+import 'package:drivererpapp/services/drive/drive_sheet/mixin.dart';
+import 'package:drivererpapp/services/drive/drive_sheet/gviz.dart';
 
 // Mocks
 class MockSheetsApi extends Mock implements sheets.SheetsApi {}
@@ -14,7 +15,7 @@ class MockSpreadsheetsResourceApi extends Mock implements sheets.SpreadsheetsRes
 class MockAuthClient extends Mock implements http.Client {}
 
 // Minimal test implementation that mixes in DriveSheetMixin
-class TestDriveSheetService with DriveSheetMixin {
+class TestDriveSheetService with DriveSheetMixin, DriveSheetGviz {
   final MockSheetsApi sheetsApiImpl;
   final MockSpreadsheetsResourceApi spreadsheetsResource;
   final MockAuthClient authClientImpl;
