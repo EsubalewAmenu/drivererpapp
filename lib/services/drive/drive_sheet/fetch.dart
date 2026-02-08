@@ -337,13 +337,4 @@ mixin DriveSheetFetch on DriveSheetMixin, DriveSheetGviz {
       rethrow;
     }
   }
-
-  Future<List<Map<String, dynamic>>> searchRecords(
-    String moduleFolderId, 
-    String moduleName, 
-    String query,
-    { String? columnName }
-  ) async {
-    return fetchRecords(moduleFolderId, moduleName, moduleName, searchQuery: query);
-  }
 }
