@@ -4,20 +4,6 @@ import 'package:googleapis/sheets/v4.dart' as sheets;
 import 'mixin.dart';
 
 mixin DriveSheetCrud on DriveSheetMixin {
-  Future<void> saveRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, Map<String, dynamic> data) async {
-    try {
-      String? spreadsheetId = await getFileId(moduleFolderId, spreadsheetName);
-      if (spreadsheetId == null && spreadsheetName != sheetTitle) {
-        spreadsheetId = await getFileId(moduleFolderId, sheetTitle);
-      }
-      if (spreadsheetId == null) throw Exception('Spreadsheet $spreadsheetName not found');
-      await saveRecordBySpreadsheetId(spreadsheetId, sheetTitle, data);
-    } catch (e) {
-      debugPrint('Error saving record: $e');
-      rethrow;
-    }
-  }
-
   Future<void> saveRecordBySpreadsheetId(String spreadsheetId, String sheetTitle, Map<String, dynamic> data) async {
     try {
       final prepared = _prepareRecordForDrive(data);
@@ -230,17 +216,6 @@ mixin DriveSheetCrud on DriveSheetMixin {
       }
     } catch (e) {
       debugPrint('Error in saveRecordsBatchBySpreadsheetId: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> deleteRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, String recordId) async {
-    try {
-      final spreadsheetId = await getFileId(moduleFolderId, spreadsheetName);
-      if (spreadsheetId == null) throw Exception('Spreadsheet $spreadsheetName not found');
-      await deleteRecordBySpreadsheetId(spreadsheetId, sheetTitle, recordId);
-    } catch (e) {
-      debugPrint('Error deleting record: $e');
       rethrow;
     }
   }

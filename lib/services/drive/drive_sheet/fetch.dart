@@ -337,22 +337,4 @@ mixin DriveSheetFetch on DriveSheetMixin, DriveSheetGviz {
       rethrow;
     }
   }
-
-  Future<Map<String, dynamic>?> fetchRecordByUuid(String moduleFolderId, String moduleName, String uuid) async {
-    final records = await fetchRecords(moduleFolderId, moduleName, moduleName, fetchSubTables: false);
-    try {
-      return records.firstWhere((r) => r['uuid'] == uuid || r['record_id'] == uuid);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> searchRecords(
-    String moduleFolderId, 
-    String moduleName, 
-    String query,
-    { String? columnName }
-  ) async {
-    return fetchRecords(moduleFolderId, moduleName, moduleName, searchQuery: query);
-  }
 }

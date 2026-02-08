@@ -263,8 +263,8 @@ void main() {
     );
     when(() => mockDriveService.createWorkspace(any(), any()))
         .thenAnswer((_) async => drive.File()..id = 'mod123');
-    when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
-        .thenAnswer((_) async => drive.File());
+    when(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any()))
+        .thenAnswer((_) async => {});
     final mockSheetsApi = MockSheetsApi();
     final mockSpreadsheets = MockSpreadsheetsResource();
     final mockValues = MockValuesResource();
@@ -290,7 +290,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verification: seeding is removed from activation stage
-    verifyNever(() => mockDriveService.saveRecord(any(), any(), any(), any()));
+    verifyNever(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any()));
     expect(find.byType(DashboardScreen), findsOneWidget);
     
     // Cleanup mock handler
