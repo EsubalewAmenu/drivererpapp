@@ -401,7 +401,7 @@ void main() {
           .thenAnswer((_) async => sheets.UpdateValuesResponse());
 
       final data = {'key1': 'val1', 'key2': 'val2'};
-      await driveService.saveRecord('mod1', 'MyModule', 'tab1', data);
+      await driveService.saveRecordBySpreadsheetId('sheet123', 'tab1', data);
 
       verify(() => mockValuesResource.append(
         any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'values', containsAll(['val1', 'val2']))),

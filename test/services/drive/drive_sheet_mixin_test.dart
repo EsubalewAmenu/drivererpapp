@@ -188,7 +188,7 @@ void main() {
        ));
        when(() => mockSpreadsheets.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
 
-       await service.saveRecord('folderId', 'spreadsheetName', 'Sheet1', {
+       await service.saveRecordBySpreadsheetId('mock_file_id', 'Sheet1', {
          'field1': 'val1',
          'nested': [{'col1': 'v1'}], // Nested table
          'list': ['a', 'b'], // List field
@@ -234,7 +234,7 @@ void main() {
          sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'Sheet1'))]
        ));
 
-       await service.saveRecord('folderId', 'spreadsheetName', 'Sheet1', {
+       await service.saveRecordBySpreadsheetId('mock_file_id', 'Sheet1', {
          'field1': 'val1',
          'field2': 'val2', // New column
        });
@@ -376,7 +376,7 @@ void main() {
 
       final data = {'record_id': 'r1', 'name': 'Updated Name'};
       
-      await service.saveRecord('f1', 's1', 'Sheet1', data);
+      await service.saveRecordBySpreadsheetId('mock_file_id', 'Sheet1', data);
 
       // Verify update was called instead of append
       verify(() => mockValues.update(
@@ -408,7 +408,7 @@ void main() {
       when(() => mockSpreadsheets.batchUpdate(any(), any()))
           .thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
 
-      await service.deleteRecord('f1', 's1', 'Sheet1', 'r2');
+      await service.deleteRecordBySpreadsheetId('mock_file_id', 'Sheet1', 'r2');
 
       // Index for r2 is 2 (3rd row including header, but 0-indexed index for list is 2)
       verify(() => mockSpreadsheets.batchUpdate(
