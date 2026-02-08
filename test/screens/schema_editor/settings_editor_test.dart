@@ -201,5 +201,24 @@ void main() {
         return value is Map && value['label'] == 'New Label';
       })));
     });
+
+    testWidgets('renders help text when provided', (WidgetTester tester) async {
+      final rawSettings = {
+        'helpSetting': {'type': 'text', 'label': 'Help Me', 'help': 'This is a hint'}
+      };
+      await tester.pumpWidget(createSettingsEditor(rawSettings: rawSettings));
+
+      expect(find.text('Help Me'), findsOneWidget);
+      expect(find.text('This is a hint'), findsOneWidget);
+    });
+
+    testWidgets('renders unknown type warning', (WidgetTester tester) async {
+      final rawSettings = {
+        'ghost': {'type': 'phantom', 'label': 'Ghost Setting'}
+      };
+      await tester.pumpWidget(createSettingsEditor(rawSettings: rawSettings));
+
+      expect(find.text('Unsupported type: phantom'), findsOneWidget);
+    });
   });
 }

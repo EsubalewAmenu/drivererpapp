@@ -300,6 +300,34 @@ void main() {
        expect(results.first.containsKey('subs'), isTrue);
     });
 
+    test('fetchRecords falls back to local fetch if Gviz/search fails', () async {
+      // Stub metadata
+      when(() => mockSpreadsheets.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'Main'))]
+      ));
+
+      // Mock value range for local fetch
+      when(() => mockValues.get(any(), any())).thenAnswer((inv) async {
+         final range = inv.positionalArguments[1] as String;
+         if (range.contains('1:1')) return sheets.ValueRange(values: [['record_id', 'name']]);
+         return sheets.ValueRange(values: [['record_id', 'name'], ['r1', 'Match'], ['r2', 'Other']]);
+      });
+
+      // DriveSheetGviz should fail (mocked by not providing a valid response for http client)
+      when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
+          .thenThrow(Exception('Gviz failed'));
+
+      // Fetch with search query
+      final results = await service.fetchRecords(
+        'folder', 'Spreadsheet', 'Main', 
+        searchQuery: 'Match', 
+        fetchSubTables: false
+      );
+
+      expect(results.length, 1);
+      expect(results.first['name'], 'Match');
+    });
+
     test('saveRecord adds new columns when data has extra keys', () async {
        when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(
          values: [['field1']]

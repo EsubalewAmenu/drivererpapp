@@ -115,6 +115,14 @@ class _SettingsEditorState extends State<SettingsEditor> {
                         'Key: $key | Type: ${item['type']}',
                         style: AppTheme.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color),
                       ),
+                      if (item['help'] != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            item['help'].toString(),
+                            style: AppTheme.inter(fontSize: 11, color: theme.disabledColor),
+                          ),
+                        ),
                       if (item['dependsOn'] != null)
                         Text(
                           'Depends on: ${item['dependsOn']}',

@@ -5,7 +5,7 @@
     "icon": { "label": "Icon", "type": "icon", "value": "people" },
     "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
     "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "CRM" },
+    "name": { "label": "Name", "type": "text", "value": "CRM", "help": "Main module title" },
   
     "extensions": ["Deals", "Support Tickets"]
 

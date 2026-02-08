@@ -172,4 +172,48 @@ void main() {
     // Shortages should show warning icon when >0
     expect(find.byIcon(Icons.warning_rounded), findsOneWidget);
   });
+
+  testWidgets('ModuleDashboard renders PieChart and BarChart cards', (WidgetTester tester) async {
+    testModule = ModuleSchema(
+      id: 'charts',
+      name: 'Charts',
+      icon: 'analytics',
+      primaryColor: '#2196F3',
+      version: '1.0',
+      settings: {},
+      tabs: [],
+      dashboard: DashboardConfig(cards: [
+        DashboardCard(label: 'Pie', formula: '=CHART(S1!A:B)', format: '', type: 'pie'),
+        DashboardCard(label: 'Bar', formula: '=CHART(S2!A:B)', format: '', type: 'bar'),
+      ]),
+    );
+
+    await tester.pumpWidget(createModuleDashboard());
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 500)); // Extra for any minor overhead
+
+    expect(find.byType(PieChart), findsOneWidget);
+    expect(find.byType(BarChart), findsOneWidget);
+  });
+
+  testWidgets('ModuleDashboard handles empty cards list', (WidgetTester tester) async {
+    testModule = ModuleSchema(
+      id: 'empty',
+      name: 'Empty',
+      icon: 'analytics',
+      primaryColor: '#2196F3',
+      version: '1.0',
+      settings: {},
+      tabs: [],
+      dashboard: DashboardConfig(cards: []),
+    );
+
+    await tester.pumpWidget(createModuleDashboard());
+    await tester.pump(const Duration(milliseconds: 900)); // Clear all timers
+    await tester.pump();
+
+    // The header is still there, but no cards. 
+    expect(find.text('PERFORMANCE OVERVIEW'), findsOneWidget);
+  });
 }
