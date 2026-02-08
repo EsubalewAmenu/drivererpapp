@@ -8,23 +8,29 @@ import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 
 import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/providers/schema_provider.dart';
 
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
 class MockAuthService extends Mock implements AuthService {}
+class MockSchemaProvider extends Mock implements SchemaProvider {}
 
 void main() {
   late MockDriveProvider mockDrive;
   late MockDriveService mockService;
   late MockAuthService mockAuth;
+  late MockSchemaProvider mockSchema;
 
   setUp(() {
     mockDrive = MockDriveProvider();
     mockService = MockDriveService();
     mockAuth = MockAuthService();
+    mockSchema = MockSchemaProvider();
+
     when(() => mockDrive.driveService).thenReturn(mockService);
     when(() => mockService.getFileId(any(), any())).thenAnswer((_) async => null);
     when(() => mockService.deleteRecordBySpreadsheetId(any(), any(), any())).thenAnswer((_) async => {});
+    when(() => mockService.fetchRecordsBySpreadsheetId(any(), any(), limit: any(named: 'limit'), fetchSubTables: any(named: 'fetchSubTables'))).thenAnswer((_) async => []);
     when(() => mockAuth.currentUser).thenReturn(null);
   });
 
@@ -40,6 +46,7 @@ void main() {
       providers: [
         ChangeNotifierProvider<DriveProvider>.value(value: mockDrive),
         ChangeNotifierProvider<AuthService>.value(value: mockAuth),
+        ChangeNotifierProvider<SchemaProvider>.value(value: mockSchema),
       ],
       child: MaterialApp(
         home: RecordDetailScreen(
@@ -356,5 +363,91 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(() => mockService.deleteRecordBySpreadsheetId('fid123', 't1', 'r1')).called(1);
+  });
+
+  testWidgets('RecordDetailScreen resolves relation labels', (tester) async {
+    tester.view.physicalSize = const Size(1000, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final columns = [
+      ColumnConfig(key: 'customer_id', label: 'Customer', type: 'relation', options: 'customers_tab'),
+    ];
+    final data = {'customer_id': 'c100'};
+    final relatedModule = ModuleSchema(
+      id: 'm_crm', name: 'CRM', icon: 'person', primaryColor: '#000000', version: '1',
+      settings: {}, dashboard: DashboardConfig(cards: []),
+      tabs: [TabConfig(id: 'customers_tab', label: 'Customers', columns: [], fileId: 'cust_file')],
+    );
+
+    when(() => mockSchema.findModuleByTabId(any())).thenReturn(relatedModule);
+    when(() => mockService.fetchRecordsBySpreadsheetId(any(), any(), limit: any(named: 'limit'), fetchSubTables: any(named: 'fetchSubTables')))
+        .thenAnswer((_) async => [{'record_id': 'c100', 'name': 'John Doe'}]);
+
+    await tester.pumpWidget(createScreen(columns: columns, data: data));
+    await tester.pumpAndSettle(); // Initial build + post frame callback
+    await tester.pump(const Duration(milliseconds: 200)); // Finish async
+    await tester.pumpAndSettle(); // setState and rebuild
+
+    expect(find.text('John Doe'), findsOneWidget);
+  });
+
+  testWidgets('RecordDetailScreen loads sub-table data for edit if missing', (tester) async {
+    tester.view.physicalSize = const Size(1000, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final columns = [
+      ColumnConfig(key: 'items', label: 'Items', type: 'table', options: 'items_tab', columns: [
+        ColumnConfig(key: 'p', label: 'P', type: 'text'),
+      ]),
+    ];
+    final data = {'record_id': 'r1'}; // items missing
+    final module = ModuleSchema(
+      id: 'm1', name: 'M1', icon: 'i', primaryColor: '#000000', version: '1',
+      settings: {}, dashboard: DashboardConfig(cards: []), tabs: [],
+    );
+    
+    when(() => mockService.fetchRecordsBySpreadsheetId(
+      'f1', 
+      any(), 
+      limit: any(named: 'limit'), 
+      fetchSubTables: any(named: 'fetchSubTables'),
+      quickFilter: any(named: 'quickFilter'),
+    )).thenAnswer((_) async => [{'p': 'Apple'}]);
+
+    await tester.pumpWidget(createScreen(columns: columns, data: data, module: module, fileId: 'f1'));
+    await tester.pumpAndSettle();
+
+    // Click edit
+    await tester.tap(find.byIcon(Icons.edit_outlined));
+    await tester.pump(); // Show Snackbar
+    await tester.pump(const Duration(milliseconds: 200)); // Wait for loads
+    await tester.pumpAndSettle();
+
+    expect(find.text('EDIT TEST'), findsOneWidget);
+  });
+
+  testWidgets('RecordDetailScreen handles formula and status field types', (tester) async {
+    tester.view.physicalSize = const Size(1000, 2000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final columns = [
+      ColumnConfig(key: 'calc', label: 'Calculation', type: 'formula'),
+      ColumnConfig(key: 'status', label: 'Status', type: 'status'),
+    ];
+    final data = {
+      'calc': '100.00',
+      'status': 'completed',
+    };
+
+    await tester.pumpWidget(createScreen(columns: columns, data: data));
+    await tester.pumpAndSettle();
+
+    expect(find.text('CALCULATION'), findsOneWidget);
+    expect(find.text('100.00'), findsOneWidget);
+    expect(find.text('STATUS'), findsOneWidget);
+    expect(find.text('COMPLETED'), findsOneWidget);
   });
 }

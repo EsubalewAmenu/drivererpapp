@@ -245,4 +245,49 @@ void main() {
     expect(find.text('Please select a value for selected_dept first'), findsOneWidget);
     expect(find.text('Search users'), findsNothing);
   });
+
+  testWidgets('DynamicRelationField resolves initial label from value', (WidgetTester tester) async {
+    final column = ColumnConfig(
+      key: 'user',
+      label: 'User',
+      type: 'relation',
+      options: 'users',
+    );
+
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+      'users_sheet_id', 
+      'users', 
+      limit: any(named: 'limit'), 
+      fetchSubTables: false
+    )).thenAnswer((_) async => [
+      {'record_id': 'u1', 'name': 'Resolved User'},
+    ]);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<SchemaProvider>.value(value: schemaProvider),
+          ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: DynamicRelationField(
+              column: column,
+              value: 'u1',
+              module: testModule,
+              onChanged: (_) {},
+              data: const {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    // Initial pump + async resolve + setState pump
+    await tester.pump(); 
+    await tester.pump(const Duration(milliseconds: 100)); // wait for fetch
+    await tester.pumpAndSettle();
+
+    expect(find.text('Resolved User'), findsOneWidget);
+  });
 }

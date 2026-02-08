@@ -9,7 +9,7 @@ void main() {
   setUp(() {
     // Set a larger surface size to avoid scrolling issues in tests
     final binding = TestWidgetsFlutterBinding.ensureInitialized();
-    binding.platformDispatcher.implicitView!.physicalSize = const Size(1024, 1024);
+    binding.platformDispatcher.implicitView!.physicalSize = const Size(1024, 2048);
     binding.platformDispatcher.implicitView!.devicePixelRatio = 1.0;
 
     testTab = TabConfig(
@@ -339,5 +339,60 @@ void main() {
     expect(resultData, isNotNull);
     final filters = resultData!['filters'] as List<QuickFilter>;
     expect(filters, isEmpty);
+  });
+
+  testWidgets('TabSettingsScreen saves auto-load tables and list trailing logic', (tester) async {
+    tester.view.physicalSize = const Size(1024, 2048);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    Map<String, dynamic>? resultData;
+    
+    await tester.pumpWidget(MaterialApp(
+      home: TabSettingsScreen(
+        tab: testTab,
+        primaryColor: Colors.blue,
+        onSave: (data) => resultData = data,
+      ),
+    ));
+
+    // 1. Details tab: toggle Auto-load Tables
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+
+    final autoLoadSwitch = find.ancestor(of: find.text('Auto-load Tables'), matching: find.byType(SwitchListTile));
+    await tester.tap(autoLoadSwitch);
+    await tester.pumpAndSettle();
+
+    // 2. List tab: change template and set trailing logic
+    await tester.tap(find.text('List'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Standard Card'));
+    await tester.pumpAndSettle();
+
+    final trailingLogicSwitch = find.ancestor(of: find.text('Conditional Trailing (Badge)'), matching: find.byType(SwitchListTile));
+    await tester.ensureVisible(trailingLogicSwitch);
+    await tester.tap(trailingLogicSwitch);
+    await tester.pumpAndSettle();
+
+    // Set condition for trailing - with title/subtitle logic off, it should be the 3rd dropdown (index 2)
+    final dropdowns = find.byType(DropdownButtonFormField<String>);
+    await tester.ensureVisible(dropdowns.at(2));
+    await tester.tap(dropdowns.at(2));
+    await tester.pumpAndSettle();
+    
+    await tester.tap(find.text('Is Active').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(resultData, isNotNull);
+    expect(resultData!['load_sub_table_data_automatically'], isFalse); 
+    
+    final listConfig = resultData!['listTemplate'] as ListTemplateConfig;
+    expect(listConfig.template, 'standard');
+    expect(listConfig.trailingLogic?.conditionKey, 'is_active');
   });
 }

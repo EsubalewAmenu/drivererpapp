@@ -137,4 +137,98 @@ void main() {
     expect(missing, isNull);
   });
 
+  test('removeCachedConfig clears all cached data', () async {
+    await schemaService.cacheConfig('mod1', {'settings': {}}, fileId: 'f1', modifiedTime: 't1');
+    expect(await schemaService.getCachedConfig('mod1'), isNotNull);
+    expect(await schemaService.getCachedMeta('mod1'), isNotNull);
+
+    await schemaService.removeCachedConfig('mod1');
+    expect(await schemaService.getCachedConfig('mod1'), isNull);
+    expect(await schemaService.getCachedMeta('mod1'), isNull);
+  });
+
+  test('saveSettingsPart calls writeSettingsById and updates cache', () async {
+    final settings = {'foo': 'bar'};
+    when(() => mockDriveService.writeSettingsById(any(), any())).thenAnswer((_) async {});
+    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.utc(2024));
+
+    await schemaService.saveSettingsPart('mod1', settings, settingsId: 'sid123');
+
+    verify(() => mockDriveService.writeSettingsById('sid123', settings)).called(1);
+    final cached = await schemaService.getCachedConfig('mod1');
+    expect(cached?['settings'], equals(settings));
+  });
+
+  test('saveDashboardPart calls writeDashboardById and updates cache', () async {
+    final dashboard = {'cards': []};
+    when(() => mockDriveService.writeDashboardById(any(), any())).thenAnswer((_) async {});
+    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.utc(2024));
+
+    await schemaService.saveDashboardPart('mod1', dashboard, settingsId: 'sid123', dashboardId: 'did123');
+
+    verify(() => mockDriveService.writeDashboardById('did123', dashboard)).called(1);
+    final cached = await schemaService.getCachedConfig('mod1');
+    expect(cached?['dashboard'], equals(dashboard));
+  });
+
+  test('saveTabsPart calls writeTabsById and updates cache', () async {
+    final tabs = [];
+    when(() => mockDriveService.writeTabsById(any(), any())).thenAnswer((_) async {});
+    when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => DateTime.utc(2024));
+
+    await schemaService.saveTabsPart('mod1', tabs, settingsId: 'sid123', tabsId: 'tid123');
+
+    verify(() => mockDriveService.writeTabsById('tid123', tabs)).called(1);
+    final cached = await schemaService.getCachedConfig('mod1');
+    expect(cached?['tabs'], equals(tabs));
+  });
+
+  test('saveTabField calls updateTabField', () async {
+    when(() => mockDriveService.updateTabField(any(), any(), any(), any())).thenAnswer((_) async {});
+
+    await schemaService.saveTabField('mod1', 't1', 'key', 'val', tabsId: 'tid123');
+
+    verify(() => mockDriveService.updateTabField('tid123', 't1', 'key', 'val')).called(1);
+  });
+
+  test('saveSettingFields calls updateTabFields on settingsId', () async {
+    final fields = {'a': 1};
+    when(() => mockDriveService.updateTabFields(any(), any(), any())).thenAnswer((_) async {});
+
+    await schemaService.saveSettingFields('mod1', fields, settingsId: 'sid123');
+
+    verify(() => mockDriveService.updateTabFields('sid123', 'settings', fields)).called(1);
+  });
+
+  test('saveTabFields calls updateTabFields on tabsId', () async {
+    final fields = {'a': 1};
+    when(() => mockDriveService.updateTabFields(any(), any(), any())).thenAnswer((_) async {});
+
+    await schemaService.saveTabFields('mod1', 't1', fields, tabsId: 'tid123');
+
+    verify(() => mockDriveService.updateTabFields('tid123', 't1', fields)).called(1);
+  });
+
+  test('syncConfig handles missing settingsId', () async {
+    final result = await schemaService.syncConfig('mod1', settingsId: '');
+    expect(result, isNull);
+  });
+
+  test('syncConfig handles dashboardId and tabsId', () async {
+    final newTime = DateTime.utc(2024, 1, 2);
+    when(() => mockDriveService.getFileModifiedTime('sid123')).thenAnswer((_) async => newTime);
+    when(() => mockDriveService.readSettingsById('sid123')).thenAnswer((_) async => {'s': 1});
+    when(() => mockDriveService.readDashboardById('did123')).thenAnswer((_) async => {'cards': []});
+    when(() => mockDriveService.readTabsById('tid123')).thenAnswer((_) async => [{'id': 't1'}]);
+
+    final result = await schemaService.syncConfig('mod1', settingsId: 'sid123', dashboardId: 'did123', tabsId: 'tid123');
+
+    expect(result, isNotNull);
+    expect(result?['settings'], isNotNull);
+    expect(result?['dashboard'], isNotNull);
+    expect(result?['tabs'], isNotNull);
+    
+    verify(() => mockDriveService.readDashboardById('did123')).called(1);
+    verify(() => mockDriveService.readTabsById('tid123')).called(1);
+  });
 }

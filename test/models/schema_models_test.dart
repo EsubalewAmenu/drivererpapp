@@ -165,12 +165,19 @@ void main() {
       expect(copied.id, 't1');
     });
 
-    test('ColumnConfig copyWith', () {
-      final col = ColumnConfig(key: 'k1', label: 'L1', type: 'text', hidden: false);
-      final copied = col.copyWith(hidden: true, currencySymbol: '\$');
-      expect(copied.hidden, true);
-      expect(copied.currencySymbol, '\$');
-      expect(copied.label, 'L1');
+    test('ModuleSchema copyWith and deep serialization', () {
+      final module = ModuleSchema(
+        id: 'mod1', name: 'N1', icon: 'i1', primaryColor: 'c1', version: '1',
+        settings: {}, dashboard: DashboardConfig(cards: []), tabs: [],
+      );
+      final copied = module.copyWith(name: 'N2', version: '2');
+      expect(copied.name, 'N2');
+      expect(copied.version, '2');
+      expect(module.name, 'N1'); // immutability
+
+      final json = module.toJson();
+      expect(json['id'], 'mod1');
+      expect(json['name'], 'N1');
     });
   });
 }
