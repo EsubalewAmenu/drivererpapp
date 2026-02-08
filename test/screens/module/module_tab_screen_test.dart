@@ -110,6 +110,10 @@ void main() {
     when(() => mockSchemaService.saveTabsPart(any(), any(), settingsId: any(named: 'settingsId'), tabsId: any(named: 'tabsId')))
         .thenAnswer((_) async {});
     when(() => mockSchemaService.saveTabsPart(any(), any())).thenAnswer((_) async {});
+    when(() => mockSchemaService.saveTabFields(any(), any(), any(), settingsId: any(named: 'settingsId'), tabsId: any(named: 'tabsId')))
+        .thenAnswer((_) async {});
+    when(() => mockSchemaService.saveTabField(any(), any(), any(), any(), settingsId: any(named: 'settingsId'), tabsId: any(named: 'tabsId')))
+        .thenAnswer((_) async {});
     when(() => mockDriveService.getFileId(any(), any())).thenAnswer((_) async => 'sheet123');
     when(() => mockDriveService.fetchRecords(
           any(),

@@ -6,14 +6,28 @@ import 'package:drivererpapp/screens/schema_editor_screen.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
+import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/services/schema_service.dart';
+import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/services/auth_service.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 
 class MockSchemaProvider extends Mock implements SchemaProvider {}
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockSchemaService extends Mock implements SchemaService {}
+class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
+class MockAuthService extends Mock implements AuthService {}
+class MockDriveService extends Mock implements DriveService {}
 
 class FakeModuleSchema extends Fake implements ModuleSchema {}
 class FakeDashboardCard extends Fake implements DashboardCard {}
+
+class MockUser extends Mock implements GoogleSignInAccount {
+  @override
+  final String email;
+  MockUser({required this.email});
+}
 
 void main() {
   late MockSchemaProvider mockSchemaProvider;
@@ -191,8 +205,43 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(() => mockSchemaService.saveSettingFields(any(), any(), settingsId: any(named: 'settingsId'))).called(1);
+  });
+
+  testWidgets('SchemaEditorScreen handles deactivation', (WidgetTester tester) async {
+    final mockWorkspaceProvider = MockWorkspaceProvider();
+    final mockWorkspaceFile = drive.File(id: 'w1', name: 'W1');
+    when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(mockWorkspaceFile);
+    when(() => mockWorkspaceProvider.lastUserAccessSpreadsheetId).thenReturn('ua123');
     
-    // Test onTabsChanged via Structure Tab
-    // (Assuming StructureEditor has some way to change tabs that we can trigger)
+    final mockAuthService = MockAuthService();
+    when(() => mockAuthService.currentUser).thenReturn(MockUser(email: 'test@test.com'));
+    
+    final mockDriveService = MockDriveService();
+    when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any())).thenAnswer((_) async {});
+
+    await tester.pumpWidget(MultiProvider(
+      providers: [
+        ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
+        ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+        ChangeNotifierProvider<AuthService>.value(value: mockAuthService),
+        ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+      ],
+      child: MaterialApp(
+        home: SchemaEditorScreen(module: testModule),
+      ),
+    ));
+
+    await tester.tap(find.text('SETTINGS'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('DEACTIVATE'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Deactivate Module'), findsOneWidget);
+    await tester.tap(find.text('DEACTIVATE').last); // The button in dialog
+    await tester.pumpAndSettle();
+
+    verify(() => mockDriveService.setUserAccessModuleStatus('ua123', 'mod123', 'deactivated')).called(1);
   });
 }
