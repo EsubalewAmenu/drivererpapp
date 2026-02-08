@@ -3,7 +3,11 @@ import 'package:mocktail/mocktail.dart';
 import 'package:http/http.dart' as http;
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
-import 'package:drivererpapp/services/drive/drive_sheet_mixin.dart';
+import 'package:drivererpapp/services/drive/drive_sheet/mixin.dart';
+import 'package:drivererpapp/services/drive/drive_sheet/fetch.dart';
+import 'package:drivererpapp/services/drive/drive_sheet/crud.dart';
+import 'package:drivererpapp/services/drive/drive_sheet/config.dart';
+import 'package:drivererpapp/services/drive/drive_sheet/gviz.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 
 class MockDriveApi extends Mock implements drive.DriveApi {}
@@ -13,7 +17,7 @@ class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResour
 class MockValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 class MockHttpClient extends Mock implements http.Client {}
 
-class TestDriveService with DriveSheetMixin {
+class TestDriveService with DriveSheetMixin, DriveSheetGviz, DriveSheetFetch, DriveSheetCrud, DriveSheetConfig {
   @override
   final drive.DriveApi driveApi;
   @override
@@ -39,9 +43,12 @@ class TestDriveService with DriveSheetMixin {
 
   @override
   Future<String?> getFileId(String folderId, String fileName) async => 'mock_file_id';
+
+  // Helper for tests that used the old private version
+  String getColLetter(int index) => indexToColumn(index);
 }
 
-class TestDriveService2 with DriveSheetMixin {
+class TestDriveService2 with DriveSheetMixin, DriveSheetGviz, DriveSheetFetch, DriveSheetCrud, DriveSheetConfig {
   @override
   final drive.DriveApi driveApi;
   @override
@@ -56,6 +63,9 @@ class TestDriveService2 with DriveSheetMixin {
 
   @override
   Future<String?> getFileId(String folderId, String fileName) async => null;
+
+  // Helper for tests that used the old private version
+  String getColLetter(int index) => indexToColumn(index);
 }
 
 void main() {
