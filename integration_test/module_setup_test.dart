@@ -105,8 +105,8 @@ void main() {
     // Ensure config folder creation returns an id (async)
     when(() => mockDriveService.getOrCreateSubFolder('new_mod_id', 'config'))
         .thenAnswer((_) async => 'new_mod_config_folder');
-    // Seed saveRecord calls should resolve as Future<void>
-    when(() => mockDriveService.saveRecord(any(), any(), any(), any()))
+    // Seed saveRecordBySpreadsheetId calls should resolve as Future<void>
+    when(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any()))
         .thenAnswer((_) async {});
     // After seeding, getFileId for tab spreadsheets should return a non-null id
     when(() => mockDriveService.getFileId('new_mod_id', any()))
