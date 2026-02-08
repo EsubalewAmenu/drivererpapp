@@ -552,8 +552,9 @@ mixin DriveSheetMixin {
               properties: sheets.SheetProperties(
                 sheetId: 0,
                 title: title,
+                gridProperties: sheets.GridProperties(frozenRowCount: 1),
               ),
-              fields: 'title',
+              fields: 'title,gridProperties.frozenRowCount',
             ),
           ),
         ],
@@ -823,7 +824,12 @@ mixin DriveSheetMixin {
           sheets.BatchUpdateSpreadsheetRequest(
             requests: [
               sheets.Request(
-                addSheet: sheets.AddSheetRequest(properties: sheets.SheetProperties(title: sheetTitle)),
+                addSheet: sheets.AddSheetRequest(
+                  properties: sheets.SheetProperties(
+                    title: sheetTitle,
+                    gridProperties: sheets.GridProperties(frozenRowCount: 1),
+                  ),
+                ),
               ),
             ],
           ),
@@ -963,7 +969,16 @@ mixin DriveSheetMixin {
         if (!exists) {
           await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
             sheets.BatchUpdateSpreadsheetRequest(
-              requests: [sheets.Request(addSheet: sheets.AddSheetRequest(properties: sheets.SheetProperties(title: subSheet)))],
+              requests: [
+                sheets.Request(
+                  addSheet: sheets.AddSheetRequest(
+                    properties: sheets.SheetProperties(
+                      title: subSheet,
+                      gridProperties: sheets.GridProperties(frozenRowCount: 1),
+                    ),
+                  ),
+                )
+              ],
             ),
             spreadsheetId,
           ));
@@ -1206,7 +1221,10 @@ mixin DriveSheetMixin {
           requests: [
             sheets.Request(
               addSheet: sheets.AddSheetRequest(
-                properties: sheets.SheetProperties(title: sheetTitle),
+                properties: sheets.SheetProperties(
+                  title: sheetTitle,
+                  gridProperties: sheets.GridProperties(frozenRowCount: 1),
+                ),
               ),
             ),
           ],
