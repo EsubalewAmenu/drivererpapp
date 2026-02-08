@@ -570,49 +570,7 @@ mixin DriveSheetMixin {
 
   /// Updates a single key/value pair in a specific tab's sheet (A:B rows).
   Future<void> updateTabField(String tabsId, String tabId, String key, dynamic value) async {
-    try {
-      // 1. Fetch current rows to find the key
-      final range = '$tabId!A:B';
-      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(tabsId, range));
-      final rows = response.values ?? [];
-
-      int foundIndex = -1;
-      for (int i = 0; i < rows.length; i++) {
-        if (rows[i].isNotEmpty && rows[i].first?.toString() == key) {
-          foundIndex = i;
-          break;
-        }
-      }
-
-      final encodedValue = jsonEncode(value);
-
-      if (foundIndex != -1) {
-        // Update existing row. Columns are A (1) and B (2). Row is foundIndex + 1.
-        final updateRange = '$tabId!B${foundIndex + 1}';
-        await retryOp(() => sheetsApi.spreadsheets.values.update(
-              sheets.ValueRange(values: [
-                [encodedValue]
-              ]),
-              tabsId,
-              updateRange,
-              valueInputOption: 'RAW',
-            ));
-      } else {
-        // Append new key/value row
-        await retryOp(() => sheetsApi.spreadsheets.values.append(
-              sheets.ValueRange(values: [
-                [key, encodedValue]
-              ]),
-              tabsId,
-              range,
-              valueInputOption: 'RAW',
-            ));
-      }
-      debugPrint('DriveSheetMixin: updated tab field $key in $tabId for spreadsheet $tabsId');
-    } catch (e) {
-      debugPrint('Error updating tab field $key in $tabId: $e');
-      rethrow;
-    }
+    return updateTabFields(tabsId, tabId, {key: value});
   }
 
   /// Updates multiple key/value pairs in a specific tab's sheet (A:B rows).
@@ -674,79 +632,16 @@ mixin DriveSheetMixin {
   Future<void> saveRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, Map<String, dynamic> data) async {
     try {
       // 1. Find Spreadsheet
-      // Use sheetTitle as the spreadsheet name to save each tab in a separate file
-      String targetSpreadsheetName = sheetTitle;
-      String? spreadsheetId = await getFileId(moduleFolderId, targetSpreadsheetName);
+      String? spreadsheetId = await getFileId(moduleFolderId, spreadsheetName);
+      if (spreadsheetId == null && spreadsheetName != sheetTitle) {
+        spreadsheetId = await getFileId(moduleFolderId, sheetTitle);
+      }
       
       if (spreadsheetId == null) {
-        throw Exception('Spreadsheet $targetSpreadsheetName not found in module folder $moduleFolderId. Development or provisioning error.');
+        throw Exception('Spreadsheet $spreadsheetName not found in module folder $moduleFolderId.');
       }
 
-      // 2. Prepare Data with Technical Fields
-      final recordId = data['record_id'] ?? DateTime.now().microsecondsSinceEpoch.toString();
-      final finalData = Map<String, dynamic>.from(data);
-      finalData['record_id'] = recordId;
-      if (finalData['created_at'] == null) {
-        finalData['created_at'] = DateTime.now().toIso8601String();
-      }
-
-      // 3. Extract Nested Lists (Tables)
-      final nestedTables = <String, List<dynamic>>{};
-      final keysToRemove = <String>[];
-      final keysToEncode = <String>[];
-      
-      finalData.forEach((key, value) {
-        if (value is List) {
-          // Check if list contains Maps (nested table) or primitives (list field)
-          final isNestedTable = value.isNotEmpty && value.first is Map;
-          
-          if (isNestedTable) {
-            nestedTables[key] = value;
-            keysToRemove.add(key);
-          } else {
-            // Simple list (e.g. variants, tags) - keep in main record as JSON string
-            keysToEncode.add(key);
-          }
-        }
-      });
-
-      // Encode simple lists directly in the data
-      for (var key in keysToEncode) {
-        finalData[key] = jsonEncode(finalData[key]);
-      }
-
-      // Remove nested lists from the main record to normalize
-      // We keep a reference or just remove them as they will be in separate sheets
-      for (var key in keysToRemove) {
-        finalData.remove(key);
-      }
-
-      // 4. Save Main Record
-      await _saveToSheet(spreadsheetId, sheetTitle, finalData);
-
-      // 5. Save Nested Tables
-      for (var entry in nestedTables.entries) {
-        final subSheetTitle = '$sheetTitle.${entry.key}';
-        
-        // If updating a record, we should probably clear existing sub-items or handle carefully
-        // For simplicity, we search for each sub-item by sub_record_id and update or append.
-        // If the user deleted an item from the list UI, it stays in the Sheet!
-        // To handle deletions, we'd need to fetch all sub-items with parent_record_id and compare.
-        // For now, let's at least ensure editing existing items works.
-        
-        for (var item in entry.value) {
-          if (item is Map) {
-            final itemData = Map<String, dynamic>.from(item);
-            itemData['parent_record_id'] = recordId;
-            // Add a unique ID for the sub-item if it doesn't have one
-            if (itemData['sub_record_id'] == null) {
-              itemData['sub_record_id'] = DateTime.now().microsecondsSinceEpoch.toString();
-            }
-            await _saveToSheet(spreadsheetId, subSheetTitle, itemData);
-          }
-        }
-      }
-      
+      await saveRecordBySpreadsheetId(spreadsheetId, sheetTitle, data);
     } catch (e) {
       debugPrint('Error saving record: $e');
       rethrow;
@@ -756,43 +651,15 @@ mixin DriveSheetMixin {
   /// Save a record directly to a known spreadsheet id (fileId).
   Future<void> saveRecordBySpreadsheetId(String spreadsheetId, String sheetTitle, Map<String, dynamic> data) async {
     try {
-      // 1. Prepare Data with Technical Fields
-      final recordId = data['record_id'] ?? DateTime.now().microsecondsSinceEpoch.toString();
-      final finalData = Map<String, dynamic>.from(data);
-      finalData['record_id'] = recordId;
-      if (finalData['created_at'] == null) {
-        finalData['created_at'] = DateTime.now().toIso8601String();
-      }
+      final prepared = _prepareRecordForDrive(data);
+      final recordId = prepared['recordId'] as String;
+      final mainRecord = prepared['mainRecord'] as Map<String, dynamic>;
+      final nestedTables = prepared['nestedTables'] as Map<String, List<dynamic>>;
 
-      // 2. Extract Nested Lists (Tables)
-      final nestedTables = <String, List<dynamic>>{};
-      final keysToRemove = <String>[];
-      final keysToEncode = <String>[];
-      
-      finalData.forEach((key, value) {
-        if (value is List) {
-          final isNestedTable = value.isNotEmpty && value.first is Map;
-          if (isNestedTable) {
-            nestedTables[key] = value;
-            keysToRemove.add(key);
-          } else {
-            keysToEncode.add(key);
-          }
-        }
-      });
+      // 1. Save Main Record
+      await _saveToSheet(spreadsheetId, sheetTitle, mainRecord);
 
-      for (var key in keysToEncode) {
-        finalData[key] = jsonEncode(finalData[key]);
-      }
-
-      for (var key in keysToRemove) {
-        finalData.remove(key);
-      }
-
-      // 3. Save Main Record
-      await _saveToSheet(spreadsheetId, sheetTitle, finalData);
-
-      // 4. Save Nested Tables
+      // 2. Save Nested Tables
       for (var entry in nestedTables.entries) {
         final subSheetTitle = '$sheetTitle.${entry.key}';
         for (var item in entry.value) {
@@ -1027,17 +894,28 @@ mixin DriveSheetMixin {
 
   Future<void> deleteRecord(String moduleFolderId, String spreadsheetName, String sheetTitle, String recordId) async {
     try {
-      // 1. Find Spreadsheet
-      String? spreadsheetId = await getFileId(moduleFolderId, sheetTitle);
-      if (spreadsheetId == null) throw Exception("Spreadsheet not found");
+      final spreadsheetId = await getFileId(moduleFolderId, spreadsheetName);
+      if (spreadsheetId == null) {
+        throw Exception('Spreadsheet $spreadsheetName not found in module folder $moduleFolderId.');
+      }
 
-      // 2. Identify Row Index
+      await deleteRecordBySpreadsheetId(spreadsheetId, sheetTitle, recordId);
+    } catch (e) {
+      debugPrint('Error deleting record: $e');
+      rethrow;
+    }
+  }
+
+  /// Delete a record and its sub-table records directly by spreadsheetId.
+  Future<void> deleteRecordBySpreadsheetId(String spreadsheetId, String sheetTitle, String recordId) async {
+    try {
+      // 1. Identify Row Index
       final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
-      if (headerResponse.values == null || headerResponse.values!.isEmpty) throw Exception("Sheet is empty");
+      if (headerResponse.values == null || headerResponse.values!.isEmpty) throw Exception("Sheet $sheetTitle is empty or missing headers");
       
       final headers = headerResponse.values!.first.map((e) => e.toString()).toList();
       final idColIndex = headers.indexOf('record_id');
-      if (idColIndex == -1) throw Exception("record_id column not found");
+      if (idColIndex == -1) throw Exception("record_id column not found in $sheetTitle");
 
       final colLetter = _getColLetter(idColIndex);
       final idColResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!$colLetter:$colLetter'));
@@ -1053,18 +931,18 @@ mixin DriveSheetMixin {
         }
       }
 
-      if (rowIndex == null) throw Exception("Record not found in sheet");
+      if (rowIndex == null) throw Exception("Record $recordId not found in $sheetTitle");
 
-      // 3. Get Sheet ID (GID)
+      // 2. Get Spreadsheet metadata for GID and sub-sheets
       final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
       final sheet = spreadsheet.sheets?.firstWhere(
         (s) => s.properties?.title == sheetTitle,
         orElse: () => spreadsheet.sheets!.first,
       );
       final int? gid = sheet?.properties?.sheetId;
-      if (gid == null) throw Exception("Could not find sheet GID");
+      if (gid == null) throw Exception("Could not find GID for sheet $sheetTitle");
 
-      // 4. Delete the Row
+      // 3. Delete Main Row
       await retryOp(() => sheetsApi.spreadsheets.batchUpdate(
         sheets.BatchUpdateSpreadsheetRequest(
           requests: [
@@ -1073,8 +951,8 @@ mixin DriveSheetMixin {
                 range: sheets.DimensionRange(
                   sheetId: gid,
                   dimension: 'ROWS',
-                  startIndex: rowIndex as int,
-                  endIndex: (rowIndex) + 1,
+                  startIndex: rowIndex,
+                  endIndex: rowIndex! + 1,
                 ),
               ),
             ),
@@ -1083,22 +961,17 @@ mixin DriveSheetMixin {
         spreadsheetId,
       ));
 
-      debugPrint('Deleted record $recordId from $sheetTitle at row ${(rowIndex) + 1}');
+      debugPrint('Deleted record $recordId from $sheetTitle at row ${rowIndex! + 1}');
 
-      // 5. Delete associated sub-table records (optional but good for cleanliness)
+      // 4. Clean up sub-sheets
       final subTableSheets = spreadsheet.sheets
           ?.where((s) => s.properties?.title?.startsWith('$sheetTitle.') ?? false)
           .toList() ?? [];
-
-      if (subTableSheets.isNotEmpty) {
-        debugPrint('Found ${subTableSheets.length} potential sub-sheets for cleanup...');
-      }
 
       for (var subSheet in subTableSheets) {
         final title = subSheet.properties!.title!;
         final subGid = subSheet.properties!.sheetId!;
         
-        debugPrint('Checking sub-sheet: $title');
         // Find indices of rows with matching parent_record_id
         final subHeadersRes = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$title!1:1'));
         if (subHeadersRes.values == null || subHeadersRes.values!.isEmpty) continue;
@@ -1112,7 +985,6 @@ mixin DriveSheetMixin {
         final pValues = pColData.values;
 
         if (pValues != null) {
-          // Collect indices to delete (skip header at index 0)
           List<int> toDelete = [];
           for (int i = 1; i < pValues.length; i++) {
             if (pValues[i].isNotEmpty && pValues[i].first.toString() == recordId) {
@@ -1121,8 +993,6 @@ mixin DriveSheetMixin {
           }
 
           if (toDelete.isNotEmpty) {
-            debugPrint('Found ${toDelete.length} linked records in $title to delete');
-            // Delete in reverse order to keep indices valid during sequential deletion
             toDelete.sort((a, b) => b.compareTo(a));
             
             final requests = toDelete.map((idx) => sheets.Request(
@@ -1144,68 +1014,8 @@ mixin DriveSheetMixin {
           }
         }
       }
-      debugPrint('deleteRecord completed fully for $recordId');
     } catch (e) {
-      debugPrint('Error deleting record: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> deleteRecordBySpreadsheetId(String spreadsheetId, String sheetTitle, String recordId) async {
-    try {
-      // 1. Identify Row Index
-      final headerResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!1:1'));
-      if (headerResponse.values == null || headerResponse.values!.isEmpty) throw Exception("Sheet is empty");
-      
-      final headers = headerResponse.values!.first.map((e) => e.toString()).toList();
-      final idColIndex = headers.indexOf('record_id');
-      if (idColIndex == -1) throw Exception("record_id column not found");
-
-      final colLetter = _getColLetter(idColIndex);
-      final idColResponse = await retryOp(() => sheetsApi.spreadsheets.values.get(spreadsheetId, '$sheetTitle!$colLetter:$colLetter'));
-      final idValues = idColResponse.values;
-      
-      int? rowIndex;
-      if (idValues != null) {
-        for (int i = 0; i < idValues.length; i++) {
-          if (idValues[i].isNotEmpty && idValues[i].first.toString() == recordId) {
-            rowIndex = i; // 0-indexed for deleteDimension
-            break;
-          }
-        }
-      }
-
-      if (rowIndex == null) throw Exception("Record not found in sheet");
-
-      // 2. Get Sheet ID (GID)
-      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
-      final sheet = spreadsheet.sheets?.firstWhere(
-        (s) => s.properties?.title == sheetTitle,
-        orElse: () => spreadsheet.sheets!.first,
-      );
-      final int? gid = sheet?.properties?.sheetId;
-
-      if (gid == null) throw Exception("Sheet GID not found");
-
-      // 3. Delete Row
-      final request = sheets.BatchUpdateSpreadsheetRequest(
-        requests: [
-          sheets.Request(
-            deleteDimension: sheets.DeleteDimensionRequest(
-              range: sheets.DimensionRange(
-                sheetId: gid,
-                dimension: 'ROWS',
-                startIndex: rowIndex,
-                endIndex: rowIndex + 1,
-              ),
-            ),
-          ),
-        ],
-      );
-
-      await retryOp(() => sheetsApi.spreadsheets.batchUpdate(request, spreadsheetId));
-    } catch (e) {
-      debugPrint('Error deleting record by id: $e');
+      debugPrint('Error deleting record by spreadsheetId $spreadsheetId: $e');
       rethrow;
     }
   }
@@ -1313,6 +1123,39 @@ mixin DriveSheetMixin {
       colIndex = (colIndex / 26).floor() - 1;
     }
     return letter;
+  }
+
+  Map<String, dynamic> _prepareRecordForDrive(Map<String, dynamic> data) {
+    final recordId = data['record_id'] ?? DateTime.now().microsecondsSinceEpoch.toString();
+    final finalData = Map<String, dynamic>.from(data);
+    finalData['record_id'] = recordId;
+    if (finalData['created_at'] == null) {
+      finalData['created_at'] = DateTime.now().toIso8601String();
+    }
+
+    final nestedTables = <String, List<Map<String, dynamic>>>{};
+    final keysToRemove = <String>[];
+    
+    finalData.forEach((key, value) {
+      if (value is List) {
+        if (value.isNotEmpty && value.first is Map) {
+          nestedTables[key] = value.cast<Map<String, dynamic>>();
+          keysToRemove.add(key);
+        } else {
+          finalData[key] = jsonEncode(value);
+        }
+      }
+    });
+
+    for (var key in keysToRemove) {
+      finalData.remove(key);
+    }
+
+    return {
+      'recordId': recordId,
+      'mainRecord': finalData,
+      'nestedTables': nestedTables,
+    };
   }
 
   Future<List<Map<String, dynamic>>> fetchRecords(
