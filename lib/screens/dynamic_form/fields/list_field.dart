@@ -71,7 +71,10 @@ class _DynamicListFieldState extends State<DynamicListField> {
                       content: TextField(
                         autofocus: true,
                         onChanged: (v) => newVal = v,
-                        decoration: const InputDecoration(hintText: 'Enter value'),
+                        decoration: InputDecoration(
+                          hintText: 'Enter value',
+                          helperText: widget.column.help,
+                        ),
                       ),
                       actions: [
                         TextButton(

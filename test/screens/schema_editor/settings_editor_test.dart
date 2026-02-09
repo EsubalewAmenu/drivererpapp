@@ -193,23 +193,28 @@ void main() {
       // Fill dialog
       await tester.enterText(find.widgetWithText(TextField, 'Setting Key (ID)'), 'new_key'); // Matches labelText
       await tester.enterText(find.widgetWithText(TextField, 'Label'), 'New Label');
+      await tester.enterText(find.widgetWithText(TextField, 'Help Text'), 'New Help');
       await tester.tap(find.text('Save')); // Button is usually 'Save' or 'Add'? 
-      // Checking edit_setting_dialog logic needed, but let's assume 'Save' or 'Add'
-      // Wait, let me check the dialog code again or try finding by type
 
       expect(newSchema, containsPair('new_key', predicate((value) {
-        return value is Map && value['label'] == 'New Label';
+        return value is Map && value['label'] == 'New Label' && value['help'] == 'New Help';
       })));
     });
 
     testWidgets('renders help text when provided', (WidgetTester tester) async {
       final rawSettings = {
-        'helpSetting': {'type': 'text', 'label': 'Help Me', 'help': 'This is a hint'}
+        'helpSetting': {'type': 'text', 'label': 'Help Me', 'help': 'This is a hint'},
+        'boolSetting': {'type': 'boolean', 'label': 'Toggle Me', 'help': 'Click toggle'}
       };
       await tester.pumpWidget(createSettingsEditor(rawSettings: rawSettings));
 
       expect(find.text('Help Me'), findsOneWidget);
-      expect(find.text('This is a hint'), findsOneWidget);
+      // It is rendered twice for text: once in the row metadata and once as helperText in the input
+      expect(find.text('This is a hint'), findsNWidgets(2));
+
+      expect(find.text('Toggle Me'), findsOneWidget);
+      // It is rendered twice for boolean: once in the row metadata and once as subtitle in SwitchListTile
+      expect(find.text('Click toggle'), findsNWidgets(2));
     });
 
     testWidgets('renders unknown type warning', (WidgetTester tester) async {

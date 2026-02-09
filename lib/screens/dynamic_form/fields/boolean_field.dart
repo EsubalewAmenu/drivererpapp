@@ -31,13 +31,30 @@ class DynamicBooleanField extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              column.label,
-              style: AppTheme.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-                color: isReadonly ? theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6) : theme.textTheme.bodyLarge?.color,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  column.label,
+                  style: AppTheme.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: isReadonly ? theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6) : theme.textTheme.bodyLarge?.color,
+                  ),
+                ),
+                if (column.help != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(
+                      column.help!,
+                      style: AppTheme.inter(
+                        fontSize: 12,
+                        color: theme.textTheme.bodySmall?.color,
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ),
           Switch(

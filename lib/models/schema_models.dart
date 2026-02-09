@@ -384,6 +384,7 @@ class QuickFilter {
 class ColumnConfig {
   final String key;
   final String label;
+  final String? help;
   final String type;
   final dynamic options; // Can be List<String> or String (reference)
   final String? formula;
@@ -408,6 +409,7 @@ class ColumnConfig {
   ColumnConfig({
     required this.key,
     required this.label,
+    this.help,
     required this.type,
     this.options,
     this.formula,

@@ -171,6 +171,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
       case 'boolean':
         return SwitchListTile(
           title: Text('Value', style: TextStyle(color: textColor)),
+          subtitle: item['help'] != null ? Text(item['help'].toString(), style: TextStyle(fontSize: 11, color: hintColor)) : null,
           value: widget.settingsValues[key] == true,
           onChanged: (val) => widget.onSettingChanged(key, val),
           activeThumbColor: theme.primaryColor,
@@ -188,6 +189,8 @@ class _SettingsEditorState extends State<SettingsEditor> {
             isDense: true,
             hintText: 'Enter value',
             hintStyle: TextStyle(color: hintColor),
+            helperText: item['help']?.toString(),
+            helperStyle: TextStyle(fontSize: 10, color: hintColor),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           onChanged: (val) => widget.onSettingChanged(key, val),
@@ -201,6 +204,8 @@ class _SettingsEditorState extends State<SettingsEditor> {
             isDense: true,
             hintText: 'Enter number',
             hintStyle: TextStyle(color: hintColor),
+            helperText: item['help']?.toString(),
+            helperStyle: TextStyle(fontSize: 10, color: hintColor),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
           onChanged: (val) {
@@ -210,20 +215,30 @@ class _SettingsEditorState extends State<SettingsEditor> {
         );
       case 'list':
         List<String> currentList = (widget.settingsValues[key] as List?)?.cast<String>() ?? [];
-        return Wrap(
-          spacing: 8,
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ...currentList.map((e) => Chip(
-              label: Text(e),
-              onDeleted: () {
-                final newList = List<String>.from(currentList)..remove(e);
-                widget.onSettingChanged(key, newList);
-              },
-            )),
-            ActionChip(
-              label: const Icon(Icons.add, size: 16),
-              onPressed: () => _showAddListItemDialog(key, currentList),
+            Wrap(
+              spacing: 8,
+              children: [
+                ...currentList.map((e) => Chip(
+                  label: Text(e),
+                  onDeleted: () {
+                    final newList = List<String>.from(currentList)..remove(e);
+                    widget.onSettingChanged(key, newList);
+                  },
+                )),
+                ActionChip(
+                  label: const Icon(Icons.add, size: 16),
+                  onPressed: () => _showAddListItemDialog(key, currentList),
+                ),
+              ],
             ),
+            if (item['help'] != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(item['help'].toString(), style: TextStyle(fontSize: 10, color: hintColor)),
+              ),
           ],
         );
       case 'icon':
@@ -234,6 +249,8 @@ class _SettingsEditorState extends State<SettingsEditor> {
             isDense: true,
             hintText: 'e.g. inventory',
             hintStyle: TextStyle(color: hintColor),
+            helperText: item['help']?.toString(),
+            helperStyle: TextStyle(fontSize: 10, color: hintColor),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             prefixIcon: Icon(iconFromName(widget.settingsValues[key]?.toString()), color: theme.primaryColor),
           ),
@@ -263,6 +280,8 @@ class _SettingsEditorState extends State<SettingsEditor> {
             isDense: true,
             hintText: 'e.g. #FF5722',
             hintStyle: TextStyle(color: hintColor),
+            helperText: item['help']?.toString(),
+            helperStyle: TextStyle(fontSize: 10, color: hintColor),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             prefixIcon: Padding(
               padding: const EdgeInsets.all(12),

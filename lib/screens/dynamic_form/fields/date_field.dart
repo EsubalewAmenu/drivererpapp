@@ -99,6 +99,17 @@ class DynamicDateField extends StatelessWidget {
                 ),
               ),
             ),
+            if (column.help != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 8, top: 8),
+                child: Text(
+                  column.help!,
+                  style: AppTheme.inter(
+                    fontSize: 12,
+                    color: theme.textTheme.bodySmall?.color,
+                  ),
+                ),
+              ),
             if (state.hasError)
               Padding(
                 padding: const EdgeInsets.only(left: 8, top: 8),

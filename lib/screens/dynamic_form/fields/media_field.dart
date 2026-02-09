@@ -35,16 +35,41 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    Widget field;
     switch (widget.type) {
       case 'image':
-        return _buildImagePicker(context);
+        field = _buildImagePicker(context);
+        break;
       case 'scanner':
-        return _buildScanner(context);
+        field = _buildScanner(context);
+        break;
       case 'signature':
-        return _buildSignaturePad(context);
+        field = _buildSignaturePad(context);
+        break;
       default:
-        return const SizedBox.shrink();
+        field = const SizedBox.shrink();
     }
+
+    if (widget.column.help == null) return field;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        field,
+        Padding(
+          padding: const EdgeInsets.only(top: 4, left: 4),
+          child: Text(
+            widget.column.help!,
+            style: AppTheme.inter(
+              fontSize: 12,
+              color: theme.textTheme.bodySmall?.color,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   Widget _buildImagePicker(BuildContext context) {
