@@ -304,6 +304,8 @@ class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
           decoration: InputDecoration(
             filled: true,
             fillColor: widget.column.readonly == true ? theme.dividerColor.withValues(alpha: 0.05) : fillColor,
+            helperText: widget.column.help,
+            helperMaxLines: 2,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,

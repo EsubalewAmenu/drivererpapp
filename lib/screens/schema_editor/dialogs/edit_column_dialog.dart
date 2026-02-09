@@ -23,6 +23,7 @@ class EditColumnDialog extends StatefulWidget {
 class _EditColumnDialogState extends State<EditColumnDialog> {
   late TextEditingController _labelController;
   late TextEditingController _keyController;
+  late TextEditingController _helpController;
   late String _currentType;
   String? _currentDependsOn;
   late bool _isHidden;
@@ -38,6 +39,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
     super.initState();
     _labelController = TextEditingController(text: widget.column.label);
     _keyController = TextEditingController(text: widget.column.key);
+    _helpController = TextEditingController(text: widget.column.help);
     _currentType = widget.column.type;
     _currentDependsOn = widget.column.dependsOn;
     _isHidden = widget.column.hidden ?? false;
@@ -56,6 +58,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
   void dispose() {
     _labelController.dispose();
     _keyController.dispose();
+    _helpController.dispose();
     super.dispose();
   }
 
@@ -113,6 +116,15 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               controller: _labelController,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(labelText: 'Column Name'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _helpController,
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+              decoration: const InputDecoration(
+                labelText: 'Help Text',
+                hintText: 'Helpful instructions for users filling this field',
+              ),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -288,6 +300,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
             final newCol = ColumnConfig(
               key: _keyController.text,
               label: _labelController.text,
+              help: _helpController.text.isEmpty ? null : _helpController.text,
               type: _currentType,
               dependsOn: _currentDependsOn,
               hidden: _isHidden,

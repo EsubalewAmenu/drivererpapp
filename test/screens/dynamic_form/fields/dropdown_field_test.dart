@@ -6,13 +6,18 @@ import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/providers/workspace_provider.dart';
+import 'package:drivererpapp/models/company_model.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 
 class MockDriveProvider extends Mock implements DriveProvider {}
 class MockDriveService extends Mock implements DriveService {}
+class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
 
 void main() {
   late MockDriveProvider mockDriveProvider;
   late MockDriveService mockDriveService;
+  late WorkspaceProvider workspaceProvider;
 
   setUpAll(() {
     Provider.debugCheckInvalidValueType = null;
@@ -21,6 +26,7 @@ void main() {
   setUp(() {
     mockDriveProvider = MockDriveProvider();
     mockDriveService = MockDriveService();
+    workspaceProvider = WorkspaceProvider();
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
   });
 
@@ -35,6 +41,7 @@ void main() {
     return MultiProvider(
       providers: [
         Provider<DriveProvider>.value(value: mockDriveProvider),
+        ChangeNotifierProvider<WorkspaceProvider>.value(value: workspaceProvider),
       ],
       child: MaterialApp(
         home: Scaffold(
@@ -337,5 +344,75 @@ void main() {
     
     // Should have called fetch again
     expect(fetchCount, 2);
+  });
+
+  testWidgets('DynamicDropdownField handles dependent relation lookup helper', (WidgetTester tester) async {
+    final parentCol = ColumnConfig(
+      key: 'category',
+      label: 'Category',
+      type: 'relation',
+      options: 'categories_tab'
+    );
+    final dependentCol = ColumnConfig(
+      key: 'subcat',
+      label: 'Subcat',
+      type: 'dropdown',
+      dependsOn: 'category',
+      options: 'category.items'
+    );
+    
+    final module = ModuleSchema(
+      id: 'm1',
+      name: 'M1',
+      icon: 'a',
+      primaryColor: '#000000',
+      version: '1',
+      settings: {},
+      tabs: [
+        TabConfig(
+          id: 't1', label: 'T1',
+          columns: [parentCol, dependentCol]
+        ),
+        TabConfig(
+          id: 'categories_tab', label: 'Cats',
+          fileId: 'categories_file_id',
+          columns: [
+            ColumnConfig(key: 'id', label: 'ID', type: 'text'),
+            ColumnConfig(key: 'name', label: 'Name', type: 'text'),
+            ColumnConfig(key: 'items', label: 'Items', type: 'text') 
+          ]
+        )
+      ],
+      dashboard: DashboardConfig(cards: [])
+    );
+
+    workspaceProvider.setWorkspace(drive.File(id: 'ws1', name: 'WS'));
+
+    when(() => mockDriveService.fetchRecordsBySpreadsheetId(
+      any(),
+      any(),
+      fetchSubTables: any(named: 'fetchSubTables'),
+    )).thenAnswer((_) async => [
+      {'id': 'C1', 'name': 'C1', 'items': '[S1,S2,S3]'}
+    ]);
+
+    await tester.pumpWidget(createField(
+      column: dependentCol,
+      value: null,
+      onChanged: (_) {},
+      data: {'category': 'C1'},
+      module: module,
+    ));
+    await tester.pumpAndSettle();
+
+    // Verify loading worked
+    expect(find.byType(DropdownButtonFormField<String>), findsOneWidget);
+    
+    // Tap to open dropdown
+    await tester.tap(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
+
+    // Verify S1 is found (dropdown items might appear twice in the tree)
+    expect(find.text('S1').last, findsOneWidget);
   });
 }

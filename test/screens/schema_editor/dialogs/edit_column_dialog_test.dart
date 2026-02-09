@@ -33,8 +33,14 @@ void main() {
     
     // Label change
     await tester.enterText(find.widgetWithText(TextField, 'Column Name'), 'New Label');
+
+    // Help text change
+    await tester.enterText(find.widgetWithText(TextField, 'Help Text'), 'Instruction');
     
     // Hidden Toggle
+    await tester.ensureVisible(find.widgetWithText(SwitchListTile, 'Hidden (Don\'t show on form)'));
+    await tester.tap(find.widgetWithText(SwitchListTile, 'Hidden (Don\'t show on form)'));
+    await tester.pump();
     await tester.tap(find.widgetWithText(SwitchListTile, 'Hidden (Don\'t show on form)'));
     await tester.pump();
     
@@ -48,6 +54,7 @@ void main() {
 
     expect(updatedColumn, isNotNull);
     expect(updatedColumn!.label, 'New Label');
+    expect(updatedColumn!.help, 'Instruction');
     expect(updatedColumn!.hidden, true);
   });
 

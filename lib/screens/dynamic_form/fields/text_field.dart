@@ -106,6 +106,8 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
             fillColor: widget.column.readonly == true ? theme.dividerColor.withValues(alpha: 0.05) : fillColor,
             hintText: 'Enter ${widget.column.label.toLowerCase()}',
             hintStyle: TextStyle(color: hintColor),
+            helperText: widget.column.help,
+            helperMaxLines: 2,
             prefixText: isCurrency ? '${widget.column.currencySymbol ?? '\$'} ' : null,
             prefixStyle: TextStyle(color: textColor, fontWeight: FontWeight.bold),
             border: OutlineInputBorder(

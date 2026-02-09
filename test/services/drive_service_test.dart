@@ -324,6 +324,24 @@ void main() {
         throwsException,
       );
     });
+
+    test('deleteFile calls delete API', () async {
+      when(() => mockFilesResource.delete('file123')).thenAnswer((_) async => null);
+      await driveService.deleteFile('file123');
+      verify(() => mockFilesResource.delete('file123')).called(1);
+    });
+
+    test('getFileContent rethrows on error', () async {
+      when(() => mockFilesResource.get(any(), downloadOptions: drive.DownloadOptions.fullMedia, supportsAllDrives: any(named: 'supportsAllDrives')))
+          .thenThrow(Exception('read error'));
+      expect(() => driveService.getFileContent('f123'), throwsException);
+    });
+
+    test('uploadFile rethrows on error', () async {
+      when(() => mockFilesResource.create(any(), uploadMedia: any(named: 'uploadMedia')))
+          .thenThrow(Exception('upload error'));
+      expect(() => driveService.uploadFile('folder', 'name', [1, 2, 3]), throwsException);
+    });
   });
 
   group('DriveSheetMixin', () {

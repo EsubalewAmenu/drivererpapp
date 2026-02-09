@@ -160,6 +160,68 @@ void main() {
       verify(() => mockValues.update(any(), any(), any(), valueInputOption: 'RAW')).called(1);
     });
 
+    test('readTabsById parses tab configs from sheets', () async {
+      when(() => mockSpreadsheets.get('tabs123')).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'tabs'))]
+      ));
+      when(() => mockValues.get('tabs123', "'tabs'!A:B")).thenAnswer((_) async => sheets.ValueRange(
+        values: [
+          ['id', '"t1"'],
+          ['label', '"Orders"'],
+          ['columns', '[{"key":"name"}]']
+        ]
+      ));
+
+      final tabs = await service.readTabsById('tabs123');
+
+      expect(tabs, isNotNull);
+      expect(tabs!.length, 1);
+      expect(tabs[0]['id'], 't1');
+    });
+
+    test('readDashboardById parses cards from list format', () async {
+      when(() => mockValues.get('db123', 'cards!A1:Z')).thenAnswer((_) async => sheets.ValueRange(
+        values: [
+          ['{"label":"KPI", "formula":"sum(A)"}']
+        ]
+      ));
+
+      final result = await service.readDashboardById('db123');
+      expect(result, isA<List>());
+      final cards = result as List;
+      expect(cards.length, 1);
+      expect(cards[0]['label'], 'KPI');
+    });
+
+    test('writeTabsById updates tabs sheet', () async {
+      when(() => mockSpreadsheets.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 't1'))]
+      ));
+      when(() => mockValues.clear(any(), any(), any())).thenAnswer((_) async => sheets.ClearValuesResponse());
+      when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+          .thenAnswer((_) async => sheets.UpdateValuesResponse());
+
+      final tabs = [
+        TabConfig(id: 't1', label: 'T1', columns: [ColumnConfig(key: 'k1', label: 'L1', type: 'text')]).toJson()
+      ];
+
+      await service.writeTabsById('tabs123', tabs);
+
+      verify(() => mockValues.update(any(), 'tabs123', 't1!A1', valueInputOption: 'RAW')).called(1);
+    });
+
+    test('createSpreadsheetInFolder creates and initializes a sheet', () async {
+      when(() => mockFiles.create(any(), supportsAllDrives: any(named: 'supportsAllDrives')))
+          .thenAnswer((_) async => drive.File()..id = 'new_sid');
+      when(() => mockSpreadsheets.batchUpdate(any(), 'new_sid')).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
+
+      final id = await service.createSpreadsheetInFolder('folder123', 'New Spreadsheet');
+
+      expect(id, 'new_sid');
+      verify(() => mockFiles.create(any(), supportsAllDrives: true)).called(1);
+      verify(() => mockSpreadsheets.batchUpdate(any(), 'new_sid')).called(1);
+    });
+
     test('createModuleConfig handles spreadsheet creation directly in folder', () async {
       when(() => mockFiles.create(any(), supportsAllDrives: any(named: 'supportsAllDrives')))
           .thenAnswer((_) async => drive.File()..id = 'new_sid');
@@ -198,6 +260,22 @@ void main() {
        verify(() => mockValues.append(any(), any(), any(), valueInputOption: 'RAW')).called(greaterThan(1));
     });
 
+    test('saveRecordBySpreadsheetId adds new columns when data has extra keys', () async {
+      when(() => mockValues.get(any(), "'Sheet1'!A1:ZZ1"))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['record_id']]));
+      when(() => mockValues.get(any(), any(that: contains('A:A'))))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['record_id']]));
+      when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+          .thenAnswer((_) async => sheets.UpdateValuesResponse());
+      when(() => mockValues.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'), insertDataOption: any(named: 'insertDataOption')))
+          .thenAnswer((_) async => sheets.AppendValuesResponse());
+
+      final data = {'record_id': 'r_new', 'new_col': 'val'};
+      await service.saveRecordBySpreadsheetId('mock_file_id', 'Sheet1', data);
+
+      verify(() => mockValues.update(any(), 'mock_file_id', "'Sheet1'!A1", valueInputOption: 'RAW')).called(1);
+    });
+
     test('fetchRecords handles sub-tables and joining', () async {
        when(() => mockSpreadsheets.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
          sheets: [
@@ -220,6 +298,34 @@ void main() {
        final results = await service.fetchRecords('folderId', 'Spreadsheet', 'Main');
        expect(results, isNotEmpty);
        expect(results.first.containsKey('subs'), isTrue);
+    });
+
+    test('fetchRecords falls back to local fetch if Gviz/search fails', () async {
+      // Stub metadata
+      when(() => mockSpreadsheets.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'Main'))]
+      ));
+
+      // Mock value range for local fetch
+      when(() => mockValues.get(any(), any())).thenAnswer((inv) async {
+         final range = inv.positionalArguments[1] as String;
+         if (range.contains('1:1')) return sheets.ValueRange(values: [['record_id', 'name']]);
+         return sheets.ValueRange(values: [['record_id', 'name'], ['r1', 'Match'], ['r2', 'Other']]);
+      });
+
+      // DriveSheetGviz should fail (mocked by not providing a valid response for http client)
+      when(() => mockHttpClient.get(any(), headers: any(named: 'headers')))
+          .thenThrow(Exception('Gviz failed'));
+
+      // Fetch with search query
+      final results = await service.fetchRecords(
+        'folder', 'Spreadsheet', 'Main', 
+        searchQuery: 'Match', 
+        fetchSubTables: false
+      );
+
+      expect(results.length, 1);
+      expect(results.first['name'], 'Match');
     });
 
     test('saveRecord adds new columns when data has extra keys', () async {
@@ -387,6 +493,35 @@ void main() {
       )).called(1);
       
       verifyNever(() => mockValues.append(any(), any(), any(), valueInputOption: 'RAW'));
+    });
+
+    test('saveRecordsBatchBySpreadsheetId appends multiple records', () async {
+      when(() => mockSpreadsheets.get(any())).thenAnswer((_) async => sheets.Spreadsheet(
+        sheets: [sheets.Sheet(properties: sheets.SheetProperties(title: 'Sheet1'))]
+      ));
+      
+      when(() => mockValues.get(any(), any())).thenAnswer((_) async => sheets.ValueRange(values: [['record_id', 'name']]));
+      
+      when(() => mockValues.append(any(), any(), any(), 
+        valueInputOption: any(named: 'valueInputOption'), 
+        insertDataOption: any(named: 'insertDataOption')
+      )).thenAnswer((_) async => sheets.AppendValuesResponse());
+
+      final records = [
+        {'name': 'R1'},
+        {'name': 'R2'},
+      ];
+
+      await service.saveRecordsBatchBySpreadsheetId('mock_file_id', 'Sheet1', records);
+
+      // Should call append once for main records
+      verify(() => mockValues.append(
+        any(that: predicate<sheets.ValueRange>((vr) => vr.values?.length == 2)), 
+        'mock_file_id', 
+        'Sheet1!A1', 
+        valueInputOption: 'RAW', 
+        insertDataOption: 'INSERT_ROWS'
+      )).called(1);
     });
 
     test('DriveSheetMixin deleteRecord calls batchUpdate with deleteDimension', () async {

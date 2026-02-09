@@ -9,7 +9,7 @@ void main() {
   setUp(() {
     // Set a larger surface size to avoid scrolling issues in tests
     final binding = TestWidgetsFlutterBinding.ensureInitialized();
-    binding.platformDispatcher.implicitView!.physicalSize = const Size(1024, 1024);
+    binding.platformDispatcher.implicitView!.physicalSize = const Size(1024, 2048);
     binding.platformDispatcher.implicitView!.devicePixelRatio = 1.0;
 
     testTab = TabConfig(
@@ -66,6 +66,61 @@ void main() {
     expect(find.text('Filters are disabled for this tab.'), findsOneWidget);
   });
 
+  testWidgets('TabSettingsScreen can add, edit and remove filters', (WidgetTester tester) async {
+    await tester.pumpWidget(createTabSettingsScreen(testTab));
+    
+    // Test Removal
+    await tester.tap(find.byIcon(Icons.delete_outline));
+    await tester.pumpAndSettle();
+    expect(find.text('No custom filters added yet.'), findsOneWidget);
+
+    // Test Addition (FAB)
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    
+    // In FilterEditorScreen (simplified mock/interact)
+    expect(find.text('Column'), findsOneWidget);
+    await tester.tap(find.text('Name'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Age')); // Select Age
+    await tester.pumpAndSettle();
+    
+    await tester.enterText(find.ancestor(of: find.text('Enter value...'), matching: find.byType(TextField)), '25');
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+    
+    expect(find.text('Age Equals 25'), findsOneWidget);
+
+    // Test Editing
+    await tester.tap(find.byIcon(Icons.edit_outlined).first);
+    await tester.pumpAndSettle();
+    
+    // Clear label to allow auto-generation
+    await tester.enterText(find.ancestor(of: find.text('Auto-generated if empty'), matching: find.byType(TextField)), '');
+    await tester.enterText(find.ancestor(of: find.text('Enter value...'), matching: find.byType(TextField)), '30');
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+    
+    expect(find.text('Age Equals 30'), findsOneWidget);
+  });
+
+  testWidgets('TabSettingsScreen FAB visibility and filters mixin listener', (WidgetTester tester) async {
+    await tester.pumpWidget(createTabSettingsScreen(testTab));
+    
+    // FAB is visible on Filters tab (index 0)
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+    
+    // Switch to List tab
+    await tester.tap(find.text('List'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingActionButton), findsNothing);
+    
+    // Switch back to Filters
+    await tester.tap(find.text('Filters'));
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingActionButton), findsOneWidget);
+  });
+
   testWidgets('TabSettingsScreen can switch tabs and update Display template', (WidgetTester tester) async {
     await tester.pumpWidget(createTabSettingsScreen(testTab));
     
@@ -89,6 +144,10 @@ void main() {
     await tester.tap(find.text('List'));
     await tester.pumpAndSettle();
 
+    // Select Standard Card to show trailing toggle
+    await tester.tap(find.text('Standard Card'));
+    await tester.pumpAndSettle();
+
     final titleLogicSwitch = find.ancestor(
       of: find.text('Conditional Title'),
       matching: find.byType(SwitchListTile),
@@ -100,6 +159,17 @@ void main() {
     expect(find.text('Condition (e.g. Is Individual?)'), findsOneWidget);
     expect(find.text('If True'), findsOneWidget);
     expect(find.text('If False'), findsOneWidget);
+
+    // Test other list logic toggles
+    final subtitleLogicSwitch = find.ancestor(of: find.text('Conditional Subtitle'), matching: find.byType(SwitchListTile));
+    await tester.tap(subtitleLogicSwitch);
+    await tester.pumpAndSettle();
+    expect(find.text('Condition'), findsOneWidget);
+
+    final trailingLogicSwitch = find.ancestor(of: find.text('Conditional Trailing (Badge)'), matching: find.byType(SwitchListTile));
+    await tester.tap(trailingLogicSwitch);
+    await tester.pumpAndSettle();
+    expect(find.text('Condition'), findsNWidgets(2));
   });
 
   testWidgets('TabSettingsScreen handles Detail Layout and visibility', (WidgetTester tester) async {
@@ -122,6 +192,18 @@ void main() {
     expect(find.widgetWithText(CheckboxListTile, 'Name'), findsOneWidget);
     expect(find.widgetWithText(CheckboxListTile, 'Age'), findsOneWidget);
     expect(find.widgetWithText(CheckboxListTile, 'Is Active'), findsOneWidget);
+
+    // Test Detail conditional logic
+    final detailTitleLogicSwitch = find.ancestor(of: find.text('Conditional Title'), matching: find.byType(SwitchListTile));
+    await tester.tap(detailTitleLogicSwitch);
+    await tester.pumpAndSettle();
+    expect(find.text('Condition (e.g. Is Individual?)'), findsOneWidget);
+
+    final autoLoadSwitch = find.ancestor(of: find.text('Auto-load Tables'), matching: find.byType(SwitchListTile));
+    expect(tester.widget<SwitchListTile>(autoLoadSwitch).value, isTrue);
+    await tester.tap(autoLoadSwitch);
+    await tester.pumpAndSettle();
+    expect(tester.widget<SwitchListTile>(autoLoadSwitch).value, isFalse);
   });
 
   testWidgets('TabSettingsScreen returns updated config on Save', (WidgetTester tester) async {
@@ -339,5 +421,89 @@ void main() {
     expect(resultData, isNotNull);
     final filters = resultData!['filters'] as List<QuickFilter>;
     expect(filters, isEmpty);
+  });
+
+  testWidgets('TabSettingsScreen saves auto-load tables and list trailing logic', (tester) async {
+    tester.view.physicalSize = const Size(1024, 2048);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+
+    Map<String, dynamic>? resultData;
+    
+    await tester.pumpWidget(MaterialApp(
+      home: TabSettingsScreen(
+        tab: testTab,
+        primaryColor: Colors.blue,
+        onSave: (data) => resultData = data,
+      ),
+    ));
+
+    // 1. Details tab: toggle Auto-load Tables
+    await tester.tap(find.text('Details'));
+    await tester.pumpAndSettle();
+
+    final autoLoadSwitch = find.ancestor(of: find.text('Auto-load Tables'), matching: find.byType(SwitchListTile));
+    await tester.tap(autoLoadSwitch);
+    await tester.pumpAndSettle();
+
+    // 2. List tab: change template and set trailing logic
+    await tester.tap(find.text('List'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Standard Card'));
+    await tester.pumpAndSettle();
+
+    final trailingLogicSwitch = find.ancestor(of: find.text('Conditional Trailing (Badge)'), matching: find.byType(SwitchListTile));
+    await tester.ensureVisible(trailingLogicSwitch);
+    await tester.tap(trailingLogicSwitch);
+    await tester.pumpAndSettle();
+
+    // Set condition for trailing - with title/subtitle logic off, it should be the 3rd dropdown (index 2)
+    final dropdowns = find.byType(DropdownButtonFormField<String>);
+    await tester.ensureVisible(dropdowns.at(2));
+    await tester.tap(dropdowns.at(2));
+    await tester.pumpAndSettle();
+    
+    await tester.tap(find.text('Is Active').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(TextButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    expect(resultData, isNotNull);
+    expect(resultData!['load_sub_table_data_automatically'], isFalse); 
+    
+    final listConfig = resultData!['listTemplate'] as ListTemplateConfig;
+    expect(listConfig.template, 'standard');
+    expect(listConfig.trailingLogic?.conditionKey, 'is_active');
+  });
+
+  testWidgets('TabSettingsScreen initializes with conditional logic', (WidgetTester tester) async {
+    final conditionalTab = TabConfig(
+      id: 'cond',
+      label: 'Conditional',
+      fileId: 'cond_id',
+      columns: [
+        ColumnConfig(label: 'Status', key: 'status', type: 'text'),
+        ColumnConfig(label: 'Name', key: 'name', type: 'text'),
+      ],
+      listTemplate: ListTemplateConfig(
+        template: 'standard',
+        titleKey: 'name',
+        subtitleKey: 'status',
+        titleLogic: ConditionalLogic(conditionKey: 'status', truthyKey: 'name', falsyKey: 'status'),
+        subtitleLogic: ConditionalLogic(conditionKey: 'status', truthyKey: 'status', falsyKey: 'name'),
+        trailingLogic: ConditionalLogic(conditionKey: 'status', truthyKey: 'name', falsyKey: 'name'),
+      ),
+    );
+
+    await tester.pumpWidget(createTabSettingsScreen(conditionalTab));
+    await tester.tap(find.text('List'));
+    await tester.pumpAndSettle();
+
+    // Verify switches are ON
+    expect(find.text('Conditional Title'), findsOneWidget);
+    expect(find.text('Conditional Subtitle'), findsOneWidget);
+    expect(find.text('Conditional Trailing (Badge)'), findsOneWidget);
   });
 }

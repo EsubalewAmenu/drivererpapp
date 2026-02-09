@@ -321,7 +321,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
             'dashboardSheetId': extDashboardId,
             'tabsSheetId': extTabsId,
           });
-          debugPrint('Enabled module entry -> id:$modId name:$name icon:$icon primaryColor:$primaryColor activated:$activated');
         } catch (e) {
           debugPrint('Error loading enabled module entry "$rawKey": $e');
           continue;

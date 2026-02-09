@@ -233,6 +233,7 @@ Map<String, dynamic> _$QuickFilterToJson(QuickFilter instance) =>
 ColumnConfig _$ColumnConfigFromJson(Map<String, dynamic> json) => ColumnConfig(
   key: json['key'] as String,
   label: json['label'] as String,
+  help: json['help'] as String?,
   type: json['type'] as String,
   options: json['options'],
   formula: json['formula'] as String?,
@@ -254,6 +255,7 @@ Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
     <String, dynamic>{
       'key': instance.key,
       'label': instance.label,
+      'help': instance.help,
       'type': instance.type,
       'options': instance.options,
       'formula': instance.formula,
