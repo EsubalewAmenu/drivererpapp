@@ -65,7 +65,7 @@ mixin DriveSheetFetch on DriveSheetMixin, DriveSheetGviz {
       }
 
       bool isSearch = searchQuery != null && searchQuery.length >= 2;
-      bool hasQuickFilter = quickFilter != null && quickFilter['field'] != null && quickFilter['operator'] != null;
+      bool hasQuickFilter = quickFilter != null && quickFilter['rules'] is List && (quickFilter['rules'] as List).isNotEmpty;
 
       List<Map<String, dynamic>> finalRecords;
       if (isSearch || descending || hasQuickFilter) {
@@ -89,25 +89,32 @@ mixin DriveSheetFetch on DriveSheetMixin, DriveSheetGviz {
           }
 
           if (hasQuickFilter) {
-            final field = quickFilter['field'] as String;
-            final op = quickFilter['operator'] as String;
-            final filterValue = quickFilter['value']?.toString().toLowerCase() ?? '';
-
+            final rules = (quickFilter['rules'] as List).cast<Map<String, dynamic>>();
             finalRecords = finalRecords.where((item) {
-              final itemVal = item[field]?.toString().toLowerCase() ?? '';
-              if (op == '==' || op == '=') return itemVal == filterValue;
-              if (op == '!=') return itemVal != filterValue;
-              if (op == 'contains') return itemVal.contains(filterValue);
-              if (op == 'startsWith') return itemVal.startsWith(filterValue);
-              final numItem = num.tryParse(itemVal);
-              final numFilter = num.tryParse(filterValue);
-              if (numItem != null && numFilter != null) {
-                if (op == '>') return numItem > numFilter;
-                if (op == '>=') return numItem >= numFilter;
-                if (op == '<') return numItem < numFilter;
-                if (op == '<=') return numItem <= numFilter;
-              }
-              return true;
+              return rules.every((rule) {
+                final field = rule['field']?.toString() ?? '';
+                final op = rule['operator']?.toString() ?? '';
+                final filterValue = rule['value']?.toString().toLowerCase() ?? '';
+                final itemVal = item[field]?.toString().toLowerCase() ?? '';
+                if (op == '==' || op == '=') return itemVal == filterValue;
+                if (op == '!=') return itemVal != filterValue;
+                if (op == 'contains') return itemVal.contains(filterValue);
+                if (op == 'startsWith' || op == 'startsWidth') return itemVal.startsWith(filterValue);
+                if (op == 'endsWith') return itemVal.endsWith(filterValue);
+                final numItem = num.tryParse(itemVal);
+                final numFilter = num.tryParse(filterValue);
+                if (numItem != null && numFilter != null) {
+                  if (op == '>') return numItem > numFilter;
+                  if (op == '>=') return numItem >= numFilter;
+                  if (op == '<') return numItem < numFilter;
+                  if (op == '<=') return numItem <= numFilter;
+                }
+                if (op == '>') return itemVal.compareTo(filterValue) > 0;
+                if (op == '>=') return itemVal.compareTo(filterValue) >= 0;
+                if (op == '<') return itemVal.compareTo(filterValue) < 0;
+                if (op == '<=') return itemVal.compareTo(filterValue) <= 0;
+                return true;
+              });
             }).toList();
           }
         }
@@ -242,40 +249,43 @@ mixin DriveSheetFetch on DriveSheetMixin, DriveSheetGviz {
         if (searchParts.isNotEmpty) whereClauses.add("(${searchParts.join(' OR ')})");
       }
 
-      if (filter != null) {
-        final field = filter['field'] as String;
-        final op = filter['operator'] as String;
-        final val = filter['value'];
-        final fieldIndex = rawHeaders.indexOf(field);
-        if (fieldIndex != -1) {
-          final col = indexToColumn(fieldIndex);
-          String? clause;
-          final actualTypes = await getSheetColumnTypes(spreadsheetId, gid);
-          bool isNumericCol = false;
-          if (actualTypes.length > fieldIndex) {
-            final typeStr = actualTypes[fieldIndex].toLowerCase();
-            isNumericCol = typeStr == 'number' || typeStr == 'boolean';
-          }
-          String gvizVal = val.toString();
-          bool isNumericVal = num.tryParse(gvizVal) != null;
-          bool isBoolVal = gvizVal.toLowerCase() == 'true' || gvizVal.toLowerCase() == 'false';
-          String escapedVal = gvizVal.replaceAll("'", "''");
-          bool useNoQuotes = isNumericCol || (actualTypes.isEmpty && (isNumericVal || isBoolVal));
+      if (filter != null && filter['rules'] is List) {
+        final rules = (filter['rules'] as List).cast<Map<String, dynamic>>();
+        for (final rule in rules) {
+          final field = rule['field']?.toString() ?? '';
+          final op = rule['operator']?.toString() ?? '';
+          final val = rule['value'];
+          final fieldIndex = rawHeaders.indexOf(field);
+          if (fieldIndex != -1) {
+            final col = indexToColumn(fieldIndex);
+            String? clause;
+            final actualTypes = await getSheetColumnTypes(spreadsheetId, gid);
+            bool isNumericCol = false;
+            if (actualTypes.length > fieldIndex) {
+              final typeStr = actualTypes[fieldIndex].toLowerCase();
+              isNumericCol = typeStr == 'number' || typeStr == 'boolean';
+            }
+            String gvizVal = val.toString();
+            bool isNumericVal = num.tryParse(gvizVal) != null;
+            bool isBoolVal = gvizVal.toLowerCase() == 'true' || gvizVal.toLowerCase() == 'false';
+            String escapedVal = gvizVal.replaceAll("'", "''");
+            bool useNoQuotes = isNumericCol || (actualTypes.isEmpty && (isNumericVal || isBoolVal));
 
-          if (op == '==' || op == '=') {
-            clause = useNoQuotes ? "$col = $gvizVal" : "$col = '$escapedVal'";
-          } else if (op == '!=') {
-            clause = useNoQuotes ? "$col != $gvizVal" : "$col != '$escapedVal'";
-          } else if (op == 'contains') {
-            clause = "lower($col) contains '${escapedVal.toLowerCase()}'";
-          } else if (op == '>' || op == '>=' || op == '<' || op == '<=') {
-            clause = useNoQuotes ? "$col $op $gvizVal" : "$col $op '$escapedVal'";
-          } else if (op == 'startsWith') {
-            clause = "lower($col) starts with '${escapedVal.toLowerCase()}'";
-          } else if (op == 'endsWith') {
-            clause = "lower($col) ends with '${escapedVal.toLowerCase()}'";
+            if (op == '==' || op == '=') {
+              clause = useNoQuotes ? "$col = $gvizVal" : "$col = '$escapedVal'";
+            } else if (op == '!=') {
+              clause = useNoQuotes ? "$col != $gvizVal" : "$col != '$escapedVal'";
+            } else if (op == 'contains') {
+              clause = "lower($col) contains '${escapedVal.toLowerCase()}'";
+            } else if (op == '>' || op == '>=' || op == '<' || op == '<=') {
+              clause = useNoQuotes ? "$col $op $gvizVal" : "$col $op '$escapedVal'";
+            } else if (op == 'startsWith' || op == 'startsWidth') {
+              clause = "lower($col) starts with '${escapedVal.toLowerCase()}'";
+            } else if (op == 'endsWith') {
+              clause = "lower($col) ends with '${escapedVal.toLowerCase()}'";
+            }
+            if (clause != null) whereClauses.add(clause);
           }
-          if (clause != null) whereClauses.add(clause);
         }
       }
 

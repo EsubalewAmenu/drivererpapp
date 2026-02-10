@@ -41,8 +41,8 @@
           "show_all_fields": true
         },
         "quick_filters": [
-          { "label": "With Variants", "key": "has_variants", "field": "has_variants", "operator": "==", "value": true },
-          { "label": "Without Variants", "key": "no_variants", "field": "has_variants", "operator": "==", "value": false }
+          { "label": "With Variants", "key": "has_variants", "rules": [ { "field": "has_variants", "operator": "==", "value": true } ] },
+          { "label": "Without Variants", "key": "no_variants", "rules": [ { "field": "has_variants", "operator": "==", "value": false } ] }
         ],
         "columns": [
           { "key": "name", "label": "Product Name", "type": "text", "required": true },

@@ -350,16 +350,12 @@ class ConditionalLogic {
 class QuickFilter {
   final String label;
   final String key;
-  final String field;
-  final String operator;
-  final dynamic value;
+  final List<FilterRule> rules;
 
   QuickFilter({
     required this.label,
     required this.key,
-    required this.field,
-    required this.operator,
-    this.value,
+    required this.rules,
   });
 
   factory QuickFilter.fromJson(Map<String, dynamic> json) => _$QuickFilterFromJson(json);
@@ -372,12 +368,46 @@ class QuickFilter {
           runtimeType == other.runtimeType &&
           key == other.key &&
           label == other.label &&
+        _rulesEqual(rules, other.rules);
+
+  @override
+  int get hashCode => key.hashCode ^ label.hashCode ^ rules.hashCode;
+}
+
+@JsonSerializable(explicitToJson: true)
+class FilterRule {
+  final String field;
+  final String operator;
+  final dynamic value;
+
+  FilterRule({
+    required this.field,
+    required this.operator,
+    this.value,
+  });
+
+  factory FilterRule.fromJson(Map<String, dynamic> json) => _$FilterRuleFromJson(json);
+  Map<String, dynamic> toJson() => _$FilterRuleToJson(this);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is FilterRule &&
+          runtimeType == other.runtimeType &&
           field == other.field &&
           operator == other.operator &&
           value == other.value;
 
   @override
-  int get hashCode => key.hashCode ^ label.hashCode ^ field.hashCode ^ operator.hashCode ^ value.hashCode;
+  int get hashCode => field.hashCode ^ operator.hashCode ^ value.hashCode;
+}
+
+bool _rulesEqual(List<FilterRule> a, List<FilterRule> b) {
+  if (a.length != b.length) return false;
+  for (int i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }
 
 @JsonSerializable(explicitToJson: true)

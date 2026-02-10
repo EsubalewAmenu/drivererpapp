@@ -216,15 +216,26 @@ Map<String, dynamic> _$ConditionalLogicToJson(ConditionalLogic instance) =>
 QuickFilter _$QuickFilterFromJson(Map<String, dynamic> json) => QuickFilter(
   label: json['label'] as String,
   key: json['key'] as String,
-  field: json['field'] as String,
-  operator: json['operator'] as String,
-  value: json['value'],
+  rules: (json['rules'] as List<dynamic>)
+      .map((e) => FilterRule.fromJson(e as Map<String, dynamic>))
+      .toList(),
 );
 
 Map<String, dynamic> _$QuickFilterToJson(QuickFilter instance) =>
     <String, dynamic>{
       'label': instance.label,
       'key': instance.key,
+      'rules': instance.rules.map((e) => e.toJson()).toList(),
+    };
+
+FilterRule _$FilterRuleFromJson(Map<String, dynamic> json) => FilterRule(
+  field: json['field'] as String,
+  operator: json['operator'] as String,
+  value: json['value'],
+);
+
+Map<String, dynamic> _$FilterRuleToJson(FilterRule instance) =>
+    <String, dynamic>{
       'field': instance.field,
       'operator': instance.operator,
       'value': instance.value,

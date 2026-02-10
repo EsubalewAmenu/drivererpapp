@@ -30,8 +30,8 @@
         "trailing_key": "priority"
       },
       "quick_filters": [
-         { "label": "My Tickets", "key": "my_tickets", "field": "assigned_to", "operator": "==", "value": "user.email" },
-         { "label": "Critical", "key": "critical", "field": "priority", "operator": "==", "value": "Critical" }
+        { "label": "My Tickets", "key": "my_tickets", "rules": [ { "field": "assigned_to", "operator": "==", "value": "user.email" } ] },
+        { "label": "Critical", "key": "critical", "rules": [ { "field": "priority", "operator": "==", "value": "Critical" } ] }
       ],
       "initial_data": [
         {

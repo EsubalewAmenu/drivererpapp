@@ -322,9 +322,11 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               descending: true,
               searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
               quickFilter: selectedFilter != null ? {
-                'field': selectedFilter.field,
-                'operator': selectedFilter.operator,
-                'value': selectedFilter.value,
+                'rules': selectedFilter.rules.map((r) => {
+                  'field': r.field,
+                  'operator': r.operator,
+                  'value': r.value,
+                }).toList(),
               } : null,
             );
           } catch (e) {
@@ -367,9 +369,11 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
               descending: true,
               searchQuery: _searchQuery.length >= 2 ? _searchQuery : null,
               quickFilter: selectedFilter != null ? {
-                'field': selectedFilter.field,
-                'operator': selectedFilter.operator,
-                'value': selectedFilter.value,
+                'rules': selectedFilter.rules.map((r) => {
+                  'field': r.field,
+                  'operator': r.operator,
+                  'value': r.value,
+                }).toList(),
               } : null,
             );
           } else if (tabInitialData != null && tabInitialData.isNotEmpty) {
@@ -526,55 +530,38 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
            try {
              // Look in active filters
              final filter = _activeFilters.firstWhere((f) => f.key == _activeFilter);
-             
-             final itemValue = item[filter.field];
-             final filterVal = filter.value.toString().toLowerCase();
-             final itemValStr = itemValue?.toString().toLowerCase() ?? '';
 
-             if (filter.operator == '==' || filter.operator == '=') {
-               matchesQuickFilter = itemValStr == filterVal;
-             } else if (filter.operator == '!=') { 
-               matchesQuickFilter = itemValStr != filterVal;
-             } else if (filter.operator == 'contains') {
-               matchesQuickFilter = itemValStr.contains(filterVal);
-             } else if (filter.operator == 'startsWidth' || filter.operator == 'startsWith') {
-               matchesQuickFilter = itemValStr.startsWith(filterVal);
-             } else if (filter.operator == 'endsWith') {
-               matchesQuickFilter = itemValStr.endsWith(filterVal);
-             } else if (filter.operator == '>') {
-                // Try numeric comparison first
-                final numItem = num.tryParse(itemValStr);
-                final numFilter = num.tryParse(filterVal);
-                if (numItem != null && numFilter != null) {
-                  matchesQuickFilter = numItem > numFilter;
-                } else {
-                  matchesQuickFilter = itemValStr.compareTo(filterVal) > 0;
-                }
-             } else if (filter.operator == '>=') {
-                final numItem = num.tryParse(itemValStr);
-                final numFilter = num.tryParse(filterVal);
-                if (numItem != null && numFilter != null) {
-                  matchesQuickFilter = numItem >= numFilter;
-                } else {
-                  matchesQuickFilter = itemValStr.compareTo(filterVal) >= 0;
-                }
-             } else if (filter.operator == '<') {
-                final numItem = num.tryParse(itemValStr);
-                final numFilter = num.tryParse(filterVal);
-                if (numItem != null && numFilter != null) {
-                  matchesQuickFilter = numItem < numFilter;
-                } else {
-                  matchesQuickFilter = itemValStr.compareTo(filterVal) < 0;
-                }
-             } else if (filter.operator == '<=') {
-                final numItem = num.tryParse(itemValStr);
-                final numFilter = num.tryParse(filterVal);
-                if (numItem != null && numFilter != null) {
-                  matchesQuickFilter = numItem <= numFilter;
-                } else {
-                  matchesQuickFilter = itemValStr.compareTo(filterVal) <= 0;
-                }
-             }
+             matchesQuickFilter = filter.rules.isNotEmpty && filter.rules.every((rule) {
+               final itemValue = item[rule.field];
+               final filterVal = (rule.value?.toString() ?? '').toLowerCase();
+               final itemValStr = itemValue?.toString().toLowerCase() ?? '';
+
+               if (rule.operator == '==' || rule.operator == '=') {
+                 return itemValStr == filterVal;
+               } else if (rule.operator == '!=') {
+                 return itemValStr != filterVal;
+               } else if (rule.operator == 'contains') {
+                 return itemValStr.contains(filterVal);
+               } else if (rule.operator == 'startsWidth' || rule.operator == 'startsWith') {
+                 return itemValStr.startsWith(filterVal);
+               } else if (rule.operator == 'endsWith') {
+                 return itemValStr.endsWith(filterVal);
+               } else if (rule.operator == '>' || rule.operator == '>=' || rule.operator == '<' || rule.operator == '<=') {
+                 final numItem = num.tryParse(itemValStr);
+                 final numFilter = num.tryParse(filterVal);
+                 if (numItem != null && numFilter != null) {
+                   if (rule.operator == '>') return numItem > numFilter;
+                   if (rule.operator == '>=') return numItem >= numFilter;
+                   if (rule.operator == '<') return numItem < numFilter;
+                   if (rule.operator == '<=') return numItem <= numFilter;
+                 }
+                 if (rule.operator == '>') return itemValStr.compareTo(filterVal) > 0;
+                 if (rule.operator == '>=') return itemValStr.compareTo(filterVal) >= 0;
+                 if (rule.operator == '<') return itemValStr.compareTo(filterVal) < 0;
+                 if (rule.operator == '<=') return itemValStr.compareTo(filterVal) <= 0;
+               }
+               return true;
+             });
            } catch (e) {
              // Filter not found or error
              matchesQuickFilter = true;

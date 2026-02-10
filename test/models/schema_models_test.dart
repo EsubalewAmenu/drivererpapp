@@ -90,13 +90,13 @@ void main() {
       final json = {
         'label': 'Active',
         'key': 'active',
-        'field': 'status',
-        'operator': '==',
-        'value': 'active',
+        'rules': [
+          {'field': 'status', 'operator': '==', 'value': 'active'}
+        ],
       };
       final filter = QuickFilter.fromJson(json);
       expect(filter.label, 'Active');
-      expect(filter.operator, '==');
+      expect(filter.rules.first.operator, '==');
       expect(filter.toJson()['key'], 'active');
     });
 

@@ -37,10 +37,10 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "Draft", "key": "draft", "field": "status", "operator": "==", "value": "Draft" },
-        { "label": "Ordered", "key": "ordered", "field": "status", "operator": "==", "value": "Ordered" },
-        { "label": "Received", "key": "received", "field": "status", "operator": "==", "value": "Received" },
-        { "label": "Cancelled", "key": "cancelled", "field": "status", "operator": "==", "value": "Cancelled" }
+        { "label": "Draft", "key": "draft", "rules": [ { "field": "status", "operator": "==", "value": "Draft" } ] },
+        { "label": "Ordered", "key": "ordered", "rules": [ { "field": "status", "operator": "==", "value": "Ordered" } ] },
+        { "label": "Received", "key": "received", "rules": [ { "field": "status", "operator": "==", "value": "Received" } ] },
+        { "label": "Cancelled", "key": "cancelled", "rules": [ { "field": "status", "operator": "==", "value": "Cancelled" } ] }
       ],
       "columns": [
         { "key": "po_number", "label": "PO #", "type": "text", "required": true },

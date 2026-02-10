@@ -21,7 +21,11 @@ void main() {
         ColumnConfig(key: 'is_active', label: 'Is Active', type: 'boolean'),
       ],
       quickFilters: [
-        QuickFilter(label: 'Active Only', key: 'active', field: 'is_active', operator: '==', value: true),
+        QuickFilter(
+          label: 'Active Only',
+          key: 'active',
+          rules: [FilterRule(field: 'is_active', operator: '==', value: true)],
+        ),
       ],
       enableCustomFilters: true,
       listTemplate: ListTemplateConfig(
@@ -50,7 +54,7 @@ void main() {
     
     // Check initial filter
     expect(find.text('Active Only'), findsOneWidget);
-    expect(find.text('is_active == true'), findsOneWidget);
+    expect(find.text('Is Active == true'), findsOneWidget);
   });
 
   testWidgets('TabSettingsScreen can toggle filters enabled', (WidgetTester tester) async {
@@ -79,13 +83,13 @@ void main() {
     await tester.pumpAndSettle();
     
     // In FilterEditorScreen (simplified mock/interact)
-    expect(find.text('Column'), findsOneWidget);
-    await tester.tap(find.text('Name'));
+    expect(find.text('Rules'), findsOneWidget);
+    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Age')); // Select Age
+    await tester.tap(find.text('Age').last); // Select Age
     await tester.pumpAndSettle();
     
-    await tester.enterText(find.ancestor(of: find.text('Enter value...'), matching: find.byType(TextField)), '25');
+    await tester.enterText(find.byType(TextField).last, '25');
     await tester.tap(find.widgetWithText(TextButton, 'Save'));
     await tester.pumpAndSettle();
     
@@ -97,7 +101,7 @@ void main() {
     
     // Clear label to allow auto-generation
     await tester.enterText(find.ancestor(of: find.text('Auto-generated if empty'), matching: find.byType(TextField)), '');
-    await tester.enterText(find.ancestor(of: find.text('Enter value...'), matching: find.byType(TextField)), '30');
+    await tester.enterText(find.byType(TextField).last, '30');
     await tester.tap(find.widgetWithText(TextButton, 'Save'));
     await tester.pumpAndSettle();
     
@@ -397,7 +401,11 @@ void main() {
       label: 'Test Tab',
       columns: testTab.columns,
       quickFilters: [
-        QuickFilter(key: 'q1', label: 'name contains abc', field: 'name', operator: 'contains', value: 'abc'),
+        QuickFilter(
+          key: 'q1',
+          label: 'name contains abc',
+          rules: [FilterRule(field: 'name', operator: 'contains', value: 'abc')],
+        ),
       ],
     );
 
@@ -409,7 +417,7 @@ void main() {
       ),
     ));
 
-    expect(find.text('name contains abc'), findsNWidgets(2));
+    expect(find.text('name contains abc'), findsOneWidget);
 
     // Remove the filter
     await tester.tap(find.byIcon(Icons.delete_outline).last);
