@@ -214,57 +214,11 @@ class TabEditorCard extends StatelessWidget {
       }
       return;
     }
-
+    final filesFuture = _fetchDriveSpreadsheets(driveService.driveApi);
     final selectedId = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
-        title: Text('Choose Spreadsheet', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
-        content: SizedBox(
-          width: 480,
-          height: 360,
-          child: FutureBuilder<List<drive.File>>(
-            future: _fetchDriveSpreadsheets(driveService.driveApi),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (snapshot.hasError) {
-                return Center(
-                  child: Text(
-                    'Failed to load Drive files.',
-                    style: AppTheme.inter(color: theme.colorScheme.error),
-                  ),
-                );
-              }
-              final files = snapshot.data ?? [];
-              if (files.isEmpty) {
-                return Center(
-                  child: Text(
-                    'No spreadsheets found in Drive.',
-                    style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
-                  ),
-                );
-              }
-              return ListView.separated(
-                itemCount: files.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final file = files[index];
-                  return ListTile(
-                    title: Text(file.name ?? 'Untitled', style: AppTheme.inter(fontWeight: FontWeight.w600)),
-                    subtitle: Text(file.id ?? '', style: AppTheme.inter(fontSize: 12)),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.pop(context, file.id),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        ],
+      builder: (context) => _SpreadsheetPickerDialog(
+        filesFuture: filesFuture,
       ),
     );
 
@@ -286,4 +240,140 @@ class TabEditorCard extends StatelessWidget {
     );
     return list.files ?? [];
   }
+}
+
+class _SpreadsheetPickerDialog extends StatefulWidget {
+  final Future<List<drive.File>> filesFuture;
+
+  const _SpreadsheetPickerDialog({required this.filesFuture});
+
+  @override
+  State<_SpreadsheetPickerDialog> createState() => _SpreadsheetPickerDialogState();
+}
+
+class _SpreadsheetPickerDialogState extends State<_SpreadsheetPickerDialog> {
+  final TextEditingController _linkController = TextEditingController();
+  String? _linkError;
+
+  @override
+  void dispose() {
+    _linkController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+      title: Text('Choose Spreadsheet', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
+      content: SizedBox(
+        width: 520,
+        height: 420,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Paste a spreadsheet link or ID',
+              style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.textTheme.bodyMedium?.color),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _linkController,
+              decoration: InputDecoration(
+                hintText: 'https://docs.google.com/spreadsheets/d/FILE_ID/edit',
+                errorText: _linkError,
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Divider(color: theme.dividerColor),
+            const SizedBox(height: 8),
+            Expanded(
+              child: FutureBuilder<List<drive.File>>(
+                future: widget.filesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Failed to load Drive files.',
+                        style: AppTheme.inter(color: theme.colorScheme.error),
+                      ),
+                    );
+                  }
+                  final files = snapshot.data ?? [];
+                  if (files.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No spreadsheets found in Drive.',
+                        style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
+                      ),
+                    );
+                  }
+                  return ListView.separated(
+                    itemCount: files.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final file = files[index];
+                      return ListTile(
+                        title: Text(file.name ?? 'Untitled', style: AppTheme.inter(fontWeight: FontWeight.w600)),
+                        subtitle: Text(file.id ?? '', style: AppTheme.inter(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.pop(context, file.id),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            final extractedId = _extractSpreadsheetId(_linkController.text);
+            if (extractedId == null || extractedId.isEmpty) {
+              setState(() => _linkError = 'Paste a valid Google Sheets link or file ID.');
+              return;
+            }
+            Navigator.pop(context, extractedId);
+          },
+          child: const Text('Use Link'),
+        ),
+      ],
+    );
+  }
+}
+
+String? _extractSpreadsheetId(String input) {
+  final trimmed = input.trim();
+  if (trimmed.isEmpty) return null;
+
+  final directIdPattern = RegExp(r'^[a-zA-Z0-9_-]{10,}$');
+  if (directIdPattern.hasMatch(trimmed)) {
+    return trimmed;
+  }
+
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null) return null;
+
+  // Example: https://docs.google.com/spreadsheets/d/<id>/edit
+  final pathMatch = RegExp(r'/d/([a-zA-Z0-9_-]+)').firstMatch(uri.path);
+  if (pathMatch != null && pathMatch.groupCount >= 1) {
+    return pathMatch.group(1);
+  }
+
+  // Example: https://drive.google.com/open?id=<id>
+  final idParam = uri.queryParameters['id'];
+  if (idParam != null && idParam.isNotEmpty) {
+    return idParam;
+  }
+
+  return null;
 }
