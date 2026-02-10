@@ -47,7 +47,18 @@ class TabEditorCard extends StatelessWidget {
             ),
           ],
         ),
-        subtitle: Text('${tab.columns.length} Columns', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${tab.columns.length} Columns', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color)),
+            const SizedBox(height: 4),
+            tab.fileId != null && tab.fileId!.isNotEmpty
+                ? Text('File ID: ${tab.fileId}', 
+                    style: AppTheme.inter(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600))
+                : Text('the file will be created with initial seed data when you access the tab or choose button', 
+                    style: AppTheme.inter(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.w500)),
+          ],
+        ),
         iconColor: theme.primaryColor,
         collapsedIconColor: theme.iconTheme.color,
         children: [
