@@ -57,6 +57,20 @@ class TabEditorCard extends StatelessWidget {
                 style: AppTheme.inter(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600))
               : Text('No linked file yet. It will be created when you access the tab, or you can select an existing spreadsheet from Drive.', 
                 style: AppTheme.inter(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => _showChooseSpreadsheetDialog(context),
+              icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+              label: Text(
+                tab.fileId != null && tab.fileId!.isNotEmpty ? 'Change Spreadsheet' : 'Choose Spreadsheet',
+                style: AppTheme.inter(fontWeight: FontWeight.w600),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: theme.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
           ],
         ),
         iconColor: theme.primaryColor,
@@ -183,5 +197,42 @@ class TabEditorCard extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _showChooseSpreadsheetDialog(BuildContext context) async {
+    final theme = Theme.of(context);
+    final controller = TextEditingController(text: tab.fileId ?? '');
+
+    final fileId = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+        title: Text('Choose Spreadsheet', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+          decoration: const InputDecoration(
+            labelText: 'Spreadsheet File ID',
+            helperText: 'Paste the ID from the Drive URL',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isEmpty) return;
+              Navigator.pop(context, value);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (fileId != null && fileId.isNotEmpty) {
+      onTabChanged(tab.copyWith(fileId: fileId));
+    }
   }
 }
