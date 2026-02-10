@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:drivererpapp/theme/app_theme.dart';
 import '../../../models/schema_models.dart';
+import '../../../providers/drive_provider.dart';
 import 'column_list_item.dart';
 import 'table_column_editor_item.dart';
 import '../dialogs/add_column_dialog.dart';
@@ -201,38 +204,86 @@ class TabEditorCard extends StatelessWidget {
 
   Future<void> _showChooseSpreadsheetDialog(BuildContext context) async {
     final theme = Theme.of(context);
-    final controller = TextEditingController(text: tab.fileId ?? '');
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+    final driveService = driveProvider.driveService;
+    if (driveService == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Drive is not connected. Please sign in.')),
+        );
+      }
+      return;
+    }
 
-    final fileId = await showDialog<String>(
+    final selectedId = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
         title: Text('Choose Spreadsheet', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-          decoration: const InputDecoration(
-            labelText: 'Spreadsheet File ID',
-            helperText: 'Paste the ID from the Drive URL',
+        content: SizedBox(
+          width: 480,
+          height: 360,
+          child: FutureBuilder<List<drive.File>>(
+            future: _fetchDriveSpreadsheets(driveService.driveApi),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(
+                    'Failed to load Drive files.',
+                    style: AppTheme.inter(color: theme.colorScheme.error),
+                  ),
+                );
+              }
+              final files = snapshot.data ?? [];
+              if (files.isEmpty) {
+                return Center(
+                  child: Text(
+                    'No spreadsheets found in Drive.',
+                    style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
+                  ),
+                );
+              }
+              return ListView.separated(
+                itemCount: files.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final file = files[index];
+                  return ListTile(
+                    title: Text(file.name ?? 'Untitled', style: AppTheme.inter(fontWeight: FontWeight.w600)),
+                    subtitle: Text(file.id ?? '', style: AppTheme.inter(fontSize: 12)),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.pop(context, file.id),
+                  );
+                },
+              );
+            },
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              final value = controller.text.trim();
-              if (value.isEmpty) return;
-              Navigator.pop(context, value);
-            },
-            child: const Text('Save'),
-          ),
         ],
       ),
     );
 
-    if (fileId != null && fileId.isNotEmpty) {
-      onTabChanged(tab.copyWith(fileId: fileId));
+    if (selectedId != null && selectedId.isNotEmpty) {
+      onTabChanged(tab.copyWith(fileId: selectedId));
     }
+  }
+
+  Future<List<drive.File>> _fetchDriveSpreadsheets(drive.DriveApi driveApi) async {
+    // This will fetch all spreadsheets the user has access to (requires drive.readonly or drive scope)
+    final list = await driveApi.files.list(
+      q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed = false",
+      spaces: 'drive',
+      orderBy: 'modifiedTime desc',
+      pageSize: 50,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      $fields: 'files(id,name,modifiedTime)',
+    );
+    return list.files ?? [];
   }
 }
