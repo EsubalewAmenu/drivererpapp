@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:drivererpapp/theme/app_theme.dart';
 import '../../../models/schema_models.dart';
+import '../../../providers/drive_provider.dart';
 import 'column_list_item.dart';
 import 'table_column_editor_item.dart';
 import '../dialogs/add_column_dialog.dart';
@@ -47,7 +50,32 @@ class TabEditorCard extends StatelessWidget {
             ),
           ],
         ),
-        subtitle: Text('${tab.columns.length} Columns', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${tab.columns.length} Columns', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color)),
+            const SizedBox(height: 4),
+            tab.fileId != null && tab.fileId!.isNotEmpty
+              ? Text('File ID: ${tab.fileId}', 
+                style: AppTheme.inter(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600))
+              : Text('No linked file yet. It will be created when you access the tab, or you can select an existing spreadsheet from Drive.', 
+                style: AppTheme.inter(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => _showChooseSpreadsheetDialog(context),
+              icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+              label: Text(
+                tab.fileId != null && tab.fileId!.isNotEmpty ? 'Change Spreadsheet' : 'Choose Spreadsheet',
+                style: AppTheme.inter(fontWeight: FontWeight.w600),
+              ),
+              style: TextButton.styleFrom(
+                foregroundColor: theme.primaryColor,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ],
+        ),
         iconColor: theme.primaryColor,
         collapsedIconColor: theme.iconTheme.color,
         children: [
@@ -173,4 +201,179 @@ class TabEditorCard extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _showChooseSpreadsheetDialog(BuildContext context) async {
+    final theme = Theme.of(context);
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+    final driveService = driveProvider.driveService;
+    if (driveService == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Drive is not connected. Please sign in.')),
+        );
+      }
+      return;
+    }
+    final filesFuture = _fetchDriveSpreadsheets(driveService.driveApi);
+    final selectedId = await showDialog<String>(
+      context: context,
+      builder: (context) => _SpreadsheetPickerDialog(
+        filesFuture: filesFuture,
+      ),
+    );
+
+    if (selectedId != null && selectedId.isNotEmpty) {
+      onTabChanged(tab.copyWith(fileId: selectedId));
+    }
+  }
+
+  Future<List<drive.File>> _fetchDriveSpreadsheets(drive.DriveApi driveApi) async {
+    // This will fetch all spreadsheets the user has access to (requires drive.readonly or drive scope)
+    final list = await driveApi.files.list(
+      q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed = false",
+      spaces: 'drive',
+      orderBy: 'modifiedTime desc',
+      pageSize: 50,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+      $fields: 'files(id,name,modifiedTime)',
+    );
+    return list.files ?? [];
+  }
+}
+
+class _SpreadsheetPickerDialog extends StatefulWidget {
+  final Future<List<drive.File>> filesFuture;
+
+  const _SpreadsheetPickerDialog({required this.filesFuture});
+
+  @override
+  State<_SpreadsheetPickerDialog> createState() => _SpreadsheetPickerDialogState();
+}
+
+class _SpreadsheetPickerDialogState extends State<_SpreadsheetPickerDialog> {
+  final TextEditingController _linkController = TextEditingController();
+  String? _linkError;
+
+  @override
+  void dispose() {
+    _linkController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AlertDialog(
+      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+      title: Text('Choose Spreadsheet', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
+      content: SizedBox(
+        width: 520,
+        height: 420,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Paste a spreadsheet link or ID',
+              style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.textTheme.bodyMedium?.color),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _linkController,
+              decoration: InputDecoration(
+                hintText: 'https://docs.google.com/spreadsheets/d/FILE_ID/edit',
+                errorText: _linkError,
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Divider(color: theme.dividerColor),
+            const SizedBox(height: 8),
+            Expanded(
+              child: FutureBuilder<List<drive.File>>(
+                future: widget.filesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Text(
+                        'Failed to load Drive files.',
+                        style: AppTheme.inter(color: theme.colorScheme.error),
+                      ),
+                    );
+                  }
+                  final files = snapshot.data ?? [];
+                  if (files.isEmpty) {
+                    return Center(
+                      child: Text(
+                        'No spreadsheets found in Drive.',
+                        style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
+                      ),
+                    );
+                  }
+                  return ListView.separated(
+                    itemCount: files.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final file = files[index];
+                      return ListTile(
+                        title: Text(file.name ?? 'Untitled', style: AppTheme.inter(fontWeight: FontWeight.w600)),
+                        subtitle: Text(file.id ?? '', style: AppTheme.inter(fontSize: 12)),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => Navigator.pop(context, file.id),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        FilledButton(
+          onPressed: () {
+            final extractedId = _extractSpreadsheetId(_linkController.text);
+            if (extractedId == null || extractedId.isEmpty) {
+              setState(() => _linkError = 'Paste a valid Google Sheets link or file ID.');
+              return;
+            }
+            Navigator.pop(context, extractedId);
+          },
+          child: const Text('Use Link'),
+        ),
+      ],
+    );
+  }
+}
+
+String? _extractSpreadsheetId(String input) {
+  final trimmed = input.trim();
+  if (trimmed.isEmpty) return null;
+
+  final directIdPattern = RegExp(r'^[a-zA-Z0-9_-]{10,}$');
+  if (directIdPattern.hasMatch(trimmed)) {
+    return trimmed;
+  }
+
+  final uri = Uri.tryParse(trimmed);
+  if (uri == null) return null;
+
+  // Example: https://docs.google.com/spreadsheets/d/<id>/edit
+  final pathMatch = RegExp(r'/d/([a-zA-Z0-9_-]+)').firstMatch(uri.path);
+  if (pathMatch != null && pathMatch.groupCount >= 1) {
+    return pathMatch.group(1);
+  }
+
+  // Example: https://drive.google.com/open?id=<id>
+  final idParam = uri.queryParameters['id'];
+  if (idParam != null && idParam.isNotEmpty) {
+    return idParam;
+  }
+
+  return null;
 }
