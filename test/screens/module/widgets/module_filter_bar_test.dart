@@ -31,7 +31,11 @@ void main() {
   testWidgets('ModuleFilterBar displays filter chips when enabled', (WidgetTester tester) async {
     final searchController = TextEditingController();
     final filters = [
-      QuickFilter(key: 'f1', label: 'Low Stock', field: 'qty', operator: '<', value: '10'),
+      QuickFilter(
+        key: 'f1',
+        label: 'Low Stock',
+        rules: [FilterRule(field: 'qty', operator: '<', value: '10')],
+      ),
     ];
     final tab = TabConfig(id: 't1', label: 'Stocks', columns: []);
 
@@ -58,7 +62,11 @@ void main() {
     String? selectedFilter;
     final searchController = TextEditingController();
     final filters = [
-      QuickFilter(key: 'f1', label: 'Low Stock', field: 'qty', operator: '<', value: '10'),
+      QuickFilter(
+        key: 'f1',
+        label: 'Low Stock',
+        rules: [FilterRule(field: 'qty', operator: '<', value: '10')],
+      ),
     ];
     final tab = TabConfig(id: 't1', label: 'Stocks', columns: []);
 

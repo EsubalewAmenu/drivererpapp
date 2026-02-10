@@ -44,7 +44,7 @@ mixin _TabSettingsFiltersMixin on State<TabSettingsScreen> {
                 child: Icon(Icons.filter_alt_outlined, color: widget.primaryColor, size: 20),
               ),
               title: Text(filter.label),
-              subtitle: Text('${filter.field} ${filter.operator} ${filter.value}'),
+              subtitle: Text(_formatFilterRules(filter)),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -119,5 +119,16 @@ mixin _TabSettingsFiltersMixin on State<TabSettingsScreen> {
     setState(() {
       (this as _TabSettingsScreenState)._filters.removeAt(index);
     });
+  }
+
+  String _formatFilterRules(QuickFilter filter) {
+    if (filter.rules.isEmpty) return '';
+    return filter.rules.map((rule) {
+      final colLabel = widget.tab.columns.firstWhere(
+        (c) => c.key == rule.field,
+        orElse: () => ColumnConfig(key: rule.field, label: rule.field, type: 'text'),
+      ).label;
+      return '$colLabel ${rule.operator} ${rule.value ?? ''}'.trim();
+    }).join(' AND ');
   }
 }

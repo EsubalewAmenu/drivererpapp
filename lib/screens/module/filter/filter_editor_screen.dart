@@ -16,10 +16,9 @@ class FilterEditorScreen extends StatefulWidget {
 }
 
 class _FilterEditorScreenState extends State<FilterEditorScreen> {
-  String? _selectedColumnKey;
-  String _selectedOperator = '==';
-  final TextEditingController _valueController = TextEditingController();
   final TextEditingController _labelController = TextEditingController();
+
+  final List<_RuleDraft> _rules = [];
 
   final List<Map<String, String>> _operators = [
     {'label': 'Equals', 'value': '=='},
@@ -29,7 +28,7 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
     {'label': 'Greater or Equal', 'value': '>='},
     {'label': 'Less Than', 'value': '<'},
     {'label': 'Less or Equal', 'value': '<='},
-    {'label': 'Starts With', 'value': 'startsWidth'},
+    {'label': 'Starts With', 'value': 'startsWith'},
     {'label': 'Ends With', 'value': 'endsWith'},
   ];
 
@@ -37,39 +36,67 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
   void initState() {
     super.initState();
     if (widget.existingFilter != null) {
-      _selectedColumnKey = widget.existingFilter!.field;
-      _selectedOperator = widget.existingFilter!.operator;
-      _valueController.text = widget.existingFilter!.value?.toString() ?? '';
       _labelController.text = widget.existingFilter!.label;
-    } else if (widget.columns.isNotEmpty) {
-      _selectedColumnKey = widget.columns.first.key;
+      for (final rule in widget.existingFilter!.rules) {
+        _rules.add(
+          _RuleDraft(
+            columnKey: rule.field,
+            operator: rule.operator,
+            controller: TextEditingController(text: rule.value?.toString() ?? ''),
+          ),
+        );
+      }
+    }
+
+    if (_rules.isEmpty && widget.columns.isNotEmpty) {
+      _rules.add(
+        _RuleDraft(
+          columnKey: widget.columns.first.key,
+          operator: '==',
+          controller: TextEditingController(),
+        ),
+      );
     }
   }
 
   @override
   void dispose() {
-    _valueController.dispose();
     _labelController.dispose();
+    for (final rule in _rules) {
+      rule.controller.dispose();
+    }
     super.dispose();
   }
 
   void _save() {
-    if (_selectedColumnKey == null) return;
-    
-    final col = widget.columns.firstWhere((c) => c.key == _selectedColumnKey);
-    final opLabel = _operators.firstWhere((element) => element['value'] == _selectedOperator)['label'];
-    
+    final validRules = _rules.where((r) => r.columnKey != null && r.columnKey!.isNotEmpty).toList();
+    if (validRules.isEmpty) return;
+
+    final rules = validRules.map((r) => FilterRule(
+      field: r.columnKey!,
+      operator: r.operator,
+      value: r.controller.text,
+    )).toList();
+
     String label = _labelController.text.trim();
     if (label.isEmpty) {
-      label = '${col.label} $opLabel ${_valueController.text}';
+      label = rules.map((r) {
+        final colLabel = widget.columns.firstWhere(
+          (c) => c.key == r.field,
+          orElse: () => ColumnConfig(key: r.field, label: r.field, type: 'text'),
+        ).label;
+        final opLabel = _operators.firstWhere(
+          (element) => element['value'] == r.operator,
+          orElse: () => {'label': r.operator},
+        )['label'];
+        return '$colLabel $opLabel ${r.value ?? ''}'.trim();
+      }).join(' AND ');
     }
 
     final filter = QuickFilter(
-      label: label, 
-      key: widget.existingFilter?.key ?? 'custom_${DateTime.now().millisecondsSinceEpoch}', 
-      field: _selectedColumnKey!, 
-      operator: _selectedOperator,
-      value: _valueController.text,
+      label: label,
+      key: widget.existingFilter?.key ?? 'custom_${DateTime.now().millisecondsSinceEpoch}',
+      rules: rules,
     );
     
     Navigator.pop(context, filter);
@@ -107,72 +134,106 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
               ),
             ),
             const SizedBox(height: 24),
-
-            Text('Column', style: TextStyle(fontSize: 14, color: theme.disabledColor)),
+            Text('Rules', style: TextStyle(fontSize: 14, color: theme.disabledColor)),
             const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedColumnKey,
-              isExpanded: true,
-              dropdownColor: theme.cardTheme.color,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: theme.cardTheme.color,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: theme.dividerColor)),
-              ),
-              items: [
-                ...widget.columns.map((col) {
-                  return DropdownMenuItem(
-                    value: col.key,
-                    child: Text(col.label, overflow: TextOverflow.ellipsis),
-                  );
-                }),
-                if (_selectedColumnKey != null && !widget.columns.any((c) => c.key == _selectedColumnKey))
-                  DropdownMenuItem(
-                    value: _selectedColumnKey,
-                    child: Text('$_selectedColumnKey (Missing)', style: const TextStyle(color: Colors.red)),
+            ..._rules.asMap().entries.map((entry) {
+              final index = entry.key;
+              final rule = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: theme.cardTheme.color,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: theme.dividerColor),
                   ),
-              ],
-              onChanged: (val) {
-                setState(() => _selectedColumnKey = val);
-              },
-            ),
-            const SizedBox(height: 24),
-            
-            Text('Operator', style: TextStyle(fontSize: 14, color: theme.disabledColor)),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _selectedOperator,
-              isExpanded: true,
-              dropdownColor: theme.cardTheme.color,
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: theme.cardTheme.color,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: theme.dividerColor)),
-              ),
-              items: _operators.map((op) {
-                return DropdownMenuItem(
-                  value: op['value'],
-                  child: Text(op['label']!),
-                );
-              }).toList(),
-              onChanged: (val) {
-                setState(() => _selectedOperator = val!);
-              },
-            ),
-            const SizedBox(height: 24),
-
-            Text('Value', style: TextStyle(fontSize: 14, color: theme.disabledColor)),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _valueController,
-              decoration: InputDecoration(
-                hintText: 'Enter value...',
-                filled: true,
-                fillColor: theme.cardTheme.color,
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: theme.dividerColor)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: rule.columnKey,
+                              isExpanded: true,
+                              dropdownColor: theme.cardTheme.color,
+                              decoration: InputDecoration(
+                                filled: true,
+                                fillColor: theme.cardTheme.color,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: theme.dividerColor)),
+                              ),
+                              items: [
+                                ...widget.columns.map((col) {
+                                  return DropdownMenuItem(
+                                    value: col.key,
+                                    child: Text(col.label, overflow: TextOverflow.ellipsis),
+                                  );
+                                }),
+                                if (rule.columnKey != null && !widget.columns.any((c) => c.key == rule.columnKey))
+                                  DropdownMenuItem(
+                                    value: rule.columnKey,
+                                    child: Text('${rule.columnKey} (Missing)', style: const TextStyle(color: Colors.red)),
+                                  ),
+                              ],
+                              onChanged: (val) => setState(() => rule.columnKey = val),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: Colors.red),
+                            onPressed: _rules.length <= 1 ? null : () => setState(() {
+                              final removed = _rules.removeAt(index);
+                              removed.controller.dispose();
+                            }),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<String>(
+                        value: rule.operator,
+                        isExpanded: true,
+                        dropdownColor: theme.cardTheme.color,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: theme.cardTheme.color,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: theme.dividerColor)),
+                        ),
+                        items: _operators.map((op) {
+                          return DropdownMenuItem(
+                            value: op['value'],
+                            child: Text(op['label']!),
+                          );
+                        }).toList(),
+                        onChanged: (val) => setState(() => rule.operator = val ?? '=='),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: rule.controller,
+                        decoration: InputDecoration(
+                          hintText: 'Enter value...',
+                          filled: true,
+                          fillColor: theme.cardTheme.color,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: theme.dividerColor)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: () => setState(() {
+                  final defaultKey = widget.columns.isNotEmpty ? widget.columns.first.key : null;
+                  _rules.add(_RuleDraft(columnKey: defaultKey, operator: '==', controller: TextEditingController()));
+                }),
+                icon: const Icon(Icons.add),
+                label: const Text('Add Rule'),
               ),
             ),
           ],
@@ -180,4 +241,16 @@ class _FilterEditorScreenState extends State<FilterEditorScreen> {
       ),
     );
   }
+}
+
+class _RuleDraft {
+  String? columnKey;
+  String operator;
+  TextEditingController controller;
+
+  _RuleDraft({
+    required this.columnKey,
+    required this.operator,
+    required this.controller,
+  });
 }

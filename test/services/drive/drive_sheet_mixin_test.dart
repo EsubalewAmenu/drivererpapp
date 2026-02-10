@@ -395,7 +395,11 @@ void main() {
       await service.fetchRecords(
         'f1', 's1', 'Main',
         searchQuery: 'ali',
-        quickFilter: QuickFilter(label: 'Gold', key: 'g', field: 'age', operator: '>=', value: 30).toJson()
+        quickFilter: QuickFilter(
+          label: 'Gold',
+          key: 'g',
+          rules: [FilterRule(field: 'age', operator: '>=', value: 30)],
+        ).toJson()
       );
 
       // Verify URL contains search and filter
@@ -460,7 +464,11 @@ void main() {
 
         await service.fetchRecords(
             'f1', 's1', 'Main',
-            quickFilter: QuickFilter(label: 'L', key: 'k', field: 'email', operator: 'endsWith', value: '@gmail.com').toJson()
+            quickFilter: QuickFilter(
+              label: 'L',
+              key: 'k',
+              rules: [FilterRule(field: 'email', operator: 'endsWith', value: '@gmail.com')],
+            ).toJson()
         );
 
         final decodedUrl = Uri.decodeFull(capturedUrl!);

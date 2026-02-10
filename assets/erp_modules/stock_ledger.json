@@ -37,8 +37,8 @@
           "show_all_fields": true
         },
         "quick_filters": [
-          { "label": "Stock In", "key": "stock_in", "field": "type", "operator": "==", "value": "In" },
-          { "label": "Stock Out", "key": "stock_out", "field": "type", "operator": "==", "value": "Out" }
+          { "label": "Stock In", "key": "stock_in", "rules": [ { "field": "type", "operator": "==", "value": "In" } ] },
+          { "label": "Stock Out", "key": "stock_out", "rules": [ { "field": "type", "operator": "==", "value": "Out" } ] }
         ],
         "columns": [
           { "key": "date", "label": "Date", "type": "date" },

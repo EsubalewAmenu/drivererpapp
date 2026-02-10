@@ -205,9 +205,7 @@ void main() {
     final customFilter = QuickFilter(
       label: 'Name Equals Record 2',
       key: 'f1',
-      field: 'name',
-      operator: '==',
-      value: 'Record 2',
+      rules: [FilterRule(field: 'name', operator: '==', value: 'Record 2')],
     );
 
     final tabWithFilter = testTab.copyWith(quickFilters: [customFilter]);
@@ -662,14 +660,14 @@ void main() {
         ColumnConfig(key: 'age', label: 'Age', type: 'number'),
       ],
       quickFilters: [
-        QuickFilter(label: 'Not Record 1', field: 'name', operator: '!=', value: 'Record 1', key: 'f1'),
-        QuickFilter(label: 'Contains ord', field: 'name', operator: 'contains', value: 'ord', key: 'f2'),
-        QuickFilter(label: 'Starts with Rec', field: 'name', operator: 'startsWidth', value: 'Rec', key: 'f3'),
-        QuickFilter(label: 'Age > 20', field: 'age', operator: '>', value: '20', key: 'f4'),
-        QuickFilter(label: 'Age < 20', field: 'age', operator: '<', value: '20', key: 'f5'),
-        QuickFilter(label: 'Z-Name > R', field: 'name', operator: '>', value: 'R', key: 'f6'),
-        QuickFilter(label: 'A-Name < R', field: 'name', operator: '<', value: 'R', key: 'f7'),
-        QuickFilter(label: 'Equals Record 1', field: 'name', operator: '==', value: 'Record 1', key: 'f8'),
+        QuickFilter(label: 'Not Record 1', key: 'f1', rules: [FilterRule(field: 'name', operator: '!=', value: 'Record 1')]),
+        QuickFilter(label: 'Contains ord', key: 'f2', rules: [FilterRule(field: 'name', operator: 'contains', value: 'ord')]),
+        QuickFilter(label: 'Starts with Rec', key: 'f3', rules: [FilterRule(field: 'name', operator: 'startsWidth', value: 'Rec')]),
+        QuickFilter(label: 'Age > 20', key: 'f4', rules: [FilterRule(field: 'age', operator: '>', value: '20')]),
+        QuickFilter(label: 'Age < 20', key: 'f5', rules: [FilterRule(field: 'age', operator: '<', value: '20')]),
+        QuickFilter(label: 'Z-Name > R', key: 'f6', rules: [FilterRule(field: 'name', operator: '>', value: 'R')]),
+        QuickFilter(label: 'A-Name < R', key: 'f7', rules: [FilterRule(field: 'name', operator: '<', value: 'R')]),
+        QuickFilter(label: 'Equals Record 1', key: 'f8', rules: [FilterRule(field: 'name', operator: '==', value: 'Record 1')]),
       ],
       enableCustomFilters: true,
     );

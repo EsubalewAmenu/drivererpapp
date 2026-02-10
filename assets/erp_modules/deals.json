@@ -49,8 +49,8 @@
         }
       ],
       "quick_filters": [
-         { "label": "My Deals", "key": "my_deals", "field": "owner", "operator": "==", "value": "user.email" },
-         { "label": "New", "key": "new_stage", "field": "stage", "operator": "==", "value": "New" }
+        { "label": "My Deals", "key": "my_deals", "rules": [ { "field": "owner", "operator": "==", "value": "user.email" } ] },
+        { "label": "New", "key": "new_stage", "rules": [ { "field": "stage", "operator": "==", "value": "New" } ] }
       ],
       "columns": [
         { "key": "deal_name", "label": "Deal Name", "type": "text", "required": true },

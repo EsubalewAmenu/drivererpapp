@@ -680,7 +680,11 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
             fileId, 
             childTabId, 
             fetchSubTables: false,
-            quickFilter: {'field': 'parent_record_id', 'operator': '==', 'value': recordIdStr},
+            quickFilter: {
+              'rules': [
+                {'field': 'parent_record_id', 'operator': '==', 'value': recordIdStr}
+              ]
+            },
             limit: 1000, 
           );
           

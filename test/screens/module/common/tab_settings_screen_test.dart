@@ -21,7 +21,11 @@ void main() {
         ColumnConfig(key: 'is_active', label: 'Is Active', type: 'boolean'),
       ],
       quickFilters: [
-        QuickFilter(label: 'Active Only', key: 'active', field: 'is_active', operator: '==', value: true),
+        QuickFilter(
+          label: 'Active Only',
+          key: 'active',
+          rules: [FilterRule(field: 'is_active', operator: '==', value: true)],
+        ),
       ],
       enableCustomFilters: true,
       listTemplate: ListTemplateConfig(
@@ -50,7 +54,7 @@ void main() {
     
     // Check initial filter
     expect(find.text('Active Only'), findsOneWidget);
-    expect(find.text('is_active == true'), findsOneWidget);
+    expect(find.text('Is Active == true'), findsOneWidget);
   });
 
   testWidgets('TabSettingsScreen can toggle filters enabled', (WidgetTester tester) async {
@@ -397,7 +401,11 @@ void main() {
       label: 'Test Tab',
       columns: testTab.columns,
       quickFilters: [
-        QuickFilter(key: 'q1', label: 'name contains abc', field: 'name', operator: 'contains', value: 'abc'),
+        QuickFilter(
+          key: 'q1',
+          label: 'name contains abc',
+          rules: [FilterRule(field: 'name', operator: 'contains', value: 'abc')],
+        ),
       ],
     );
 

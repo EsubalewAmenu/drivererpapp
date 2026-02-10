@@ -60,11 +60,11 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "Individuals", "key": "individuals", "field": "type", "operator": "==", "value": "Individual" },
-        { "label": "Companies", "key": "companies", "field": "type", "operator": "==", "value": "Company" },
-        { "label": "Customers", "key": "customer", "field": "status", "operator": "==", "value": "Customer" },
-        { "label": "Lead", "key": "lead", "field": "status", "operator": "==", "value": "Lead" },
-        { "label": "Suppliers", "key": "supplier", "field": "status", "operator": "==", "value": "Supplier" }
+        { "label": "Individuals", "key": "individuals", "rules": [ { "field": "type", "operator": "==", "value": "Individual" } ] },
+        { "label": "Companies", "key": "companies", "rules": [ { "field": "type", "operator": "==", "value": "Company" } ] },
+        { "label": "Customers", "key": "customer", "rules": [ { "field": "status", "operator": "==", "value": "Customer" } ] },
+        { "label": "Lead", "key": "lead", "rules": [ { "field": "status", "operator": "==", "value": "Lead" } ] },
+        { "label": "Suppliers", "key": "supplier", "rules": [ { "field": "status", "operator": "==", "value": "Supplier" } ] }
       ],
       "initial_data": [
         {
