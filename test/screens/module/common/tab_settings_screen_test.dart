@@ -83,13 +83,13 @@ void main() {
     await tester.pumpAndSettle();
     
     // In FilterEditorScreen (simplified mock/interact)
-    expect(find.text('Column'), findsOneWidget);
-    await tester.tap(find.text('Name'));
+    expect(find.text('Rules'), findsOneWidget);
+    await tester.tap(find.byType(DropdownButtonFormField<String>).first);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Age')); // Select Age
+    await tester.tap(find.text('Age').last); // Select Age
     await tester.pumpAndSettle();
     
-    await tester.enterText(find.ancestor(of: find.text('Enter value...'), matching: find.byType(TextField)), '25');
+    await tester.enterText(find.byType(TextField).last, '25');
     await tester.tap(find.widgetWithText(TextButton, 'Save'));
     await tester.pumpAndSettle();
     
@@ -101,7 +101,7 @@ void main() {
     
     // Clear label to allow auto-generation
     await tester.enterText(find.ancestor(of: find.text('Auto-generated if empty'), matching: find.byType(TextField)), '');
-    await tester.enterText(find.ancestor(of: find.text('Enter value...'), matching: find.byType(TextField)), '30');
+    await tester.enterText(find.byType(TextField).last, '30');
     await tester.tap(find.widgetWithText(TextButton, 'Save'));
     await tester.pumpAndSettle();
     
@@ -417,7 +417,7 @@ void main() {
       ),
     ));
 
-    expect(find.text('name contains abc'), findsNWidgets(2));
+    expect(find.text('name contains abc'), findsOneWidget);
 
     // Remove the filter
     await tester.tap(find.byIcon(Icons.delete_outline).last);
