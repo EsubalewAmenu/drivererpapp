@@ -53,10 +53,10 @@ class TabEditorCard extends StatelessWidget {
             Text('${tab.columns.length} Columns', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color)),
             const SizedBox(height: 4),
             tab.fileId != null && tab.fileId!.isNotEmpty
-                ? Text('File ID: ${tab.fileId}', 
-                    style: AppTheme.inter(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600))
-                : Text('the file will be created with initial seed data when you access the tab or choose button', 
-                    style: AppTheme.inter(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.w500)),
+              ? Text('File ID: ${tab.fileId}', 
+                style: AppTheme.inter(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600))
+              : Text('No linked file yet. It will be created when you access the tab, or you can select an existing spreadsheet from Drive.', 
+                style: AppTheme.inter(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.w500)),
           ],
         ),
         iconColor: theme.primaryColor,
