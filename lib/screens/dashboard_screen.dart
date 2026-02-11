@@ -5,6 +5,7 @@ import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
 import '../services/drive_service.dart';
 import '../providers/workspace_provider.dart';
+import '../features/add_module/add_module_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_drawer.dart';
 import 'module_screen.dart';
@@ -91,9 +92,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final effectiveId = (widget.userAccessSpreadsheetId != null && widget.userAccessSpreadsheetId!.isNotEmpty)
         ? widget.userAccessSpreadsheetId
         : (cachedId != null && cachedId.isNotEmpty ? cachedId : null);
+    await _refreshModules(driveService, effectiveId);
+  }
 
+  Future<void> _refreshModules(DriveService driveService, String? effectiveId) async {
     debugPrint('DashboardScreen: effective userAccessSpreadsheetId=$effectiveId (widget param=${widget.userAccessSpreadsheetId})');
 
+    if (!mounted) return;
     setState(() {
       if (effectiveId != null && effectiveId.isNotEmpty) {
         debugPrint('DashboardScreen: loading modules from user_access sheet $effectiveId');
@@ -214,7 +219,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
             final activeModuleNames = driveFiles.map((f) => f.name).toSet();
 
-            final activeModules = _catalog.where((m) => activeModuleNames.contains(m['name'])).toList();
+            // Always render modules from user_access (no catalog gating)
             final expansionModules = _catalog.where((m) => !activeModuleNames.contains(m['name'])).toList();
 
             return SingleChildScrollView(
@@ -228,7 +233,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 32),
                   _buildSectionHeader('CORE MODULES'),
                   const SizedBox(height: 16),
-                  _buildCoreModulesGrid(activeModules, driveFiles),
+                  _buildCoreModulesGrid(driveFiles),
                   const SizedBox(height: 32),
                   _buildSectionHeader('EXPANSION MARKETPLACE'),
                   const SizedBox(height: 16),
@@ -351,15 +356,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildCoreModulesGrid(List<Map<String, String>> activeModules, List<drive.File> driveFiles) {
+  Widget _buildCoreModulesGrid(List<drive.File> driveFiles) {
     final theme = Theme.of(context);
-    if (activeModules.isEmpty) {
-      return Center(
-        child: Text(
-          'No modules installed.\nVisit the Marketplace to expand.',
-          textAlign: TextAlign.center,
-          style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
-        ),
+    if (driveFiles.isEmpty) {
+      return Column(
+        children: [
+          Text(
+            'No modules installed.\nVisit the Marketplace to expand.',
+            textAlign: TextAlign.center,
+            style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
+          ),
+          const SizedBox(height: 16),
+          _buildAddModuleCard(),
+        ],
       );
     }
     
@@ -372,17 +381,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
         mainAxisSpacing: 16,
         childAspectRatio: 1.1,
       ),
-      itemCount: activeModules.length,
+      itemCount: driveFiles.length + 1,
       itemBuilder: (context, index) {
-        final moduleInfo = activeModules[index];
-        final folder = driveFiles.firstWhere((f) => f.name == moduleInfo['name']);
+        if (index == driveFiles.length) {
+          return _buildAddModuleCard();
+        }
+        final folder = driveFiles[index];
+        final moduleInfo = _catalog.firstWhere(
+          (m) => m['name']?.toLowerCase() == (folder.name ?? '').toLowerCase(),
+          orElse: () => {
+            'name': folder.name ?? 'Module',
+            'icon': 'table_chart',
+            'color': '#4F46E5',
+          },
+        );
         
         // Create a temporary schema from the folder
         final module = ModuleSchema(
           id: folder.id ?? 'unknown',
-          name: moduleInfo['name']!,
-          icon: moduleInfo['icon']!,
-          primaryColor: moduleInfo['color']!,
+          name: moduleInfo['name'] ?? (folder.name ?? 'Module'),
+          icon: moduleInfo['icon'] ?? 'table_chart',
+          primaryColor: moduleInfo['color'] ?? '#4F46E5',
           version: '1.0.0',
           settings: {},
           dashboard: DashboardConfig(cards: []),
@@ -392,6 +411,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return _buildModuleCard(module, isActive: true, sheetIds: sheetIds);
       },
     );
+  }
+
+  Widget _buildAddModuleCard() {
+    final theme = Theme.of(context);
+    return Card(
+      color: theme.cardTheme.color,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: theme.textTheme.bodyMedium!.color!.withValues(alpha: 0.2),
+          width: 1,
+          style: BorderStyle.solid,
+        ),
+      ),
+      child: InkWell(
+        onTap: _handleAddModule,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.scaffoldBackgroundColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.add_rounded,
+                  color: theme.primaryColor,
+                  size: 24,
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Add Module',
+                    style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Use an existing spreadsheet',
+                    style: AppTheme.inter(fontSize: 12, color: theme.textTheme.bodyMedium?.color),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleAddModule() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const AddModuleScreen()),
+    );
+    if (result == true) {
+      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+      final provider = Provider.of<WorkspaceProvider>(context, listen: false);
+      final effectiveId = (widget.userAccessSpreadsheetId != null && widget.userAccessSpreadsheetId!.isNotEmpty)
+          ? widget.userAccessSpreadsheetId
+          : (provider.lastUserAccessSpreadsheetId ?? await WorkspaceProvider.getLastUserAccessSpreadsheetId());
+
+      if (driveService != null) {
+        await _refreshModules(driveService, effectiveId);
+        // Retry once to handle Drive eventual consistency
+        await Future.delayed(const Duration(milliseconds: 600));
+        await _refreshModules(driveService, effectiveId);
+      } else {
+        await _loadModules();
+      }
+    }
   }
 
   Widget _buildExpansionMarketplaceGrid(List<Map<String, String>> expansionModules) {
