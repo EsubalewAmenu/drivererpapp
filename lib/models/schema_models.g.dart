@@ -46,17 +46,21 @@ SettingItem _$SettingItemFromJson(Map<String, dynamic> json) => SettingItem(
   options: json['options'] as List<dynamic>?,
 );
 
-Map<String, dynamic> _$SettingItemToJson(SettingItem instance) =>
-    <String, dynamic>{
-      'label': instance.label,
-      'type': instance.type,
-      'value': instance.value,
-      'dependsOn': instance.dependsOn,
-      'depends_value': instance.dependsValue,
-      'depends_operator': instance.dependsOperator,
-      'default': instance.defaultValue,
-      'options': instance.options,
-    };
+Map<String, dynamic> _$SettingItemToJson(SettingItem instance) {
+  final val = <String, dynamic>{
+    'label': instance.label,
+    'type': instance.type,
+    'value': instance.value,
+    'dependsOn': instance.dependsOn,
+    'depends_value': instance.dependsValue,
+    'depends_operator': instance.dependsOperator,
+    'default': instance.defaultValue,
+    'options': instance.options,
+  };
+
+  val.removeWhere((_, v) => v == null);
+  return val;
+}
 
 DashboardConfig _$DashboardConfigFromJson(Map<String, dynamic> json) =>
     DashboardConfig(
