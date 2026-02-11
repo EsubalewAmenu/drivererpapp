@@ -46,6 +46,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
   final Map<String, String> _relationLabels = {};
   final Set<String> _loadingTableFields = {};
   final Set<String> _attemptedTableFields = {};
+  final Map<String, String> _tableFieldErrors = {};
 
   @override
   void initState() {
@@ -645,6 +646,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       items: itemsList,
       isLoading: isLoading,
       isAttempted: isAttempted,
+      errorMessage: _tableFieldErrors[fieldKey],
       onLoad: () => _loadSubTableField(fieldKey, col),
     );
   }
@@ -671,6 +673,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
       return;
     }
 
+    bool offlineError = false;
     try {
       List<Map<String, dynamic>> recs = [];
       if (fileId != null && fileId.isNotEmpty) {
@@ -689,6 +692,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           );
           
         } catch (e) {
+          if (_isOfflineError(e)) offlineError = true;
           debugPrint('Sub-sheet $childTabId search failed or not found: $e. Falling back to inline data.');
           recs = [];
         }
@@ -700,6 +704,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         if (mounted) {
           setState(() {
             _currentData[fieldKey] = normalized;
+            _tableFieldErrors.remove(fieldKey);
           });
         }
       } else {
@@ -721,12 +726,28 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         // We only do this if we suspect the initial fetch was missing columns or bloat.
         // For efficiency, we only fetch if we don't already have a value.
         if (existingValue == null || (existingValue is String && existingValue.isEmpty)) {
-            if (mounted) setState(() => _currentData[fieldKey] = []);
+            if (mounted) {
+              setState(() {
+                _currentData[fieldKey] = [];
+                if (offlineError) {
+                  _tableFieldErrors[fieldKey] = 'No internet connection';
+                } else {
+                  _tableFieldErrors.remove(fieldKey);
+                }
+              });
+            }
         }
       }
     } catch (e) {
       debugPrint('Error loading sub-table field $fieldKey: $e');
-      if (mounted) setState(() => _currentData[fieldKey] = []);
+      if (mounted) {
+        setState(() {
+          _currentData[fieldKey] = [];
+          _tableFieldErrors[fieldKey] = _isOfflineError(e)
+              ? 'No internet connection'
+              : 'Failed to load data';
+        });
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -734,6 +755,14 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
         });
       }
     }
+  }
+
+  bool _isOfflineError(Object e) {
+    final msg = e.toString().toLowerCase();
+    return msg.contains('socketexception') ||
+        msg.contains('failed host lookup') ||
+        msg.contains('network is unreachable') ||
+        msg.contains('offline');
   }
 
   void _editRecord(BuildContext context) async {

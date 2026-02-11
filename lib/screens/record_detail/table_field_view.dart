@@ -7,6 +7,7 @@ class TableFieldView extends StatelessWidget {
   final List<Map<String, dynamic>> items;
   final bool isLoading;
   final bool isAttempted;
+  final String? errorMessage;
   final VoidCallback? onLoad;
 
   const TableFieldView({
@@ -15,6 +16,7 @@ class TableFieldView extends StatelessWidget {
     required this.items,
     this.isLoading = false,
     this.isAttempted = false,
+    this.errorMessage,
     this.onLoad,
   });
 
@@ -52,7 +54,12 @@ class TableFieldView extends StatelessWidget {
               child: isLoading
                   ? Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: theme.primaryColor)))
                   : isAttempted
-                      ? Text('No items', style: AppTheme.inter(fontSize: 14, color: theme.textTheme.bodyLarge?.color))
+                    ? Text(
+                      (errorMessage != null && errorMessage!.isNotEmpty)
+                        ? errorMessage!
+                        : 'No items',
+                      style: AppTheme.inter(fontSize: 14, color: theme.textTheme.bodyLarge?.color),
+                    )
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
