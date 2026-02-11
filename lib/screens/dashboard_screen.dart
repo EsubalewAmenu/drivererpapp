@@ -5,8 +5,11 @@ import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
 import '../services/drive_service.dart';
 import '../providers/workspace_provider.dart';
+import '../services/auth_service.dart';
+import '../services/module_import_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/spreadsheet_picker_dialog.dart';
 import 'module_screen.dart';
 import 'module_details_screen.dart';
 import 'settings_screen.dart';
@@ -354,12 +357,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildCoreModulesGrid(List<Map<String, String>> activeModules, List<drive.File> driveFiles) {
     final theme = Theme.of(context);
     if (activeModules.isEmpty) {
-      return Center(
-        child: Text(
-          'No modules installed.\nVisit the Marketplace to expand.',
-          textAlign: TextAlign.center,
-          style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
-        ),
+      return Column(
+        children: [
+          Text(
+            'No modules installed.\nVisit the Marketplace to expand.',
+            textAlign: TextAlign.center,
+            style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
+          ),
+          const SizedBox(height: 16),
+          _buildAddModuleCard(),
+        ],
       );
     }
     
@@ -372,8 +379,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         mainAxisSpacing: 16,
         childAspectRatio: 1.1,
       ),
-      itemCount: activeModules.length,
+      itemCount: activeModules.length + 1,
       itemBuilder: (context, index) {
+        if (index == activeModules.length) {
+          return _buildAddModuleCard();
+        }
         final moduleInfo = activeModules[index];
         final folder = driveFiles.firstWhere((f) => f.name == moduleInfo['name']);
         
@@ -392,6 +402,110 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return _buildModuleCard(module, isActive: true, sheetIds: sheetIds);
       },
     );
+  }
+
+  Widget _buildAddModuleCard() {
+    final theme = Theme.of(context);
+    return Card(
+      color: theme.cardTheme.color,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(
+          color: theme.textTheme.bodyMedium!.color!.withValues(alpha: 0.2),
+          width: 1,
+          style: BorderStyle.solid,
+        ),
+      ),
+      child: InkWell(
+        onTap: _handleAddModule,
+        borderRadius: BorderRadius.circular(20),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: theme.scaffoldBackgroundColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.add_rounded,
+                  color: theme.primaryColor,
+                  size: 24,
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Add Module',
+                    style: AppTheme.inter(fontSize: 16, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Use an existing spreadsheet',
+                    style: AppTheme.inter(fontSize: 12, color: theme.textTheme.bodyMedium?.color),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleAddModule() async {
+    final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+
+    if (driveService == null || workspaceProvider.currentWorkspace == null || !authService.isAuthenticated) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please sign in and select a workspace.')),
+        );
+      }
+      return;
+    }
+
+    final selectedId = await SpreadsheetPickerDialog.show(
+      context,
+      driveApi: driveService.driveApi,
+      title: 'Add Module from Spreadsheet',
+    );
+    if (selectedId == null || selectedId.isEmpty) return;
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    try {
+      final importer = ModuleImportService(
+        driveService: driveService,
+        workspaceProvider: workspaceProvider,
+      );
+      await importer.importSpreadsheetAsModule(selectedId);
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Module added successfully.')),
+      );
+      await _loadModules();
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add module: $e')),
+      );
+    }
   }
 
   Widget _buildExpansionMarketplaceGrid(List<Map<String, String>> expansionModules) {
