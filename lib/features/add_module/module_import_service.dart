@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
-import '../models/schema_models.dart';
-import '../providers/workspace_provider.dart';
-import 'auth_service.dart';
-import 'drive_service.dart';
+import '../../models/schema_models.dart';
+import '../../providers/workspace_provider.dart';
+import '../../services/auth_service.dart';
+import '../../services/drive_service.dart';
 
 class ModuleImportResult {
   final String moduleId;
@@ -128,5 +128,4 @@ class ModuleImportService {
     }
     return headers.map((h) => ColumnConfig(key: h, label: h, type: 'text')).toList();
   }
-
 }

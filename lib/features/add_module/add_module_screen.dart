@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
-import '../providers/drive_provider.dart';
-import '../providers/workspace_provider.dart';
-import '../services/auth_service.dart';
-import '../services/module_import_service.dart';
-import '../theme/app_theme.dart';
-import '../widgets/spreadsheet_picker_dialog.dart';
+import '../../providers/drive_provider.dart';
+import '../../providers/workspace_provider.dart';
+import '../../services/auth_service.dart';
+import '../../theme/app_theme.dart';
+import 'module_import_service.dart';
+import 'spreadsheet_picker_dialog.dart';
 
 class AddModuleScreen extends StatefulWidget {
   const AddModuleScreen({super.key});

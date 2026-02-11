@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
 import '../../../models/schema_models.dart';
 import '../../../providers/drive_provider.dart';
-import '../../../widgets/spreadsheet_picker_dialog.dart';
+import '../../../features/add_module/spreadsheet_picker_dialog.dart';
 import 'column_list_item.dart';
 import 'table_column_editor_item.dart';
 import '../dialogs/add_column_dialog.dart';

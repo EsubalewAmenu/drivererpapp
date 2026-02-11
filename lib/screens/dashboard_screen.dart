@@ -5,7 +5,7 @@ import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
 import '../services/drive_service.dart';
 import '../providers/workspace_provider.dart';
-import 'add_module_screen.dart';
+import '../features/add_module/add_module_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_drawer.dart';
 import 'module_screen.dart';
