@@ -92,9 +92,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final effectiveId = (widget.userAccessSpreadsheetId != null && widget.userAccessSpreadsheetId!.isNotEmpty)
         ? widget.userAccessSpreadsheetId
         : (cachedId != null && cachedId.isNotEmpty ? cachedId : null);
+    await _refreshModules(driveService, effectiveId);
+  }
 
+  Future<void> _refreshModules(DriveService driveService, String? effectiveId) async {
     debugPrint('DashboardScreen: effective userAccessSpreadsheetId=$effectiveId (widget param=${widget.userAccessSpreadsheetId})');
 
+    if (!mounted) return;
     setState(() {
       if (effectiveId != null && effectiveId.isNotEmpty) {
         debugPrint('DashboardScreen: loading modules from user_access sheet $effectiveId');
@@ -469,7 +473,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
       MaterialPageRoute(builder: (_) => const AddModuleScreen()),
     );
     if (result == true) {
-      await _loadModules();
+      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+      final provider = Provider.of<WorkspaceProvider>(context, listen: false);
+      final effectiveId = (widget.userAccessSpreadsheetId != null && widget.userAccessSpreadsheetId!.isNotEmpty)
+          ? widget.userAccessSpreadsheetId
+          : (provider.lastUserAccessSpreadsheetId ?? await WorkspaceProvider.getLastUserAccessSpreadsheetId());
+
+      if (driveService != null) {
+        await _refreshModules(driveService, effectiveId);
+        // Retry once to handle Drive eventual consistency
+        await Future.delayed(const Duration(milliseconds: 600));
+        await _refreshModules(driveService, effectiveId);
+      } else {
+        await _loadModules();
+      }
     }
   }
 
