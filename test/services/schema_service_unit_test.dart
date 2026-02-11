@@ -47,7 +47,8 @@ void main() {
     when(() => mockDriveService.readSettingsById(any())).thenAnswer((_) async => null);
     when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => null);
     when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => null);
-    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any())).thenAnswer((_) async => {});
+    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any(), moduleType: any(named: 'moduleType')))
+      .thenAnswer((_) async => {});
   });
 
   test('getCachedConfig returns null when nothing is cached', () async {

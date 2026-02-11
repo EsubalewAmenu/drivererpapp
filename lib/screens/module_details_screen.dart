@@ -266,7 +266,8 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                   moduleName, 
                   dashboardId ?? '', 
                   settingsId ?? '', 
-                  tabsId ?? ''
+                  tabsId ?? '',
+                  moduleType: widget.hostModuleId != null ? 'extension' : 'module'
                 );
                 try {
                   await (driveService as dynamic).setUserAccessModuleStatus(userAccessFileId, moduleFolderId, 'activated');

@@ -383,11 +383,108 @@ mixin DriveCompanyMixin {
   }
 
   /// Upserts a module row in the user's access spreadsheet `modules` sheet.
-  Future<void> upsertUserAccessModule(String userAccessFileId, String moduleId, String moduleName, String dashboardId, String settingsId, String tabsId) async {
+  Future<void> upsertUserAccessModule(
+    String userAccessFileId,
+    String moduleId,
+    String moduleName,
+    String dashboardId,
+    String settingsId,
+    String tabsId, {
+    String moduleType = 'module',
+  }) async {
     try {
       debugPrint('upsertUserAccessModule: file=$userAccessFileId module=$moduleId');
+      // Ensure header includes module_type
+      final headerResp = await retryOp(() => sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A1:Z1'));
+      final headerRow = (headerResp.values != null && headerResp.values!.isNotEmpty)
+          ? List<String>.from(headerResp.values!.first.map((e) => e.toString()))
+          : <String>['id', 'module_name', 'dashboard', 'settings', 'tabs'];
+
+      int moduleTypeIndex = headerRow.indexOf('module_type');
+      if (moduleTypeIndex == -1) {
+        headerRow.add('module_type');
+        moduleTypeIndex = headerRow.length - 1;
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+              sheets.ValueRange(values: [headerRow]),
+              userAccessFileId,
+              'modules!A1',
+              valueInputOption: 'RAW',
+            ));
+      }
+
+      int idIndex = headerRow.indexOf('id');
+      if (idIndex == -1) {
+        headerRow.insert(0, 'id');
+        idIndex = 0;
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+              sheets.ValueRange(values: [headerRow]),
+              userAccessFileId,
+              'modules!A1',
+              valueInputOption: 'RAW',
+            ));
+      }
+
+      int nameIndex = headerRow.indexOf('module_name');
+      if (nameIndex == -1) {
+        headerRow.add('module_name');
+        nameIndex = headerRow.length - 1;
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+              sheets.ValueRange(values: [headerRow]),
+              userAccessFileId,
+              'modules!A1',
+              valueInputOption: 'RAW',
+            ));
+      }
+
+      int dashboardIndex = headerRow.indexOf('dashboard');
+      if (dashboardIndex == -1) {
+        headerRow.add('dashboard');
+        dashboardIndex = headerRow.length - 1;
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+              sheets.ValueRange(values: [headerRow]),
+              userAccessFileId,
+              'modules!A1',
+              valueInputOption: 'RAW',
+            ));
+      }
+
+      int settingsIndex = headerRow.indexOf('settings');
+      if (settingsIndex == -1) {
+        headerRow.add('settings');
+        settingsIndex = headerRow.length - 1;
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+              sheets.ValueRange(values: [headerRow]),
+              userAccessFileId,
+              'modules!A1',
+              valueInputOption: 'RAW',
+            ));
+      }
+
+      int tabsIndex = headerRow.indexOf('tabs');
+      if (tabsIndex == -1) {
+        headerRow.add('tabs');
+        tabsIndex = headerRow.length - 1;
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+              sheets.ValueRange(values: [headerRow]),
+              userAccessFileId,
+              'modules!A1',
+              valueInputOption: 'RAW',
+            ));
+      }
+
+      String colLetter(int idx) {
+        int i = idx;
+        String ret = '';
+        while (i >= 0) {
+          ret = String.fromCharCode(65 + (i % 26)) + ret;
+          i = (i ~/ 26) - 1;
+        }
+        return ret;
+      }
+
       // Fetch existing rows
-      final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A2:E'));
+      final lastCol = colLetter(headerRow.length - 1);
+      final resp = await retryOp(() => sheetsApi.spreadsheets.values.get(userAccessFileId, 'modules!A2:$lastCol'));
       final values = resp.values ?? [];
 
       int foundRow = -1;
@@ -400,12 +497,29 @@ mixin DriveCompanyMixin {
         }
       }
 
-      final row = [moduleId, moduleName, dashboardId, settingsId, tabsId];
+      final row = List<String>.filled(headerRow.length, '');
+      if (foundRow != -1) {
+        final existing = values[foundRow - 2];
+        for (int i = 0; i < existing.length && i < row.length; i++) {
+          row[i] = existing[i]?.toString() ?? '';
+        }
+      }
+      row[idIndex] = moduleId;
+      row[nameIndex] = moduleName;
+      row[dashboardIndex] = dashboardId;
+      row[settingsIndex] = settingsId;
+      row[tabsIndex] = tabsId;
+      row[moduleTypeIndex] = moduleType;
       debugPrint('Prepared upsert row: $row foundRow=$foundRow');
 
       if (foundRow != -1) {
         debugPrint('Updating existing module row at $foundRow');
-        await retryOp(() => sheetsApi.spreadsheets.values.update(sheets.ValueRange(values: [row]), userAccessFileId, 'modules!A$foundRow:E$foundRow', valueInputOption: 'RAW'));
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+              sheets.ValueRange(values: [row]),
+              userAccessFileId,
+              'modules!A$foundRow:$lastCol$foundRow',
+              valueInputOption: 'RAW',
+            ));
       } else {
         debugPrint('Appending new module row');
         await retryOp(() => sheetsApi.spreadsheets.values.append(sheets.ValueRange(values: [row]), userAccessFileId, 'modules!A1', valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS'));
