@@ -102,7 +102,14 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
         }
 
         final userEmail = capturedUserEmail;
-        final userAccessFileId = workspaceProvider.lastUserAccessSpreadsheetId;
+        String? userAccessFileId = workspaceProvider.lastUserAccessSpreadsheetId;
+        if (userAccessFileId == null || userAccessFileId.isEmpty) {
+          try {
+            userAccessFileId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+          } catch (e) {
+            debugPrint('Error reading persisted user access spreadsheet id: $e');
+          }
+        }
 
         if (userEmail != null && userEmail.isNotEmpty && userAccessFileId != null) {
           try {
@@ -257,9 +264,16 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               final dashboardId = configIds?['dashboard'];
               final tabsId = configIds?['tabs'];
 
-              final userAccessFileId = workspaceProvider.lastUserAccessSpreadsheetId;
+              String? userAccessFileId = workspaceProvider.lastUserAccessSpreadsheetId;
+              if (userAccessFileId == null || userAccessFileId.isEmpty) {
+                try {
+                  userAccessFileId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+                } catch (e) {
+                  debugPrint('Error reading persisted user access spreadsheet id: $e');
+                }
+              }
 
-              if (userAccessFileId != null) {
+              if (userAccessFileId != null && userAccessFileId.isNotEmpty) {
                 await (driveService as dynamic).upsertUserAccessModule(
                   userAccessFileId, 
                   moduleFolderId, 
