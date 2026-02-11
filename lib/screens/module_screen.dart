@@ -218,12 +218,14 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final driveService = driveProvider.driveService;
       final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
 
-      List<List<dynamic>> uaRows = [];
+          List<List<dynamic>> uaRows = [];
+          int moduleTypeIdx = -1;
+          String? uaId;
       // Build a set of deactivated module ids from the per-user user_access spreadsheet (if available)
       final deactivated = <String>{};
       try {
         final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
-        String? uaId = workspaceProvider.lastUserAccessSpreadsheetId;
+            uaId = workspaceProvider.lastUserAccessSpreadsheetId;
         if (uaId == null || uaId.isEmpty) uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
         if (uaId != null && uaId.isNotEmpty && driveService != null) {
           try {
@@ -233,6 +235,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
               final header = List<String>.from(all.first.map((e) => e.toString().toLowerCase()));
               final rows = all.length > 1 ? all.sublist(1) : [];
               uaRows = rows.map((r) => List<dynamic>.from(r as List)).toList();
+                  moduleTypeIdx = header.indexOf('module_type');
               final statusIdx = header.indexOf('status');
               if (statusIdx != -1) {
                 for (var r in uaRows) {
@@ -278,6 +281,25 @@ class _ModuleScreenState extends State<ModuleScreen> {
                   if (r.length > 2) extDashboardId = r[2]?.toString();
                   if (r.length > 3) extSettingsId = r[3]?.toString();
                   if (r.length > 4) extTabsId = r[4]?.toString();
+                      final rowType = (moduleTypeIdx != -1 && r.length > moduleTypeIdx)
+                          ? (r[moduleTypeIdx] ?? '').toString().toLowerCase()
+                          : '';
+                      // If activated and not yet marked as extension, update row
+                      if (rowType != 'extension' && uaId != null && uaId.isNotEmpty && driveService != null) {
+                        try {
+                          await driveService.upsertUserAccessModule(
+                            uaId,
+                            rId,
+                            name,
+                            extDashboardId ?? '',
+                            extSettingsId ?? '',
+                            extTabsId ?? '',
+                            moduleType: 'extension',
+                          );
+                        } catch (e) {
+                          debugPrint('Failed to mark module_type as extension for $rId: $e');
+                        }
+                      }
                   break;
                 }
               }

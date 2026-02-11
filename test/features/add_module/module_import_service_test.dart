@@ -83,8 +83,8 @@ void main() {
           'dashboard': 'did',
           'tabs': 'tid',
         });
-    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any()))
-        .thenAnswer((_) async {});
+    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any(), moduleType: any(named: 'moduleType')))
+      .thenAnswer((_) async {});
   });
 
   test('imports spreadsheet as module successfully', () async {
@@ -100,7 +100,7 @@ void main() {
     expect(result.moduleName, 'My Sheet');
     verify(() => mockDriveService.createWorkspace('ws1', 'My Sheet')).called(1);
     verify(() => mockDriveService.getOrCreateSubFolder('mod1', 'config')).called(1);
-    verify(() => mockDriveService.upsertUserAccessModule('ua1', 'mod1', 'My Sheet', 'did', 'sid', 'tid')).called(1);
+    verify(() => mockDriveService.upsertUserAccessModule('ua1', 'mod1', 'My Sheet', 'did', 'sid', 'tid', moduleType: 'module')).called(1);
   });
 
   test('creates default column when header is empty', () async {

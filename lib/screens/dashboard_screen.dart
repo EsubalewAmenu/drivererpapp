@@ -122,12 +122,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // rows columns: id, module_name, dashboard, settings, tabs
       final files = <drive.File>[];
       _userAccessModuleSheets.clear();
+      final moduleTypeIdx = header.indexOf('module_type');
       for (var r in rows) {
         final id = r.isNotEmpty ? (r[0] as String) : '';
         final name = r.length > 1 ? (r[1] as String) : '';
         final dashboardId = r.length > 2 ? (r[2] as String) : '';
         final settingsId = r.length > 3 ? (r[3] as String) : '';
         final tabsId = r.length > 4 ? (r[4] as String) : '';
+        final moduleType = (moduleTypeIdx != -1 && r.length > moduleTypeIdx)
+            ? (r[moduleTypeIdx] ?? '').toString().toLowerCase()
+            : '';
         // Check status column if present
         String status = '';
         final statusIdx = header.indexOf('status');
@@ -136,6 +140,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
         if (status == 'deactivated') {
           // Skip deactivated modules for this user
+          continue;
+        }
+        if (moduleType == 'extension') {
+          // Extensions should not appear on main dashboard
           continue;
         }
         if (id.isNotEmpty && name.isNotEmpty) {

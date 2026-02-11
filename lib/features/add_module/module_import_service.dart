@@ -102,6 +102,7 @@ class ModuleImportService {
       configIds['dashboard'] ?? '',
       configIds['settings'] ?? '',
       configIds['tabs'] ?? '',
+      moduleType: 'module',
     );
     onProgress?.call('Done', 1.0);
 
