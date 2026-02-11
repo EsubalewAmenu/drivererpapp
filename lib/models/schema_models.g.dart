@@ -262,22 +262,26 @@ ColumnConfig _$ColumnConfigFromJson(Map<String, dynamic> json) => ColumnConfig(
   readonly: json['readonly'] as bool?,
 );
 
-Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) =>
-    <String, dynamic>{
-      'key': instance.key,
-      'label': instance.label,
-      'help': instance.help,
-      'type': instance.type,
-      'options': instance.options,
-      'formula': instance.formula,
-      'depends_on': instance.dependsOn,
-      'default': instance.defaultValue,
-      'columns': instance.columns?.map((e) => e.toJson()).toList(),
-      'hidden': instance.hidden,
-      'dynamic_label': instance.dynamicLabel,
-      'required': instance.isRequired,
-      'currency_symbol': instance.currencySymbol,
-      'depends_value': instance.dependsValue,
-      'depends_operator': instance.dependsOperator,
-      'readonly': instance.readonly,
-    };
+Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) {
+  final val = <String, dynamic>{
+    'key': instance.key,
+    'label': instance.label,
+    'help': instance.help,
+    'type': instance.type,
+    'options': instance.options,
+    'formula': instance.formula,
+    'depends_on': instance.dependsOn,
+    'default': instance.defaultValue,
+    'columns': instance.columns?.map((e) => e.toJson()).toList(),
+    'hidden': instance.hidden,
+    'dynamic_label': instance.dynamicLabel,
+    'required': instance.isRequired,
+    'currency_symbol': instance.currencySymbol,
+    'depends_value': instance.dependsValue,
+    'depends_operator': instance.dependsOperator,
+    'readonly': instance.readonly,
+  };
+
+  val.removeWhere((_, v) => v == null);
+  return val;
+}
