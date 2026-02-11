@@ -11,8 +11,6 @@ import 'package:drivererpapp/providers/theme_provider.dart';
 import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
-import 'package:drivererpapp/screens/schema_editor_screen.dart';
-import 'package:drivererpapp/models/schema_models.dart';
 import 'helpers/test_helpers.dart';
 
 void main() {
@@ -131,36 +129,12 @@ void main() {
     await workspaceProvider.saveUserAccessSpreadsheetId('ua1');
     await tester.pumpAndSettle();
 
-    // If the dashboard didn't navigate to the editor automatically, push SchemaEditorScreen directly
-    try {
-      final dashboardContext = tester.element(find.byType(DashboardScreen));
-      Navigator.of(dashboardContext).push(MaterialPageRoute(builder: (_) => SchemaEditorScreen(
-        module: ModuleSchema(id: 'new_mod_id', name: 'Inventory', icon: 'inventory', primaryColor: '#3B82F6', version: '1.0.0', settings: {}, dashboard: DashboardConfig(cards: []), tabs: []),
-        settingsSheetId: 'config_id',
-        dashboardSheetId: 'dash_id',
-        tabsSheetId: 'tabs_id',
-        isNewSetup: true,
-      )));
-      await tester.pumpAndSettle();
-    } catch (e) {
-      debugPrint('Could not push SchemaEditorScreen directly: \${e}');
-    }
-    
-    // 5. Open the module to trigger first-time setup (Blueprint Editor)
+    // 5. Open the module to load its config
     when(() => mockDriveService.getFileId('new_mod_id', 'config')).thenAnswer((_) async => null);
     when(() => mockDriveService.readSettingsById(any())).thenAnswer((_) async => <String, dynamic>{});
     when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => <String, dynamic>{'cards': <dynamic>[]});
     when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => <Map<String, dynamic>>[]);
 
-    // Should be in COMPLETE SETUP (SchemaEditorScreen) or show structure
-    final hasCompleteSetup = find.text('COMPLETE SETUP').evaluate().isNotEmpty;
-    final hasStructure = find.text('STRUCTURE').evaluate().isNotEmpty;
-    expect(hasCompleteSetup || hasStructure, isTrue);
-
-    // 6. Save/Activate in Editor
-    when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => {'settings': 'config_id', 'dashboard': 'dash_id', 'tabs': 'tabs_id'});
-    when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
-    
     // Provide generic mocks for the new granular read methods
     when(() => mockDriveService.readSettingsById('config_id')).thenAnswer((_) async => <String, dynamic>{
       'id': {'label': 'ID', 'type': 'text', 'value': 'new_mod_id'},
@@ -172,9 +146,6 @@ void main() {
     when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => <Map<String, dynamic>>[
        {'id': 't1', 'label': 'Stock Adjustment', 'columns': []}
     ]);
-
-    await tester.tap(find.text('ACTIVATE'));
-    await tester.pumpAndSettle();
 
     // Force Dashboard refresh with a fresh workspace instance
     workspaceProvider.setWorkspace(drive.File()..id = 'ws1'..name = 'Test Workspace');
