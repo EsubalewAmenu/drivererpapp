@@ -5,11 +5,9 @@ import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
 import '../services/drive_service.dart';
 import '../providers/workspace_provider.dart';
-import '../services/auth_service.dart';
-import '../services/module_import_service.dart';
+import 'add_module_screen.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_drawer.dart';
-import '../widgets/spreadsheet_picker_dialog.dart';
 import 'module_screen.dart';
 import 'module_details_screen.dart';
 import 'settings_screen.dart';
@@ -217,7 +215,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             }
             final activeModuleNames = driveFiles.map((f) => f.name).toSet();
 
-            final activeModules = _catalog.where((m) => activeModuleNames.contains(m['name'])).toList();
+            // Always render modules from user_access (no catalog gating)
             final expansionModules = _catalog.where((m) => !activeModuleNames.contains(m['name'])).toList();
 
             return SingleChildScrollView(
@@ -231,7 +229,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   const SizedBox(height: 32),
                   _buildSectionHeader('CORE MODULES'),
                   const SizedBox(height: 16),
-                  _buildCoreModulesGrid(activeModules, driveFiles),
+                  _buildCoreModulesGrid(driveFiles),
                   const SizedBox(height: 32),
                   _buildSectionHeader('EXPANSION MARKETPLACE'),
                   const SizedBox(height: 16),
@@ -354,9 +352,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildCoreModulesGrid(List<Map<String, String>> activeModules, List<drive.File> driveFiles) {
+  Widget _buildCoreModulesGrid(List<drive.File> driveFiles) {
     final theme = Theme.of(context);
-    if (activeModules.isEmpty) {
+    if (driveFiles.isEmpty) {
       return Column(
         children: [
           Text(
@@ -379,20 +377,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
         mainAxisSpacing: 16,
         childAspectRatio: 1.1,
       ),
-      itemCount: activeModules.length + 1,
+      itemCount: driveFiles.length + 1,
       itemBuilder: (context, index) {
-        if (index == activeModules.length) {
+        if (index == driveFiles.length) {
           return _buildAddModuleCard();
         }
-        final moduleInfo = activeModules[index];
-        final folder = driveFiles.firstWhere((f) => f.name == moduleInfo['name']);
+        final folder = driveFiles[index];
+        final moduleInfo = _catalog.firstWhere(
+          (m) => m['name']?.toLowerCase() == (folder.name ?? '').toLowerCase(),
+          orElse: () => {
+            'name': folder.name ?? 'Module',
+            'icon': 'table_chart',
+            'color': '#4F46E5',
+          },
+        );
         
         // Create a temporary schema from the folder
         final module = ModuleSchema(
           id: folder.id ?? 'unknown',
-          name: moduleInfo['name']!,
-          icon: moduleInfo['icon']!,
-          primaryColor: moduleInfo['color']!,
+          name: moduleInfo['name'] ?? (folder.name ?? 'Module'),
+          icon: moduleInfo['icon'] ?? 'table_chart',
+          primaryColor: moduleInfo['color'] ?? '#4F46E5',
           version: '1.0.0',
           settings: {},
           dashboard: DashboardConfig(cards: []),
@@ -459,52 +464,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _handleAddModule() async {
-    final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
-    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
-    final authService = Provider.of<AuthService>(context, listen: false);
-
-    if (driveService == null || workspaceProvider.currentWorkspace == null || !authService.isAuthenticated) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please sign in and select a workspace.')),
-        );
-      }
-      return;
-    }
-
-    final selectedId = await SpreadsheetPickerDialog.show(
+    final result = await Navigator.push<bool>(
       context,
-      driveApi: driveService.driveApi,
-      title: 'Add Module from Spreadsheet',
+      MaterialPageRoute(builder: (_) => const AddModuleScreen()),
     );
-    if (selectedId == null || selectedId.isEmpty) return;
-
-    if (mounted) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => const Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    try {
-      final importer = ModuleImportService(
-        driveService: driveService,
-        workspaceProvider: workspaceProvider,
-      );
-      await importer.importSpreadsheetAsModule(selectedId);
-      if (!mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Module added successfully.')),
-      );
+    if (result == true) {
       await _loadModules();
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to add module: $e')),
-      );
     }
   }
 

@@ -2,18 +2,33 @@ import 'package:flutter/foundation.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import '../models/schema_models.dart';
 import '../providers/workspace_provider.dart';
+import 'auth_service.dart';
 import 'drive_service.dart';
+
+class ModuleImportResult {
+  final String moduleId;
+  final String moduleName;
+
+  ModuleImportResult({required this.moduleId, required this.moduleName});
+}
 
 class ModuleImportService {
   final DriveService driveService;
   final WorkspaceProvider workspaceProvider;
+  final AuthService authService;
 
   ModuleImportService({
     required this.driveService,
     required this.workspaceProvider,
+    required this.authService,
   });
 
-  Future<String> importSpreadsheetAsModule(String spreadsheetId) async {
+  Future<ModuleImportResult> importSpreadsheetAsModule(
+    String spreadsheetId, {
+    String? spreadsheetName,
+    void Function(String message, double progress)? onProgress,
+  }) async {
+    onProgress?.call('Validating workspace...', 0.05);
     final workspace = workspaceProvider.currentWorkspace;
     if (workspace == null || workspace.id == null) {
       throw Exception('Workspace is not selected');
@@ -25,31 +40,32 @@ class ModuleImportService {
       throw Exception('User access spreadsheet not found');
     }
 
-    final file = await driveService.driveApi.files.get(
-      spreadsheetId,
-      $fields: 'id,name',
-      supportsAllDrives: true,
-    ) as drive.File;
+    final userEmail = authService.currentUser?.email;
+    if (userEmail == null || userEmail.isEmpty) {
+      throw Exception('User email not found');
+    }
 
-    final moduleName = (file.name ?? 'Imported Module').trim();
+    onProgress?.call('Reading spreadsheet metadata...', 0.15);
+    final fileName = spreadsheetName?.trim().isNotEmpty == true
+        ? spreadsheetName!.trim()
+        : ((await driveService.driveApi.files.get(
+              spreadsheetId,
+              $fields: 'id,name',
+              supportsAllDrives: true,
+            ) as drive.File)
+                .name ??
+            'Imported Module');
 
+    final moduleName = fileName.trim();
+
+    onProgress?.call('Creating module folder...', 0.35);
     final moduleFolder = await driveService.createWorkspace(workspace.id!, moduleName);
     final moduleFolderId = moduleFolder.id!;
 
-    // Attempt to add the spreadsheet into the module folder (non-destructive)
-    try {
-      await driveService.driveApi.files.update(
-        drive.File(),
-        spreadsheetId,
-        addParents: moduleFolderId,
-        supportsAllDrives: true,
-      );
-    } catch (e) {
-      debugPrint('ModuleImportService: Failed to add spreadsheet to module folder: $e');
-    }
-
+    onProgress?.call('Creating config folder...', 0.55);
     final configFolderId = await driveService.getOrCreateSubFolder(moduleFolderId, 'config');
 
+    onProgress?.call('Preparing tab config...', 0.65);
     final sheetInfo = await driveService.sheetsApi.spreadsheets.get(spreadsheetId);
     final sheetTitle = sheetInfo.sheets?.first.properties?.title ?? 'Sheet1';
 
@@ -75,10 +91,10 @@ class ModuleImportService {
       'dashboard': {'cards': []},
       'tabs': [tabConfig.toJson()],
     };
+    onProgress?.call('Creating config spreadsheets...', 0.8);
+    final configIds = await driveService.createModuleConfig(configFolderId, userEmail, config);
 
-    final configBase = _normalizeFileBase(moduleName);
-    final configIds = await driveService.createModuleConfig(configFolderId, configBase, config);
-
+    onProgress?.call('Registering module access...', 0.92);
     await driveService.upsertUserAccessModule(
       userAccessFileId,
       moduleFolderId,
@@ -87,8 +103,9 @@ class ModuleImportService {
       configIds['settings'] ?? '',
       configIds['tabs'] ?? '',
     );
+    onProgress?.call('Done', 1.0);
 
-    return moduleFolderId;
+    return ModuleImportResult(moduleId: moduleFolderId, moduleName: moduleName);
   }
 
   Future<List<String>> _readHeaderRow(String spreadsheetId, String sheetTitle) async {
@@ -112,8 +129,4 @@ class ModuleImportService {
     return headers.map((h) => ColumnConfig(key: h, label: h, type: 'text')).toList();
   }
 
-  String _normalizeFileBase(String input) {
-    final normalized = input.toLowerCase().trim().replaceAll(RegExp(r'\s+'), '_');
-    return normalized.replaceAll(RegExp(r'[^a-z0-9_]'), '');
-  }
 }
