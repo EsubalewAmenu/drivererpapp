@@ -230,8 +230,15 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
       await driveService.deleteFile(widget.module.id);
 
       if (userEmail != null) {
-        final uaFileId = workspaceProvider.lastUserAccessSpreadsheetId;
-        if (uaFileId != null) {
+        String? uaFileId = workspaceProvider.lastUserAccessSpreadsheetId;
+        if (uaFileId == null || uaFileId.isEmpty) {
+          try {
+            uaFileId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+          } catch (e) {
+            debugPrint('Error reading persisted user access spreadsheet id: $e');
+          }
+        }
+        if (uaFileId != null && uaFileId.isNotEmpty) {
           await driveService.removeUserAccessModule(uaFileId, widget.module.id);
         }
       }
