@@ -60,14 +60,14 @@ void main() {
         .thenAnswer((_) async {});
   });
 
-  Widget createEditorScreen(ModuleSchema module, {bool isNewSetup = false, String? settingsSheetId, String? dashboardSheetId, String? tabsSheetId}) {
+  Widget createEditorScreen(ModuleSchema module, {String? settingsSheetId, String? dashboardSheetId, String? tabsSheetId}) {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
       ],
       child: MaterialApp(
-        home: SchemaEditorScreen(module: module, isNewSetup: isNewSetup, settingsSheetId: settingsSheetId, dashboardSheetId: dashboardSheetId, tabsSheetId: tabsSheetId),
+        home: SchemaEditorScreen(module: module, settingsSheetId: settingsSheetId, dashboardSheetId: dashboardSheetId, tabsSheetId: tabsSheetId),
       ),
     );
   }
@@ -143,12 +143,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Error saving configuration:'), findsOneWidget);
-  });
-
-  testWidgets('SchemaEditorScreen renders ACTIVATE in new setup mode', (WidgetTester tester) async {
-    await tester.pumpWidget(createEditorScreen(testModule, isNewSetup: true));
-    expect(find.text('COMPLETE SETUP'), findsOneWidget);
-    expect(find.text('ACTIVATE'), findsOneWidget);
   });
 
   testWidgets('SchemaEditorScreen allows adding and editing cards', (WidgetTester tester) async {

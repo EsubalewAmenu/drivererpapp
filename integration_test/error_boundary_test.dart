@@ -114,8 +114,8 @@ void main() {
     }
     await tester.pumpAndSettle();
 
-    // Verify it doesn't crash; accept either editor ('COMPLETE SETUP') or details error message
-    final foundEditorOrError = find.text('COMPLETE SETUP').evaluate().isNotEmpty || find.text('Error Loading Module').evaluate().isNotEmpty;
+    // Verify it doesn't crash; accept either editor or details error message
+    final foundEditorOrError = find.text('BLUEPRINT EDITOR').evaluate().isNotEmpty || find.text('Error Loading Module').evaluate().isNotEmpty;
     expect(foundEditorOrError, isTrue);
   });
 }
