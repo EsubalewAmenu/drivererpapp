@@ -192,9 +192,16 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
         });
       }
 
-      // Create config folder and default config file now (so module has config immediately)
+      // Create module_files folder and config folder/default config file now
+      String? moduleFilesFolderId;
       Map<String, String>? configIds;
       try {
+        try {
+          final moduleFilesRes = (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'module_files');
+          moduleFilesFolderId = moduleFilesRes is Future ? await moduleFilesRes : moduleFilesRes;
+        } catch (e) {
+          debugPrint('Failed to create module_files folder: $e');
+        }
         if (_moduleJson != null) {
           final configFolderRes = (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
           dynamic configFolderId;
@@ -281,6 +288,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                   dashboardId ?? '', 
                   settingsId ?? '', 
                   tabsId ?? '',
+                  moduleFilesFolderId ?? '',
                   moduleType: widget.hostModuleId != null ? 'extension' : 'module'
                 );
                 try {

@@ -44,7 +44,7 @@ void main() {
     when(() => mockDriveService.getFileModifiedTime(any())).thenAnswer((_) async => null);
     when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => {'settings': 'new_file_id', 'dashboard': 'd_id', 'tabs': 't_id'});
     when(() => mockDriveService.updateModuleConfig(any(), any())).thenAnswer((_) async => {});
-    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any(), moduleType: any(named: 'moduleType')))
+    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any(), any(), moduleType: any(named: 'moduleType')))
       .thenAnswer((_) async => {});
   });
 

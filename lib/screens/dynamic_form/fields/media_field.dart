@@ -15,6 +15,7 @@ class DynamicMediaField extends StatefulWidget {
   final Function(String) onChanged;
   final String type; // 'image', 'scanner', 'signature'
   final ModuleSchema? module;
+  final String? moduleFilesId;
 
   const DynamicMediaField({
     super.key,
@@ -24,6 +25,7 @@ class DynamicMediaField extends StatefulWidget {
     required this.onChanged,
     required this.type,
     this.module,
+    this.moduleFilesId,
   });
 
   @override
@@ -323,19 +325,31 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
          return;
       }
 
-      final rootId = workspaceProvider.currentWorkspace?.id;
-      if (rootId == null) {
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload failed: No active workspace')));
-         }
-         return;
-      }
-      
+      // Determine target folder based on context
       String targetFolderId;
+      
       if (widget.module != null) {
-        // Create/Get 'module_files' folder inside module folder to keep things organized
-        targetFolderId = await driveService.getOrCreateSubFolder(widget.module!.id, 'module_files');
+        // Module context: require moduleFilesId, no fallback
+        if (widget.moduleFilesId == null || widget.moduleFilesId!.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Upload failed: Module files folder not configured'))
+            );
+          }
+          return;
+        }
+        targetFolderId = widget.moduleFilesId!;
       } else {
+        // Settings context (e.g., company logo): use workspace root
+        final rootId = workspaceProvider.currentWorkspace?.id;
+        if (rootId == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Upload failed: No active workspace'))
+            );
+          }
+          return;
+        }
         targetFolderId = rootId;
       }
 

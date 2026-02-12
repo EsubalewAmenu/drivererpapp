@@ -349,7 +349,7 @@ mixin DriveCompanyMixin {
             updateCells: sheets.UpdateCellsRequest(
               rows: [
                 sheets.RowData(
-                  values: ['id', 'module_name', 'dashboard', 'settings', 'tabs'].map((h) => sheets.CellData(
+                  values: ['id', 'module_name', 'dashboard', 'settings', 'tabs', 'module_files'].map((h) => sheets.CellData(
                     userEnteredValue: sheets.ExtendedValue(stringValue: h),
                   )).toList(),
                 ),
@@ -389,7 +389,8 @@ mixin DriveCompanyMixin {
     String moduleName,
     String dashboardId,
     String settingsId,
-    String tabsId, {
+    String tabsId,
+    String moduleFilesId, {
     String moduleType = 'module',
   }) async {
     try {
@@ -399,6 +400,18 @@ mixin DriveCompanyMixin {
       final headerRow = (headerResp.values != null && headerResp.values!.isNotEmpty)
           ? List<String>.from(headerResp.values!.first.map((e) => e.toString()))
           : <String>['id', 'module_name', 'dashboard', 'settings', 'tabs'];
+
+      int moduleFilesIndex = headerRow.indexOf('module_files');
+      if (moduleFilesIndex == -1) {
+        headerRow.add('module_files');
+        moduleFilesIndex = headerRow.length - 1;
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+              sheets.ValueRange(values: [headerRow]),
+              userAccessFileId,
+              'modules!A1',
+              valueInputOption: 'RAW',
+            ));
+      }
 
       int moduleTypeIndex = headerRow.indexOf('module_type');
       if (moduleTypeIndex == -1) {
@@ -509,6 +522,7 @@ mixin DriveCompanyMixin {
       row[dashboardIndex] = dashboardId;
       row[settingsIndex] = settingsId;
       row[tabsIndex] = tabsId;
+      row[moduleFilesIndex] = moduleFilesId;
       row[moduleTypeIndex] = moduleType;
       debugPrint('Prepared upsert row: $row foundRow=$foundRow');
 

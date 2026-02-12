@@ -10,7 +10,7 @@ void main() {
     final detail = DetailTemplateConfig(template: 'modern', titleLogic: ConditionalLogic(conditionKey: 'active', truthyKey: 'name', falsyKey: ''), imageKey: 'photo');
 
     await tester.pumpWidget(MaterialApp(
-      home: RecordDetailScreen(data: data, columns: cols, primaryColor: Colors.blue, title: 'Details', tab: TabConfig(id: 't', label: 'L', columns: []), detailTemplate: detail),
+      home: RecordDetailScreen(data: data, columns: cols, primaryColor: Colors.blue, title: 'Details', tab: TabConfig(id: 't', label: 'L', columns: []), detailTemplate: detail, moduleFilesId: null),
     ));
 
     await tester.pumpAndSettle();

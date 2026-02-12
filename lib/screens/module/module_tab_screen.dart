@@ -22,6 +22,7 @@ class ModuleTabScreen extends StatefulWidget {
   final String? dashboardSheetId;
   final String? tabsSheetId;
   final String? sourceModuleId;
+  final String? moduleFilesId;
 
   const ModuleTabScreen({
     super.key, 
@@ -33,6 +34,7 @@ class ModuleTabScreen extends StatefulWidget {
     this.dashboardSheetId,
     this.tabsSheetId,
     this.sourceModuleId,
+    this.moduleFilesId,
   });
 
   @override
@@ -667,6 +669,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                 primaryColor: widget.primaryColor,
                 settings: widget.settings,
                 module: context.read<SchemaProvider>().getFromMemory(_sourceModuleId()) ?? widget.module,
+                moduleFilesId: widget.moduleFilesId,
               ),
             ),
           );
@@ -918,6 +921,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           detailTemplate: currentTab.detailTemplate,
           tab: currentTab,
           module: latestModule ?? widget.module,
+          moduleFilesId: widget.moduleFilesId,
         ),
       ),
     );
