@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../theme/app_theme.dart';
-import '../providers/workspace_provider.dart';
-import '../providers/drive_provider.dart';
+import '../../theme/app_theme.dart';
+import '../../providers/workspace_provider.dart';
+import '../../providers/drive_provider.dart';
 
 class UserControlScreen extends StatefulWidget {
   const UserControlScreen({super.key});

@@ -4,7 +4,7 @@ import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../providers/workspace_provider.dart';
 import '../screens/settings_screen.dart';
-import '../screens/user_control_screen.dart';
+import '../screens/user_control/user_control_screen.dart';
 import '../screens/system_scanning_screen.dart';
 import '../screens/landing_screen.dart';
 
