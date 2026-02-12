@@ -285,13 +285,40 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
                             }
 
                             for (final module in toAdd) {
+                              final configFolderId = await driveService.getOrCreateSubFolder(
+                                module.moduleId,
+                                'config',
+                              );
+
+                              final settings = module.settingsId.isNotEmpty
+                                  ? await driveService.readSettingsById(module.settingsId)
+                                  : null;
+                              final dashboard = module.dashboardId.isNotEmpty
+                                  ? await driveService.readDashboardById(module.dashboardId)
+                                  : null;
+                              final tabs = module.tabsId.isNotEmpty
+                                  ? await driveService.readTabsById(module.tabsId)
+                                  : null;
+
+                              final config = {
+                                'settings': settings ?? <String, dynamic>{},
+                                'dashboard': dashboard ?? <String, dynamic>{'cards': []},
+                                'tabs': tabs ?? <dynamic>[],
+                              };
+
+                              final configIds = await driveService.createModuleConfig(
+                                configFolderId,
+                                module.moduleName.isNotEmpty ? module.moduleName : module.moduleId,
+                                config,
+                              );
+
                               await driveService.upsertUserAccessModule(
                                 widget.spreadsheetId,
                                 module.moduleId,
                                 module.moduleName,
-                                module.dashboardId,
-                                module.settingsId,
-                                module.tabsId,
+                                configIds['dashboard'] ?? '',
+                                configIds['settings'] ?? '',
+                                configIds['tabs'] ?? '',
                                 module.moduleFilesId,
                                 moduleType: module.moduleType,
                               );
