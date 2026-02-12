@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../services/auth_service.dart';
 import '../providers/workspace_provider.dart';
 import '../screens/settings_screen.dart';
+import '../screens/user_control_screen.dart';
 import '../screens/system_scanning_screen.dart';
 import '../screens/landing_screen.dart';
 
@@ -132,6 +133,13 @@ class AppDrawer extends StatelessWidget {
       children: [
         _buildNavItem(context, Icons.dashboard_rounded, 'Dashboard', onTap: () {
           Navigator.pop(context); // Close drawer
+        }),
+        _buildNavItem(context, Icons.people_rounded, 'User Control', onTap: () {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const UserControlScreen()),
+          );
         }),
         _buildNavItem(context, Icons.settings_rounded, 'Settings', onTap: () {
           Navigator.pop(context);
