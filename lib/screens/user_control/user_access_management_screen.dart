@@ -28,6 +28,7 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
   String? _errorMessage;
   bool _isSaving = false;
   final Map<String, bool> _accessChanges = {};
+  bool _isAddingModules = false;
 
   @override
   void initState() {
@@ -102,6 +103,237 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         _isLoading = false;
       });
     }
+  }
+
+  Future<String?> _getCurrentUserAccessSpreadsheetId() async {
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    String? uaId = workspaceProvider.lastUserAccessSpreadsheetId;
+    if (uaId == null || uaId.isEmpty) {
+      try {
+        uaId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+      } catch (_) {
+        return null;
+      }
+    }
+    return uaId;
+  }
+
+  Future<List<_ModuleSourceItem>> _loadAvailableModules() async {
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+    final driveService = driveProvider.driveService;
+    if (driveService == null) {
+      throw Exception('Drive service not available');
+    }
+
+    final currentUserSheetId = await _getCurrentUserAccessSpreadsheetId();
+    if (currentUserSheetId == null || currentUserSheetId.isEmpty) {
+      throw Exception('Current user access spreadsheet not found');
+    }
+
+    final resp = await driveService.sheetsApi.spreadsheets.values.get(
+      currentUserSheetId,
+      'modules!A1:H1000',
+    );
+
+    final values = resp.values ?? [];
+    if (values.isEmpty) return [];
+
+    final existingIds = _modules.map((m) => m.moduleId).toSet();
+    final items = <_ModuleSourceItem>[];
+
+    for (int i = 1; i < values.length; i++) {
+      final row = values[i];
+      if (row.isEmpty) continue;
+      final moduleId = row[0].toString();
+      if (moduleId.isEmpty || existingIds.contains(moduleId)) continue;
+
+      final moduleName = row.length > 1 ? row[1].toString() : '';
+      final dashboardId = row.length > 2 ? row[2].toString() : '';
+      final settingsId = row.length > 3 ? row[3].toString() : '';
+      final tabsId = row.length > 4 ? row[4].toString() : '';
+      final moduleFilesId = row.length > 5 ? row[5].toString() : '';
+      final moduleType = row.length > 6 ? row[6].toString() : '';
+      final status = row.length > 7 ? row[7].toString() : 'activated';
+
+      if (status.toLowerCase() == 'deactivated') continue;
+
+      items.add(_ModuleSourceItem(
+        moduleId: moduleId,
+        moduleName: moduleName,
+        dashboardId: dashboardId,
+        settingsId: settingsId,
+        tabsId: tabsId,
+        moduleFilesId: moduleFilesId,
+        moduleType: moduleType,
+      ));
+    }
+
+    return items;
+  }
+
+  Future<void> _showAddModuleDialog(ThemeData theme) async {
+    final future = _loadAvailableModules();
+    final selected = <String>{};
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: Text(
+                'Add Modules',
+                style: AppTheme.inter(fontWeight: FontWeight.w700, fontSize: 18),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: FutureBuilder<List<_ModuleSourceItem>>(
+                  future: future,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    if (snapshot.hasError) {
+                      return Text(
+                        'Failed to load modules: ${snapshot.error}',
+                        style: AppTheme.inter(fontSize: 12, color: theme.disabledColor),
+                      );
+                    }
+
+                    final modules = snapshot.data ?? [];
+                    if (modules.isEmpty) {
+                      return Text(
+                        'No additional modules available to add.',
+                        style: AppTheme.inter(fontSize: 13, color: theme.textTheme.bodyMedium?.color),
+                      );
+                    }
+
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: modules.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final module = modules[index];
+                        final isSelected = selected.contains(module.moduleId);
+                        return InkWell(
+                          onTap: () {
+                            setDialogState(() {
+                              if (isSelected) {
+                                selected.remove(module.moduleId);
+                              } else {
+                                selected.add(module.moduleId);
+                              }
+                            });
+                          },
+                          child: Row(
+                            children: [
+                              Checkbox(
+                                value: isSelected,
+                                onChanged: (value) {
+                                  setDialogState(() {
+                                    if (value == true) {
+                                      selected.add(module.moduleId);
+                                    } else {
+                                      selected.remove(module.moduleId);
+                                    }
+                                  });
+                                },
+                              ),
+                              Expanded(
+                                child: Text(
+                                  module.moduleName.isNotEmpty ? module.moduleName : module.moduleId,
+                                  style: AppTheme.inter(fontSize: 14, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Cancel',
+                    style: AppTheme.inter(fontWeight: FontWeight.w600),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _isAddingModules
+                      ? null
+                      : () async {
+                          try {
+                            setState(() {
+                              _isAddingModules = true;
+                            });
+
+                            final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+                            final driveService = driveProvider.driveService;
+                            if (driveService == null) {
+                              throw Exception('Drive service not available');
+                            }
+
+                            final modules = await future;
+                            final toAdd = modules.where((m) => selected.contains(m.moduleId)).toList();
+                            if (toAdd.isEmpty) {
+                              Navigator.pop(context);
+                              return;
+                            }
+
+                            for (final module in toAdd) {
+                              await driveService.upsertUserAccessModule(
+                                widget.spreadsheetId,
+                                module.moduleId,
+                                module.moduleName,
+                                module.dashboardId,
+                                module.settingsId,
+                                module.tabsId,
+                                module.moduleFilesId,
+                                moduleType: module.moduleType,
+                              );
+                              await driveService.setUserAccessModuleStatus(
+                                widget.spreadsheetId,
+                                module.moduleId,
+                                'activated',
+                              );
+                            }
+
+                            if (mounted) {
+                              Navigator.pop(context);
+                              await _loadUserAccess();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Modules added successfully')),
+                              );
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Error adding modules: $e')),
+                              );
+                            }
+                          } finally {
+                            if (mounted) {
+                              setState(() {
+                                _isAddingModules = false;
+                              });
+                            }
+                          }
+                        },
+                  child: Text(
+                    'Add',
+                    style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.primaryColor),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Future<void> _saveChanges() async {
@@ -200,10 +432,26 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         iconTheme: theme.iconTheme,
       ),
       body: _buildBody(theme),
-      bottomNavigationBar: _accessChanges.isNotEmpty
-          ? Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton(
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _isAddingModules ? null : () => _showAddModuleDialog(theme),
+              icon: const Icon(Icons.add_circle_outline),
+              label: Text(
+                'ADD MODULE',
+                style: AppTheme.inter(fontWeight: FontWeight.w700),
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                side: BorderSide(color: theme.primaryColor.withValues(alpha: 0.6)),
+              ),
+            ),
+            if (_accessChanges.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ElevatedButton(
                 onPressed: _isSaving ? null : _saveChanges,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -227,8 +475,10 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
                         ),
                       ),
               ),
-            )
-          : null,
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -460,5 +710,25 @@ class _ModuleAccessItem {
     required this.status,
     required this.rowIndex,
     this.isActive = true,
+  });
+}
+
+class _ModuleSourceItem {
+  final String moduleId;
+  final String moduleName;
+  final String dashboardId;
+  final String settingsId;
+  final String tabsId;
+  final String moduleFilesId;
+  final String moduleType;
+
+  _ModuleSourceItem({
+    required this.moduleId,
+    required this.moduleName,
+    required this.dashboardId,
+    required this.settingsId,
+    required this.tabsId,
+    required this.moduleFilesId,
+    required this.moduleType,
   });
 }
