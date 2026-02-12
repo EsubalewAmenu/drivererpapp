@@ -219,94 +219,67 @@ class _UserControlScreenState extends State<UserControlScreen> {
     final email = user['email'] ?? '';
     final spreadsheetId = user['spreadsheetId'] ?? '';
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.cardTheme.color,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: theme.dividerColor.withValues(alpha: 0.1),
+    return InkWell(
+      onTap: () {
+        // Navigate to user access management page
+        Navigator.of(context).pushNamed(
+          '/user-access-management',
+          arguments: {'email': email, 'spreadsheetId': spreadsheetId},
+        );
+      },
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.cardTheme.color,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: theme.dividerColor.withValues(alpha: 0.1),
+          ),
         ),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
-            child: Text(
-              email.isNotEmpty ? email[0].toUpperCase() : '?',
-              style: AppTheme.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: theme.primaryColor,
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: theme.primaryColor.withValues(alpha: 0.1),
+              child: Text(
+                email.isNotEmpty ? email[0].toUpperCase() : '?',
+                style: AppTheme.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: theme.primaryColor,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  email,
-                  style: AppTheme.inter(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: theme.textTheme.bodyLarge?.color,
-                  ),
-                ),
-                if (spreadsheetId.isNotEmpty) ...[
-                  const SizedBox(height: 4),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    'ID: ${spreadsheetId.substring(0, spreadsheetId.length > 20 ? 20 : spreadsheetId.length)}...',
+                    email,
                     style: AppTheme.inter(
-                      fontSize: 11,
-                      color: theme.textTheme.bodySmall?.color,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textTheme.bodyLarge?.color,
                     ),
                   ),
+                  if (spreadsheetId.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'ID: ${spreadsheetId.substring(0, spreadsheetId.length > 20 ? 20 : spreadsheetId.length)}...',
+                      style: AppTheme.inter(
+                        fontSize: 11,
+                        color: theme.textTheme.bodySmall?.color,
+                      ),
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
-          ),
-          PopupMenuButton<String>(
-            icon: Icon(Icons.more_vert, color: theme.textTheme.bodyMedium?.color),
-            onSelected: (value) {
-              if (value == 'manage') {
-                // TODO: Navigate to manage user access
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Manage access feature coming soon')),
-                );
-              } else if (value == 'remove') {
-                // TODO: Remove user access
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Remove user feature coming soon')),
-                );
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'manage',
-                child: Row(
-                  children: [
-                    Icon(Icons.security_rounded, size: 20),
-                    SizedBox(width: 12),
-                    Text('Manage Access'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'remove',
-                child: Row(
-                  children: [
-                    Icon(Icons.person_remove_rounded, size: 20, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Remove User', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+            Icon(Icons.arrow_forward_ios, size: 16, color: theme.textTheme.bodySmall?.color),
+          ],
+        ),
       ),
     );
   }
