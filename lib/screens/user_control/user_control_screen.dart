@@ -362,10 +362,9 @@ class _UserControlScreenState extends State<UserControlScreen> {
                     email,
                   );
 
-                  // Get companies registry and register user
-                  final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
+                  // Register user in companies registry
                   await driveService.upsertCompanyUserAccess(
-                    companiesRegistryId,
+                    rootFolderId,
                     currentWorkspaceId,
                     email,
                     spreadsheetId,
