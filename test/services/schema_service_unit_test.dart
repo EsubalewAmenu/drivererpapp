@@ -47,7 +47,7 @@ void main() {
     when(() => mockDriveService.readSettingsById(any())).thenAnswer((_) async => null);
     when(() => mockDriveService.readDashboardById(any())).thenAnswer((_) async => null);
     when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => null);
-    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any(), moduleType: any(named: 'moduleType')))
+    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any(), any(), moduleType: any(named: 'moduleType')))
       .thenAnswer((_) async => {});
   });
 

@@ -228,6 +228,7 @@ class SchemaService {
               dashboardId ?? '',
               fileId,
               tabsId ?? '',
+              '',
             );
           } catch (e) {
             debugPrint('Error updating user access spreadsheet: $e');

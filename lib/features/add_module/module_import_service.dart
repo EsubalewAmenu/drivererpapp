@@ -62,6 +62,9 @@ class ModuleImportService {
     final moduleFolder = await driveService.createWorkspace(workspace.id!, moduleName);
     final moduleFolderId = moduleFolder.id!;
 
+    onProgress?.call('Creating module files folder...', 0.5);
+    final moduleFilesFolderId = await driveService.getOrCreateSubFolder(moduleFolderId, 'module_files');
+
     onProgress?.call('Creating config folder...', 0.55);
     final configFolderId = await driveService.getOrCreateSubFolder(moduleFolderId, 'config');
 
@@ -102,6 +105,7 @@ class ModuleImportService {
       configIds['dashboard'] ?? '',
       configIds['settings'] ?? '',
       configIds['tabs'] ?? '',
+      moduleFilesFolderId,
       moduleType: 'module',
     );
     onProgress?.call('Done', 1.0);

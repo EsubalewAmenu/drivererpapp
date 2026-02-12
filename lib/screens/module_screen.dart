@@ -220,6 +220,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
 
           List<List<dynamic>> uaRows = [];
           int moduleTypeIdx = -1;
+          int moduleFilesIdx = -1;
           String? uaId;
       // Build a set of deactivated module ids from the per-user user_access spreadsheet (if available)
       final deactivated = <String>{};
@@ -232,10 +233,11 @@ class _ModuleScreenState extends State<ModuleScreen> {
             final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
             final all = resp.values ?? [];
             if (all.isNotEmpty) {
-              final header = List<String>.from(all.first.map((e) => e.toString().toLowerCase()));
+                final header = List<String>.from(all.first.map((e) => e.toString().toLowerCase()));
               final rows = all.length > 1 ? all.sublist(1) : [];
               uaRows = rows.map((r) => List<dynamic>.from(r as List)).toList();
                   moduleTypeIdx = header.indexOf('module_type');
+                  moduleFilesIdx = header.indexOf('module_files');
               final statusIdx = header.indexOf('status');
               if (statusIdx != -1) {
                 for (var r in uaRows) {
@@ -267,6 +269,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
           String? extDashboardId;
           String? extTabsId;
           String? rowId;
+          String? extModuleFilesId;
 
           try {
             // If we have a user_access rows snapshot, check for a matching id/name
@@ -281,6 +284,9 @@ class _ModuleScreenState extends State<ModuleScreen> {
                   if (r.length > 2) extDashboardId = r[2]?.toString();
                   if (r.length > 3) extSettingsId = r[3]?.toString();
                   if (r.length > 4) extTabsId = r[4]?.toString();
+                  if (moduleFilesIdx != -1 && r.length > moduleFilesIdx) {
+                    extModuleFilesId = r[moduleFilesIdx]?.toString();
+                  }
                       final rowType = (moduleTypeIdx != -1 && r.length > moduleTypeIdx)
                           ? (r[moduleTypeIdx] ?? '').toString().toLowerCase()
                           : '';
@@ -294,6 +300,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
                             extDashboardId ?? '',
                             extSettingsId ?? '',
                             extTabsId ?? '',
+                        extModuleFilesId ?? '',
                             moduleType: 'extension',
                           );
                         } catch (e) {
