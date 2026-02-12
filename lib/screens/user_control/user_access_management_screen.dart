@@ -41,7 +41,6 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
     });
 
     try {
-      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
       final driveProvider = Provider.of<DriveProvider>(context, listen: false);
 
       final driveService = driveProvider.driveService;
@@ -49,51 +48,17 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         throw Exception('Drive service not available');
       }
 
-      final rootFolderId = workspaceProvider.rootFolderId;
-      if (rootFolderId == null || rootFolderId.isEmpty) {
-        throw Exception('Root folder not found');
-      }
-
-      final currentWorkspaceId = workspaceProvider.currentWorkspace?.id;
-      if (currentWorkspaceId == null || currentWorkspaceId.isEmpty) {
-        throw Exception('No workspace selected');
-      }
-
-      // Get companies registry ID
-      final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
-
-      // Read modules from companies registry
-      final modulesResponse = await driveService.sheetsApi.spreadsheets.values.get(
-        companiesRegistryId,
-        'modules!A2:D1000',
-      );
-
-      final modulesValues = modulesResponse.values ?? [];
-      final registeredModules = <String, List<String>>{};
-
-      for (final row in modulesValues) {
-        if (row.isNotEmpty) {
-          final moduleId = row[0].toString();
-          final moduleName = row.length > 1 ? row[1].toString() : moduleId;
-          registeredModules[moduleId] = [moduleName];
-        }
-      }
-
       // Read user's current access from their personal spreadsheet
       final userAccessResponse = await driveService.sheetsApi.spreadsheets.values.get(
         widget.spreadsheetId,
-        'modules!A2:F1000',
+        'modules!A1:F1000',
       );
 
       final userAccessValues = userAccessResponse.values ?? [];
-      final userModuleAccess = <String, Map<String, dynamic>>{};
-      List<String> headerRow = [];
+      final userModuleAccess = <String, _ModuleAccessItem>{};
 
       if (userAccessValues.isNotEmpty) {
-        // First row is header
-        headerRow = List<String>.from(userAccessValues[0].map((e) => e.toString()));
-
-        // Parse data rows
+        // First row is header (skip it)
         for (int i = 1; i < userAccessValues.length; i++) {
           final row = userAccessValues[i];
           if (row.isNotEmpty) {
@@ -104,37 +69,21 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
             final tabs = row.length > 4 ? row[4].toString() : '';
             final moduleFiles = row.length > 5 ? row[5].toString() : '';
 
-            userModuleAccess[moduleId] = {
-              'moduleName': moduleName,
-              'dashboard': dashboard,
-              'settings': settings,
-              'tabs': tabs,
-              'moduleFiles': moduleFiles,
-              'rowIndex': i + 2, // +2 because API returns data starting from row 2
-            };
+            userModuleAccess[moduleId] = _ModuleAccessItem(
+              moduleId: moduleId,
+              moduleName: moduleName,
+              hasDashboard: dashboard,
+              hasSettings: settings,
+              tabs: tabs,
+              moduleFiles: moduleFiles,
+              rowIndex: i + 1,
+            );
           }
         }
       }
 
-      // Build module list
-      final modules = <_ModuleAccessItem>[];
-      for (final moduleId in registeredModules.keys) {
-        final moduleName = registeredModules[moduleId]![0];
-        final userAccess = userModuleAccess[moduleId];
-
-        modules.add(_ModuleAccessItem(
-          moduleId: moduleId,
-          moduleName: moduleName,
-          hasDashboard: userAccess?['dashboard'] as bool? ?? false,
-          hasSettings: userAccess?['settings'] as bool? ?? false,
-          tabs: userAccess?['tabs'] as String? ?? '',
-          moduleFiles: userAccess?['moduleFiles'] as String? ?? '',
-          rowIndex: userAccess?['rowIndex'] as int? ?? -1,
-        ));
-      }
-
       setState(() {
-        _modules = modules;
+        _modules = userModuleAccess.values.toList();
         _isLoading = false;
         _accessChanges.clear();
       });
