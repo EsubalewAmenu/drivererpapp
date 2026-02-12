@@ -12,6 +12,7 @@ class DynamicFormScreen extends StatefulWidget {
   final Map<String, dynamic>? initialData;
   final Map<String, SettingItem> settings;
   final ModuleSchema? module;
+  final String? moduleFilesId;
 
   const DynamicFormScreen({
     super.key,
@@ -20,6 +21,7 @@ class DynamicFormScreen extends StatefulWidget {
     this.initialData,
     this.settings = const {},
     this.module,
+    this.moduleFilesId,
   });
 
   @override
@@ -152,6 +154,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
                       controllers: _controllers,
                       module: widget.module,
                       settings: widget.settings,
+                      moduleFilesId: widget.moduleFilesId,
                     ),
                   ),
                 ),

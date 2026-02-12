@@ -58,6 +58,7 @@ void main() {
           detailTemplate: template,
           tab: TabConfig(id: 't1', label: 'Test', columns: columns, fileId: fileId),
           module: module,
+          moduleFilesId: null,
         ),
       ),
     );
@@ -188,6 +189,7 @@ void main() {
         title: 'Default',
         detailTemplate: template,
         tab: TabConfig(id: 't1', label: 'Test', columns: cols),
+        moduleFilesId: null,
       ),
     ));
     await tester.pumpAndSettle();
@@ -212,6 +214,7 @@ void main() {
         title: 'Default',
         detailTemplate: template,
         tab: TabConfig(id: 't1', label: 'Test', columns: cols),
+        moduleFilesId: null,
       ),
     ));
     await tester.pumpAndSettle();
@@ -251,6 +254,7 @@ void main() {
         title: 'Default',
         detailTemplate: template,
         tab: TabConfig(id: 't1', label: 'Test', columns: []),
+        moduleFilesId: null,
       ),
     ));
     await tester.pumpAndSettle();

@@ -15,6 +15,7 @@ class DynamicMediaField extends StatefulWidget {
   final Function(String) onChanged;
   final String type; // 'image', 'scanner', 'signature'
   final ModuleSchema? module;
+  final String? moduleFilesId;
 
   const DynamicMediaField({
     super.key,
@@ -24,6 +25,7 @@ class DynamicMediaField extends StatefulWidget {
     required this.onChanged,
     required this.type,
     this.module,
+    this.moduleFilesId,
   });
 
   @override
@@ -331,13 +333,8 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
          return;
       }
       
-      String targetFolderId;
-      if (widget.module != null) {
-        // Create/Get 'module_files' folder inside module folder to keep things organized
-        targetFolderId = await driveService.getOrCreateSubFolder(widget.module!.id, 'module_files');
-      } else {
-        targetFolderId = rootId;
-      }
+      // Use moduleFilesId directly if available, otherwise fall back to rootId
+      final targetFolderId = widget.moduleFilesId ?? rootId;
 
       final fileId = await driveService.uploadFile(
         targetFolderId, 

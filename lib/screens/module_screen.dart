@@ -40,6 +40,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
   final Map<String, String> _settingsSheetIds = {};
   final Map<String, String> _dashboardSheetIds = {};
   final Map<String, String> _tabsSheetIds = {};
+  final Map<String, String> _moduleFilesIds = {};
   final Map<String, String> _tabSourceModuleIds = {};
 
   @override
@@ -349,6 +350,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
             'settingsSheetId': extSettingsId,
             'dashboardSheetId': extDashboardId,
             'tabsSheetId': extTabsId,
+            'moduleFilesId': extModuleFilesId,
           });
         } catch (e) {
           debugPrint('Error loading enabled module entry "$rawKey": $e');
@@ -636,6 +638,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
                   if (r.length > 2 && r[2]?.toString().isNotEmpty == true) _dashboardSheetIds[rowId] = r[2]!.toString();
                   if (r.length > 3 && r[3]?.toString().isNotEmpty == true) _settingsSheetIds[rowId] = r[3]!.toString();
                   if (r.length > 4 && r[4]?.toString().isNotEmpty == true) _tabsSheetIds[rowId] = r[4]!.toString();
+                  if (r.length > 5 && r[5]?.toString().isNotEmpty == true) _moduleFilesIds[rowId] = r[5]!.toString();
                 }
                 if (rowName.isNotEmpty) {
                   final normalizedRowName = _normalizeKey(rowName);
@@ -929,6 +932,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
                       dashboardSheetId: _dashboardSheetIds[sourceModule.id] ?? widget.dashboardSheetId,
                       tabsSheetId: _tabsSheetIds[sourceModule.id] ?? widget.tabsSheetId,
                       sourceModuleId: _tabSourceModuleIds[t.id] ?? sourceModule.id,
+                      moduleFilesId: _moduleFilesIds[sourceModule.id],
                     );
                   }),
                   _buildExtensionsTab(module, primaryColor),

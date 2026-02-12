@@ -52,6 +52,7 @@ void main() {
             onFieldChanged: (k, v) {},
             controllers: controllers,
             settings: settings,
+            moduleFilesId: null,
           ),
         ),
       ),
@@ -168,6 +169,7 @@ void main() {
           onFieldChanged: (k, v) {},
           controllers: const {},
           settings: settings,
+            moduleFilesId: null,
         ),
       ),
     ));

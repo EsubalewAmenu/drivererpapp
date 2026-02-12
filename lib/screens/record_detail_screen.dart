@@ -23,6 +23,7 @@ class RecordDetailScreen extends StatefulWidget {
   final DetailTemplateConfig? detailTemplate;
   final TabConfig tab;
   final ModuleSchema? module;
+  final String? moduleFilesId;
 
   const RecordDetailScreen({
     super.key,
@@ -34,6 +35,7 @@ class RecordDetailScreen extends StatefulWidget {
     this.settings = const {},
     this.detailTemplate,
     this.module,
+    this.moduleFilesId,
   });
 
   @override
@@ -794,6 +796,7 @@ class _RecordDetailScreenState extends State<RecordDetailScreen> {
           initialData: _currentData,
           settings: widget.settings,
           module: widget.module,
+          moduleFilesId: widget.moduleFilesId,
         ),
       ),
     );

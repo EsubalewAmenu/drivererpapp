@@ -20,6 +20,7 @@ class DynamicFormRenderer extends StatelessWidget {
   final Map<String, TextEditingController> controllers;
   final ModuleSchema? module;
   final Map<String, SettingItem> settings;
+  final String? moduleFilesId;
 
   const DynamicFormRenderer({
     super.key,
@@ -30,6 +31,7 @@ class DynamicFormRenderer extends StatelessWidget {
     required this.controllers,
     this.module,
     this.settings = const {},
+    this.moduleFilesId,
   });
 
   @override
@@ -158,6 +160,7 @@ class DynamicFormRenderer extends StatelessWidget {
           onChanged: (val) => onFieldChanged(col.key, val),
           type: col.type,
           module: module,
+          moduleFilesId: moduleFilesId,
         );
 
       case 'list':
