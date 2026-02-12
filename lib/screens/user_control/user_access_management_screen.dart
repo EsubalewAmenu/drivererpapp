@@ -51,7 +51,7 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
       // Read user's current access from their personal spreadsheet
       final userAccessResponse = await driveService.sheetsApi.spreadsheets.values.get(
         widget.spreadsheetId,
-        'modules!A1:F1000',
+        'modules!A1:H1000',
       );
 
       final userAccessValues = userAccessResponse.values ?? [];
@@ -127,7 +127,7 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         final module = _modules.firstWhere((m) => m.moduleId == moduleId);
         final hasAccess = _accessChanges[moduleId]!;
 
-        // Update only the status column (column G)
+        // Update only the status column (column H)
         final status = hasAccess ? 'activated' : 'deactivated';
         
         await driveService.sheetsApi.spreadsheets.values.update(
@@ -136,10 +136,27 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
           'modules!H${module.rowIndex}',
           valueInputOption: 'RAW',
         );
+        
+        // Update local state to reflect the change
+        final updatedModule = _modules.firstWhere((m) => m.moduleId == moduleId);
+        final index = _modules.indexOf(updatedModule);
+        _modules[index] = _ModuleAccessItem(
+          moduleId: updatedModule.moduleId,
+          moduleName: updatedModule.moduleName,
+          hasDashboard: updatedModule.hasDashboard,
+          hasSettings: updatedModule.hasSettings,
+          tabs: updatedModule.tabs,
+          moduleFiles: updatedModule.moduleFiles,
+          moduleType: updatedModule.moduleType,
+          status: status,
+          rowIndex: updatedModule.rowIndex,
+          isActive: hasAccess,
+        );
       }
 
       setState(() {
         _isSaving = false;
+        _accessChanges.clear();
       });
 
       if (mounted) {
