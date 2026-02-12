@@ -308,7 +308,7 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
 
                               final configIds = await driveService.createModuleConfig(
                                 configFolderId,
-                                module.moduleName.isNotEmpty ? module.moduleName : module.moduleId,
+                                '${widget.email}_${module.moduleName.isNotEmpty ? module.moduleName : module.moduleId}',
                                 config,
                               );
 
