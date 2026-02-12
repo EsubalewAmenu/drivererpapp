@@ -68,6 +68,11 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
             final settings = row.length > 3 ? row[3].toString().toLowerCase() == 'true' : false;
             final tabs = row.length > 4 ? row[4].toString() : '';
             final moduleFiles = row.length > 5 ? row[5].toString() : '';
+            final moduleType = row.length > 6 ? row[6].toString() : '';
+            final status = row.length > 7 ? row[7].toString() : 'activated';
+            
+            // A module is considered active based on status column
+            final isActive = status.toLowerCase() == 'activated';
 
             userModuleAccess[moduleId] = _ModuleAccessItem(
               moduleId: moduleId,
@@ -76,7 +81,10 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
               hasSettings: settings,
               tabs: tabs,
               moduleFiles: moduleFiles,
+              moduleType: moduleType,
+              status: status,
               rowIndex: i + 1,
+              isActive: isActive,
             );
           }
         }
@@ -119,44 +127,15 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         final module = _modules.firstWhere((m) => m.moduleId == moduleId);
         final hasAccess = _accessChanges[moduleId]!;
 
-        if (hasAccess && module.rowIndex == -1) {
-          // Add new row for this module
-          final row = [
-            module.moduleId,
-            module.moduleName,
-            'true', // dashboard
-            'false', // settings
-            '', // tabs
-            '', // module_files
-          ];
-
-          await driveService.sheetsApi.spreadsheets.values.append(
-            sheets.ValueRange(values: [row]),
-            widget.spreadsheetId,
-            'modules!A1',
-            valueInputOption: 'RAW',
-            insertDataOption: 'INSERT_ROWS',
-          );
-        } else if (!hasAccess && module.rowIndex != -1) {
-          // Remove row for this module
-          await driveService.sheetsApi.spreadsheets.batchUpdate(
-            sheets.BatchUpdateSpreadsheetRequest(
-              requests: [
-                sheets.Request(
-                  deleteDimension: sheets.DeleteDimensionRequest(
-                    range: sheets.DimensionRange(
-                      sheetId: 0,
-                      dimension: 'ROWS',
-                      startIndex: module.rowIndex - 1,
-                      endIndex: module.rowIndex,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            widget.spreadsheetId,
-          );
-        }
+        // Update only the status column (column G)
+        final status = hasAccess ? 'activated' : 'deactivated';
+        
+        await driveService.sheetsApi.spreadsheets.values.update(
+          sheets.ValueRange(values: [[status]]),
+          widget.spreadsheetId,
+          'modules!H${module.rowIndex}',
+          valueInputOption: 'RAW',
+        );
       }
 
       setState(() {
@@ -330,7 +309,7 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
     int index,
   ) {
     // Get current access state (either changed or original)
-    final hasAccess = _accessChanges[module.moduleId] ?? (module.rowIndex != -1);
+    final hasAccess = _accessChanges[module.moduleId] ?? module.isActive;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12.0),
@@ -355,7 +334,7 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
                   value: hasAccess,
                   onChanged: (value) {
                     setState(() {
-                      if (value == (module.rowIndex != -1)) {
+                      if (value == module.isActive) {
                         // Reset to original state
                         _accessChanges.remove(module.moduleId);
                       } else {
@@ -411,7 +390,10 @@ class _ModuleAccessItem {
   final bool hasSettings;
   final String tabs;
   final String moduleFiles;
+  final String moduleType;
+  final String status;
   final int rowIndex;
+  final bool isActive;
 
   _ModuleAccessItem({
     required this.moduleId,
@@ -420,6 +402,9 @@ class _ModuleAccessItem {
     required this.hasSettings,
     required this.tabs,
     required this.moduleFiles,
+    required this.moduleType,
+    required this.status,
     required this.rowIndex,
+    this.isActive = true,
   });
 }
