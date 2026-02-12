@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/workspace_provider.dart';
 import '../../providers/drive_provider.dart';
+import 'user_access_management_screen.dart';
 
 class UserControlScreen extends StatefulWidget {
   const UserControlScreen({super.key});
@@ -222,9 +223,13 @@ class _UserControlScreenState extends State<UserControlScreen> {
     return InkWell(
       onTap: () {
         // Navigate to user access management page
-        Navigator.of(context).pushNamed(
-          '/user-access-management',
-          arguments: {'email': email, 'spreadsheetId': spreadsheetId},
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => UserAccessManagementScreen(
+              email: email,
+              spreadsheetId: spreadsheetId,
+            ),
+          ),
         );
       },
       borderRadius: BorderRadius.circular(16),
