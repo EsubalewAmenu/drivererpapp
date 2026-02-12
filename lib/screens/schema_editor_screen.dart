@@ -268,7 +268,7 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
     }
   }
 
-  Future<void> _saveChanges() async {
+  Future<void> _saveChanges({bool isRetry = false}) async {
     setState(() {
       _isSaving = true;
     });
@@ -408,6 +408,24 @@ class _SchemaEditorScreenState extends State<SchemaEditorScreen> with SingleTick
       }
     } catch (e) {
       debugPrint('Error saving configuration: $e');
+      final errorString = e.toString().toLowerCase();
+      if (!isRetry && (errorString.contains('invalid_token') || errorString.contains('access was denied'))) {
+        try {
+          final auth = Provider.of<AuthService>(context, listen: false);
+          await auth.signInSilently();
+          final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+          driveProvider.updateClient(auth.authClient);
+          if (mounted) {
+            setState(() {
+              _isSaving = false;
+            });
+          }
+          await _saveChanges(isRetry: true);
+          return;
+        } catch (refreshError) {
+          debugPrint('SchemaEditorScreen: auth refresh failed: $refreshError');
+        }
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error saving configuration: $e')),
