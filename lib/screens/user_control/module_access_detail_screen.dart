@@ -69,9 +69,9 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
       // Format: id, name, dashboard, settings, tabs, module_files, module_type, status
       final permissions = _ModulePermissions(
         moduleFolderAccess: AccessLevel.readOnly, // Module folder default read-only
-        dashboardAccess: row.length > 2 ? row[2].toString().toLowerCase() == 'true' ? AccessLevel.readWrite : AccessLevel.noAccess : AccessLevel.noAccess,
-        settingsAccess: row.length > 3 ? row[3].toString().toLowerCase() == 'true' ? AccessLevel.readWrite : AccessLevel.noAccess : AccessLevel.noAccess,
-        tabsAccess: (row.length > 4 ? row[4].toString() : '').isNotEmpty ? AccessLevel.readWrite : AccessLevel.noAccess,
+        dashboardAccess: row.length > 2 ? row[2].toString().toLowerCase() == 'true' ? AccessLevel.readWrite : AccessLevel.readOnly : AccessLevel.readOnly,
+        settingsAccess: row.length > 3 ? row[3].toString().toLowerCase() == 'true' ? AccessLevel.readWrite : AccessLevel.readOnly : AccessLevel.readOnly,
+        tabsAccess: (row.length > 4 ? row[4].toString() : '').isNotEmpty ? AccessLevel.readWrite : AccessLevel.readOnly,
         moduleFilesAccess: (row.length > 5 ? row[5].toString() : '').isNotEmpty ? AccessLevel.readWrite : AccessLevel.noAccess,
       );
 
@@ -110,9 +110,9 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
       final updatedRow = [
         widget.moduleId,
         widget.moduleName,
-        _permissions.dashboardAccess != AccessLevel.noAccess ? 'true' : 'false', // dashboard
-        _permissions.settingsAccess != AccessLevel.noAccess ? 'true' : 'false', // settings
-        _permissions.tabsAccess != AccessLevel.noAccess ? 'tabs' : '', // tabs
+        _permissions.dashboardAccess != AccessLevel.noAccess ? 'true' : 'false', // dashboard (mandatory, always true if active)
+        _permissions.settingsAccess != AccessLevel.noAccess ? 'true' : 'false', // settings (mandatory, always true if active)
+        _permissions.tabsAccess != AccessLevel.noAccess ? 'tabs' : '', // tabs (mandatory, always present if active)
         _permissions.moduleFilesAccess != AccessLevel.noAccess ? 'module_files' : '', // module_files
       ];
 
@@ -421,9 +421,9 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
             const SizedBox(height: 16),
             _buildRadioOption(
               componentId,
-              AccessLevel.noAccess,
-              'No Access',
-              'User cannot access this component',
+              AccessLevel.readOnly,
+              'Read Only',
+              'User can view but not modify',
               currentAccess,
               theme,
             ),
@@ -431,7 +431,7 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
             _buildRadioOption(
               componentId,
               AccessLevel.readWrite,
-              'Full Access',
+              'Write Access',
               'User can view and modify',
               currentAccess,
               theme,
