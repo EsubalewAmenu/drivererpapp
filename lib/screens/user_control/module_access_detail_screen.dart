@@ -72,12 +72,15 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
       debugPrint('Full Row: $row');
       
       // Extract file IDs from the row - handle both empty and whitespace-only values
+      // Format: [module_folder_id, name, dashboard_id, settings_id, tabs_id, module_files_id, module_type, status]
+      final moduleFolderFileId = _extractFileId(row, 0);
       final dashboardFileId = _extractFileId(row, 2);
       final settingsFileId = _extractFileId(row, 3);
       final tabsFileId = _extractFileId(row, 4);
       final moduleFilesFileId = _extractFileId(row, 5);
       
       debugPrint('Extracted File IDs:');
+      debugPrint('  Module Folder ID: "$moduleFolderFileId"');
       debugPrint('  Dashboard ID: "$dashboardFileId"');
       debugPrint('  Settings ID: "$settingsFileId"');
       debugPrint('  Tabs ID: "$tabsFileId"');
@@ -87,7 +90,7 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
       
       // Check actual sharing permissions for the invited user
       final permissions = _ModulePermissions(
-        moduleFolderAccess: await _checkFileAccess(driveService, moduleFilesFileId, 'Module Folder'),
+        moduleFolderAccess: await _checkFileAccess(driveService, moduleFolderFileId, 'Module Folder'),
         dashboardAccess: await _checkFileAccess(driveService, dashboardFileId, 'Dashboard'),
         settingsAccess: await _checkFileAccess(driveService, settingsFileId, 'Settings'),
         tabsAccess: await _checkFileAccess(driveService, tabsFileId, 'Tabs'),
@@ -360,6 +363,14 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
               ],
             ),
             const SizedBox(height: 16),
+            _buildReadOnlyAccessOption(
+              'No Access',
+              'User cannot access this file',
+              currentAccess,
+              AccessLevel.noAccess,
+              theme,
+            ),
+            const SizedBox(height: 12),
             _buildReadOnlyAccessOption(
               'Read Only',
               'User can view but not modify',
