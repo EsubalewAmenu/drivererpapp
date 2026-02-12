@@ -61,6 +61,7 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> wit
         iconTheme: theme.iconTheme,
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
           labelColor: theme.primaryColor,
           unselectedLabelColor: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6),
           indicatorColor: theme.primaryColor,
