@@ -321,7 +321,7 @@ class _UserControlScreenState extends State<UserControlScreen> {
               ),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 final email = emailController.text.trim();
                 if (email.isEmpty) {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -329,11 +329,61 @@ class _UserControlScreenState extends State<UserControlScreen> {
                   );
                   return;
                 }
-                // TODO: Implement add user functionality with email
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('User added: $email')),
-                );
+
+                try {
+                  // Get providers and services
+                  final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+                  final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+
+                  final driveService = driveProvider.driveService;
+                  if (driveService == null) {
+                    throw Exception('Drive service not available');
+                  }
+
+                  final rootFolderId = workspaceProvider.rootFolderId;
+                  if (rootFolderId == null || rootFolderId.isEmpty) {
+                    throw Exception('Root folder not found');
+                  }
+
+                  final currentWorkspaceId = workspaceProvider.currentWorkspace?.id;
+                  if (currentWorkspaceId == null || currentWorkspaceId.isEmpty) {
+                    throw Exception('No workspace selected');
+                  }
+
+                  // Get or create user_access folder
+                  final userAccessFolderId = await driveService.getOrCreateSubFolder(
+                    currentWorkspaceId,
+                    'user_access',
+                  );
+
+                  // Create user spreadsheet
+                  final spreadsheetId = await driveService.createUserAccessSpreadsheet(
+                    userAccessFolderId,
+                    email,
+                  );
+
+                  // Get companies registry and register user
+                  final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
+                  await driveService.upsertCompanyUserAccess(
+                    companiesRegistryId,
+                    currentWorkspaceId,
+                    email,
+                    spreadsheetId,
+                  );
+
+                  Navigator.pop(context);
+                  
+                  // Reload users list
+                  _loadUsers();
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('User $email added successfully')),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error adding user: $e')),
+                  );
+                }
               },
               child: Text(
                 'Add',
