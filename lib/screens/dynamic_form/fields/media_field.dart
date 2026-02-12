@@ -325,16 +325,33 @@ class _DynamicMediaFieldState extends State<DynamicMediaField> {
          return;
       }
 
-      final rootId = workspaceProvider.currentWorkspace?.id;
-      if (rootId == null) {
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload failed: No active workspace')));
-         }
-         return;
-      }
+      // Determine target folder based on context
+      String targetFolderId;
       
-      // Use moduleFilesId directly if available, otherwise fall back to rootId
-      final targetFolderId = widget.moduleFilesId ?? rootId;
+      if (widget.module != null) {
+        // Module context: require moduleFilesId, no fallback
+        if (widget.moduleFilesId == null || widget.moduleFilesId!.isEmpty) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Upload failed: Module files folder not configured'))
+            );
+          }
+          return;
+        }
+        targetFolderId = widget.moduleFilesId!;
+      } else {
+        // Settings context (e.g., company logo): use workspace root
+        final rootId = workspaceProvider.currentWorkspace?.id;
+        if (rootId == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Upload failed: No active workspace'))
+            );
+          }
+          return;
+        }
+        targetFolderId = rootId;
+      }
 
       final fileId = await driveService.uploadFile(
         targetFolderId, 
