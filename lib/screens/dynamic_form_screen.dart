@@ -163,7 +163,7 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
     );
   }
 
-  void _saveForm() async {
+  Future<void> _saveForm({bool isRetry = false}) async {
     if (_formKey.currentState!.validate()) {
       _formKey.currentState!.save();
       
@@ -209,6 +209,25 @@ class _DynamicFormScreenState extends State<DynamicFormScreen> {
         }
       } catch (e) {
         debugPrint('Error saving record: $e');
+        final errorString = e.toString().toLowerCase();
+        if (!isRetry && (errorString.contains('invalid_token') || errorString.contains('access was denied'))) {
+          try {
+            final auth = Provider.of<AuthService>(context, listen: false);
+            await auth.signInSilently();
+            final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+            driveProvider.updateClient(auth.authClient);
+            if (mounted) {
+              setState(() {
+                _isSaving = false;
+                _statusMessage = 'Retrying...';
+              });
+            }
+            await _saveForm(isRetry: true);
+            return;
+          } catch (refreshError) {
+            debugPrint('DynamicFormScreen: auth refresh failed: $refreshError');
+          }
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Error saving record: ${e.toString().contains('Failed host lookup') ? 'Network connection error' : e.toString()}')),

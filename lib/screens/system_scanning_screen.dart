@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
 import '../providers/workspace_provider.dart';
+import '../services/auth_service.dart';
 import 'workspace_selector_screen.dart';
 import 'dashboard_screen.dart';
 
@@ -19,6 +20,7 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
   String _statusMessage = "Initializing system...";
   double _progress = 0.0;
   bool _hasError = false;
+  bool _authRetry = false;
 
   @override
   void initState() {
@@ -142,6 +144,27 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
       if (mounted) {
         String errorMessage = "System Error: $e";
         final errorString = e.toString().toLowerCase();
+
+        if ((errorString.contains('invalid_token') || errorString.contains('access was denied')) && !_authRetry) {
+          _authRetry = true;
+          try {
+            setState(() {
+              _statusMessage = "Refreshing session...";
+              _progress = 0.0;
+              _hasError = false;
+            });
+            final auth = Provider.of<AuthService>(context, listen: false);
+            await auth.signInSilently();
+            final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+            driveProvider.updateClient(auth.authClient);
+            if (driveProvider.driveService != null && mounted) {
+              await _startScanningSequence();
+              return;
+            }
+          } catch (refreshError) {
+            debugPrint('Auth refresh failed: $refreshError');
+          }
+        }
         
         if (errorString.contains("disabled") || errorString.contains("has not been used")) {
            errorMessage = "API Error: Google Drive API is not enabled.\nPlease enable it in Google Cloud Console.";

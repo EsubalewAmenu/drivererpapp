@@ -5,6 +5,7 @@ import '../../models/schema_models.dart';
 import '../../providers/drive_provider.dart';
 import '../../providers/schema_provider.dart'; // Add this
 import '../../services/drive_service.dart';
+import '../../services/auth_service.dart';
 import '../dynamic_form_screen.dart';
 import '../record_detail_screen.dart';
 import 'common/tab_settings_screen.dart';
@@ -39,7 +40,7 @@ class ModuleTabScreen extends StatefulWidget {
 }
 
 class _ModuleTabScreenState extends State<ModuleTabScreen> {
-  late final DriveService _driveService;
+  DriveService? _driveService;
   
   String _effectiveTabId() {
     final provider = context.read<SchemaProvider>();
@@ -125,7 +126,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
   @override
   void initState() {
     super.initState();
-    _driveService = Provider.of<DriveProvider>(context, listen: false).driveService!;
+    _driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
     _activeFilters = List.from(widget.tab.quickFilters ?? []);
     _showFilters = widget.tab.enableCustomFilters ?? true;
     // Delay loading to keep navigation smooth
@@ -209,11 +210,25 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     super.dispose();
   }
 
-  Future<void> _loadData({bool refresh = false}) async {
+  Future<void> _loadData({bool refresh = false, bool isRetry = false}) async {
     debugPrint('ModuleTabScreen._loadData called for tab=${widget.tab.id} refresh=$refresh');
     if (widget.module == null) {
       debugPrint('ModuleTabScreen: widget.module is null, aborting load');
       if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+    _driveService ??= driveProvider.driveService;
+    final driveService = _driveService;
+    if (driveService == null) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _isLoadingMore = false;
+          _errorMessage = 'Authentication required. Please sign in again.';
+        });
+      }
       return;
     }
 
@@ -313,7 +328,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
       try {
         if (tabFileId != null && tabFileId.isNotEmpty) {
           try {
-            fetchedData = await _driveService.fetchRecordsBySpreadsheetId(
+            fetchedData = await driveService.fetchRecordsBySpreadsheetId(
               tabFileId,
               fetchTabId,
               offset: _currentOffset,
@@ -338,7 +353,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
            
           // If tabFileId is null, try to find an existing one by name (Migration/Auto-link)
           debugPrint('ModuleTabScreen: tabFileId is null, searching for spreadsheet by name: $fetchTabId in $fetchModuleId');
-          final foundId = await _driveService.getFileId(fetchModuleId, fetchTabId);
+          final foundId = await driveService.getFileId(fetchModuleId, fetchTabId);
           
           if (foundId != null && foundId.isNotEmpty) {
             debugPrint('ModuleTabScreen: Found existing spreadsheet by name: $foundId. Updating config.');
@@ -360,7 +375,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             }
 
             // Now fetch using the newly found ID
-            fetchedData = await _driveService.fetchRecordsBySpreadsheetId(
+            fetchedData = await driveService.fetchRecordsBySpreadsheetId(
               foundId,
               fetchTabId,
               offset: _currentOffset,
@@ -380,7 +395,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
             // Only create and seed if truly not found and we have data to seed
             try {
               debugPrint('ModuleTabScreen: No spreadsheet found and we have initial data. Creating now...');
-              final newSpreadsheetId = await _driveService.createSpreadsheetInFolder(fetchModuleId, fetchTabId);
+              final newSpreadsheetId = await driveService.createSpreadsheetInFolder(fetchModuleId, fetchTabId);
 
               // Update cached config to store fileId for this tab so future loads use the file directly.
                   try {
@@ -429,7 +444,7 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
                   try {
                     final records = tabInitialData.map((rec) => Map<String, dynamic>.from(rec)).toList();
                     debugPrint('Seeding batch of ${records.length} records to newSpreadsheetId=$newSpreadsheetId sheet=$fetchTabId');
-                    await _driveService.saveRecordsBatchBySpreadsheetId(newSpreadsheetId, fetchTabId, records);
+                    await driveService.saveRecordsBatchBySpreadsheetId(newSpreadsheetId, fetchTabId, records);
                     if (mounted) {
                       setState(() {
                         _seedingProgress = _seedingTotal;
@@ -492,6 +507,21 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
     } catch (e) {
       debugPrint('Error fetching data for ${_effectiveTabId()} (module ${_sourceModuleId()}): $e');
       if (mounted) {
+        final errorString = e.toString().toLowerCase();
+        if (!isRetry && (errorString.contains('invalid_token') || errorString.contains('access was denied'))) {
+          try {
+            final auth = Provider.of<AuthService>(context, listen: false);
+            await auth.signInSilently();
+            driveProvider.updateClient(auth.authClient);
+            _driveService = driveProvider.driveService;
+            if (_driveService != null) {
+              await _loadData(refresh: refresh, isRetry: true);
+              return;
+            }
+          } catch (refreshError) {
+            debugPrint('ModuleTabScreen: auth refresh failed: $refreshError');
+          }
+        }
         setState(() {
           _isLoading = false;
           // In pagination, stop loading more spinner
@@ -499,7 +529,6 @@ class _ModuleTabScreenState extends State<ModuleTabScreen> {
           
           if (refresh) {
             // Check for network related errors
-            final errorString = e.toString().toLowerCase();
             if (errorString.contains('socketexception') || 
                 errorString.contains('failed host lookup') || 
                 errorString.contains('network is unreachable') ||

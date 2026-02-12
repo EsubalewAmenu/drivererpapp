@@ -430,7 +430,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  Future<void> _saveCompanyName() async {
+  Future<void> _saveCompanyName({bool isRetry = false}) async {
     final newName = _companyNameController.text.trim();
     if (newName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Company name cannot be empty.')));
@@ -447,6 +447,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
         FocusScope.of(context).unfocus();
       }
     } catch (e) {
+      final errorString = e.toString().toLowerCase();
+      if (!isRetry && (errorString.contains('invalid_token') || errorString.contains('access was denied'))) {
+        try {
+          final auth = Provider.of<AuthService>(context, listen: false);
+          await auth.signInSilently();
+          final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+          driveProvider.updateClient(auth.authClient);
+          await _saveCompanyName(isRetry: true);
+          return;
+        } catch (refreshError) {
+          debugPrint('SettingsScreen: auth refresh failed: $refreshError');
+        }
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update company name: $e')));
       }
