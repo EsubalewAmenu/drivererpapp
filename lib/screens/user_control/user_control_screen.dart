@@ -115,16 +115,11 @@ class _UserControlScreenState extends State<UserControlScreen> {
       ),
       body: _buildBody(theme),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Implement invite user functionality
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invite user feature coming soon')),
-          );
-        },
+        onPressed: () => _showAddUserDialog(theme),
         backgroundColor: theme.primaryColor,
         icon: const Icon(Icons.person_add_rounded),
         label: Text(
-          'Invite User',
+          'Add User',
           style: AppTheme.inter(fontWeight: FontWeight.w700),
         ),
       ),
@@ -286,6 +281,71 @@ class _UserControlScreenState extends State<UserControlScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void _showAddUserDialog(ThemeData theme) {
+    final emailController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(
+            'Add User',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 18,
+            ),
+          ),
+          content: TextField(
+            controller: emailController,
+            decoration: InputDecoration(
+              hintText: 'Enter email address',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+            keyboardType: TextInputType.emailAddress,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: AppTheme.inter(
+                  fontWeight: FontWeight.w600,
+                  color: theme.textTheme.bodyMedium?.color,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                final email = emailController.text.trim();
+                if (email.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter an email address')),
+                  );
+                  return;
+                }
+                // TODO: Implement add user functionality with email
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('User added: $email')),
+                );
+              },
+              child: Text(
+                'Add',
+                style: AppTheme.inter(
+                  fontWeight: FontWeight.w600,
+                  color: theme.primaryColor,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
