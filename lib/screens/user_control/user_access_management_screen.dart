@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../providers/drive_provider.dart';
 import '../../providers/workspace_provider.dart';
 import '../../models/schema_models.dart';
+import 'module_access_detail_screen.dart';
 
 class UserAccessManagementScreen extends StatefulWidget {
   final String email;
@@ -328,48 +329,84 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
     // Get current access state (either changed or original)
     final hasAccess = _accessChanges[module.moduleId] ?? module.isActive;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12.0),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    module.moduleName,
-                    style: AppTheme.inter(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textTheme.titleMedium?.color,
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => ModuleAccessDetailScreen(
+              email: widget.email,
+              spreadsheetId: widget.spreadsheetId,
+              moduleId: module.moduleId,
+              moduleName: module.moduleName,
+              rowIndex: module.rowIndex,
+            ),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12.0),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      module.moduleName,
+                      style: AppTheme.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: theme.textTheme.titleMedium?.color,
+                      ),
                     ),
                   ),
+                  Switch(
+                    value: hasAccess,
+                    onChanged: (value) {
+                      setState(() {
+                        if (value == module.isActive) {
+                          // Reset to original state
+                          _accessChanges.remove(module.moduleId);
+                        } else {
+                          // Track the change
+                          _accessChanges[module.moduleId] = value;
+                        }
+                      });
+                    },
+                    activeColor: theme.primaryColor,
+                  ),
+                ],
+              ),
+              if (hasAccess) ...[
+                const SizedBox(height: 12),
+                _buildAccessOption('Dashboard', module.hasDashboard, theme),
+                _buildAccessOption('Settings', module.hasSettings, theme),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'View Details',
+                      style: AppTheme.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: theme.primaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.arrow_forward_ios,
+                      size: 13,
+                      color: theme.primaryColor,
+                    ),
+                  ],
                 ),
-                Switch(
-                  value: hasAccess,
-                  onChanged: (value) {
-                    setState(() {
-                      if (value == module.isActive) {
-                        // Reset to original state
-                        _accessChanges.remove(module.moduleId);
-                      } else {
-                        // Track the change
-                        _accessChanges[module.moduleId] = value;
-                      }
-                    });
-                  },
-                  activeColor: theme.primaryColor,
-                ),
-              ],
-            ),
-            if (hasAccess) ...[
-              const SizedBox(height: 12),
-              _buildAccessOption('Dashboard', module.hasDashboard, theme),
-              _buildAccessOption('Settings', module.hasSettings, theme),
-            ]
-          ],
+              ]
+            ],
+          ),
         ),
       ),
     );
