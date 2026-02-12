@@ -4,6 +4,8 @@ import 'package:googleapis/sheets/v4.dart' as sheets;
 import '../../theme/app_theme.dart';
 import '../../providers/drive_provider.dart';
 
+enum AccessLevel { noAccess, readOnly, readWrite }
+
 class ModuleAccessDetailScreen extends StatefulWidget {
   final String email;
   final String spreadsheetId;
@@ -29,7 +31,7 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   bool _isSaving = false;
-  final Map<String, Map<String, bool>> _changedPermissions = {};
+  final Map<String, dynamic> _changedPermissions = {};
 
   @override
   void initState() {
@@ -64,18 +66,13 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
       final row = values[0];
       
       // Parse permissions from the row
-      // Assuming the format is: id, name, dashboard, settings, tabs, module_files, module_type, status
+      // Format: id, name, dashboard, settings, tabs, module_files, module_type, status
       final permissions = _ModulePermissions(
-        moduleFolderRead: true, // Module folder always has read access
-        moduleFolderWrite: false,
-        dashboardRead: row.length > 2 ? row[2].toString().toLowerCase() == 'true' : false,
-        dashboardWrite: false,
-        settingsRead: row.length > 3 ? row[3].toString().toLowerCase() == 'true' : false,
-        settingsWrite: false,
-        tabsRead: (row.length > 4 ? row[4].toString() : '').isNotEmpty,
-        tabsWrite: false,
-        moduleFilesRead: (row.length > 5 ? row[5].toString() : '').isNotEmpty,
-        moduleFilesWrite: false,
+        moduleFolderAccess: AccessLevel.readOnly, // Module folder default read-only
+        dashboardAccess: row.length > 2 ? row[2].toString().toLowerCase() == 'true' ? AccessLevel.readWrite : AccessLevel.noAccess : AccessLevel.noAccess,
+        settingsAccess: row.length > 3 ? row[3].toString().toLowerCase() == 'true' ? AccessLevel.readWrite : AccessLevel.noAccess : AccessLevel.noAccess,
+        tabsAccess: (row.length > 4 ? row[4].toString() : '').isNotEmpty ? AccessLevel.readWrite : AccessLevel.noAccess,
+        moduleFilesAccess: (row.length > 5 ? row[5].toString() : '').isNotEmpty ? AccessLevel.readWrite : AccessLevel.noAccess,
       );
 
       setState(() {
@@ -113,10 +110,10 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
       final updatedRow = [
         widget.moduleId,
         widget.moduleName,
-        _permissions.dashboardRead ? 'true' : 'false', // dashboard
-        _permissions.settingsRead ? 'true' : 'false', // settings
-        _permissions.tabsRead ? 'tabs' : '', // tabs (just indicate presence)
-        _permissions.moduleFilesRead ? 'module_files' : '', // module_files
+        _permissions.dashboardAccess != AccessLevel.noAccess ? 'true' : 'false', // dashboard
+        _permissions.settingsAccess != AccessLevel.noAccess ? 'true' : 'false', // settings
+        _permissions.tabsAccess != AccessLevel.noAccess ? 'tabs' : '', // tabs
+        _permissions.moduleFilesAccess != AccessLevel.noAccess ? 'module_files' : '', // module_files
       ];
 
       // Update the spreadsheet
@@ -151,34 +148,26 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
     }
   }
 
-  void _updatePermission(String component, String type, bool value) {
+  void _updatePermission(String component, AccessLevel value) {
     setState(() {
-      if (!_changedPermissions.containsKey(component)) {
-        _changedPermissions[component] = {};
-      }
-      _changedPermissions[component]![type] = value;
+      _changedPermissions[component] = value;
 
       // Update the permissions object
       switch (component) {
         case 'moduleFolder':
-          if (type == 'read') _permissions.moduleFolderRead = value;
-          if (type == 'write') _permissions.moduleFolderWrite = value;
+          _permissions.moduleFolderAccess = value;
           break;
         case 'dashboard':
-          if (type == 'read') _permissions.dashboardRead = value;
-          if (type == 'write') _permissions.dashboardWrite = value;
+          _permissions.dashboardAccess = value;
           break;
         case 'settings':
-          if (type == 'read') _permissions.settingsRead = value;
-          if (type == 'write') _permissions.settingsWrite = value;
+          _permissions.settingsAccess = value;
           break;
         case 'tabs':
-          if (type == 'read') _permissions.tabsRead = value;
-          if (type == 'write') _permissions.tabsWrite = value;
+          _permissions.tabsAccess = value;
           break;
         case 'moduleFiles':
-          if (type == 'read') _permissions.moduleFilesRead = value;
-          if (type == 'write') _permissions.moduleFilesWrite = value;
+          _permissions.moduleFilesAccess = value;
           break;
       }
     });
@@ -297,21 +286,21 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
           ),
           const Divider(),
           const SizedBox(height: 16),
-          _buildPermissionCard('Module Folder', 'moduleFolder', _permissions.moduleFolderRead, _permissions.moduleFolderWrite, theme),
-          _buildPermissionCard('Dashboard', 'dashboard', _permissions.dashboardRead, _permissions.dashboardWrite, theme),
-          _buildPermissionCard('Settings', 'settings', _permissions.settingsRead, _permissions.settingsWrite, theme),
-          _buildPermissionCard('Tabs', 'tabs', _permissions.tabsRead, _permissions.tabsWrite, theme),
-          _buildPermissionCard('Module Files', 'moduleFiles', _permissions.moduleFilesRead, _permissions.moduleFilesWrite, theme),
+          _buildFolderAccessCard('Module Folder', 'moduleFolder', _permissions.moduleFolderAccess, theme),
+          _buildFolderAccessCard('Module Files', 'moduleFiles', _permissions.moduleFilesAccess, theme),
+          _buildAccessCard('Dashboard', 'dashboard', _permissions.dashboardAccess, theme),
+          _buildAccessCard('Settings', 'settings', _permissions.settingsAccess, theme),
+          _buildAccessCard('Tabs', 'tabs', _permissions.tabsAccess, theme),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  Widget _buildPermissionCard(
+  Widget _buildFolderAccessCard(
     String label,
     String componentId,
-    bool readAccess,
-    bool writeAccess,
+    AccessLevel currentAccess,
     ThemeData theme,
   ) {
     final hasChanges = _changedPermissions.containsKey(componentId);
@@ -323,94 +312,186 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: AppTheme.inter(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: theme.textTheme.titleMedium?.color,
-              ),
-            ),
-            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.visibility,
-                      size: 20,
-                      color: theme.textTheme.bodyMedium?.color,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Read',
-                      style: AppTheme.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: theme.textTheme.bodyMedium?.color,
-                      ),
-                    ),
-                  ],
-                ),
-                Switch(
-                  value: readAccess,
-                  onChanged: (value) {
-                    _updatePermission(componentId, 'read', value);
-                  },
-                  activeColor: theme.primaryColor,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(
-                      Icons.edit,
-                      size: 20,
-                      color: theme.textTheme.bodyMedium?.color,
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Write',
-                      style: AppTheme.inter(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: theme.textTheme.bodyMedium?.color,
-                      ),
-                    ),
-                  ],
-                ),
-                Switch(
-                  value: writeAccess,
-                  onChanged: (value) {
-                    _updatePermission(componentId, 'write', value);
-                  },
-                  activeColor: theme.primaryColor,
-                ),
-              ],
-            ),
-            if (hasChanges) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: theme.primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  'Modified',
+                Text(
+                  label,
                   style: AppTheme.inter(
-                    fontSize: 12,
+                    fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: theme.primaryColor,
+                    color: theme.textTheme.titleMedium?.color,
                   ),
                 ),
+                if (hasChanges)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Modified',
+                      style: AppTheme.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: theme.primaryColor,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildRadioOption(
+              componentId,
+              AccessLevel.noAccess,
+              'No Access',
+              'User cannot see this folder',
+              currentAccess,
+              theme,
+            ),
+            const SizedBox(height: 12),
+            _buildRadioOption(
+              componentId,
+              AccessLevel.readOnly,
+              'Read Access',
+              'User can view but not modify',
+              currentAccess,
+              theme,
+            ),
+            const SizedBox(height: 12),
+            _buildRadioOption(
+              componentId,
+              AccessLevel.readWrite,
+              'Write Access',
+              'User can view and modify',
+              currentAccess,
+              theme,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAccessCard(
+    String label,
+    String componentId,
+    AccessLevel currentAccess,
+    ThemeData theme,
+  ) {
+    final hasChanges = _changedPermissions.containsKey(componentId);
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12.0),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  label,
+                  style: AppTheme.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: theme.textTheme.titleMedium?.color,
+                  ),
+                ),
+                if (hasChanges)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: theme.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      'Modified',
+                      style: AppTheme.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: theme.primaryColor,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _buildRadioOption(
+              componentId,
+              AccessLevel.noAccess,
+              'No Access',
+              'User cannot access this component',
+              currentAccess,
+              theme,
+            ),
+            const SizedBox(height: 12),
+            _buildRadioOption(
+              componentId,
+              AccessLevel.readWrite,
+              'Full Access',
+              'User can view and modify',
+              currentAccess,
+              theme,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRadioOption(
+    String componentId,
+    AccessLevel value,
+    String title,
+    String subtitle,
+    AccessLevel currentAccess,
+    ThemeData theme,
+  ) {
+    return InkWell(
+      onTap: () {
+        _updatePermission(componentId, value);
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          children: [
+            Radio<AccessLevel>(
+              value: value,
+              groupValue: currentAccess,
+              onChanged: (newValue) {
+                if (newValue != null) {
+                  _updatePermission(componentId, newValue);
+                }
+              },
+              activeColor: theme.primaryColor,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppTheme.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: theme.textTheme.bodyMedium?.color,
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: AppTheme.inter(
+                      fontSize: 12,
+                      color: theme.disabledColor,
+                    ),
+                  ),
+                ],
               ),
-            ]
+            ),
           ],
         ),
       ),
@@ -419,27 +500,17 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
 }
 
 class _ModulePermissions {
-  bool moduleFolderRead;
-  bool moduleFolderWrite;
-  bool dashboardRead;
-  bool dashboardWrite;
-  bool settingsRead;
-  bool settingsWrite;
-  bool tabsRead;
-  bool tabsWrite;
-  bool moduleFilesRead;
-  bool moduleFilesWrite;
+  AccessLevel moduleFolderAccess;
+  AccessLevel dashboardAccess;
+  AccessLevel settingsAccess;
+  AccessLevel tabsAccess;
+  AccessLevel moduleFilesAccess;
 
   _ModulePermissions({
-    required this.moduleFolderRead,
-    required this.moduleFolderWrite,
-    required this.dashboardRead,
-    required this.dashboardWrite,
-    required this.settingsRead,
-    required this.settingsWrite,
-    required this.tabsRead,
-    required this.tabsWrite,
-    required this.moduleFilesRead,
-    required this.moduleFilesWrite,
+    required this.moduleFolderAccess,
+    required this.dashboardAccess,
+    required this.settingsAccess,
+    required this.tabsAccess,
+    required this.moduleFilesAccess,
   });
 }
