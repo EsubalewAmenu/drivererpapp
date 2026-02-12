@@ -215,8 +215,16 @@ void main() {
 
     await tester.tap(find.widgetWithText(ActionChip, 'Add'));
     await safePumpAndSettle();
-    await tester.enterText(find.byType(TextField).last, 'New');
-    await tester.tap(find.widgetWithText(TextButton, 'Add'));
+
+    final addTagsDialog = find.widgetWithText(AlertDialog, 'Add Tags');
+    for (int i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      if (addTagsDialog.evaluate().isNotEmpty) break;
+    }
+    expect(addTagsDialog, findsOneWidget);
+
+    await tester.enterText(find.descendant(of: addTagsDialog, matching: find.byType(TextField)), 'New');
+    await tester.tap(find.descendant(of: addTagsDialog, matching: find.widgetWithText(TextButton, 'Add')));
     await safePumpAndSettle();
 
     await tester.enterText(find.widgetWithText(TextFormField, 'Enter quantity'), '10');
