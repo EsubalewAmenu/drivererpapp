@@ -30,12 +30,12 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
   late _ModulePermissions _permissions;
   bool _isLoading = true;
   String? _errorMessage;
-  bool _isSaving = false;
-  final Map<String, dynamic> _changedPermissions = {};
+  late String _userEmail;
 
   @override
   void initState() {
     super.initState();
+    _userEmail = widget.email;
     _loadPermissions();
   }
 
@@ -52,7 +52,7 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
         throw Exception('Drive service not available');
       }
 
-      // Read the specific row from the user's spreadsheet
+      // Read the specific row to get file IDs
       final response = await driveService.sheetsApi.spreadsheets.values.get(
         widget.spreadsheetId,
         'modules!A${widget.rowIndex}:H${widget.rowIndex}',
@@ -65,14 +65,33 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
 
       final row = values[0];
       
-      // Parse permissions from the row
-      // Format: id, name, dashboard, settings, tabs, module_files, module_type, status
+      debugPrint('=== Loading Module Permissions ===');
+      debugPrint('Module: ${widget.moduleName}');
+      debugPrint('Row Index: ${widget.rowIndex}');
+      debugPrint('Row Data Length: ${row.length}');
+      debugPrint('Full Row: $row');
+      
+      // Extract file IDs from the row - handle both empty and whitespace-only values
+      final dashboardFileId = _extractFileId(row, 2);
+      final settingsFileId = _extractFileId(row, 3);
+      final tabsFileId = _extractFileId(row, 4);
+      final moduleFilesFileId = _extractFileId(row, 5);
+      
+      debugPrint('Extracted File IDs:');
+      debugPrint('  Dashboard ID: "$dashboardFileId"');
+      debugPrint('  Settings ID: "$settingsFileId"');
+      debugPrint('  Tabs ID: "$tabsFileId"');
+      debugPrint('  Module Files ID: "$moduleFilesFileId"');
+      debugPrint('  User Email: "$_userEmail"');
+      debugPrint('=== Starting Permission Checks ===' );
+      
+      // Check actual sharing permissions for the invited user
       final permissions = _ModulePermissions(
-        moduleFolderAccess: AccessLevel.readOnly, // Module folder default read-only
-        dashboardAccess: row.length > 2 ? row[2].toString().toLowerCase() == 'true' ? AccessLevel.readWrite : AccessLevel.readOnly : AccessLevel.readOnly,
-        settingsAccess: row.length > 3 ? row[3].toString().toLowerCase() == 'true' ? AccessLevel.readWrite : AccessLevel.readOnly : AccessLevel.readOnly,
-        tabsAccess: (row.length > 4 ? row[4].toString() : '').isNotEmpty ? AccessLevel.readWrite : AccessLevel.readOnly,
-        moduleFilesAccess: (row.length > 5 ? row[5].toString() : '').isNotEmpty ? AccessLevel.readWrite : AccessLevel.noAccess,
+        moduleFolderAccess: await _checkFileAccess(driveService, moduleFilesFileId, 'Module Folder'),
+        dashboardAccess: await _checkFileAccess(driveService, dashboardFileId, 'Dashboard'),
+        settingsAccess: await _checkFileAccess(driveService, settingsFileId, 'Settings'),
+        tabsAccess: await _checkFileAccess(driveService, tabsFileId, 'Tabs'),
+        moduleFilesAccess: await _checkFileAccess(driveService, moduleFilesFileId, 'Module Files'),
       );
 
       setState(() {
@@ -80,6 +99,7 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
         _isLoading = false;
       });
     } catch (e) {
+      debugPrint('Error loading permissions: $e');
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
@@ -87,91 +107,80 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
     }
   }
 
-  Future<void> _savePermissions() async {
-    if (_changedPermissions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No changes to save')),
-      );
-      return;
+  String _extractFileId(List<Object?> row, int index) {
+    if (row.length <= index) {
+      return '';
     }
+    final value = row[index];
+    if (value == null) {
+      return '';
+    }
+    final fileId = value.toString().trim();
+    return fileId.isEmpty ? '' : fileId;
+  }
 
-    setState(() {
-      _isSaving = true;
-    });
+  Future<AccessLevel> _checkFileAccess(dynamic driveService, String fileId, String componentName) async {
+    if (fileId.isEmpty) {
+      debugPrint('  $componentName: No file ID provided');
+      return AccessLevel.noAccess;
+    }
 
     try {
-      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-      final driveService = driveProvider.driveService;
-      if (driveService == null) {
-        throw Exception('Drive service not available');
-      }
-
-      // Build the updated row with new values
-      final updatedRow = [
-        widget.moduleId,
-        widget.moduleName,
-        _permissions.dashboardAccess != AccessLevel.noAccess ? 'true' : 'false', // dashboard (mandatory, always true if active)
-        _permissions.settingsAccess != AccessLevel.noAccess ? 'true' : 'false', // settings (mandatory, always true if active)
-        _permissions.tabsAccess != AccessLevel.noAccess ? 'tabs' : '', // tabs (mandatory, always present if active)
-        _permissions.moduleFilesAccess != AccessLevel.noAccess ? 'module_files' : '', // module_files
-      ];
-
-      // Update the spreadsheet
-      await driveService.sheetsApi.spreadsheets.values.update(
-        sheets.ValueRange(values: [updatedRow]),
-        widget.spreadsheetId,
-        'modules!A${widget.rowIndex}:F${widget.rowIndex}',
-        valueInputOption: 'RAW',
+      debugPrint('  Checking $componentName access (ID: $fileId)...');
+      
+      // Check if the user has access to this file
+      // Request specific fields to ensure we get emailAddress
+      final permissions = await driveService.driveApi.permissions.list(
+        fileId,
+        supportsAllDrives: true,
+        pageSize: 100,
+        $fields: 'permissions(id,emailAddress,displayName,role,type,kind)',
       );
 
-      setState(() {
-        _isSaving = false;
-        _changedPermissions.clear();
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Permissions updated successfully')),
-        );
-        Navigator.of(context).pop();
+      final permissionsList = permissions.permissions ?? [];
+      debugPrint('    Found ${permissionsList.length} permissions for file: $fileId');
+      
+      // Look for the invited user's email in the permissions
+      for (final perm in permissionsList) {
+        debugPrint('    - Email: ${perm.emailAddress}, DisplayName: ${perm.displayName}, ID: ${perm.id}, Type: ${perm.type}, Role: ${perm.role}');
       }
+      
+      for (final perm in permissionsList) {
+        // Check both emailAddress and displayName
+        final permEmail = perm.emailAddress?.toLowerCase();
+        final userEmailLower = _userEmail.toLowerCase();
+        
+        if (permEmail == userEmailLower || perm.displayName?.toLowerCase() == userEmailLower) {
+          debugPrint('    ✓ Match found for $_userEmail! Role: ${perm.role}');
+          
+          // Check the role for write access
+          // Write access roles: owner, writer, fileOrganizer, organizer, editor
+          final writeAccessRoles = ['owner', 'writer', 'fileOrganizer', 'organizer'];
+          final readAccessRoles = ['reader', 'commenter', 'viewer'];
+          
+          if (writeAccessRoles.contains(perm.role)) {
+            debugPrint('    ✓ Returning READ_WRITE (role: ${perm.role})');
+            return AccessLevel.readWrite;
+          } else if (readAccessRoles.contains(perm.role)) {
+            debugPrint('    ✓ Returning READ_ONLY (role: ${perm.role})');
+            return AccessLevel.readOnly;
+          } else {
+            debugPrint('    ⚠ Unknown role: ${perm.role}, treating as READ_WRITE for editor access');
+            return AccessLevel.readWrite;
+          }
+        }
+      }
+      
+      // User not found in permissions
+      debugPrint('    ✗ User $_userEmail not found in permissions list');
+      return AccessLevel.noAccess;
     } catch (e) {
-      setState(() {
-        _isSaving = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error saving permissions: $e')),
-        );
-      }
+      debugPrint('  ERROR checking $componentName access (ID: $fileId): $e');
+      return AccessLevel.noAccess;
     }
   }
 
-  void _updatePermission(String component, AccessLevel value) {
-    setState(() {
-      _changedPermissions[component] = value;
 
-      // Update the permissions object
-      switch (component) {
-        case 'moduleFolder':
-          _permissions.moduleFolderAccess = value;
-          break;
-        case 'dashboard':
-          _permissions.dashboardAccess = value;
-          break;
-        case 'settings':
-          _permissions.settingsAccess = value;
-          break;
-        case 'tabs':
-          _permissions.tabsAccess = value;
-          break;
-        case 'moduleFiles':
-          _permissions.moduleFilesAccess = value;
-          break;
-      }
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -194,35 +203,6 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
         iconTheme: theme.iconTheme,
       ),
       body: _buildBody(theme),
-      bottomNavigationBar: _changedPermissions.isNotEmpty
-          ? Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: ElevatedButton(
-                onPressed: _isSaving ? null : _savePermissions,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  backgroundColor: theme.primaryColor,
-                  disabledBackgroundColor: theme.disabledColor,
-                ),
-                child: _isSaving
-                    ? SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(theme.scaffoldBackgroundColor),
-                        ),
-                      )
-                    : Text(
-                        'SAVE CHANGES',
-                        style: AppTheme.inter(
-                          fontWeight: FontWeight.w700,
-                          color: theme.scaffoldBackgroundColor,
-                        ),
-                      ),
-              ),
-            )
-          : null,
     );
   }
 
@@ -303,8 +283,6 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
     AccessLevel currentAccess,
     ThemeData theme,
   ) {
-    final hasChanges = _changedPermissions.containsKey(componentId);
-
     return Card(
       margin: const EdgeInsets.only(bottom: 12.0),
       child: Padding(
@@ -323,49 +301,30 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
                     color: theme.textTheme.titleMedium?.color,
                   ),
                 ),
-                if (hasChanges)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Modified',
-                      style: AppTheme.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: theme.primaryColor,
-                      ),
-                    ),
-                  ),
               ],
             ),
             const SizedBox(height: 16),
-            _buildRadioOption(
-              componentId,
-              AccessLevel.noAccess,
+            _buildReadOnlyAccessOption(
               'No Access',
               'User cannot see this folder',
               currentAccess,
+              AccessLevel.noAccess,
               theme,
             ),
             const SizedBox(height: 12),
-            _buildRadioOption(
-              componentId,
-              AccessLevel.readOnly,
+            _buildReadOnlyAccessOption(
               'Read Access',
               'User can view but not modify',
               currentAccess,
+              AccessLevel.readOnly,
               theme,
             ),
             const SizedBox(height: 12),
-            _buildRadioOption(
-              componentId,
-              AccessLevel.readWrite,
+            _buildReadOnlyAccessOption(
               'Write Access',
               'User can view and modify',
               currentAccess,
+              AccessLevel.readWrite,
               theme,
             ),
           ],
@@ -380,8 +339,6 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
     AccessLevel currentAccess,
     ThemeData theme,
   ) {
-    final hasChanges = _changedPermissions.containsKey(componentId);
-
     return Card(
       margin: const EdgeInsets.only(bottom: 12.0),
       child: Padding(
@@ -400,40 +357,22 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
                     color: theme.textTheme.titleMedium?.color,
                   ),
                 ),
-                if (hasChanges)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: theme.primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      'Modified',
-                      style: AppTheme.inter(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: theme.primaryColor,
-                      ),
-                    ),
-                  ),
               ],
             ),
             const SizedBox(height: 16),
-            _buildRadioOption(
-              componentId,
-              AccessLevel.readOnly,
+            _buildReadOnlyAccessOption(
               'Read Only',
               'User can view but not modify',
               currentAccess,
+              AccessLevel.readOnly,
               theme,
             ),
             const SizedBox(height: 12),
-            _buildRadioOption(
-              componentId,
-              AccessLevel.readWrite,
+            _buildReadOnlyAccessOption(
               'Write Access',
               'User can view and modify',
               currentAccess,
+              AccessLevel.readWrite,
               theme,
             ),
           ],
@@ -442,58 +381,53 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
     );
   }
 
-  Widget _buildRadioOption(
-    String componentId,
-    AccessLevel value,
+  Widget _buildReadOnlyAccessOption(
     String title,
     String subtitle,
     AccessLevel currentAccess,
+    AccessLevel optionValue,
     ThemeData theme,
   ) {
-    return InkWell(
-      onTap: () {
-        _updatePermission(componentId, value);
-      },
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: Row(
-          children: [
-            Radio<AccessLevel>(
-              value: value,
-              groupValue: currentAccess,
-              onChanged: (newValue) {
-                if (newValue != null) {
-                  _updatePermission(componentId, newValue);
-                }
-              },
-              activeColor: theme.primaryColor,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: AppTheme.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: theme.textTheme.bodyMedium?.color,
-                    ),
-                  ),
-                  Text(
-                    subtitle,
-                    style: AppTheme.inter(
-                      fontSize: 12,
-                      color: theme.disabledColor,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+    final isSelected = currentAccess == optionValue;
+    return Container(
+      padding: const EdgeInsets.all(8.0),
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: isSelected ? theme.primaryColor : theme.dividerColor.withValues(alpha: 0.2),
+          width: isSelected ? 2 : 1,
         ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: isSelected ? theme.primaryColor : theme.disabledColor,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: AppTheme.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: theme.textTheme.bodyMedium?.color,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: AppTheme.inter(
+                    fontSize: 12,
+                    color: theme.disabledColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
