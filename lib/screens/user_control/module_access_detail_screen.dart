@@ -291,7 +291,7 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> {
         permission,
         fileId,
         supportsAllDrives: true,
-        sendNotificationEmail: true,
+        sendNotificationEmail: false,
       );
 
       debugPrint('Successfully shared $componentName with $_userEmail as $role');
