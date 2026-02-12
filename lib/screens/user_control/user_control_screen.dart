@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../theme/app_theme.dart';
 import '../../providers/workspace_provider.dart';
 import '../../providers/drive_provider.dart';
+import '../../services/drive_service.dart';
 import 'user_access_management_screen.dart';
 
 class UserControlScreen extends StatefulWidget {
@@ -16,11 +17,38 @@ class _UserControlScreenState extends State<UserControlScreen> {
   List<Map<String, String>> _users = [];
   bool _isLoading = true;
   String? _errorMessage;
+  WorkspaceProvider? _workspaceProvider;
+  DriveProvider? _driveProvider;
 
   @override
   void initState() {
     super.initState();
+    _workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    _driveProvider = Provider.of<DriveProvider>(context, listen: false);
     _loadUsers();
+  }
+
+  _DriveContext _getDriveContext() {
+    final driveService = _driveProvider?.driveService;
+    if (driveService == null) {
+      throw Exception('Drive service not available');
+    }
+
+    final rootFolderId = _workspaceProvider?.rootFolderId;
+    if (rootFolderId == null || rootFolderId.isEmpty) {
+      throw Exception('Root folder not found');
+    }
+
+    final currentWorkspaceId = _workspaceProvider?.currentWorkspace?.id;
+    if (currentWorkspaceId == null || currentWorkspaceId.isEmpty) {
+      throw Exception('No workspace selected');
+    }
+
+    return _DriveContext(
+      driveService: driveService,
+      rootFolderId: rootFolderId,
+      currentWorkspaceId: currentWorkspaceId,
+    );
   }
 
   Future<void> _loadUsers() async {
@@ -30,23 +58,10 @@ class _UserControlScreenState extends State<UserControlScreen> {
     });
 
     try {
-      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
-      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-
-      final driveService = driveProvider.driveService;
-      if (driveService == null) {
-        throw Exception('Drive service not available');
-      }
-
-      final rootFolderId = workspaceProvider.rootFolderId;
-      if (rootFolderId == null || rootFolderId.isEmpty) {
-        throw Exception('Root folder not found');
-      }
-
-      final currentWorkspaceId = workspaceProvider.currentWorkspace?.id;
-      if (currentWorkspaceId == null || currentWorkspaceId.isEmpty) {
-        throw Exception('No workspace selected');
-      }
+      final driveContext = _getDriveContext();
+      final driveService = driveContext.driveService;
+      final rootFolderId = driveContext.rootFolderId;
+      final currentWorkspaceId = driveContext.currentWorkspaceId;
 
       // Get companies registry ID directly
       final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
@@ -331,24 +346,10 @@ class _UserControlScreenState extends State<UserControlScreen> {
                 }
 
                 try {
-                  // Get providers and services
-                  final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
-                  final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-
-                  final driveService = driveProvider.driveService;
-                  if (driveService == null) {
-                    throw Exception('Drive service not available');
-                  }
-
-                  final rootFolderId = workspaceProvider.rootFolderId;
-                  if (rootFolderId == null || rootFolderId.isEmpty) {
-                    throw Exception('Root folder not found');
-                  }
-
-                  final currentWorkspaceId = workspaceProvider.currentWorkspace?.id;
-                  if (currentWorkspaceId == null || currentWorkspaceId.isEmpty) {
-                    throw Exception('No workspace selected');
-                  }
+                  final driveContext = _getDriveContext();
+                  final driveService = driveContext.driveService;
+                  final rootFolderId = driveContext.rootFolderId;
+                  final currentWorkspaceId = driveContext.currentWorkspaceId;
 
                   // Get or create user_access folder
                   final userAccessFolderId = await driveService.getOrCreateSubFolder(
@@ -397,4 +398,16 @@ class _UserControlScreenState extends State<UserControlScreen> {
       },
     );
   }
+}
+
+class _DriveContext {
+  final DriveService driveService;
+  final String rootFolderId;
+  final String currentWorkspaceId;
+
+  const _DriveContext({
+    required this.driveService,
+    required this.rootFolderId,
+    required this.currentWorkspaceId,
+  });
 }
