@@ -187,194 +187,18 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
   }
 
   Future<void> _showAddModuleDialog(ThemeData theme) async {
-    final future = _loadAvailableModules();
-    final selected = <String>{};
-
     await showDialog(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(
-                'Add Modules',
-                style: AppTheme.inter(fontWeight: FontWeight.w700, fontSize: 18),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: FutureBuilder<List<_ModuleSourceItem>>(
-                  future: future,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    if (snapshot.hasError) {
-                      return Text(
-                        'Failed to load modules: ${snapshot.error}',
-                        style: AppTheme.inter(fontSize: 12, color: theme.disabledColor),
-                      );
-                    }
-
-                    final modules = snapshot.data ?? [];
-                    if (modules.isEmpty) {
-                      return Text(
-                        'No additional modules available to add.',
-                        style: AppTheme.inter(fontSize: 13, color: theme.textTheme.bodyMedium?.color),
-                      );
-                    }
-
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: modules.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final module = modules[index];
-                        final isSelected = selected.contains(module.moduleId);
-                        return InkWell(
-                          onTap: () {
-                            setDialogState(() {
-                              if (isSelected) {
-                                selected.remove(module.moduleId);
-                              } else {
-                                selected.add(module.moduleId);
-                              }
-                            });
-                          },
-                          child: Row(
-                            children: [
-                              Checkbox(
-                                value: isSelected,
-                                onChanged: (value) {
-                                  setDialogState(() {
-                                    if (value == true) {
-                                      selected.add(module.moduleId);
-                                    } else {
-                                      selected.remove(module.moduleId);
-                                    }
-                                  });
-                                },
-                              ),
-                              Expanded(
-                                child: Text(
-                                  module.moduleName.isNotEmpty ? module.moduleName : module.moduleId,
-                                  style: AppTheme.inter(fontSize: 14, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    'Cancel',
-                    style: AppTheme.inter(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _isAddingModules
-                      ? null
-                      : () async {
-                          try {
-                            setState(() {
-                              _isAddingModules = true;
-                            });
-
-                            final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-                            final driveService = driveProvider.driveService;
-                            if (driveService == null) {
-                              throw Exception('Drive service not available');
-                            }
-
-                            final modules = await future;
-                            final toAdd = modules.where((m) => selected.contains(m.moduleId)).toList();
-                            if (toAdd.isEmpty) {
-                              Navigator.pop(context);
-                              return;
-                            }
-
-                            for (final module in toAdd) {
-                              final configFolderId = await driveService.getOrCreateSubFolder(
-                                module.moduleId,
-                                'config',
-                              );
-
-                              final settings = module.settingsId.isNotEmpty
-                                  ? await driveService.readSettingsById(module.settingsId)
-                                  : null;
-                              final dashboard = module.dashboardId.isNotEmpty
-                                  ? await driveService.readDashboardById(module.dashboardId)
-                                  : null;
-                              final tabs = module.tabsId.isNotEmpty
-                                  ? await driveService.readTabsById(module.tabsId)
-                                  : null;
-
-                              final config = {
-                                'settings': settings ?? <String, dynamic>{},
-                                'dashboard': dashboard ?? <String, dynamic>{'cards': []},
-                                'tabs': tabs ?? <dynamic>[],
-                              };
-
-                              final configIds = await driveService.createModuleConfig(
-                                configFolderId,
-                                widget.email,
-                                config,
-                              );
-
-                              await driveService.upsertUserAccessModule(
-                                widget.spreadsheetId,
-                                module.moduleId,
-                                module.moduleName,
-                                configIds['dashboard'] ?? '',
-                                configIds['settings'] ?? '',
-                                configIds['tabs'] ?? '',
-                                module.moduleFilesId,
-                                moduleType: module.moduleType,
-                              );
-                              await driveService.setUserAccessModuleStatus(
-                                widget.spreadsheetId,
-                                module.moduleId,
-                                'activated',
-                              );
-                            }
-
-                            if (mounted) {
-                              Navigator.pop(context);
-                              await _loadUserAccess();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Modules added successfully')),
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error adding modules: $e')),
-                              );
-                            }
-                          } finally {
-                            if (mounted) {
-                              setState(() {
-                                _isAddingModules = false;
-                              });
-                            }
-                          }
-                        },
-                  child: Text(
-                    'Add',
-                    style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.primaryColor),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (context) => _AddModuleDialog(
+        theme: theme,
+        email: widget.email,
+        spreadsheetId: widget.spreadsheetId,
+        onModulesAdded: () {
+          _loadUserAccess();
+        },
+        loadAvailableModules: _loadAvailableModules,
+        currentModules: _modules,
+      ),
     );
   }
 
@@ -811,3 +635,404 @@ class _ModuleSourceItem {
     required this.moduleType,
   });
 }
+
+class _AddModuleDialog extends StatefulWidget {
+  final ThemeData theme;
+  final String email;
+  final String spreadsheetId;
+  final VoidCallback onModulesAdded;
+  final Future<List<_ModuleSourceItem>> Function() loadAvailableModules;
+  final List<_ModuleAccessItem> currentModules;
+
+  const _AddModuleDialog({
+    required this.theme,
+    required this.email,
+    required this.spreadsheetId,
+    required this.onModulesAdded,
+    required this.loadAvailableModules,
+    required this.currentModules,
+  });
+
+  @override
+  State<_AddModuleDialog> createState() => _AddModuleDialogState();
+}
+
+class _AddModuleDialogState extends State<_AddModuleDialog> {
+  late Future<List<_ModuleSourceItem>> _modulesFuture;
+  final Set<String> _selectedModules = {};
+  bool _isAdding = false;
+  String _progressMessage = '';
+  int _currentModuleIndex = 0;
+  int _totalModules = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _modulesFuture = widget.loadAvailableModules();
+  }
+
+  Future<void> _addModules(List<_ModuleSourceItem> allModules) async {
+    if (_selectedModules.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+
+    setState(() {
+      _isAdding = true;
+      _progressMessage = 'Preparing modules...';
+    });
+
+    try {
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+      final driveService = driveProvider.driveService;
+      if (driveService == null) {
+        throw Exception('Drive service not available');
+      }
+
+      final toAdd = allModules.where((m) => _selectedModules.contains(m.moduleId)).toList();
+      _totalModules = toAdd.length;
+
+      for (int i = 0; i < toAdd.length; i++) {
+        final module = toAdd[i];
+        _currentModuleIndex = i + 1;
+
+        // Step 1: Create config folder
+        setState(() {
+          _progressMessage = 'Creating folder for ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
+        });
+        final configFolderId = await driveService.getOrCreateSubFolder(
+          module.moduleId,
+          'config',
+        );
+
+        // Step 2: Read configurations
+        setState(() {
+          _progressMessage = 'Loading ${module.moduleName} configuration ($_currentModuleIndex/$_totalModules)...';
+        });
+        final settings = module.settingsId.isNotEmpty
+            ? await driveService.readSettingsById(module.settingsId)
+            : null;
+        final dashboard = module.dashboardId.isNotEmpty
+            ? await driveService.readDashboardById(module.dashboardId)
+            : null;
+        final tabs = module.tabsId.isNotEmpty
+            ? await driveService.readTabsById(module.tabsId)
+            : null;
+
+        final config = {
+          'settings': settings ?? <String, dynamic>{},
+          'dashboard': dashboard ?? <String, dynamic>{'cards': []},
+          'tabs': tabs ?? <dynamic>[],
+        };
+
+        // Step 3: Create module config
+        setState(() {
+          _progressMessage = 'Setting up ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
+        });
+        final configIds = await driveService.createModuleConfig(
+          configFolderId,
+          widget.email,
+          config,
+        );
+
+        // Step 4: Update user access
+        setState(() {
+          _progressMessage = 'Registering ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
+        });
+        await driveService.upsertUserAccessModule(
+          widget.spreadsheetId,
+          module.moduleId,
+          module.moduleName,
+          configIds['dashboard'] ?? '',
+          configIds['settings'] ?? '',
+          configIds['tabs'] ?? '',
+          module.moduleFilesId,
+          moduleType: module.moduleType,
+        );
+        await driveService.setUserAccessModuleStatus(
+          widget.spreadsheetId,
+          module.moduleId,
+          'activated',
+        );
+      }
+
+      if (!mounted) return;
+
+      Navigator.pop(context);
+      widget.onModulesAdded();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${_totalModules} ${_totalModules == 1 ? 'module' : 'modules'} added successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isAdding = false;
+        _progressMessage = '';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error adding modules: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(
+            Icons.add_circle_outline,
+            color: widget.theme.primaryColor,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Add Modules',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Select modules to grant access to ${widget.email}',
+              style: AppTheme.inter(
+                fontSize: 14,
+                color: widget.theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: FutureBuilder<List<_ModuleSourceItem>>(
+                future: _modulesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: widget.theme.disabledColor,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Failed to load modules',
+                            style: AppTheme.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: widget.theme.textTheme.bodyMedium?.color,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            snapshot.error.toString(),
+                            style: AppTheme.inter(
+                              fontSize: 12,
+                              color: widget.theme.disabledColor,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final modules = snapshot.data ?? [];
+                  if (modules.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 48,
+                            color: widget.theme.disabledColor,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No additional modules available',
+                            style: AppTheme.inter(
+                              fontSize: 14,
+                              color: widget.theme.textTheme.bodyMedium?.color,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: modules.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final module = modules[index];
+                      final isSelected = _selectedModules.contains(module.moduleId);
+                      return CheckboxListTile(
+                        value: isSelected,
+                        enabled: !_isAdding,
+                        onChanged: (value) {
+                          setState(() {
+                            if (value == true) {
+                              _selectedModules.add(module.moduleId);
+                            } else {
+                              _selectedModules.remove(module.moduleId);
+                            }
+                          });
+                        },
+                        title: Text(
+                          module.moduleName.isNotEmpty ? module.moduleName : module.moduleId,
+                          style: AppTheme.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: _isAdding
+                                ? widget.theme.textTheme.bodyMedium?.color?.withOpacity(0.5)
+                                : widget.theme.textTheme.bodyMedium?.color,
+                          ),
+                        ),
+                        subtitle: module.moduleType.isNotEmpty
+                            ? Text(
+                                module.moduleType.toUpperCase(),
+                                style: AppTheme.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: widget.theme.primaryColor.withOpacity(0.7),
+                                ),
+                              )
+                            : null,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        activeColor: widget.theme.primaryColor,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            if (_isAdding) ...[
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: widget.theme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              widget.theme.primaryColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            _progressMessage,
+                            style: AppTheme.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: widget.theme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_totalModules > 0) ...[
+                      const SizedBox(height: 12),
+                      LinearProgressIndicator(
+                        value: _currentModuleIndex / _totalModules,
+                        backgroundColor: widget.theme.primaryColor.withOpacity(0.2),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          widget.theme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isAdding ? null : () => Navigator.pop(context),
+          child: Text(
+            'Cancel',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w600,
+              color: _isAdding
+                  ? widget.theme.textTheme.bodyMedium?.color?.withOpacity(0.3)
+                  : widget.theme.textTheme.bodyMedium?.color,
+            ),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: _isAdding
+              ? null
+              : () async {
+                  final modules = await _modulesFuture;
+                  await _addModules(modules);
+                },
+          icon: _isAdding
+              ? const SizedBox.shrink()
+              : const Icon(Icons.add, size: 18),
+          label: Text(
+            _isAdding ? 'Adding...' : 'Add Modules',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: widget.theme.primaryColor,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: widget.theme.primaryColor.withOpacity(0.3),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
