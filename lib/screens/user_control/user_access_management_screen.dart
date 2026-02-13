@@ -399,7 +399,7 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         throw Exception('user_access sheet not found in companies registry');
       }
 
-      // Step 2: Find the row to delete in companies registry (match by spreadsheet ID)
+      // Step 2: Find the row to delete in companies registry (match by company_folder_id and email)
       final response = await driveService.sheetsApi.spreadsheets.values.get(
         companiesRegistryId,
         'user_access!A:C',
@@ -407,16 +407,54 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
 
       final values = response.values ?? [];
       int? rowIndexToDelete;
+      final normalizedEmail = widget.email.trim().toLowerCase();
+      final normalizedWorkspaceId = currentWorkspaceId.trim();
+
+      debugPrint('Revoke access lookup: workspaceId=$normalizedWorkspaceId email=$normalizedEmail spreadsheetId=${widget.spreadsheetId}');
 
       for (int i = 1; i < values.length; i++) {
         final row = values[i];
-        if (row.length >= 3) {
-          final spreadsheetId = row[2].toString();
-          if (spreadsheetId == widget.spreadsheetId) {
-            rowIndexToDelete = i; // 0-based index for the data (row i+1 in sheet)
-            break;
+        if (row.isEmpty) continue;
+        final companyFolderId = row.isNotEmpty ? row[0].toString().trim() : '';
+        final email = row.length > 1 ? row[1].toString().trim().toLowerCase() : '';
+        final spreadsheetId = row.length > 2 ? row[2].toString().trim() : '';
+
+        if (companyFolderId == normalizedWorkspaceId && email == normalizedEmail) {
+          rowIndexToDelete = i; // 0-based index for the data (row i+1 in sheet)
+          break;
+        }
+      }
+
+      // Fallback match by spreadsheet ID if not found
+      if (rowIndexToDelete == null) {
+        for (int i = 1; i < values.length; i++) {
+          final row = values[i];
+          if (row.length > 2) {
+            final spreadsheetId = row[2].toString().trim();
+            if (spreadsheetId == widget.spreadsheetId) {
+              rowIndexToDelete = i;
+              break;
+            }
           }
         }
+      }
+
+      // Final fallback match by email only
+      if (rowIndexToDelete == null) {
+        for (int i = 1; i < values.length; i++) {
+          final row = values[i];
+          if (row.length > 1) {
+            final email = row[1].toString().trim().toLowerCase();
+            if (email == normalizedEmail) {
+              rowIndexToDelete = i;
+              break;
+            }
+          }
+        }
+      }
+
+      if (rowIndexToDelete == null) {
+        debugPrint('Revoke access: user_access row not found in companies registry.');
       }
 
       // Step 3: Read user's modules to get config file IDs and revoke targets
@@ -541,6 +579,10 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
 
       // Step 6: Delete the row from companies registry
       if (rowIndexToDelete != null) {
+        // rowIndexToDelete is index in values (0-based for data rows where values[1] is sheet row 2)
+        final startIndex = rowIndexToDelete; // sheet row index (0-based)
+        final endIndex = rowIndexToDelete + 1;
+
         await driveService.sheetsApi.spreadsheets.batchUpdate(
           sheets.BatchUpdateSpreadsheetRequest(
             requests: [
@@ -549,8 +591,8 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
                   range: sheets.DimensionRange(
                     sheetId: userAccessSheetId,
                     dimension: 'ROWS',
-                    startIndex: rowIndexToDelete + 1, // +1 to skip header
-                    endIndex: rowIndexToDelete + 2,   // +2 to include the row
+                    startIndex: startIndex,
+                    endIndex: endIndex,
                   ),
                 ),
               ),
