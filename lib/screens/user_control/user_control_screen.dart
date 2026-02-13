@@ -351,6 +351,12 @@ class _UserControlScreenState extends State<UserControlScreen> {
                   final rootFolderId = driveContext.rootFolderId;
                   final currentWorkspaceId = driveContext.currentWorkspaceId;
 
+                  // Get current workspace/company info
+                  final currentCompany = _workspaceProvider?.currentCompany;
+                  if (currentCompany == null) {
+                    throw Exception('No workspace selected');
+                  }
+
                   // Get or create user_access folder
                   final userAccessFolderId = await driveService.getOrCreateSubFolder(
                     currentWorkspaceId,
@@ -361,6 +367,16 @@ class _UserControlScreenState extends State<UserControlScreen> {
                   final spreadsheetId = await driveService.createUserAccessSpreadsheet(
                     userAccessFolderId,
                     email,
+                  );
+
+                  // Populate company_info in the user's spreadsheet
+                  await driveService.populateUserCompanyInfo(
+                    spreadsheetId,
+                    currentCompany.id,
+                    currentCompany.name,
+                    currentCompany.folderId,
+                    userAccessFolderId,
+                    currentCompany.logoUrl ?? '',
                   );
 
                   // Register user in companies registry

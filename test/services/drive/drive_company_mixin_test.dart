@@ -182,6 +182,8 @@ void main() {
       when(() => mockFiles.create(any(), supportsAllDrives: any(named: 'supportsAllDrives')))
           .thenAnswer((_) async => drive.File()..id = 'new_user_sheet_id');
       when(() => mockSpreadsheets.batchUpdate(any(), any())).thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
+      when(() => mockValues.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
+          .thenAnswer((_) async => sheets.UpdateValuesResponse());
       
       // For the registration part
       when(() => mockFiles.get(any(), $fields: any(named: r'$fields'), supportsAllDrives: any(named: 'supportsAllDrives')))
@@ -197,6 +199,7 @@ void main() {
       expect(id, 'new_user_sheet_id');
       verify(() => mockFiles.create(any(), supportsAllDrives: true)).called(1);
       verify(() => mockSpreadsheets.batchUpdate(any(), 'new_user_sheet_id')).called(1);
+      verify(() => mockValues.update(any(), 'new_user_sheet_id', 'company_info!A1:F1', valueInputOption: 'RAW')).called(1);
     });
 
     test('removeUserAccessModule deletes row when sheetId is found', () async {
