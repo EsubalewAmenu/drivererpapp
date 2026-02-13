@@ -202,6 +202,275 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
     );
   }
 
+  Future<void> _showRevokeAccessDialog(ThemeData theme) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.red,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Revoke Access',
+              style: AppTheme.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to revoke access for ${widget.email}?',
+              style: AppTheme.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'This will:',
+              style: AppTheme.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: theme.textTheme.bodyMedium?.color,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildRevokeActionItem('Delete user access spreadsheet', theme),
+            _buildRevokeActionItem('Remove user from companies registry', theme),
+            _buildRevokeActionItem('Remove all module access', theme),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 18, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This action cannot be undone',
+                      style: AppTheme.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: AppTheme.inter(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Revoke Access',
+              style: AppTheme.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _revokeAccess(theme);
+    }
+  }
+
+  Widget _buildRevokeActionItem(String text, ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            Icons.check_circle,
+            size: 16,
+            color: theme.textTheme.bodySmall?.color,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTheme.inter(
+                fontSize: 13,
+                color: theme.textTheme.bodySmall?.color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _revokeAccess(ThemeData theme) async {
+    // Show progress dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Revoking access...',
+                style: AppTheme.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      
+      final driveService = driveProvider.driveService;
+      if (driveService == null) {
+        throw Exception('Drive service not available');
+      }
+
+      final rootFolderId = workspaceProvider.rootFolderId;
+      if (rootFolderId == null || rootFolderId.isEmpty) {
+        throw Exception('Root folder not found');
+      }
+
+      final currentWorkspaceId = workspaceProvider.currentWorkspace?.id;
+      if (currentWorkspaceId == null || currentWorkspaceId.isEmpty) {
+        throw Exception('No workspace selected');
+      }
+
+      // Step 1: Get companies registry ID
+      final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
+
+      // Step 2: Find and remove the row in companies registry
+      final response = await driveService.sheetsApi.spreadsheets.values.get(
+        companiesRegistryId,
+        'user_access!A:C',
+      );
+
+      final values = response.values ?? [];
+      int? rowIndexToDelete;
+
+      for (int i = 1; i < values.length; i++) {
+        final row = values[i];
+        if (row.length >= 3) {
+          final companyFolderId = row[0].toString();
+          final email = row[1].toString();
+          final spreadsheetId = row[2].toString();
+
+          if (companyFolderId == currentWorkspaceId &&
+              email == widget.email &&
+              spreadsheetId == widget.spreadsheetId) {
+            rowIndexToDelete = i + 1; // +1 for 1-based indexing
+            break;
+          }
+        }
+      }
+
+      if (rowIndexToDelete != null) {
+        // Delete the row from companies registry
+        await driveService.sheetsApi.spreadsheets.batchUpdate(
+          sheets.BatchUpdateSpreadsheetRequest(
+            requests: [
+              sheets.Request(
+                deleteDimension: sheets.DeleteDimensionRequest(
+                  range: sheets.DimensionRange(
+                    sheetId: 0, // user_access sheet
+                    dimension: 'ROWS',
+                    startIndex: rowIndexToDelete - 1,
+                    endIndex: rowIndexToDelete,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          companiesRegistryId,
+        );
+      }
+
+      // Step 3: Delete the user access spreadsheet
+      try {
+        await driveService.driveApi.files.delete(
+          widget.spreadsheetId,
+          supportsAllDrives: true,
+        );
+      } catch (e) {
+        // Log but don't fail if spreadsheet deletion fails
+        debugPrint('Warning: Could not delete spreadsheet: $e');
+      }
+
+      if (!mounted) return;
+
+      // Close progress dialog
+      Navigator.pop(context);
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Access revoked for ${widget.email}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Navigate back to user control screen
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+
+      // Close progress dialog
+      Navigator.pop(context);
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error revoking access: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<void> _saveChanges() async {
     if (_accessChanges.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -378,10 +647,32 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
   }
 
   Widget _buildLandingTab(ThemeData theme) {
-    return UserAccessLandingTab(
-      email: widget.email,
-      invitationCode: widget.spreadsheetId,
-      userName: null, // TODO: Load user name from Firebase auth or user registry
+    return Column(
+      children: [
+        Expanded(
+          child: UserAccessLandingTab(
+            email: widget.email,
+            invitationCode: widget.spreadsheetId,
+            userName: null, // TODO: Load user name from Firebase auth or user registry
+          ),
+        ),
+        SafeArea(
+          minimum: const EdgeInsets.all(16),
+          child: OutlinedButton.icon(
+            onPressed: () => _showRevokeAccessDialog(theme),
+            icon: const Icon(Icons.remove_circle_outline),
+            label: Text(
+              'REVOKE ACCESS',
+              style: AppTheme.inter(fontWeight: FontWeight.w700),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: BorderSide(color: Colors.red.withValues(alpha: 0.6)),
+              foregroundColor: Colors.red,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
