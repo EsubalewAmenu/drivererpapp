@@ -499,6 +499,24 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         });
       }
 
+      // Register the invited user in the companies registry user_access sheet
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final userEmail = authService.currentUser?.email;
+      if (userEmail != null && userEmail.isNotEmpty) {
+        try {
+          await driveService.upsertCompanyUserAccess(
+            widget.rootFolderId,
+            companyFolderId,
+            userEmail,
+            invitationCode,
+          );
+          debugPrint('Registered invited user in user_access sheet');
+        } catch (e) {
+          debugPrint('Failed to register user in user_access sheet: $e');
+          // Continue anyway as the invitation spreadsheet itself has the access
+        }
+      }
+
       // Save the invitation spreadsheet as the user's access spreadsheet
       try {
         await Provider.of<WorkspaceProvider>(context, listen: false).saveUserAccessSpreadsheetId(invitationCode);
