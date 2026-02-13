@@ -265,6 +265,13 @@ void main() {
           .thenAnswer((_) async => 'user_access_folder_id');
       when(() => mockDriveService.createUserAccessSpreadsheet(any(), any()))
           .thenAnswer((_) async => 'new_sheet_123');
+        final mockPermissions = mockDriveService.driveApi.permissions as MockPermissionsResource;
+        when(() => mockPermissions.create(
+        any(),
+        any(),
+        sendNotificationEmail: any(named: 'sendNotificationEmail'),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+        )).thenAnswer((_) async => drive.Permission());
         when(() => mockDriveService.populateUserCompanyInfo(any(), any(), any(), any(), any(), any()))
           .thenAnswer((_) async => {});
       when(() => mockDriveService.upsertCompanyUserAccess(any(), any(), any(), any()))

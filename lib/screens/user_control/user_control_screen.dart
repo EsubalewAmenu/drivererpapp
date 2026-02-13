@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import '../../theme/app_theme.dart';
 import '../../providers/workspace_provider.dart';
 import '../../providers/drive_provider.dart';
@@ -367,6 +368,17 @@ class _UserControlScreenState extends State<UserControlScreen> {
                   final spreadsheetId = await driveService.createUserAccessSpreadsheet(
                     userAccessFolderId,
                     email,
+                  );
+
+                  // Grant read access to invited user without notification
+                  await driveService.driveApi.permissions.create(
+                    drive.Permission()
+                      ..type = 'user'
+                      ..role = 'reader'
+                      ..emailAddress = email,
+                    spreadsheetId,
+                    sendNotificationEmail: false,
+                    supportsAllDrives: true,
                   );
 
                   // Populate company_info in the user's spreadsheet
