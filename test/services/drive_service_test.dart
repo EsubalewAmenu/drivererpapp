@@ -608,7 +608,7 @@ void main() {
       )).called(1);
       
       verify(() => mockValuesResource.batchUpdate(
-        any(that: isA<sheets.BatchUpdateValuesRequest>().having((v) => v.data?.first.values?.first, 'headers', ['id', 'name', 'folderId', 'logoUrl', 'role'])),
+        any(that: isA<sheets.BatchUpdateValuesRequest>().having((v) => v.data?.first.values?.first, 'headers', ['id', 'name', 'folderId', 'user_access_folder_id', 'logoUrl', 'role'])),
         'new_reg_id',
       )).called(1);
     });
@@ -634,9 +634,9 @@ void main() {
         supportsAllDrives: any(named: 'supportsAllDrives'),
       )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
 
-      when(() => mockValuesResource.get('sheet123', 'companies!A2:E'))
+      when(() => mockValuesResource.get('sheet123', 'companies!A2:F'))
           .thenAnswer((_) async => sheets.ValueRange(values: [
-            ['c1', 'Company 1', 'f1', 'logo1', 'owner'], // Full row
+        ['c1', 'Company 1', 'f1', 'ua_f1', 'logo1', 'owner'], // Full row
             ['c2', 'Company 2', 'f2'],                  // Partial row
             ['c3'],                                     // Very partial row
           ]));
@@ -646,6 +646,7 @@ void main() {
       expect(result.length, 3);
       
       expect(result[0].id, 'c1');
+      expect(result[0].userAccessFolderId, 'ua_f1');
       expect(result[0].logoUrl, 'logo1');
       expect(result[0].role, 'owner');
 
@@ -670,11 +671,11 @@ void main() {
       when(() => mockValuesResource.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'), insertDataOption: any(named: 'insertDataOption')))
           .thenAnswer((_) async => sheets.AppendValuesResponse());
 
-      final company = Company(id: 'new_id', name: 'New Co', folderId: 'folder_abc', logoUrl: 'logo_url', role: 'admin');
+      final company = Company(id: 'new_id', name: 'New Co', folderId: 'folder_abc', userAccessFolderId: 'ua_abc', logoUrl: 'logo_url', role: 'admin');
       await driveService.registerCompany('root123', company);
 
       verify(() => mockValuesResource.append(
-        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'values', ['new_id', 'New Co', 'folder_abc', 'logo_url', 'admin'])),
+        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first, 'values', ['new_id', 'New Co', 'folder_abc', 'ua_abc', 'logo_url', 'admin'])),
         'sheet123',
         'companies!A1',
         valueInputOption: 'RAW',
@@ -692,7 +693,7 @@ void main() {
         )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
 
       // 2. Mock finding the row
-      when(() => mockValuesResource.get('sheet123', 'companies!A2:E'))
+        when(() => mockValuesResource.get('sheet123', 'companies!A2:F'))
           .thenAnswer((_) async => sheets.ValueRange(values: [['target_id', 'Old Name', 'folder123']]));
 
       // 3. Mock update row
@@ -703,14 +704,14 @@ void main() {
       when(() => mockFilesResource.update(any(), any(), $fields: any(named: '\$fields')))
           .thenAnswer((_) async => drive.File());
 
-      final updated = Company(id: 'target_id', name: 'Updated Co', folderId: 'folder123');
+      final updated = Company(id: 'target_id', name: 'Updated Co', folderId: 'folder123', userAccessFolderId: 'ua_123');
       await driveService.updateCompany('root123', updated);
 
       // Verify spreadsheet update at target row (index 0 -> row 2)
       verify(() => mockValuesResource.update(
         any(that: isA<sheets.ValueRange>().having((v) => v.values?.first[1], 'name', 'Updated Co')),
         'sheet123',
-        'companies!A2:E2',
+        'companies!A2:F2',
         valueInputOption: 'RAW',
       )).called(1);
 
@@ -735,9 +736,9 @@ void main() {
         includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
         supportsAllDrives: any(named: 'supportsAllDrives'),
       )).thenAnswer((_) async => drive.FileList(files: [drive.File()..id = 'sheet123'..name = 'companies']));
-      when(() => mockValuesResource.get('sheet123', 'companies!A2:E')) // From getCompanies
+      when(() => mockValuesResource.get('sheet123', 'companies!A2:F')) // From getCompanies
           .thenAnswer((_) async => sheets.ValueRange(values: [
-            [companyId, 'My Co', folderId, 'https://drive.google.com/uc?export=view&id=$oldLogoId', 'owner']
+        [companyId, 'My Co', folderId, 'ua_f1', 'https://drive.google.com/uc?export=view&id=$oldLogoId', 'owner']
           ]));
 
       // 2. Mock delete old logo
@@ -751,9 +752,9 @@ void main() {
       when(() => mockPermissionsResource.create(any(), any())).thenAnswer((_) async => drive.Permission());
 
       // 5. Mock registry update (search then update)
-      when(() => mockValuesResource.get('sheet123', 'companies!A2:E')) // Both getCompanies and updateCompany search
+      when(() => mockValuesResource.get('sheet123', 'companies!A2:F')) // Both getCompanies and updateCompany search
           .thenAnswer((_) async => sheets.ValueRange(values: [
-            [companyId, 'My Co', folderId, 'https://drive.google.com/uc?export=view&id=$oldLogoId', 'owner']
+        [companyId, 'My Co', folderId, 'ua_f1', 'https://drive.google.com/uc?export=view&id=$oldLogoId', 'owner']
           ]));
       when(() => mockValuesResource.update(any(), any(), any(), valueInputOption: any(named: 'valueInputOption')))
           .thenAnswer((_) async => sheets.UpdateValuesResponse());
@@ -771,9 +772,9 @@ void main() {
       
       // Verify registry update contains new URL
       verify(() => mockValuesResource.update(
-        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first[3], 'logoUrl', newUrl)),
+        any(that: isA<sheets.ValueRange>().having((v) => v.values?.first[4], 'logoUrl', newUrl)),
         'sheet123',
-        'companies!A2:E2',
+        'companies!A2:F2',
         valueInputOption: 'RAW',
       )).called(1);
     });
