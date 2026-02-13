@@ -920,7 +920,7 @@ void main() {
         find.byType(ListView).hitTestable(),
         const Offset(0, -300),
       );
-      await tester.tap(hiddenSwitch);
+      await tester.tap(hiddenSwitch.hitTestable());
       await tester.pumpAndSettle();
 
       await tester.enterText(find.widgetWithText(TextField, 'Column Key'), 'better_col_key');
@@ -945,7 +945,7 @@ void main() {
         find.byType(ListView).hitTestable(),
         const Offset(0, -300),
       );
-      await tester.tap(addSubColBtn);
+      await tester.tap(addSubColBtn.hitTestable());
       await tester.pumpAndSettle();
 
       await tester.enterText(find.widgetWithText(TextField, 'Column Name'), 'Price');
@@ -965,7 +965,7 @@ void main() {
         find.byType(ListView).hitTestable(),
         const Offset(0, -300),
       );
-      await tester.tap(deleteSubColIcon);
+      await tester.tap(deleteSubColIcon.hitTestable());
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
