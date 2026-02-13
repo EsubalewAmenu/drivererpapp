@@ -170,17 +170,22 @@ class _UserAccessLandingTabState extends State<UserAccessLandingTab> {
                     onPressed: _copyInvitationCode,
                     icon: Icon(
                       _isCodeCopied ? Icons.check_circle : Icons.content_copy,
-                      size: 18,
+                      size: 22,
                     ),
                     label: Text(
                       _isCodeCopied ? 'Copied!' : 'Copy Code',
-                      style: AppTheme.inter(fontWeight: FontWeight.w600),
+                      style: AppTheme.inter(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isCodeCopied
-                          ? theme.primaryColor.withValues(alpha: 0.8)
-                          : theme.primaryColor,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      backgroundColor: theme.primaryColor,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                 ),
@@ -296,10 +301,24 @@ class _UserAccessLandingTabState extends State<UserAccessLandingTab> {
               ),
             ),
             if (onTap != null)
-              Icon(
-                Icons.content_copy,
-                size: 16,
-                color: theme.textTheme.bodySmall?.color,
+              GestureDetector(
+                onTap: onTap,
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.scaffoldBackgroundColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: theme.primaryColor,
+                      width: 2,
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.content_copy,
+                    size: 20,
+                    color: theme.primaryColor,
+                  ),
+                ),
               ),
           ],
         ),
