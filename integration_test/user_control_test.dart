@@ -12,6 +12,8 @@ import 'package:drivererpapp/screens/user_control/user_control_screen.dart';
 import 'package:drivererpapp/screens/user_control/user_access_management_screen.dart';
 import 'package:drivererpapp/screens/user_control/module_access_detail_screen.dart';
 import 'package:drivererpapp/screens/user_control/tabs/user_access_permissions_tab.dart';
+import 'package:drivererpapp/screens/user_control/tabs/user_access_structure_tab.dart';
+import 'package:drivererpapp/models/schema_models.dart';
 import 'package:drivererpapp/widgets/app_drawer.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
@@ -604,6 +606,98 @@ void main() {
         'perm_123',
         supportsAllDrives: true
       )).called(1);
+    });
+
+    testWidgets('Modify and save structure in Structure tab', (WidgetTester tester) async {
+      // Setup state
+      workspaceProvider.setRootFolderId('root_123');
+      workspaceProvider.setWorkspace(drive.File(id: 'workspace_123', name: 'Test Workspace'));
+
+      // Mock existing module access
+      when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['module_id', 'module_name', 'dashboard', 'settings', 'tabs', 'files', 'type', 'status'],
+            ['crm', 'CRM Module', 'true', 'true', 'tabs_crm', 'files_crm', 'erp', 'activated'],
+          ]));
+
+      // Mock permissions check (required by ModuleAccessDetailScreen children sometimes, though Tab is separate)
+      final mockPermissions = mockDriveService.driveApi.permissions as MockPermissionsResource;
+      when(() => mockPermissions.list(any(), supportsAllDrives: any(named: 'supportsAllDrives'), pageSize: any(named: 'pageSize'), $fields: any(named: r'$fields')))
+          .thenAnswer((_) async => drive.PermissionList(permissions: []));
+
+      // Mock the row read in UserAccessStructureTab
+      when(() => mockValues.get('sheet_123', 'modules!A2:H2'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['crm_folder', 'CRM Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
+          ]));
+
+      // Mock readTabsById
+      when(() => mockDriveService.readTabsById('tabs_id'))
+          .thenAnswer((_) async => [
+            {
+              'id': 'tab_1',
+              'label': 'Existing Tab',
+              'columns': [],
+            }
+          ]);
+
+      // Start at UserAccessManagementScreen
+      await tester.pumpWidget(createTestApp(const UserAccessManagementScreen(
+        email: 'test@example.com',
+        spreadsheetId: 'sheet_123',
+      )));
+      await tester.pumpAndSettle();
+
+      // Navigate to Detail page
+      await tester.tap(find.text('View Details'));
+      await tester.pumpAndSettle();
+
+      // Navigate to STRUCTURE tab
+      await tester.tap(find.text('STRUCTURE'));
+      await tester.pumpAndSettle();
+
+      // Verify "Existing Tab" is visible
+      expect(find.text('Existing Tab'), findsOneWidget);
+
+      // 1. Delete the existing tab
+      final deleteIcon = find.descendant(
+        of: find.ancestor(of: find.text('Existing Tab'), matching: find.byType(Card)),
+        matching: find.byIcon(Icons.delete_outline_rounded),
+      );
+      await tester.tap(deleteIcon);
+      await tester.pumpAndSettle();
+      
+      // Confirm delete in dialog
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Existing Tab'), findsNothing);
+
+      // 2. Add a new tab
+      await tester.tap(find.text('Add New Tab'));
+      await tester.pumpAndSettle();
+
+      // Fill AddTabDialog
+      await tester.enterText(find.byType(TextField), 'New Tab Label');
+      
+      await tester.tap(find.text('Add'));
+      await tester.pumpAndSettle();
+
+      // Verify new tab is in the list
+      expect(find.text('New Tab Label'), findsOneWidget);
+
+      // 3. Save changes
+      when(() => mockDriveService.writeTabsById('tabs_id', any()))
+          .thenAnswer((_) async => {});
+
+      await tester.tap(find.text('SAVE STRUCTURE'));
+      await tester.pumpAndSettle();
+
+      // Verify success message
+      expect(find.text('Structure updated successfully'), findsOneWidget);
+
+      // Verify write was called
+      verify(() => mockDriveService.writeTabsById('tabs_id', any())).called(1);
     });
   });
 }
