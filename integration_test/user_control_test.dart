@@ -39,13 +39,18 @@ class MockDriveService extends Mock implements DriveService {
 class MockDriveApi extends Mock implements drive.DriveApi {
   @override
   late drive.PermissionsResource permissions;
+  @override
+  late drive.FilesResource files;
 
   MockDriveApi() {
     permissions = MockPermissionsResource();
+    files = MockFilesResource();
   }
 }
 
 class MockPermissionsResource extends Mock implements drive.PermissionsResource {}
+
+class MockFilesResource extends Mock implements drive.FilesResource {}
 
 class MockSheetsApi extends Mock implements sheets.SheetsApi {
   @override
@@ -637,7 +642,13 @@ void main() {
             {
               'id': 'tab_1',
               'label': 'Existing Tab',
-              'columns': [],
+              'columns': [
+                {
+                  'key': 'col_1',
+                  'label': 'Existing Col',
+                  'type': 'text',
+                }
+              ],
             }
           ]);
 
@@ -659,34 +670,52 @@ void main() {
       // Verify "Existing Tab" is visible
       expect(find.text('Existing Tab'), findsOneWidget);
 
-      // 1. Delete the existing tab
-      final deleteIcon = find.descendant(
+      // 1. Edit the existing tab
+      final editIcon = find.descendant(
         of: find.ancestor(of: find.text('Existing Tab'), matching: find.byType(Card)),
-        matching: find.byIcon(Icons.delete_outline_rounded),
+        matching: find.byIcon(Icons.edit_rounded),
       );
-      await tester.tap(deleteIcon);
+      await tester.tap(editIcon);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'Updated Tab Label');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Updated Tab Label'), findsOneWidget);
+
+      // 2. Expand tab to see columns
+      await tester.tap(find.text('Updated Tab Label'));
+      await tester.pumpAndSettle();
+
+      // Verify "Existing Col" is visible
+      expect(find.text('Existing Col'), findsOneWidget);
+
+      // 3. Delete the existing column
+      final deleteColIcon = find.descendant(
+        of: find.ancestor(of: find.text('Existing Col'), matching: find.byType(Row)),
+        matching: find.byIcon(Icons.delete_outline_rounded),
+      ).first; // Ensure we get the icon button
+      await tester.tap(deleteColIcon);
       await tester.pumpAndSettle();
       
       // Confirm delete in dialog
       await tester.tap(find.text('Delete'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Existing Tab'), findsNothing);
+      expect(find.text('Existing Col'), findsNothing);
 
-      // 2. Add a new tab
-      await tester.tap(find.text('Add New Tab'));
+      // 4. Add a new column
+      await tester.tap(find.text('Add Column'));
       await tester.pumpAndSettle();
 
-      // Fill AddTabDialog
-      await tester.enterText(find.byType(TextField), 'New Tab Label');
-      
+      await tester.enterText(find.widgetWithText(TextField, 'Column Name'), 'New Col Name');
       await tester.tap(find.text('Add'));
       await tester.pumpAndSettle();
 
-      // Verify new tab is in the list
-      expect(find.text('New Tab Label'), findsOneWidget);
+      expect(find.text('New Col Name'), findsOneWidget);
 
-      // 3. Save changes
+      // 5. Save changes
       when(() => mockDriveService.writeTabsById('tabs_id', any()))
           .thenAnswer((_) async => {});
 
@@ -698,6 +727,83 @@ void main() {
 
       // Verify write was called
       verify(() => mockDriveService.writeTabsById('tabs_id', any())).called(1);
+    });
+
+    testWidgets('Change spreadsheet linkage in Structure tab', (tester) async {
+      final mockDriveApi = mockDriveService.driveApi as MockDriveApi;
+      final mockFiles = mockDriveApi.files as MockFilesResource;
+
+      // Mock User's Access (the list of modules)
+      when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['ID', 'Name', 'Dashboard', 'Settings', 'Tabs', 'Files', 'Type', 'Status'],
+            ['crm', 'CRM Module', 'true', 'true', 'tabs_id', 'files_id', 'erp', 'activated'],
+          ]));
+      
+      // Mock the row read in UserAccessStructureTab
+      when(() => mockValues.get('sheet_123', 'modules!A2:H2'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['crm_folder', 'CRM Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
+          ]));
+
+      // Mock readTabsById
+      when(() => mockDriveService.readTabsById('tabs_id'))
+          .thenAnswer((_) async => [
+            {
+              'id': 'tab_1',
+              'label': 'Existing Tab',
+              'fileId': 'old_file_id',
+              'columns': [],
+            }
+          ]);
+
+      // Mock spreadsheet picker list
+      when(() => mockFiles.list(
+            q: any(named: 'q'),
+            spaces: any(named: 'spaces'),
+            orderBy: any(named: 'orderBy'),
+            pageSize: any(named: 'pageSize'),
+            supportsAllDrives: any(named: 'supportsAllDrives'),
+            includeItemsFromAllDrives: any(named: 'includeItemsFromAllDrives'),
+            $fields: any(named: r'$fields'),
+          )).thenAnswer((_) async => drive.FileList(files: [
+            drive.File(id: 'new_spreadsheet_id', name: 'My New Spreadsheet'),
+          ]));
+
+      // Mock permissions (to avoid error logs if it tries to load)
+      final mockPermissions = mockDriveApi.permissions as MockPermissionsResource;
+      when(() => mockPermissions.list(any(), supportsAllDrives: any(named: 'supportsAllDrives'), pageSize: any(named: 'pageSize'), $fields: any(named: r'$fields')))
+          .thenAnswer((_) async => drive.PermissionList(permissions: []));
+
+      await tester.pumpWidget(createTestApp(const UserAccessManagementScreen(
+        email: 'test@example.com',
+        spreadsheetId: 'sheet_123',
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('View Details'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('STRUCTURE'));
+      await tester.pumpAndSettle();
+
+      // Verify old ID is shown
+      expect(find.textContaining('old_file_id'), findsOneWidget);
+
+      // Tap Change Spreadsheet
+      await tester.tap(find.text('Change Spreadsheet'));
+      await tester.pumpAndSettle();
+
+      // Verify picker is shown
+      expect(find.text('Choose Spreadsheet'), findsOneWidget);
+      expect(find.text('My New Spreadsheet'), findsOneWidget);
+
+      // Pick the new one
+      await tester.tap(find.text('My New Spreadsheet'));
+      await tester.pumpAndSettle();
+
+      // Verify update on card
+      expect(find.textContaining('new_spreadsheet_id'), findsOneWidget);
     });
   });
 }
