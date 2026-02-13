@@ -366,9 +366,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         final authService = Provider.of<AuthService>(context, listen: false);
         final userEmail = authService.currentUser?.email;
         if (userEmail != null && userEmail.isNotEmpty) {
-          final ensuredUserAccessFolderId = userAccessFolderId ??
-              await driveService.getOrCreateSubFolder(workspaceId, 'user_access');
-          
           if (mounted) {
             setState(() {
               _statusMessage = "Provisioning per-user spreadsheet...";
@@ -376,7 +373,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             });
           }
 
-          createdUserSpreadsheetId = await driveService.createUserAccessSpreadsheet(ensuredUserAccessFolderId, userEmail);
+          createdUserSpreadsheetId = await driveService.createUserAccessSpreadsheet(userAccessFolderId!, userEmail);
           debugPrint('Created per-user spreadsheet for new company: $createdUserSpreadsheetId');
           // Persist in provider for immediate and future use
           try {
