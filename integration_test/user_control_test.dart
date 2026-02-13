@@ -14,6 +14,7 @@ import 'package:drivererpapp/screens/user_control/module_access_detail_screen.da
 import 'package:drivererpapp/screens/user_control/tabs/user_access_permissions_tab.dart';
 import 'package:drivererpapp/screens/user_control/tabs/user_access_structure_tab.dart';
 import 'package:drivererpapp/models/schema_models.dart';
+import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/widgets/app_drawer.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
@@ -89,6 +90,13 @@ void main() {
     registerFallbackValue(sheets.ValueRange());
     registerFallbackValue(drive.Permission());
     registerFallbackValue(drive.PermissionList());
+    registerFallbackValue(Company(
+      id: 'fallback_company_id',
+      name: 'Fallback Company',
+      folderId: 'fallback_folder_id',
+      userAccessFolderId: 'fallback_user_access_folder_id',
+      role: 'owner',
+    ));
     SharedPreferences.setMockInitialValues({});
   });
 
@@ -218,6 +226,21 @@ void main() {
       // Setup state
       workspaceProvider.setRootFolderId('root_123');
       workspaceProvider.setWorkspace(drive.File(id: 'workspace_123', name: 'Test Workspace'));
+
+      // Ensure currentCompany is available for add-user flow
+      workspaceProvider.updateDriveService(mockDriveService);
+      when(() => mockDriveService.registerCompany(any(), any()))
+          .thenAnswer((_) async => {});
+      await workspaceProvider.registerNewCompany(
+        'root_123',
+        Company(
+          id: 'company_123',
+          name: 'Test Workspace',
+          folderId: 'workspace_123',
+          userAccessFolderId: 'user_access_folder_id',
+          role: 'owner',
+        ),
+      );
 
       // Mock drive registry
       when(() => mockDriveService.ensureCompanyRegistry(any()))
