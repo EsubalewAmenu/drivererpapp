@@ -914,10 +914,16 @@ void main() {
       await tester.pumpAndSettle();
       
       final hiddenSwitch = find.textContaining('Hidden');
+      // Helper to find the appropriate scrollable ancestor for a child finder
+      Finder scrollableFor(Finder child) {
+        final anc = find.ancestor(of: child, matching: find.byType(ListView));
+        return anc.evaluate().isNotEmpty ? anc.hitTestable() : find.byType(ListView).hitTestable();
+      }
+
       // Scroll to the switch more aggressively to ensure it's not under the button
       await tester.dragUntilVisible(
         hiddenSwitch,
-        find.byType(ListView).hitTestable(),
+        scrollableFor(hiddenSwitch),
         const Offset(0, -300),
       );
       await tester.tap(hiddenSwitch.hitTestable());
@@ -942,7 +948,7 @@ void main() {
       // Ensure the button is scrolled well into the viewport
       await tester.dragUntilVisible(
         addSubColBtn,
-        find.byType(ListView).hitTestable(),
+        scrollableFor(addSubColBtn),
         const Offset(0, -300),
       );
       await tester.tap(addSubColBtn.hitTestable());
@@ -962,7 +968,7 @@ void main() {
       // Scroll to the delete icon
       await tester.dragUntilVisible(
         deleteSubColIcon,
-        find.byType(ListView).hitTestable(),
+        scrollableFor(deleteSubColIcon),
         const Offset(0, -300),
       );
       await tester.tap(deleteSubColIcon.hitTestable());
