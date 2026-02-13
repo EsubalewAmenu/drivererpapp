@@ -1,6 +1,7 @@
 import 'package:drivererpapp/models/company_model.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import '../../providers/drive_provider.dart';
 import '../../providers/workspace_provider.dart';
 import '../../theme/app_theme.dart';
@@ -24,6 +25,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   
   // Form Data
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _invitationCodeController = TextEditingController();
 
   @override
   Widget build(BuildContext context) {
@@ -243,6 +245,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         Text('Enter Invitation Code', style: AppTheme.inter(fontSize: 24, fontWeight: FontWeight.w700, color: theme.textTheme.bodyLarge?.color)),
         const SizedBox(height: 32),
         TextField(
+          controller: _invitationCodeController,
           style: AppTheme.sourceCodePro(color: theme.textTheme.bodyLarge?.color, fontSize: 24, letterSpacing: 4),
           textAlign: TextAlign.center,
           decoration: InputDecoration(
@@ -280,11 +283,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           await _createWorkspaceAndModules();
         } else {
           // Join Logic
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-            (route) => false,
-          );
+          if (_invitationCodeController.text.trim().isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please enter an invitation code')),
+            );
+            return;
+          }
+          await _joinWorkspace();
         }
       },
       style: FilledButton.styleFrom(
@@ -413,6 +418,123 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error creating workspace: $e')),
+        );
+        setState(() => _isCreating = false);
+      }
+    }
+  }
+
+  Future<void> _joinWorkspace() async {
+    setState(() {
+      _isCreating = true;
+      _statusMessage = "Reading invitation...";
+      _progress = 0.2;
+    });
+
+    try {
+      final invitationCode = _invitationCodeController.text.trim();
+      if (invitationCode.isEmpty) {
+        throw Exception('Please enter an invitation code');
+      }
+
+      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+      if (driveService == null) throw Exception("Not authenticated");
+
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Fetching company information...";
+          _progress = 0.4;
+        });
+      }
+
+      // Read company_info sheet from the invitation spreadsheet
+      final response = await driveService.sheetsApi.spreadsheets.values.get(
+        invitationCode,
+        'company_info!A2:F2',
+      );
+
+      final values = response.values;
+      if (values == null || values.isEmpty || values.first.isEmpty) {
+        throw Exception('Invalid invitation code or company information not found');
+      }
+
+      final companyData = values.first;
+      final companyId = companyData.isNotEmpty ? companyData[0].toString() : '';
+      final companyName = companyData.length > 1 ? companyData[1].toString() : '';
+      final companyFolderId = companyData.length > 2 ? companyData[2].toString() : '';
+      final userAccessFolderId = companyData.length > 3 ? companyData[3].toString() : '';
+      final logoUrl = companyData.length > 4 ? companyData[4].toString() : '';
+      final role = companyData.length > 5 ? companyData[5].toString() : 'invited';
+
+      if (companyId.isEmpty || companyName.isEmpty || companyFolderId.isEmpty) {
+        throw Exception('Incomplete company information in invitation');
+      }
+
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Registering to workspace...";
+          _progress = 0.6;
+        });
+      }
+
+      // Register company for the invited user
+      final company = Company(
+        id: companyId,
+        name: companyName,
+        folderId: companyFolderId,
+        userAccessFolderId: userAccessFolderId.isNotEmpty ? userAccessFolderId : null,
+        logoUrl: logoUrl.isNotEmpty ? logoUrl : null,
+        role: role,
+      );
+
+      await Provider.of<WorkspaceProvider>(context, listen: false).registerNewCompany(
+        widget.rootFolderId,
+        company,
+      );
+
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Setting up your access...";
+          _progress = 0.8;
+        });
+      }
+
+      // Save the invitation spreadsheet as the user's access spreadsheet
+      try {
+        await Provider.of<WorkspaceProvider>(context, listen: false).saveUserAccessSpreadsheetId(invitationCode);
+      } catch (e) {
+        debugPrint('Failed to save userAccessSpreadsheetId: $e');
+      }
+
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Finalizing...";
+          _progress = 1.0;
+        });
+      }
+
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Set workspace and navigate to dashboard
+      if (mounted) {
+        final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+        // Load the workspace folder
+        final workspaceFolder = await driveService.driveApi.files.get(
+          companyFolderId,
+          supportsAllDrives: true,
+        ) as drive.File;
+        workspaceProvider.setWorkspace(workspaceFolder);
+
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => DashboardScreen(userAccessSpreadsheetId: invitationCode)),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error joining workspace: $e')),
         );
         setState(() => _isCreating = false);
       }
