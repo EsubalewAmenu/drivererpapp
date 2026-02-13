@@ -380,10 +380,25 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         throw Exception('No workspace selected');
       }
 
-      // Step 1: Get companies registry ID
+      // Step 1: Get companies registry ID and sheet metadata
       final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
 
-      // Step 2: Find and remove the row in companies registry
+      // Get spreadsheet metadata to find the correct sheet ID for user_access
+      final spreadsheetMetadata = await driveService.sheetsApi.spreadsheets.get(companiesRegistryId);
+      int? userAccessSheetId;
+      
+      for (final sheet in spreadsheetMetadata.sheets ?? []) {
+        if (sheet.properties?.title == 'user_access') {
+          userAccessSheetId = sheet.properties?.sheetId;
+          break;
+        }
+      }
+
+      if (userAccessSheetId == null) {
+        throw Exception('user_access sheet not found in companies registry');
+      }
+
+      // Step 2: Find the row to delete in companies registry
       final response = await driveService.sheetsApi.spreadsheets.values.get(
         companiesRegistryId,
         'user_access!A:C',
@@ -402,24 +417,76 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
           if (companyFolderId == currentWorkspaceId &&
               email == widget.email &&
               spreadsheetId == widget.spreadsheetId) {
-            rowIndexToDelete = i + 1; // +1 for 1-based indexing
+            rowIndexToDelete = i; // 0-based index for the data (row i+1 in sheet)
             break;
           }
         }
       }
 
+      // Step 3: Read user's modules to get config file IDs before deleting
+      final Set<String> fileIdsToDelete = {widget.spreadsheetId};
+      
+      try {
+        final userModulesResponse = await driveService.sheetsApi.spreadsheets.values.get(
+          widget.spreadsheetId,
+          'modules!A:H',
+        );
+
+        final moduleValues = userModulesResponse.values ?? [];
+        // Skip header row and collect all file IDs from each module
+        for (int i = 1; i < moduleValues.length; i++) {
+          final row = moduleValues[i];
+          if (row.length >= 6) {
+            // Dashboard ID (column C, index 2)
+            final dashboardId = row.length > 2 ? row[2].toString().trim() : '';
+            if (dashboardId.isNotEmpty && dashboardId.toLowerCase() != 'true' && dashboardId.toLowerCase() != 'false') {
+              fileIdsToDelete.add(dashboardId);
+            }
+            
+            // Settings ID (column D, index 3)
+            final settingsId = row.length > 3 ? row[3].toString().trim() : '';
+            if (settingsId.isNotEmpty && settingsId.toLowerCase() != 'true' && settingsId.toLowerCase() != 'false') {
+              fileIdsToDelete.add(settingsId);
+            }
+            
+            // Tabs ID (column E, index 4)
+            final tabsId = row.length > 4 ? row[4].toString().trim() : '';
+            if (tabsId.isNotEmpty) {
+              fileIdsToDelete.add(tabsId);
+            }
+            
+          }
+        }
+      } catch (e) {
+        debugPrint('Warning: Could not read user modules before deletion: $e');
+        // Continue with deletion even if we can't read modules
+      }
+
+      // Step 4: Delete all collected files by ID
+      for (final fileId in fileIdsToDelete) {
+        try {
+          await driveService.driveApi.files.delete(
+            fileId,
+            supportsAllDrives: true,
+          );
+          debugPrint('Deleted file: $fileId');
+        } catch (e) {
+          debugPrint('Warning: Could not delete file $fileId: $e');
+        }
+      }
+
+      // Step 5: Delete the row from companies registry
       if (rowIndexToDelete != null) {
-        // Delete the row from companies registry
         await driveService.sheetsApi.spreadsheets.batchUpdate(
           sheets.BatchUpdateSpreadsheetRequest(
             requests: [
               sheets.Request(
                 deleteDimension: sheets.DeleteDimensionRequest(
                   range: sheets.DimensionRange(
-                    sheetId: 0, // user_access sheet
+                    sheetId: userAccessSheetId,
                     dimension: 'ROWS',
-                    startIndex: rowIndexToDelete - 1,
-                    endIndex: rowIndexToDelete,
+                    startIndex: rowIndexToDelete + 1, // +1 to skip header
+                    endIndex: rowIndexToDelete + 2,   // +2 to include the row
                   ),
                 ),
               ),
@@ -427,17 +494,6 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
           ),
           companiesRegistryId,
         );
-      }
-
-      // Step 3: Delete the user access spreadsheet
-      try {
-        await driveService.driveApi.files.delete(
-          widget.spreadsheetId,
-          supportsAllDrives: true,
-        );
-      } catch (e) {
-        // Log but don't fail if spreadsheet deletion fails
-        debugPrint('Warning: Could not delete spreadsheet: $e');
       }
 
       if (!mounted) return;
