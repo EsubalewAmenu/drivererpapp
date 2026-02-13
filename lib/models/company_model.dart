@@ -7,6 +7,7 @@ class Company {
   final String id;
   final String name;
   final String folderId;
+  final String? userAccessFolderId;
   final String? logoUrl;
   final String? role;
 
@@ -14,6 +15,7 @@ class Company {
     required this.id,
     required this.name,
     required this.folderId,
+    this.userAccessFolderId,
     this.logoUrl,
     this.role,
   });

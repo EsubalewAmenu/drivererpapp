@@ -10,6 +10,7 @@ Company _$CompanyFromJson(Map<String, dynamic> json) => Company(
   id: json['id'] as String,
   name: json['name'] as String,
   folderId: json['folderId'] as String,
+  userAccessFolderId: json['userAccessFolderId'] as String?,
   logoUrl: json['logoUrl'] as String?,
   role: json['role'] as String?,
 );
@@ -18,6 +19,7 @@ Map<String, dynamic> _$CompanyToJson(Company instance) => <String, dynamic>{
   'id': instance.id,
   'name': instance.name,
   'folderId': instance.folderId,
+  'userAccessFolderId': instance.userAccessFolderId,
   'logoUrl': instance.logoUrl,
   'role': instance.role,
 };
