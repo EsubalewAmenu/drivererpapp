@@ -9,6 +9,7 @@ import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/screens/user_control/user_control_screen.dart';
+import 'package:drivererpapp/screens/user_control/user_access_management_screen.dart';
 import 'package:drivererpapp/widgets/app_drawer.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
@@ -269,6 +270,41 @@ void main() {
       
       // Dialog should still be open
       expect(find.byType(AlertDialog), findsOneWidget);
+    });
+
+    testWidgets('Tap user card to navigate to User Access Management screen', (WidgetTester tester) async {
+      // Setup state
+      workspaceProvider.setRootFolderId('root_123');
+      workspaceProvider.setWorkspace(drive.File(id: 'workspace_123', name: 'Test Workspace'));
+
+      // Mock drive registry
+      when(() => mockDriveService.ensureCompanyRegistry(any()))
+          .thenAnswer((_) async => 'registry_id');
+
+      // 1. Mock general calls first (e.g. for UserAccessManagementScreen modules)
+      when(() => mockValues.get(any(), any()))
+          .thenAnswer((_) async => sheets.ValueRange(values: []));
+      
+      // 2. Mock specific calls that override the general ones (e.g. for UserControlScreen list)
+      when(() => mockValues.get('registry_id', 'user_access!A:C'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['company_folder_id', 'email', 'spreadsheet_id'],
+            ['workspace_123', 'test@example.com', 'sheet_123'],
+          ]));
+
+      // Go to UserControlScreen
+      await tester.pumpWidget(createTestApp(const UserControlScreen()));
+      await tester.pumpAndSettle();
+
+      // Find the user email text and tap on the card
+      final userCard = find.text('test@example.com');
+      expect(userCard, findsOneWidget);
+      await tester.tap(userCard);
+      await tester.pumpAndSettle();
+
+      // Verify navigation to UserAccessManagementScreen
+      expect(find.byType(UserAccessManagementScreen), findsOneWidget);
+      expect(find.text('MANAGE ACCESS'), findsOneWidget);
     });
   });
 }
