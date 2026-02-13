@@ -20,7 +20,8 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
   String _statusMessage = "Initializing system...";
   double _progress = 0.0;
   bool _hasError = false;
-  bool _authRetry = false;
+  int _authRetryCount = 0;
+  static const int _maxAuthRetries = 2;
 
   @override
   void initState() {
@@ -145,24 +146,41 @@ class _SystemScanningScreenState extends State<SystemScanningScreen> {
         String errorMessage = "System Error: $e";
         final errorString = e.toString().toLowerCase();
 
-        if ((errorString.contains('invalid_token') || errorString.contains('access was denied')) && !_authRetry) {
-          _authRetry = true;
+        if ((errorString.contains('invalid_token') || errorString.contains('access was denied')) && _authRetryCount < _maxAuthRetries) {
+          _authRetryCount++;
+          debugPrint('Auth token error, retry attempt $_authRetryCount of $_maxAuthRetries');
           try {
             setState(() {
-              _statusMessage = "Refreshing session...";
+              _statusMessage = "Refreshing authentication (attempt $_authRetryCount/$_maxAuthRetries)...";
               _progress = 0.0;
               _hasError = false;
             });
             final auth = Provider.of<AuthService>(context, listen: false);
-            await auth.signInSilently();
+            
+            // Sign out and do interactive sign-in to force token refresh
+            await auth.signOut();
+            await Future.delayed(const Duration(seconds: 1));
+            
+            // Use interactive sign-in to get a fresh token (not silent)
+            await auth.signIn();
+            
+            // Reinitialize the drive provider with new auth client
             final driveProvider = Provider.of<DriveProvider>(context, listen: false);
             driveProvider.updateClient(auth.authClient);
-            if (driveProvider.driveService != null && mounted) {
+            
+            if (mounted) {
+              await Future.delayed(const Duration(milliseconds: 500));
               await _startScanningSequence();
               return;
             }
           } catch (refreshError) {
-            debugPrint('Auth refresh failed: $refreshError');
+            debugPrint('Auth refresh attempt $_authRetryCount failed: $refreshError');
+            if (_authRetryCount < _maxAuthRetries && mounted) {
+              // Try again with longer delay
+              await Future.delayed(const Duration(seconds: 2));
+              await _startScanningSequence();
+              return;
+            }
           }
         }
         
