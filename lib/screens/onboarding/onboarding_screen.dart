@@ -533,21 +533,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Set workspace and navigate to dashboard
+      // Navigate back to let user select the workspace
       if (mounted) {
-        final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
-        // Load the workspace folder
-        final workspaceFolder = await driveService.driveApi.files.get(
-          companyFolderId,
-          supportsAllDrives: true,
-        ) as drive.File;
-        workspaceProvider.setWorkspace(workspaceFolder);
-
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => DashboardScreen(userAccessSpreadsheetId: invitationCode)),
-          (route) => false,
-        );
+        Navigator.pop(context);
       }
     } catch (e) {
       if (mounted) {
