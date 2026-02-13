@@ -522,5 +522,88 @@ void main() {
       expect(find.text('Read Access'), findsNWidgets(2));
       expect(find.text('Read Only'), findsNWidgets(3));
     });
+
+    testWidgets('Change permissions and save in Permissions tab', (WidgetTester tester) async {
+      // Setup state
+      workspaceProvider.setRootFolderId('root_123');
+      workspaceProvider.setWorkspace(drive.File(id: 'workspace_123', name: 'Test Workspace'));
+
+      // Mock existing module access
+      when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['module_id', 'module_name', 'dashboard', 'settings', 'tabs', 'files', 'type', 'status'],
+            ['crm', 'CRM Module', 'true', 'true', 'tabs_crm', 'files_crm', 'erp', 'activated'],
+          ]));
+
+      // Mock initial permissions check (all Reader)
+      final mockPermissions = mockDriveService.driveApi.permissions as MockPermissionsResource;
+      when(() => mockPermissions.list(
+        any(),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+        pageSize: any(named: 'pageSize'),
+        $fields: any(named: r'$fields'),
+      )).thenAnswer((_) async => drive.PermissionList(permissions: [
+        drive.Permission(id: 'perm_123', emailAddress: 'test@example.com', role: 'reader'),
+      ]));
+
+      // Mock the row read in UserAccessPermissionsTab
+      // This is called during load and during save
+      when(() => mockValues.get('sheet_123', 'modules!A2:H2'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['crm_folder', 'CRM Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
+          ]));
+
+      // Start at UserAccessManagementScreen
+      await tester.pumpWidget(createTestApp(const UserAccessManagementScreen(
+        email: 'test@example.com',
+        spreadsheetId: 'sheet_123',
+      )));
+      await tester.pumpAndSettle();
+
+      // Navigate to Detail page
+      await tester.tap(find.text('View Details'));
+      await tester.pumpAndSettle();
+
+      // We are now on Permission tab. 
+      // Current state: "Read Access" selected for Module Folder (ID: crm_folder)
+      // Change to "Write Access"
+      
+      // Find "Write Access" for Module Folder. 
+      // There are multiple "Write Access" widgets (one for each card: Folder, Files, Dashboard, etc.)
+      // We can use descendant or find by coordinate, or find by text within a specific Card.
+      
+      final moduleFolderCard = find.ancestor(of: find.text('Module Folder'), matching: find.byType(Card));
+      final writeAccessOption = find.descendant(of: moduleFolderCard, matching: find.text('Write Access'));
+      
+      await tester.tap(writeAccessOption);
+      await tester.pumpAndSettle();
+
+      // Verify "SAVE CHANGES" button appears
+      expect(find.text('SAVE CHANGES'), findsOneWidget);
+
+      // Mock the Update call
+      when(() => mockPermissions.update(
+        any(), any(), any(),
+        supportsAllDrives: any(named: 'supportsAllDrives')
+      )).thenAnswer((_) async => drive.Permission());
+
+      // Tap SAVE CHANGES
+      await tester.tap(find.text('SAVE CHANGES'));
+      await tester.pumpAndSettle();
+
+      // Verify Snack bar
+      expect(find.text('Permissions updated successfully'), findsOneWidget);
+
+      // Verify no more save button
+      expect(find.text('SAVE CHANGES'), findsNothing);
+      
+      // Verify update was called for the folder ID 'crm_folder'
+      verify(() => mockPermissions.update(
+        any(),
+        'crm_folder',
+        'perm_123',
+        supportsAllDrives: true
+      )).called(1);
+    });
   });
 }
