@@ -397,6 +397,7 @@ mixin DriveCompanyMixin {
     String tabsId,
     String moduleFilesId, {
     String moduleType = 'module',
+    String configFolderId = '',
   }) async {
     try {
       debugPrint('upsertUserAccessModule: file=$userAccessFileId module=$moduleId');
@@ -428,6 +429,30 @@ mixin DriveCompanyMixin {
               'modules!A1',
               valueInputOption: 'RAW',
             ));
+      }
+
+      int statusIndex = headerRow.indexOf('status');
+      if (statusIndex == -1) {
+        headerRow.add('status');
+        statusIndex = headerRow.length - 1;
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+          sheets.ValueRange(values: [headerRow]),
+          userAccessFileId,
+          'modules!A1',
+          valueInputOption: 'RAW',
+        ));
+      }
+
+      int configFolderIndex = headerRow.indexOf('config_folder_id');
+      if (configFolderIndex == -1) {
+        headerRow.add('config_folder_id');
+        configFolderIndex = headerRow.length - 1;
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+          sheets.ValueRange(values: [headerRow]),
+          userAccessFileId,
+          'modules!A1',
+          valueInputOption: 'RAW',
+        ));
       }
 
       int idIndex = headerRow.indexOf('id');
@@ -529,6 +554,7 @@ mixin DriveCompanyMixin {
       row[tabsIndex] = tabsId;
       row[moduleFilesIndex] = moduleFilesId;
       row[moduleTypeIndex] = moduleType;
+      row[configFolderIndex] = configFolderId;
       debugPrint('Prepared upsert row: $row foundRow=$foundRow');
 
       if (foundRow != -1) {

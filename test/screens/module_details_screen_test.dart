@@ -90,7 +90,17 @@ void main() {
     when(() => mockSchemaProvider.updateMemoryCache(any(), any())).thenReturn(null);
     when(() => mockDriveService.checkRootFolder()).thenAnswer((_) async => 'root123');
     when(() => mockDriveService.getOrCreateSubFolder(any(), any())).thenAnswer((_) async => 'sub123');
-    when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any(), any(), moduleType: any(named: 'moduleType')))
+    when(() => mockDriveService.upsertUserAccessModule(
+      any(),
+      any(),
+      any(),
+      any(),
+      any(),
+      any(),
+      any(),
+      configFolderId: any(named: 'configFolderId'),
+      moduleType: any(named: 'moduleType'),
+    ))
       .thenAnswer((_) async => {});
     when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any())).thenAnswer((_) async => {});
     when(() => mockDriveService.registerModule(any(), any(), any(), any())).thenAnswer((_) async => {});

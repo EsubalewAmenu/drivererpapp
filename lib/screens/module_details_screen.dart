@@ -194,6 +194,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
 
       // Create module_files folder and config folder/default config file now
       String? moduleFilesFolderId;
+      String? configFolderId;
       Map<String, String>? configIds;
       try {
         try {
@@ -204,15 +205,16 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
         }
         if (_moduleJson != null) {
           final configFolderRes = (driveService as dynamic).getOrCreateSubFolder(moduleFolderId, 'config');
-          dynamic configFolderId;
+          dynamic resolvedConfigFolderId;
           if (configFolderRes is Future) {
-            configFolderId = await configFolderRes;
+            resolvedConfigFolderId = await configFolderRes;
           } else {
-            configFolderId = configFolderRes;
+            resolvedConfigFolderId = configFolderRes;
           }
-          if (configFolderId == null) {
+          if (resolvedConfigFolderId == null) {
             throw Exception('Failed to ensure config folder');
           }
+          configFolderId = resolvedConfigFolderId.toString();
           final userEmail = capturedUserEmail;
           final configFileName = userEmail != null && userEmail.isNotEmpty ? userEmail : 'config';
           try {
@@ -289,6 +291,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
                   settingsId ?? '', 
                   tabsId ?? '',
                   moduleFilesFolderId ?? '',
+                  configFolderId: configFolderId ?? '',
                   moduleType: widget.hostModuleId != null ? 'extension' : 'module'
                 );
                 try {
