@@ -10,6 +10,8 @@ import 'package:drivererpapp/providers/theme_provider.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:drivererpapp/screens/user_control/user_control_screen.dart';
 import 'package:drivererpapp/screens/user_control/user_access_management_screen.dart';
+import 'package:drivererpapp/screens/user_control/module_access_detail_screen.dart';
+import 'package:drivererpapp/screens/user_control/tabs/user_access_permissions_tab.dart';
 import 'package:drivererpapp/widgets/app_drawer.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
@@ -32,7 +34,16 @@ class MockDriveService extends Mock implements DriveService {
   }
 }
 
-class MockDriveApi extends Mock implements drive.DriveApi {}
+class MockDriveApi extends Mock implements drive.DriveApi {
+  @override
+  late drive.PermissionsResource permissions;
+
+  MockDriveApi() {
+    permissions = MockPermissionsResource();
+  }
+}
+
+class MockPermissionsResource extends Mock implements drive.PermissionsResource {}
 
 class MockSheetsApi extends Mock implements sheets.SheetsApi {
   @override
@@ -69,6 +80,8 @@ void main() {
   setUpAll(() {
     registerFallbackValue(Uri());
     registerFallbackValue(sheets.ValueRange());
+    registerFallbackValue(drive.Permission());
+    registerFallbackValue(drive.PermissionList());
     SharedPreferences.setMockInitialValues({});
   });
 
@@ -452,6 +465,62 @@ void main() {
         any(), any(), any(), 
         valueInputOption: 'RAW'
       )).called(1);
+    });
+
+    testWidgets('Navigate to Module Detail page and verify Permissions tab', (WidgetTester tester) async {
+      // Setup state
+      workspaceProvider.setRootFolderId('root_123');
+      workspaceProvider.setWorkspace(drive.File(id: 'workspace_123', name: 'Test Workspace'));
+
+      // Mock existing module access
+      when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['module_id', 'module_name', 'dashboard', 'settings', 'tabs', 'files', 'type', 'status'],
+            ['crm', 'CRM Module', 'true', 'true', 'tabs_crm', 'files_crm', 'erp', 'activated'],
+          ]));
+
+      // Mock permissions check
+      final mockPermissions = mockDriveService.driveApi.permissions as MockPermissionsResource;
+      when(() => mockPermissions.list(
+        any(),
+        supportsAllDrives: any(named: 'supportsAllDrives'),
+        pageSize: any(named: 'pageSize'),
+        $fields: any(named: r'$fields'),
+      )).thenAnswer((_) async => drive.PermissionList(permissions: [
+        drive.Permission(emailAddress: 'test@example.com', role: 'reader'),
+      ]));
+
+      // Mock the row read in UserAccessPermissionsTab
+      when(() => mockValues.get('sheet_123', 'modules!A2:H2'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['crm_folder', 'CRM Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
+          ]));
+
+      // Start at UserAccessManagementScreen
+      await tester.pumpWidget(createTestApp(const UserAccessManagementScreen(
+        email: 'test@example.com',
+        spreadsheetId: 'sheet_123',
+      )));
+      await tester.pumpAndSettle();
+
+      // Find "View Details" and tap it
+      final viewDetailsBtn = find.text('View Details');
+      expect(viewDetailsBtn, findsOneWidget);
+      await tester.tap(viewDetailsBtn);
+      await tester.pumpAndSettle();
+
+      // Verify navigation to ModuleAccessDetailScreen
+      expect(find.byType(ModuleAccessDetailScreen), findsOneWidget);
+      expect(find.text('CRM MODULE'), findsOneWidget);
+
+      // Verify Permissions tab is visible
+      expect(find.byType(UserAccessPermissionsTab), findsOneWidget);
+      
+      // Verify content in Permissions tab
+      // Folders use 'Read Access' (Module Folder, Module Files) - 2 widgets
+      // Files use 'Read Only' (Dashboard, Settings, Tabs) - 3 widgets
+      expect(find.text('Read Access'), findsNWidgets(2));
+      expect(find.text('Read Only'), findsNWidgets(3));
     });
   });
 }
