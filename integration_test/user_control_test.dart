@@ -242,6 +242,8 @@ void main() {
           .thenAnswer((_) async => 'user_access_folder_id');
       when(() => mockDriveService.createUserAccessSpreadsheet(any(), any()))
           .thenAnswer((_) async => 'new_sheet_123');
+        when(() => mockDriveService.populateUserCompanyInfo(any(), any(), any(), any(), any(), any()))
+          .thenAnswer((_) async => {});
       when(() => mockDriveService.upsertCompanyUserAccess(any(), any(), any(), any()))
           .thenAnswer((_) async => {});
 
@@ -375,6 +377,10 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
+      // Tap MODULES tab to view module list and ADD MODULE button
+      await tester.tap(find.text('MODULES'));
+      await tester.pumpAndSettle();
+
       // Find "ADD MODULE" button
       final addModuleBtn = find.text('ADD MODULE');
       expect(addModuleBtn, findsOneWidget);
@@ -423,6 +429,10 @@ void main() {
         email: 'test@example.com',
         spreadsheetId: 'sheet_123',
       )));
+      await tester.pumpAndSettle();
+
+      // Tap MODULES tab to view module list
+      await tester.tap(find.text('MODULES'));
       await tester.pumpAndSettle();
 
       // Find the Switch
@@ -510,10 +520,12 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
-      // Find "View Details" and tap it
-      final viewDetailsBtn = find.text('View Details');
-      expect(viewDetailsBtn, findsOneWidget);
-      await tester.tap(viewDetailsBtn);
+      // Tap MODULES tab to view module list
+      await tester.tap(find.text('MODULES'));
+      await tester.pumpAndSettle();
+
+      // Tap on the module card to open detail screen
+      await tester.tap(find.byType(InkWell).first);
       await tester.pumpAndSettle();
 
       // Verify navigation to ModuleAccessDetailScreen
@@ -567,8 +579,12 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
-      // Navigate to Detail page
-      await tester.tap(find.text('View Details'));
+      // Tap MODULES tab to view module list
+      await tester.tap(find.text('MODULES'));
+      await tester.pumpAndSettle();
+
+      // Tap on the module card to open detail screen
+      await tester.tap(find.byType(InkWell).first);
       await tester.pumpAndSettle();
 
       // We are now on Permission tab. 
@@ -665,8 +681,12 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
-      // Navigate to Detail page
-      await tester.tap(find.text('View Details'));
+      // Tap MODULES tab to view module list
+      await tester.tap(find.text('MODULES'));
+      await tester.pumpAndSettle();
+
+      // Tap on the module card to open detail screen
+      await tester.tap(find.byType(InkWell).first);
       await tester.pumpAndSettle();
 
       // Navigate to STRUCTURE tab
@@ -793,7 +813,12 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('View Details'));
+      // Tap MODULES tab to view module list
+      await tester.tap(find.text('MODULES'));
+      await tester.pumpAndSettle();
+
+      // Tap on the module card to open detail screen
+      await tester.tap(find.byType(InkWell).first);
       await tester.pumpAndSettle();
 
       await tester.tap(find.text('STRUCTURE'));
@@ -877,9 +902,15 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('View Details'));
+      // Tap MODULES tab to view module list
+      await tester.tap(find.text('MODULES'));
       await tester.pumpAndSettle();
 
+      // Tap on the module card to open detail screen
+      await tester.tap(find.byType(InkWell).first);
+      await tester.pumpAndSettle();
+
+      // Tap STRUCTURE tab to view structure/tabs
       await tester.tap(find.text('STRUCTURE'));
       await tester.pumpAndSettle();
 
@@ -1028,14 +1059,15 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('View Details'));
+      // Tap MODULES tab to view module list
+      await tester.tap(find.text('MODULES'));
       await tester.pumpAndSettle();
 
-      // Navigate to DASHBOARD tab
-      // The TabBar might be scrollable, so we might need to drag it
-      await tester.drag(find.byType(TabBar), const Offset(-600, 0));
+      // Tap on the module card to open detail screen
+      await tester.tap(find.byType(InkWell).first);
       await tester.pumpAndSettle();
-      
+
+      // Tap DASHBOARD tab to view dashboard
       await tester.tap(find.text('DASHBOARD'));
       await tester.pumpAndSettle();
 
@@ -1162,15 +1194,24 @@ void main() {
       )));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('View Details'));
+      // Tap MODULES tab to view module list
+      await tester.tap(find.text('MODULES'));
       await tester.pumpAndSettle();
 
-      // Navigate to SETTINGS tab
-      // The tab might be off-screen, scroll the TabBar
-      await tester.drag(find.byType(TabBar), const Offset(-400, 0));
+      // Tap on the module card to open detail screen
+      await tester.tap(find.byType(InkWell).first);
       await tester.pumpAndSettle();
+
+      // Scroll TabBar to make SETTINGS tab visible
+      await tester.drag(find.byType(TabBar), const Offset(-300, 0));
+      await tester.pumpAndSettle();
+
+      // Tap SETTINGS tab to view settings
       await tester.tap(find.text('SETTINGS'));
       await tester.pumpAndSettle();
+      
+      // Wait for settings to load
+      await tester.pump(const Duration(milliseconds: 500));
 
       // 1. Verify existing settings
       expect(find.text('Tax Rate'), findsOneWidget);
