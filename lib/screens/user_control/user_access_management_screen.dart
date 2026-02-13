@@ -7,6 +7,7 @@ import '../../providers/drive_provider.dart';
 import '../../providers/workspace_provider.dart';
 import '../../models/schema_models.dart';
 import 'module_access_detail_screen.dart';
+import 'user_access_landing_tab.dart';
 
 class UserAccessManagementScreen extends StatefulWidget {
   final String email;
@@ -22,18 +23,32 @@ class UserAccessManagementScreen extends StatefulWidget {
   State<UserAccessManagementScreen> createState() => _UserAccessManagementScreenState();
 }
 
-class _UserAccessManagementScreenState extends State<UserAccessManagementScreen> {
+class _UserAccessManagementScreenState extends State<UserAccessManagementScreen> with TickerProviderStateMixin {
   List<_ModuleAccessItem> _modules = [];
   bool _isLoading = true;
   String? _errorMessage;
   bool _isSaving = false;
   final Map<String, bool> _accessChanges = {};
   bool _isAddingModules = false;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(_onTabChanged);
     _loadUserAccess();
+  }
+
+  void _onTabChanged() {
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserAccess() async {
@@ -457,9 +472,38 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         backgroundColor: theme.appBarTheme.backgroundColor,
         elevation: 0,
         iconTheme: theme.iconTheme,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Column(
+            children: [
+              TabBar(
+                controller: _tabController,
+                labelColor: theme.primaryColor,
+                unselectedLabelColor: theme.textTheme.bodyMedium?.color,
+                indicatorColor: theme.primaryColor,
+                tabs: const [
+                  Tab(text: 'INVITATION'),
+                  Tab(text: 'MODULES'),
+                ],
+              ),
+              Divider(
+                height: 0,
+                color: theme.dividerColor.withValues(alpha: 0.1),
+              ),
+            ],
+          ),
+        ),
       ),
-      body: _buildBody(theme),
-      bottomNavigationBar: SafeArea(
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          // Landing Tab
+          _buildLandingTab(theme),
+          // Modules Tab
+          _buildModulesTab(theme),
+        ],
+      ),
+      bottomNavigationBar: _tabController.index == 1 ? SafeArea(
         minimum: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -505,11 +549,19 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
             ],
           ],
         ),
-      ),
+      ) : null,
     );
   }
 
-  Widget _buildBody(ThemeData theme) {
+  Widget _buildLandingTab(ThemeData theme) {
+    return UserAccessLandingTab(
+      email: widget.email,
+      invitationCode: widget.spreadsheetId,
+      userName: null, // TODO: Load user name from Firebase auth or user registry
+    );
+  }
+
+  Widget _buildModulesTab(ThemeData theme) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator());
     }

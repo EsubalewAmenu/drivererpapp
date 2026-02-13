@@ -337,9 +337,10 @@ mixin DriveCompanyMixin {
       final newId = created.id!;
       debugPrint('Created user access spreadsheet directly in folder: $newId');
 
-      // Initialize renaming Sheet1 to modules, setting frozen row and headers in ONE batchUpdate
+      // Initialize: rename Sheet1 to modules, add company_info sheet, set frozen rows and headers
       final batchReq = sheets.BatchUpdateSpreadsheetRequest(
         requests: [
+          // Rename Sheet1 to modules
           sheets.Request(
             updateSheetProperties: sheets.UpdateSheetPropertiesRequest(
               properties: sheets.SheetProperties(
@@ -350,6 +351,7 @@ mixin DriveCompanyMixin {
               fields: 'title,gridProperties.frozenRowCount',
             ),
           ),
+          // Add headers to modules sheet
           sheets.Request(
             updateCells: sheets.UpdateCellsRequest(
               rows: [
@@ -363,10 +365,33 @@ mixin DriveCompanyMixin {
               start: sheets.GridCoordinate(sheetId: 0, rowIndex: 0, columnIndex: 0),
             ),
           ),
+          // Add company_info sheet
+          sheets.Request(
+            addSheet: sheets.AddSheetRequest(
+              properties: sheets.SheetProperties(
+                title: 'company_info',
+                gridProperties: sheets.GridProperties(frozenRowCount: 1),
+              ),
+            ),
+          ),
         ],
       );
       await retryOp(() => sheetsApi.spreadsheets.batchUpdate(batchReq, newId));
-      debugPrint('Initialized headers and renamed sheet for $newId');
+      debugPrint('Initialized modules and company_info sheets for $newId');
+
+      // Add headers to company_info sheet
+      final companyInfoHeaders = sheets.ValueRange(
+        values: [
+          ['id', 'name', 'folderId', 'user_access_folder_id', 'logoUrl', 'role'],
+        ],
+      );
+      await retryOp(() => sheetsApi.spreadsheets.values.update(
+        companyInfoHeaders,
+        newId,
+        'company_info!A1:F1',
+        valueInputOption: 'RAW',
+      ));
+      debugPrint('Added headers to company_info sheet');
 
       // Also register this per-user spreadsheet in the companies registry under user_access
       try {
@@ -383,6 +408,38 @@ mixin DriveCompanyMixin {
       return newId;
     } catch (e) {
       debugPrint('Error creating user access spreadsheet: $e');
+      rethrow;
+    }
+  }
+
+  /// Populates the company_info sheet in a user's access spreadsheet with company data
+  Future<void> populateUserCompanyInfo(
+    String userAccessSpreadsheetId,
+    String companyId,
+    String companyName,
+    String companyFolderId,
+    String userAccessFolderId,
+    String logoUrl,
+  ) async {
+    try {
+      debugPrint('populateUserCompanyInfo: spreadsheet=$userAccessSpreadsheetId company=$companyId');
+      
+      final companyData = sheets.ValueRange(
+        values: [
+          [companyId, companyName, companyFolderId, userAccessFolderId, logoUrl, 'invited'],
+        ],
+      );
+      
+      await retryOp(() => sheetsApi.spreadsheets.values.append(
+        companyData,
+        userAccessSpreadsheetId,
+        'company_info!A2:F2',
+        valueInputOption: 'RAW',
+      ));
+      
+      debugPrint('Populated company_info for user spreadsheet $userAccessSpreadsheetId');
+    } catch (e) {
+      debugPrint('Error populating company info: $e');
       rethrow;
     }
   }

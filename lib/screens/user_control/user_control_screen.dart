@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:googleapis/drive/v3.dart' as drive;
 import '../../theme/app_theme.dart';
 import '../../providers/workspace_provider.dart';
 import '../../providers/drive_provider.dart';
@@ -351,6 +352,12 @@ class _UserControlScreenState extends State<UserControlScreen> {
                   final rootFolderId = driveContext.rootFolderId;
                   final currentWorkspaceId = driveContext.currentWorkspaceId;
 
+                  // Get current workspace/company info
+                  final currentCompany = _workspaceProvider?.currentCompany;
+                  if (currentCompany == null) {
+                    throw Exception('No workspace selected');
+                  }
+
                   // Get or create user_access folder
                   final userAccessFolderId = await driveService.getOrCreateSubFolder(
                     currentWorkspaceId,
@@ -361,6 +368,27 @@ class _UserControlScreenState extends State<UserControlScreen> {
                   final spreadsheetId = await driveService.createUserAccessSpreadsheet(
                     userAccessFolderId,
                     email,
+                  );
+
+                  // Grant read access to invited user without notification
+                  await driveService.driveApi.permissions.create(
+                    drive.Permission()
+                      ..type = 'user'
+                      ..role = 'reader'
+                      ..emailAddress = email,
+                    spreadsheetId,
+                    sendNotificationEmail: false,
+                    supportsAllDrives: true,
+                  );
+
+                  // Populate company_info in the user's spreadsheet
+                  await driveService.populateUserCompanyInfo(
+                    spreadsheetId,
+                    currentCompany.id,
+                    currentCompany.name,
+                    currentCompany.folderId,
+                    userAccessFolderId,
+                    currentCompany.logoUrl ?? '',
                   );
 
                   // Register user in companies registry
