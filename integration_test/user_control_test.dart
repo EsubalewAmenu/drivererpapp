@@ -68,6 +68,7 @@ void main() {
 
   setUpAll(() {
     registerFallbackValue(Uri());
+    registerFallbackValue(sheets.ValueRange());
     SharedPreferences.setMockInitialValues({});
   });
 
@@ -305,6 +306,152 @@ void main() {
       // Verify navigation to UserAccessManagementScreen
       expect(find.byType(UserAccessManagementScreen), findsOneWidget);
       expect(find.text('MANAGE ACCESS'), findsOneWidget);
+    });
+
+    testWidgets('Add module in User Access Management screen', (WidgetTester tester) async {
+      // 1. Setup state
+      workspaceProvider.setRootFolderId('root_123');
+      workspaceProvider.setWorkspace(drive.File(id: 'workspace_123', name: 'Test Workspace'));
+      await workspaceProvider.saveUserAccessSpreadsheetId('registry_sheet_id');
+
+      // 2. Mock specific behaviors
+      when(() => mockDriveService.ensureCompanyRegistry(any()))
+          .thenAnswer((_) async => 'registry_id');
+
+      // 3. Chain mock calls for initial load of UserAccessManagementScreen
+      // Reading from widget.spreadsheetId (modules!A1:H1000) - current access
+      when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['module_id', 'module_name', 'dashboard', 'settings', 'tabs', 'files', 'type', 'status'],
+          ])); // Empty access list
+
+      // Reading from registry for available modules
+      when(() => mockValues.get('registry_sheet_id', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['module_id', 'module_name', 'dashboard_id', 'settings_id', 'tabs_id', 'files_id', 'type', 'status'],
+            ['crm', 'CRM Module', 'dash_crm', 'set_crm', 'tabs_crm', 'files_crm', 'erp', 'activated'],
+          ]));
+
+      // Mock various DriveService calls during "Add"
+      when(() => mockDriveService.getOrCreateSubFolder(any(), any()))
+          .thenAnswer((_) async => 'config_folder_id');
+      when(() => mockDriveService.readDashboardById(any()))
+          .thenAnswer((_) async => {'cards': []});
+      when(() => mockDriveService.readSettingsById(any()))
+          .thenAnswer((_) async => {'theme': 'light'});
+      when(() => mockDriveService.readTabsById(any()))
+          .thenAnswer((_) async => []);
+      when(() => mockDriveService.createModuleConfig(any(), any(), any()))
+          .thenAnswer((_) async => {'dashboard': 'd_id', 'settings': 's_id', 'tabs': 't_id'});
+      when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any(), any(), moduleType: any(named: 'moduleType')))
+          .thenAnswer((_) async => {});
+      when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any()))
+          .thenAnswer((_) async => {});
+
+      // 4. Start at UserAccessManagementScreen directly for this test
+      await tester.pumpWidget(createTestApp(const UserAccessManagementScreen(
+        email: 'test@example.com',
+        spreadsheetId: 'sheet_123',
+      )));
+      await tester.pumpAndSettle();
+
+      // Find "ADD MODULE" button
+      final addModuleBtn = find.text('ADD MODULE');
+      expect(addModuleBtn, findsOneWidget);
+      await tester.tap(addModuleBtn);
+      await tester.pumpAndSettle();
+
+      // Verify Dialog
+      expect(find.text('Add Modules'), findsOneWidget);
+      expect(find.text('CRM Module'), findsOneWidget);
+
+      // Select module (Checkbox/InkWell)
+      await tester.tap(find.text('CRM Module'));
+      await tester.pumpAndSettle();
+
+      // Tap "Add" in dialog
+      final addBtn = find.descendant(of: find.byType(AlertDialog), matching: find.text('Add'));
+      await tester.tap(addBtn);
+
+      // New mock for refresh after add
+      when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['module_id', 'module_name', 'dashboard', 'settings', 'tabs', 'files', 'type', 'status'],
+            ['crm', 'CRM Module', 'true', 'true', 'tabs_crm', 'files_crm', 'erp', 'activated'],
+          ]));
+
+      await tester.pumpAndSettle();
+
+      // Verify module is now in the list
+      expect(find.text('CRM Module'), findsOneWidget);
+    });
+
+    testWidgets('Deactivate and activate module access', (WidgetTester tester) async {
+      // Setup state
+      workspaceProvider.setRootFolderId('root_123');
+      workspaceProvider.setWorkspace(drive.File(id: 'workspace_123', name: 'Test Workspace'));
+
+      // Mock existing module access
+      when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['module_id', 'module_name', 'dashboard', 'settings', 'tabs', 'files', 'type', 'status'],
+            ['crm', 'CRM Module', 'true', 'true', 'tabs_crm', 'files_crm', 'erp', 'activated'],
+          ]));
+
+      // Go to UserAccessManagementScreen
+      await tester.pumpWidget(createTestApp(const UserAccessManagementScreen(
+        email: 'test@example.com',
+        spreadsheetId: 'sheet_123',
+      )));
+      await tester.pumpAndSettle();
+
+      // Find the Switch
+      final switchFinder = find.byType(Switch);
+      expect(switchFinder, findsOneWidget);
+      
+      // Initial state is active
+      Switch switchWidget = tester.widget(switchFinder);
+      expect(switchWidget.value, isTrue);
+
+      // 1. Toggle to Deactivate
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      // Verify local state change (SAVE CHANGES button should appear)
+      expect(find.text('SAVE CHANGES'), findsOneWidget);
+      switchWidget = tester.widget(switchFinder);
+      expect(switchWidget.value, isFalse);
+
+      // 2. Toggle back to Activate (Undo change)
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      // SAVE CHANGES should disappear as it matches original state
+      expect(find.text('SAVE CHANGES'), findsNothing);
+      switchWidget = tester.widget(switchFinder);
+      expect(switchWidget.value, isTrue);
+
+      // 3. Deactivate again and SAVE
+      await tester.tap(switchFinder);
+      await tester.pumpAndSettle();
+
+      // Mock the save operation (sheets.values.update)
+      when(() => mockDriveService.sheetsApi.spreadsheets.values.update(
+        any(), any(), any(), 
+        valueInputOption: any(named: 'valueInputOption')
+      )).thenAnswer((_) async => sheets.UpdateValuesResponse());
+
+      await tester.tap(find.text('SAVE CHANGES'));
+      await tester.pumpAndSettle();
+
+      // Verify we navigated back (Navigator.pop is called on success in _saveChanges)
+      // Since we started at UserAccessManagementScreen, it should pop to nothing/root
+      // Actually, in the test it might throw if there's no previous route.
+      // But we can verify it attempted to save.
+      verify(() => mockDriveService.sheetsApi.spreadsheets.values.update(
+        any(), any(), any(), 
+        valueInputOption: 'RAW'
+      )).called(1);
     });
   });
 }
