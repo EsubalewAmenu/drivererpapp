@@ -914,7 +914,12 @@ void main() {
       await tester.pumpAndSettle();
       
       final hiddenSwitch = find.textContaining('Hidden');
-      await tester.ensureVisible(hiddenSwitch);
+      // Scroll to the switch more aggressively to ensure it's not under the button
+      await tester.dragUntilVisible(
+        hiddenSwitch,
+        find.byType(ListView).hitTestable(),
+        const Offset(0, -300),
+      );
       await tester.tap(hiddenSwitch);
       await tester.pumpAndSettle();
 
@@ -934,7 +939,12 @@ void main() {
 
       // Add sub-column to the table
       final addSubColBtn = find.text('Add Sub-Column');
-      await tester.ensureVisible(addSubColBtn);
+      // Ensure the button is scrolled well into the viewport
+      await tester.dragUntilVisible(
+        addSubColBtn,
+        find.byType(ListView).hitTestable(),
+        const Offset(0, -300),
+      );
       await tester.tap(addSubColBtn);
       await tester.pumpAndSettle();
 
@@ -949,6 +959,12 @@ void main() {
         of: find.ancestor(of: find.text('Item Name'), matching: find.byType(Row)),
         matching: find.byIcon(Icons.delete_outline_rounded),
       ).first;
+      // Scroll to the delete icon
+      await tester.dragUntilVisible(
+        deleteSubColIcon,
+        find.byType(ListView).hitTestable(),
+        const Offset(0, -300),
+      );
       await tester.tap(deleteSubColIcon);
       await tester.pumpAndSettle();
       await tester.tap(find.text('Delete'));
@@ -957,7 +973,9 @@ void main() {
       expect(find.text('Item Name'), findsNothing);
 
       // 4. Final Save of the entire Structure
-      await tester.tap(find.text('SAVE STRUCTURE'));
+      final saveBtn = find.text('SAVE STRUCTURE');
+      await tester.ensureVisible(saveBtn);
+      await tester.tap(saveBtn);
       await tester.pumpAndSettle();
 
       // Verify the snackbar or success state
@@ -1031,7 +1049,13 @@ void main() {
       expect(find.text('Total Revenue'), findsOneWidget);
 
       // 2. Add New Card
-      await tester.tap(find.text('Add Card'));
+      final addCardBtn = find.text('Add Card');
+      await tester.dragUntilVisible(
+        addCardBtn,
+        find.byType(ListView).hitTestable(),
+        const Offset(0, -300),
+      );
+      await tester.tap(addCardBtn);
       await tester.pumpAndSettle();
 
       await tester.enterText(find.widgetWithText(TextField, 'Card Label'), 'New Users');
@@ -1046,6 +1070,11 @@ void main() {
         of: find.ancestor(of: find.text('Total Revenue'), matching: find.byType(Card)),
         matching: find.byIcon(Icons.edit_rounded),
       ).first;
+      await tester.dragUntilVisible(
+        editIcon,
+        find.byType(ListView).hitTestable(),
+        const Offset(0, -300),
+      );
       await tester.tap(editIcon);
       await tester.pumpAndSettle();
 
@@ -1061,13 +1090,20 @@ void main() {
         of: find.ancestor(of: find.text('New Users'), matching: find.byType(Card)),
         matching: find.byIcon(Icons.delete_outline),
       ).first;
+      await tester.dragUntilVisible(
+        deleteIcon,
+        find.byType(ListView).hitTestable(),
+        const Offset(0, -300),
+      );
       await tester.tap(deleteIcon);
       await tester.pumpAndSettle();
 
       expect(find.text('New Users'), findsNothing);
 
       // 5. Save DASHBOARD
-      await tester.tap(find.text('SAVE DASHBOARD'));
+      final saveBtn = find.text('SAVE DASHBOARD');
+      await tester.ensureVisible(saveBtn);
+      await tester.tap(saveBtn);
       await tester.pumpAndSettle();
 
       expect(find.text('Dashboard updated successfully'), findsOneWidget);
@@ -1147,7 +1183,13 @@ void main() {
       expect(find.text('Company Name'), findsOneWidget);
 
       // 2. Add New Setting
-      await tester.tap(find.text('Add New Setting'));
+      final addSettingBtn = find.text('Add New Setting');
+      await tester.dragUntilVisible(
+        addSettingBtn,
+        find.byType(ListView).hitTestable(),
+        const Offset(0, -300),
+      );
+      await tester.tap(addSettingBtn);
       await tester.pumpAndSettle();
 
       await tester.enterText(find.widgetWithText(TextField, 'Label'), 'Theme Color');
@@ -1170,24 +1212,48 @@ void main() {
         of: find.text('Company Name'),
         matching: find.byType(Card),
       );
+      await tester.dragUntilVisible(
+        companyNameCard,
+        find.byType(ListView).hitTestable(),
+        const Offset(0, -200),
+      );
+      // Move it down slightly from the top to avoid TabBar overlap
+      await tester.drag(find.byType(ListView).hitTestable(), const Offset(0, 100));
+      await tester.pumpAndSettle();
+
       final textField = find.descendant(of: companyNameCard, matching: find.byType(TextFormField));
       await tester.enterText(textField, 'New Corp');
       await tester.pumpAndSettle();
 
       // 4. Delete a setting
+      final taxRateCard = find.ancestor(of: find.text('Tax Rate'), matching: find.byType(Card));
+      await tester.dragUntilVisible(
+        taxRateCard,
+        find.byType(ListView).hitTestable(),
+        const Offset(0, -200),
+      );
+      // Move it slightly to the middle to avoid TabBar at top or Save button at bottom
+      await tester.drag(find.byType(ListView).hitTestable(), const Offset(0, -50));
+      await tester.pumpAndSettle();
+
       final deleteIcon = find.descendant(
-        of: find.ancestor(of: find.text('Tax Rate'), matching: find.byType(Row)),
+        of: taxRateCard,
         matching: find.byIcon(Icons.delete_outline_rounded),
       ).first;
+      
       await tester.tap(deleteIcon);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete'));
+      
+      final deleteBtn = find.descendant(of: find.byType(AlertDialog), matching: find.text('Delete'));
+      await tester.tap(deleteBtn);
       await tester.pumpAndSettle();
 
       expect(find.text('Tax Rate'), findsNothing);
 
       // 5. Final Save
-      await tester.tap(find.text('SAVE SETTINGS'));
+      final saveBtn = find.text('SAVE SETTINGS');
+      await tester.ensureVisible(saveBtn);
+      await tester.tap(saveBtn);
       await tester.pumpAndSettle();
 
       expect(find.text('Settings updated successfully'), findsOneWidget);
