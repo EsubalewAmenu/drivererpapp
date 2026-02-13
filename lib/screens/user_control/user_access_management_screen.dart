@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/sheets/v4.dart' as sheets;
+import 'package:googleapis/drive/v3.dart' as drive;
 import 'dart:convert';
 import '../../theme/app_theme.dart';
 import '../../providers/drive_provider.dart';
@@ -398,7 +399,7 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         throw Exception('user_access sheet not found in companies registry');
       }
 
-      // Step 2: Find the row to delete in companies registry
+      // Step 2: Find the row to delete in companies registry (match by spreadsheet ID)
       final response = await driveService.sheetsApi.spreadsheets.values.get(
         companiesRegistryId,
         'user_access!A:C',
@@ -410,59 +411,111 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
       for (int i = 1; i < values.length; i++) {
         final row = values[i];
         if (row.length >= 3) {
-          final companyFolderId = row[0].toString();
-          final email = row[1].toString();
           final spreadsheetId = row[2].toString();
-
-          if (companyFolderId == currentWorkspaceId &&
-              email == widget.email &&
-              spreadsheetId == widget.spreadsheetId) {
+          if (spreadsheetId == widget.spreadsheetId) {
             rowIndexToDelete = i; // 0-based index for the data (row i+1 in sheet)
             break;
           }
         }
       }
 
-      // Step 3: Read user's modules to get config file IDs before deleting
+      // Step 3: Read user's modules to get config file IDs and revoke targets
       final Set<String> fileIdsToDelete = {widget.spreadsheetId};
-      
+      final Set<String> revokeAccessIds = {};
+
+      String colLetter(int idx) {
+        int i = idx;
+        String ret = '';
+        while (i >= 0) {
+          ret = String.fromCharCode(65 + (i % 26)) + ret;
+          i = (i ~/ 26) - 1;
+        }
+        return ret;
+      }
+
       try {
-        final userModulesResponse = await driveService.sheetsApi.spreadsheets.values.get(
+        final headerResp = await driveService.sheetsApi.spreadsheets.values.get(
           widget.spreadsheetId,
-          'modules!A:H',
+          'modules!A1:Z1',
+        );
+        final headerRow = (headerResp.values != null && headerResp.values!.isNotEmpty)
+            ? List<String>.from(headerResp.values!.first.map((e) => e.toString()))
+            : <String>[];
+
+        final lastCol = headerRow.isNotEmpty ? colLetter(headerRow.length - 1) : 'H';
+        final dataResp = await driveService.sheetsApi.spreadsheets.values.get(
+          widget.spreadsheetId,
+          'modules!A2:$lastCol',
         );
 
-        final moduleValues = userModulesResponse.values ?? [];
-        // Skip header row and collect all file IDs from each module
-        for (int i = 1; i < moduleValues.length; i++) {
-          final row = moduleValues[i];
-          if (row.length >= 6) {
-            // Dashboard ID (column C, index 2)
-            final dashboardId = row.length > 2 ? row[2].toString().trim() : '';
-            if (dashboardId.isNotEmpty && dashboardId.toLowerCase() != 'true' && dashboardId.toLowerCase() != 'false') {
-              fileIdsToDelete.add(dashboardId);
-            }
-            
-            // Settings ID (column D, index 3)
-            final settingsId = row.length > 3 ? row[3].toString().trim() : '';
-            if (settingsId.isNotEmpty && settingsId.toLowerCase() != 'true' && settingsId.toLowerCase() != 'false') {
-              fileIdsToDelete.add(settingsId);
-            }
-            
-            // Tabs ID (column E, index 4)
-            final tabsId = row.length > 4 ? row[4].toString().trim() : '';
-            if (tabsId.isNotEmpty) {
-              fileIdsToDelete.add(tabsId);
-            }
-            
-          }
+        final moduleValues = dataResp.values ?? [];
+
+        final idIndex = headerRow.indexOf('id');
+        final dashboardIndex = headerRow.indexOf('dashboard');
+        final settingsIndex = headerRow.indexOf('settings');
+        final tabsIndex = headerRow.indexOf('tabs');
+        final moduleFilesIndex = headerRow.indexOf('module_files');
+        final configFolderIndex = headerRow.indexOf('config_folder_id');
+
+        String cellAt(List<dynamic> row, int index) {
+          if (index < 0 || index >= row.length) return '';
+          return row[index].toString().trim();
+        }
+
+        for (final row in moduleValues) {
+          final moduleFolderId = cellAt(row, idIndex);
+          final dashboardId = cellAt(row, dashboardIndex);
+          final settingsId = cellAt(row, settingsIndex);
+          final tabsId = cellAt(row, tabsIndex);
+          final moduleFilesId = cellAt(row, moduleFilesIndex);
+          final configFolderId = cellAt(row, configFolderIndex);
+
+          if (moduleFolderId.isNotEmpty) revokeAccessIds.add(moduleFolderId);
+          if (moduleFilesId.isNotEmpty) revokeAccessIds.add(moduleFilesId);
+          if (configFolderId.isNotEmpty) revokeAccessIds.add(configFolderId);
+
+          if (dashboardId.isNotEmpty) fileIdsToDelete.add(dashboardId);
+          if (settingsId.isNotEmpty) fileIdsToDelete.add(settingsId);
+          if (tabsId.isNotEmpty) fileIdsToDelete.add(tabsId);
         }
       } catch (e) {
         debugPrint('Warning: Could not read user modules before deletion: $e');
-        // Continue with deletion even if we can't read modules
       }
 
-      // Step 4: Delete all collected files by ID
+      Future<void> revokeUserPermission(String fileId) async {
+        if (fileId.isEmpty) return;
+        try {
+          final perms = await driveService.driveApi.permissions.list(
+            fileId,
+            supportsAllDrives: true,
+            $fields: 'permissions(id,emailAddress,type)',
+          );
+          for (final perm in perms.permissions ?? <drive.Permission>[]) {
+            if (perm.type == 'user' && perm.emailAddress == widget.email) {
+              final permissionId = perm.id;
+              if (permissionId == null || permissionId.isEmpty) continue;
+              await driveService.driveApi.permissions.delete(
+                fileId,
+                permissionId,
+                supportsAllDrives: true,
+              );
+            }
+          }
+        } catch (e) {
+          debugPrint('Warning: Could not revoke permissions for $fileId: $e');
+        }
+      }
+
+      // Step 4: Revoke access from module folder, module_files folder, and config folder
+      for (final fileId in revokeAccessIds) {
+        await revokeUserPermission(fileId);
+      }
+
+      // Step 5: Delete dashboard/settings/tabs files first, then user access spreadsheet
+      if (fileIdsToDelete.contains(widget.spreadsheetId)) {
+        fileIdsToDelete.remove(widget.spreadsheetId);
+      }
+
       for (final fileId in fileIdsToDelete) {
         try {
           await driveService.driveApi.files.delete(
@@ -475,7 +528,18 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         }
       }
 
-      // Step 5: Delete the row from companies registry
+      // Delete the user access spreadsheet last
+      try {
+        await driveService.driveApi.files.delete(
+          widget.spreadsheetId,
+          supportsAllDrives: true,
+        );
+        debugPrint('Deleted user access spreadsheet: ${widget.spreadsheetId}');
+      } catch (e) {
+        debugPrint('Warning: Could not delete user access spreadsheet: $e');
+      }
+
+      // Step 6: Delete the row from companies registry
       if (rowIndexToDelete != null) {
         await driveService.sheetsApi.spreadsheets.batchUpdate(
           sheets.BatchUpdateSpreadsheetRequest(
