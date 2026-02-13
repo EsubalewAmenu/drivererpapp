@@ -205,14 +205,14 @@ void main() {
 
       // Verify the dialog is shown
       expect(find.byType(AlertDialog), findsOneWidget);
-      expect(find.descendant(of: find.byType(AlertDialog), matching: find.text('Add User')), findsOneWidget);
+      expect(find.descendant(of: find.byType(AlertDialog), matching: find.text('Add New User')), findsOneWidget);
       
-      // Verify TextField presence
-      expect(find.byType(TextField), findsOneWidget);
+      // Verify TextFormField presence
+      expect(find.byType(TextFormField), findsOneWidget);
 
       // Verify buttons
       expect(find.text('Cancel'), findsOneWidget);
-      expect(find.text('Add'), findsOneWidget);
+      expect(find.widgetWithText(ElevatedButton, 'Add User'), findsOneWidget);
 
       // Tap Cancel to close
       await tester.tap(find.text('Cancel'));
@@ -286,11 +286,11 @@ void main() {
       await tester.pumpAndSettle();
 
       // Enter email
-      await tester.enterText(find.byType(TextField), 'newuser@example.com');
+      await tester.enterText(find.byType(TextFormField), 'newuser@example.com');
       await tester.pumpAndSettle();
 
-      // Tap Add
-      await tester.tap(find.text('Add'));
+      // Tap Add User button
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add User'));
       
       // The adding process involves async calls and then Navigator.pop and _loadUsers()
       // We might need multiple pumps to handle the async work and state updates
@@ -314,11 +314,11 @@ void main() {
       await tester.tap(find.widgetWithText(FloatingActionButton, 'Add User'));
       await tester.pumpAndSettle();
 
-      // Tap Add without entering email
-      await tester.tap(find.text('Add'));
+      // Tap Add User button without entering email
+      await tester.tap(find.widgetWithText(ElevatedButton, 'Add User'));
       await tester.pumpAndSettle();
 
-      // Verify SnackBar with error message
+      // Verify validation error message (shown inline in the form)
       expect(find.text('Please enter an email address'), findsOneWidget);
       
       // Dialog should still be open
