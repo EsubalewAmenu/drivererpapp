@@ -180,7 +180,7 @@ class _UserAccessDashboardTabState extends State<UserAccessDashboardTab> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
+        builder: (context, setDialogState) {
           final theme = Theme.of(context);
           return AlertDialog(
             backgroundColor: theme.cardTheme.color ?? theme.cardColor,
@@ -204,7 +204,7 @@ class _UserAccessDashboardTabState extends State<UserAccessDashboardTab> {
                       .map((type) => DropdownMenuItem(value: type, child: Text(type)))
                       .toList(),
                   onChanged: (value) {
-                    setState(() {
+                    setDialogState(() {
                       selectedType = value ?? 'kpi';
                     });
                   },
@@ -246,7 +246,7 @@ class _UserAccessDashboardTabState extends State<UserAccessDashboardTab> {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
+        builder: (context, setDialogState) {
           final theme = Theme.of(context);
           return AlertDialog(
             backgroundColor: theme.cardTheme.color ?? theme.cardColor,
@@ -270,7 +270,7 @@ class _UserAccessDashboardTabState extends State<UserAccessDashboardTab> {
                       .map((type) => DropdownMenuItem(value: type, child: Text(type)))
                       .toList(),
                   onChanged: (value) {
-                    setState(() {
+                    setDialogState(() {
                       selectedType = value ?? 'kpi';
                     });
                   },

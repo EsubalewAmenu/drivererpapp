@@ -894,7 +894,10 @@ void main() {
       // Toggle switches (find by text in SwitchListTile)
       await tester.tap(find.text('Is Required'));
       await tester.pumpAndSettle();
-      await tester.tap(find.textContaining('Hidden'));
+      
+      final hiddenSwitch = find.textContaining('Hidden');
+      await tester.ensureVisible(hiddenSwitch);
+      await tester.tap(hiddenSwitch);
       await tester.pumpAndSettle();
 
       await tester.enterText(find.widgetWithText(TextField, 'Column Key'), 'better_col_key');
@@ -912,7 +915,9 @@ void main() {
       expect(find.text('Item Name'), findsOneWidget);
 
       // Add sub-column to the table
-      await tester.tap(find.text('Add Sub-Column'));
+      final addSubColBtn = find.text('Add Sub-Column');
+      await tester.ensureVisible(addSubColBtn);
+      await tester.tap(addSubColBtn);
       await tester.pumpAndSettle();
 
       await tester.enterText(find.widgetWithText(TextField, 'Column Name'), 'Price');
@@ -940,6 +945,109 @@ void main() {
       // Verify the snackbar or success state
       expect(find.text('Structure updated successfully'), findsOneWidget);
       verify(() => mockDriveService.writeTabsById('tabs_id', any())).called(1);
+    });
+
+    testWidgets('Comprehensive Dashboard Tab Management', (tester) async {
+       // Setup row and dashboard mock
+      when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+                ['ID', 'Name', 'Dash', 'Set', 'Tabs', 'Files', 'Type', 'Status'],
+                ['crm_folder', 'CRM Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
+              ]));
+
+      // Mock for individual tab loads (which use specific rows)
+      when(() => mockValues.get('sheet_123', 'modules!A2:H2'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+                ['crm_folder', 'CRM Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
+              ]));
+
+      when(() => mockDriveService.readDashboardById('dash_id'))
+          .thenAnswer((_) async => {
+                'cards': [
+                  {
+                    'label': 'Total Revenue',
+                    'formula': '=SUM(Sales!C:C)',
+                    'type': 'kpi',
+                  }
+                ]
+              });
+
+      when(() => mockDriveService.writeDashboardById('dash_id', any()))
+          .thenAnswer((_) async => {});
+
+      // Mock permissions for the CRM module files (often checked by the UI)
+      final mockPerms = mockDriveService.driveApi.permissions as MockPermissionsResource;
+      for (final id in ['crm_folder', 'dash_id', 'set_id', 'tabs_id', 'files_id']) {
+        when(() => mockPerms.list(
+          id,
+          supportsAllDrives: any(named: 'supportsAllDrives'),
+          pageSize: any(named: 'pageSize'),
+          $fields: any(named: r'$fields'),
+        )).thenAnswer((_) async => drive.PermissionList(permissions: []));
+      }
+
+      await tester.pumpWidget(createTestApp(const UserAccessManagementScreen(
+        email: 'test@example.com',
+        spreadsheetId: 'sheet_123',
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('View Details'));
+      await tester.pumpAndSettle();
+
+      // Navigate to DASHBOARD tab
+      // The TabBar might be scrollable, so we might need to drag it
+      await tester.drag(find.byType(TabBar), const Offset(-600, 0));
+      await tester.pumpAndSettle();
+      
+      await tester.tap(find.text('DASHBOARD'));
+      await tester.pumpAndSettle();
+
+      // 1. Verify initial card
+      expect(find.text('Total Revenue'), findsOneWidget);
+
+      // 2. Add New Card
+      await tester.tap(find.text('Add Card'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.widgetWithText(TextField, 'Card Label'), 'New Users');
+      await tester.enterText(find.widgetWithText(TextField, 'Formula'), '=COUNT(Users!A:A)');
+      await tester.tap(find.text('Add'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('New Users'), findsOneWidget);
+
+      // 3. Edit existing card
+      final editIcon = find.descendant(
+        of: find.ancestor(of: find.text('Total Revenue'), matching: find.byType(Card)),
+        matching: find.byIcon(Icons.edit_rounded),
+      ).first;
+      await tester.tap(editIcon);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.widgetWithText(TextField, 'Card Label'), 'Gross Revenue');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Gross Revenue'), findsOneWidget);
+      expect(find.text('Total Revenue'), findsNothing);
+
+      // 4. Delete a card
+      final deleteIcon = find.descendant(
+        of: find.ancestor(of: find.text('New Users'), matching: find.byType(Card)),
+        matching: find.byIcon(Icons.delete_outline),
+      ).first;
+      await tester.tap(deleteIcon);
+      await tester.pumpAndSettle();
+
+      expect(find.text('New Users'), findsNothing);
+
+      // 5. Save DASHBOARD
+      await tester.tap(find.text('SAVE DASHBOARD'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Dashboard updated successfully'), findsOneWidget);
+      verify(() => mockDriveService.writeDashboardById('dash_id', any())).called(1);
     });
 
     testWidgets('Comprehensive Settings Tab Management', (tester) async {
