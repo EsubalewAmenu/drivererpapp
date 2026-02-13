@@ -941,5 +941,119 @@ void main() {
       expect(find.text('Structure updated successfully'), findsOneWidget);
       verify(() => mockDriveService.writeTabsById('tabs_id', any())).called(1);
     });
+
+    testWidgets('Comprehensive Settings Tab Management', (tester) async {
+      // Setup row and settings mock
+      // Mock for UserAccessManagementScreen to list modules
+      when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+                ['ID', 'Name', 'Dash', 'Set', 'Tabs', 'Files', 'Type', 'Status'], // Header
+                ['crm_folder', 'CRM Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
+              ]));
+
+      // Mock for individual tab loads (which use specific rows)
+      when(() => mockValues.get('sheet_123', 'modules!A2:H2'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+                ['crm_folder', 'CRM Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
+              ]));
+
+      // Mock permissions for the CRM module files
+      final mockPerms = mockDriveService.driveApi.permissions as MockPermissionsResource;
+      for (final id in ['crm_folder', 'dash_id', 'set_id', 'tabs_id', 'files_id']) {
+        when(() => mockPerms.list(
+          id,
+          supportsAllDrives: any(named: 'supportsAllDrives'),
+          pageSize: any(named: 'pageSize'),
+          $fields: any(named: r'$fields'),
+        )).thenAnswer((_) async => drive.PermissionList(permissions: []));
+      }
+
+      final initialSettings = {
+        'tax_rate': {
+          'label': 'Tax Rate',
+          'type': 'number',
+          'help': 'Enter the tax rate',
+          'value': 0.1
+        },
+        'company_name': {
+          'label': 'Company Name',
+          'type': 'text',
+          'value': 'Original Corp'
+        }
+      };
+
+      when(() => mockDriveService.readSettingsById('set_id'))
+          .thenAnswer((_) async => initialSettings);
+
+      when(() => mockDriveService.writeSettingsById('set_id', any()))
+          .thenAnswer((_) async => {});
+
+      await tester.pumpWidget(createTestApp(const UserAccessManagementScreen(
+        email: 'test@example.com',
+        spreadsheetId: 'sheet_123',
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('View Details'));
+      await tester.pumpAndSettle();
+
+      // Navigate to SETTINGS tab
+      // The tab might be off-screen, scroll the TabBar
+      await tester.drag(find.byType(TabBar), const Offset(-400, 0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('SETTINGS'));
+      await tester.pumpAndSettle();
+
+      // 1. Verify existing settings
+      expect(find.text('Tax Rate'), findsOneWidget);
+      expect(find.text('Company Name'), findsOneWidget);
+
+      // 2. Add New Setting
+      await tester.tap(find.text('Add New Setting'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.widgetWithText(TextField, 'Label'), 'Theme Color');
+      await tester.enterText(find.widgetWithText(TextField, 'Setting Key (ID)'), 'theme_color');
+      // Default type is text, let's keep it or change it
+      await tester.tap(find.text('TEXT'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('NUMBER').last);
+      await tester.pumpAndSettle();
+      
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Theme Color'), findsOneWidget);
+
+      // 3. Edit Setting Value (Change Company Name)
+      // For text type, it's a TextFormField. 
+      // Tax Rate is type number, it also uses TextFormField.
+      final companyNameCard = find.ancestor(
+        of: find.text('Company Name'),
+        matching: find.byType(Card),
+      );
+      final textField = find.descendant(of: companyNameCard, matching: find.byType(TextFormField));
+      await tester.enterText(textField, 'New Corp');
+      await tester.pumpAndSettle();
+
+      // 4. Delete a setting
+      final deleteIcon = find.descendant(
+        of: find.ancestor(of: find.text('Tax Rate'), matching: find.byType(Row)),
+        matching: find.byIcon(Icons.delete_outline_rounded),
+      ).first;
+      await tester.tap(deleteIcon);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tax Rate'), findsNothing);
+
+      // 5. Final Save
+      await tester.tap(find.text('SAVE SETTINGS'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Settings updated successfully'), findsOneWidget);
+      verify(() => mockDriveService.writeSettingsById('set_id', any())).called(1);
+    });
   });
 }
