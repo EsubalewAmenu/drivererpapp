@@ -628,7 +628,13 @@ void main() {
       // Mock permissions check (required by ModuleAccessDetailScreen children sometimes, though Tab is separate)
       final mockPermissions = mockDriveService.driveApi.permissions as MockPermissionsResource;
       when(() => mockPermissions.list(any(), supportsAllDrives: any(named: 'supportsAllDrives'), pageSize: any(named: 'pageSize'), $fields: any(named: r'$fields')))
-          .thenAnswer((_) async => drive.PermissionList(permissions: []));
+          .thenAnswer((_) async => drive.PermissionList(permissions: [
+            drive.Permission(
+              emailAddress: 'test@example.com',
+              role: 'writer',
+              type: 'user',
+            ),
+          ]));
 
       // Mock the row read in UserAccessStructureTab
       when(() => mockValues.get('sheet_123', 'modules!A2:H2'))
@@ -773,7 +779,13 @@ void main() {
       // Mock permissions (to avoid error logs if it tries to load)
       final mockPermissions = mockDriveApi.permissions as MockPermissionsResource;
       when(() => mockPermissions.list(any(), supportsAllDrives: any(named: 'supportsAllDrives'), pageSize: any(named: 'pageSize'), $fields: any(named: r'$fields')))
-          .thenAnswer((_) async => drive.PermissionList(permissions: []));
+          .thenAnswer((_) async => drive.PermissionList(permissions: [
+            drive.Permission(
+              emailAddress: 'test@example.com',
+              role: 'writer',
+              type: 'user',
+            ),
+          ]));
 
       await tester.pumpWidget(createTestApp(const UserAccessManagementScreen(
         email: 'test@example.com',
@@ -827,7 +839,13 @@ void main() {
           supportsAllDrives: any(named: 'supportsAllDrives'),
           pageSize: any(named: 'pageSize'),
           $fields: any(named: r'$fields'),
-        )).thenAnswer((_) async => drive.PermissionList(permissions: []));
+        )).thenAnswer((_) async => drive.PermissionList(permissions: [
+          drive.Permission(
+            emailAddress: 'test@example.com',
+            role: 'writer',
+            type: 'user',
+          ),
+        ]));
       }
 
       when(() => mockDriveService.readTabsById('tabs_id'))
@@ -983,7 +1001,13 @@ void main() {
           supportsAllDrives: any(named: 'supportsAllDrives'),
           pageSize: any(named: 'pageSize'),
           $fields: any(named: r'$fields'),
-        )).thenAnswer((_) async => drive.PermissionList(permissions: []));
+        )).thenAnswer((_) async => drive.PermissionList(permissions: [
+          drive.Permission(
+            emailAddress: 'test@example.com',
+            role: 'writer',
+            type: 'user',
+          ),
+        ]));
       }
 
       await tester.pumpWidget(createTestApp(const UserAccessManagementScreen(
@@ -1073,7 +1097,13 @@ void main() {
           supportsAllDrives: any(named: 'supportsAllDrives'),
           pageSize: any(named: 'pageSize'),
           $fields: any(named: r'$fields'),
-        )).thenAnswer((_) async => drive.PermissionList(permissions: []));
+        )).thenAnswer((_) async => drive.PermissionList(permissions: [
+          drive.Permission(
+            emailAddress: 'test@example.com',
+            role: 'writer',
+            type: 'user',
+          ),
+        ]));
       }
 
       final initialSettings = {

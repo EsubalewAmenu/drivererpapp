@@ -32,7 +32,7 @@ class _SettingsEditorState extends State<SettingsEditor> {
     final theme = Theme.of(context);
 
     return ListView(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 100),
       children: [
         if (settings.isEmpty)
           Center(

@@ -19,7 +19,7 @@ class DashboardEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       itemCount: cards.length + 1,
       itemBuilder: (context, index) {
         if (index == cards.length) {
