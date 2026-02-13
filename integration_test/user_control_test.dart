@@ -805,5 +805,141 @@ void main() {
       // Verify update on card
       expect(find.textContaining('new_spreadsheet_id'), findsOneWidget);
     });
+
+    testWidgets('Comprehensive Structure Tab Management', (tester) async {
+      // Setup row and tabs mock
+      when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+                ['ID', 'Name', 'Dash', 'Set', 'Tabs', 'Files', 'Type', 'Status'], // Header
+                ['crm_folder', 'CRM Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
+              ]));
+
+      when(() => mockValues.get('sheet_123', 'modules!A2:H2'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+                ['crm_folder', 'CRM Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
+              ]));
+
+      // Mock permissions for the CRM module files to avoid errors in Permissions tab
+      final mockPerms = mockDriveService.driveApi.permissions as MockPermissionsResource;
+      for (final id in ['crm_folder', 'dash_id', 'set_id', 'tabs_id', 'files_id']) {
+        when(() => mockPerms.list(
+          id,
+          supportsAllDrives: any(named: 'supportsAllDrives'),
+          pageSize: any(named: 'pageSize'),
+          $fields: any(named: r'$fields'),
+        )).thenAnswer((_) async => drive.PermissionList(permissions: []));
+      }
+
+      when(() => mockDriveService.readTabsById('tabs_id'))
+          .thenAnswer((_) async => [
+                {
+                  'id': 'tab_1',
+                  'label': 'Test Tab',
+                  'columns': [
+                    {'key': 'col_1', 'label': 'Old Col Name', 'type': 'text'},
+                    {
+                      'key': 'items',
+                      'label': 'Items Table',
+                      'type': 'table',
+                      'columns': [
+                        {'key': 'item_name', 'label': 'Item Name', 'type': 'text'}
+                      ]
+                    }
+                  ],
+                }
+              ]);
+
+      // We handle the save call too
+      when(() => mockDriveService.writeTabsById('tabs_id', any()))
+          .thenAnswer((_) async => {});
+
+      await tester.pumpWidget(createTestApp(const UserAccessManagementScreen(
+        email: 'test@example.com',
+        spreadsheetId: 'sheet_123',
+      )));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('View Details'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('STRUCTURE'));
+      await tester.pumpAndSettle();
+
+      // 1. Expand tab
+      await tester.tap(find.text('Test Tab'));
+      await tester.pumpAndSettle();
+
+      // 2. Edit an existing column label
+      final editColIcon = find.descendant(
+        of: find.ancestor(of: find.text('Old Col Name'), matching: find.byType(Row)),
+        matching: find.byIcon(Icons.edit_rounded),
+      ).first;
+      await tester.tap(editColIcon);
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.widgetWithText(TextField, 'Column Name'), 'Better Col Name');
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Better Col Name'), findsOneWidget);
+
+      // 3. Edit advanced properties (Hidden/Required)
+      final editColAgainIcon = find.descendant(
+        of: find.ancestor(of: find.text('Better Col Name'), matching: find.byType(Row)),
+        matching: find.byIcon(Icons.edit_rounded),
+      ).first;
+      await tester.tap(editColAgainIcon);
+      await tester.pumpAndSettle();
+
+      // Toggle switches (find by text in SwitchListTile)
+      await tester.tap(find.text('Is Required'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.textContaining('Hidden'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.widgetWithText(TextField, 'Column Key'), 'better_col_key');
+      await tester.enterText(find.widgetWithText(TextField, 'Help Text'), 'This is helpful');
+      
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+
+      // 4. Manage sub-columns in Table type column
+      // Expand Table Column
+      await tester.tap(find.text('Items Table'));
+      await tester.pumpAndSettle();
+
+      // Verify sub-column exists
+      expect(find.text('Item Name'), findsOneWidget);
+
+      // Add sub-column to the table
+      await tester.tap(find.text('Add Sub-Column'));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.widgetWithText(TextField, 'Column Name'), 'Price');
+      await tester.tap(find.text('Add'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Price'), findsOneWidget);
+
+      // Delete the original sub-column
+      final deleteSubColIcon = find.descendant(
+        of: find.ancestor(of: find.text('Item Name'), matching: find.byType(Row)),
+        matching: find.byIcon(Icons.delete_outline_rounded),
+      ).first;
+      await tester.tap(deleteSubColIcon);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Item Name'), findsNothing);
+
+      // 4. Final Save of the entire Structure
+      await tester.tap(find.text('SAVE STRUCTURE'));
+      await tester.pumpAndSettle();
+
+      // Verify the snackbar or success state
+      expect(find.text('Structure updated successfully'), findsOneWidget);
+      verify(() => mockDriveService.writeTabsById('tabs_id', any())).called(1);
+    });
   });
 }
