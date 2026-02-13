@@ -63,7 +63,7 @@ mixin DriveCompanyMixin {
       await retryOp(() => sheetsApi.spreadsheets.batchUpdate(batchReq, fileId!));
 
       // 4. Add Headers for both sheets
-      final companyHeaders = ['id', 'name', 'folderId', 'logoUrl', 'role'];
+      final companyHeaders = ['id', 'name', 'folderId', 'user_access_folder_id', 'logoUrl', 'role'];
       final userAccessHeaders = ['company_folder_id', 'email', 'spreadsheet_id'];
 
       // Write headers to companies and user_access using batchUpdate for values
@@ -146,7 +146,7 @@ mixin DriveCompanyMixin {
       final fileId = await getFileId(rootFolderId, _registryFileName);
       if (fileId == null) return [];
 
-      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(fileId, 'companies!A2:E'));
+      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(fileId, 'companies!A2:F'));
       final values = response.values;
       debugPrint('DriveCompanyMixin: registry fileId=$fileId rows=${values?.length ?? 0}');
 
@@ -157,13 +157,15 @@ mixin DriveCompanyMixin {
         final id = row.isNotEmpty ? row[0] as String : '';
         final name = row.length > 1 ? row[1] as String : '';
         final folderId = row.length > 2 ? row[2] as String : '';
-        final logoUrl = row.length > 3 ? row[3] as String : null;
-        final role = row.length > 4 ? row[4] as String : null;
+        final userAccessFolderId = row.length > 3 ? row[3] as String : null;
+        final logoUrl = row.length > 4 ? row[4] as String : null;
+        final role = row.length > 5 ? row[5] as String : null;
 
         return Company(
           id: id,
           name: name,
           folderId: folderId,
+          userAccessFolderId: userAccessFolderId,
           logoUrl: logoUrl,
           role: role,
         );
@@ -183,6 +185,7 @@ mixin DriveCompanyMixin {
         company.id,
         company.name,
         company.folderId,
+        company.userAccessFolderId ?? '',
         company.logoUrl ?? '',
         company.role ?? 'owner',
       ];
@@ -211,7 +214,7 @@ mixin DriveCompanyMixin {
       if (fileId == null) throw Exception('Company registry not found');
 
       // 1. Fetch current values to find the row
-      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(fileId, 'companies!A2:E'));
+      final response = await retryOp(() => sheetsApi.spreadsheets.values.get(fileId, 'companies!A2:F'));
       final values = response.values;
 
       if (values == null || values.isEmpty) throw Exception('No companies found in registry');
@@ -231,6 +234,7 @@ mixin DriveCompanyMixin {
         company.id,
         company.name,
         company.folderId,
+        company.userAccessFolderId ?? '',
         company.logoUrl ?? '',
         company.role ?? 'owner',
       ];
@@ -241,7 +245,7 @@ mixin DriveCompanyMixin {
       await retryOp(() => sheetsApi.spreadsheets.values.update(
         valueRange,
         fileId,
-        'companies!A$rowIndex:E$rowIndex',
+        'companies!A$rowIndex:F$rowIndex',
         valueInputOption: 'RAW',
       ));
 
@@ -302,6 +306,7 @@ mixin DriveCompanyMixin {
         id: company.id,
         name: company.name,
         folderId: company.folderId,
+        userAccessFolderId: company.userAccessFolderId,
         logoUrl: newUrl,
         role: company.role,
       );
@@ -392,6 +397,7 @@ mixin DriveCompanyMixin {
     String tabsId,
     String moduleFilesId, {
     String moduleType = 'module',
+    String configFolderId = '',
   }) async {
     try {
       debugPrint('upsertUserAccessModule: file=$userAccessFileId module=$moduleId');
@@ -423,6 +429,30 @@ mixin DriveCompanyMixin {
               'modules!A1',
               valueInputOption: 'RAW',
             ));
+      }
+
+      int statusIndex = headerRow.indexOf('status');
+      if (statusIndex == -1) {
+        headerRow.add('status');
+        statusIndex = headerRow.length - 1;
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+          sheets.ValueRange(values: [headerRow]),
+          userAccessFileId,
+          'modules!A1',
+          valueInputOption: 'RAW',
+        ));
+      }
+
+      int configFolderIndex = headerRow.indexOf('config_folder_id');
+      if (configFolderIndex == -1) {
+        headerRow.add('config_folder_id');
+        configFolderIndex = headerRow.length - 1;
+        await retryOp(() => sheetsApi.spreadsheets.values.update(
+          sheets.ValueRange(values: [headerRow]),
+          userAccessFileId,
+          'modules!A1',
+          valueInputOption: 'RAW',
+        ));
       }
 
       int idIndex = headerRow.indexOf('id');
@@ -524,6 +554,7 @@ mixin DriveCompanyMixin {
       row[tabsIndex] = tabsId;
       row[moduleFilesIndex] = moduleFilesId;
       row[moduleTypeIndex] = moduleType;
+      row[configFolderIndex] = configFolderId;
       debugPrint('Prepared upsert row: $row foundRow=$foundRow');
 
       if (foundRow != -1) {

@@ -106,6 +106,7 @@ class ModuleImportService {
       configIds['settings'] ?? '',
       configIds['tabs'] ?? '',
       moduleFilesFolderId,
+      configFolderId: configFolderId,
       moduleType: 'module',
     );
     onProgress?.call('Done', 1.0);

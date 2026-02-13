@@ -154,7 +154,7 @@ void main() {
 
     test('getCompanies handles null values', () async {
       t.onGetFileId = (_, __) async => 'registry_id';
-      when(() => mockValues.get('registry_id', 'companies!A2:E')).thenAnswer((_) async => sheets.ValueRange(values: []));
+      when(() => mockValues.get('registry_id', 'companies!A2:F')).thenAnswer((_) async => sheets.ValueRange(values: []));
 
       final companies = await t.getCompanies('root123');
       expect(companies, isEmpty);
@@ -162,7 +162,7 @@ void main() {
 
     test('updateCompany updates registry and renames drive folder', () async {
       t.onGetFileId = (_, __) async => 'registry_id';
-      when(() => mockValues.get('registry_id', 'companies!A2:E')).thenAnswer((_) async => sheets.ValueRange(values: [
+      when(() => mockValues.get('registry_id', 'companies!A2:F')).thenAnswer((_) async => sheets.ValueRange(values: [
         ['c1', 'Old Name', 'f1']
       ]));
 
@@ -171,10 +171,10 @@ void main() {
       
       when(() => mockFiles.update(any(), any())).thenAnswer((_) async => drive.File());
 
-      final company = Company(id: 'c1', name: 'New Name', folderId: 'f1');
+      final company = Company(id: 'c1', name: 'New Name', folderId: 'f1', userAccessFolderId: 'ua_f1');
       await t.updateCompany('root123', company);
 
-      verify(() => mockValues.update(any(), 'registry_id', 'companies!A2:E2', valueInputOption: 'RAW')).called(1);
+      verify(() => mockValues.update(any(), 'registry_id', 'companies!A2:F2', valueInputOption: 'RAW')).called(1);
       verify(() => mockFiles.update(any(), 'f1')).called(1);
     });
 

@@ -325,31 +325,40 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       
       if (mounted) {
         setState(() {
-          _statusMessage = "Initializing company in registry...";
-          _progress = 0.3;
+          _statusMessage = "Ensuring user access folder...";
+          _progress = 0.4;
         });
       }
 
-      // 2. Register Company in Registry
+      // Ensure user_access folder exists BEFORE registering company so it can be stored in registry.
+      String? userAccessFolderId;
+      try {
+        userAccessFolderId = await driveService.getOrCreateSubFolder(workspaceId, 'user_access');
+      } catch (e) {
+        debugPrint('Failed to create user_access folder during onboarding: $e');
+      }
+
+      if (mounted) {
+        setState(() {
+          _statusMessage = "Initializing company in registry...";
+          _progress = 0.6;
+        });
+      }
+
+      // 2. Register Company in Registry (now includes user_access folder id)
       final newCompany = Company(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         name: workspaceName,
         folderId: workspaceId,
+        userAccessFolderId: userAccessFolderId,
         role: 'Owner',
         logoUrl: '',
       );
 
       await Provider.of<WorkspaceProvider>(context, listen: false).registerNewCompany(
-        widget.rootFolderId, 
-        newCompany
+        widget.rootFolderId,
+        newCompany,
       );
-
-      if (mounted) {
-        setState(() {
-          _statusMessage = "Ensuring user access folder...";
-          _progress = 0.6;
-        });
-      }
 
       // Create per-user access spreadsheet under the new company's user_access folder
       String? createdUserSpreadsheetId;
@@ -357,8 +366,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         final authService = Provider.of<AuthService>(context, listen: false);
         final userEmail = authService.currentUser?.email;
         if (userEmail != null && userEmail.isNotEmpty) {
-          final userAccessFolderId = await driveService.getOrCreateSubFolder(workspaceId, 'user_access');
-          
           if (mounted) {
             setState(() {
               _statusMessage = "Provisioning per-user spreadsheet...";
@@ -366,7 +373,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             });
           }
 
-          createdUserSpreadsheetId = await driveService.createUserAccessSpreadsheet(userAccessFolderId, userEmail);
+          createdUserSpreadsheetId = await driveService.createUserAccessSpreadsheet(userAccessFolderId!, userEmail);
           debugPrint('Created per-user spreadsheet for new company: $createdUserSpreadsheetId');
           // Persist in provider for immediate and future use
           try {

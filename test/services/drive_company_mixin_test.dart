@@ -146,15 +146,16 @@ void main() {
 
     // sheets.values.get returns rows
     final resp = sheets.ValueRange(values: [
-      ['c1', 'Acme', 'f1', 'http://logo', 'owner'],
+      ['c1', 'Acme', 'f1', 'ua_f1', 'http://logo', 'owner'],
       ['c2', 'Beta', 'f2'],
     ]);
-    when(() => mockValues.get('sheet123', 'companies!A2:E')).thenAnswer((_) async => resp);
+    when(() => mockValues.get('sheet123', 'companies!A2:F')).thenAnswer((_) async => resp);
 
     final list = await svc.getCompanies('root1');
     expect(list.length, 2);
     expect(list[0].id, 'c1');
     expect(list[0].name, 'Acme');
+    expect(list[0].userAccessFolderId, 'ua_f1');
     expect(list[0].logoUrl, 'http://logo');
     expect(list[1].id, 'c2');
   });

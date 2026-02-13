@@ -106,6 +106,7 @@ class WorkspaceProvider extends ChangeNotifier {
         id: current.id,
         name: newName,
         folderId: current.folderId,
+        userAccessFolderId: current.userAccessFolderId,
         logoUrl: current.logoUrl,
         role: current.role,
       );
@@ -163,6 +164,7 @@ class WorkspaceProvider extends ChangeNotifier {
           id: company.id,
           name: company.name,
           folderId: company.folderId,
+          userAccessFolderId: company.userAccessFolderId,
           logoUrl: newUrl,
           role: company.role,
         );
