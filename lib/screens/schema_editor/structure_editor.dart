@@ -25,7 +25,7 @@ class _StructureEditorState extends State<StructureEditor> {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       itemCount: widget.tabs.length + 1,
       itemBuilder: (context, index) {
         if (index == widget.tabs.length) {
