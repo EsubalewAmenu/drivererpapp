@@ -74,7 +74,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
         
         // Handle Charts (Line, Bar, Pie, Progress, List)
         if (card.type != 'kpi') {
-          // Expected format: =CHART(MODULE_ID:TAB_ID:SHEET_NAME!A:B)
+          // Expected format: =CHART(MODULE_NAME:TAB_ID:SHEET_NAME!A:B)
           String spreadsheetId = '';
           String tabId = '';
           String sheetName = '';
@@ -86,11 +86,11 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
             if (exclIndex > 0) {
               final refParts = content.substring(0, exclIndex).split(':');
               if (refParts.length == 3) {
-                final moduleId = refParts[0].trim();
+                final moduleName = refParts[0].trim();
                 tabId = refParts[1].trim();
                 sheetName = refParts[2].trim();
 
-                if (moduleId != widget.module.id) {
+                if (moduleName != widget.module.name) {
                   throw Exception('Module mismatch');
                 }
 
@@ -146,7 +146,7 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
         
         if (args.isEmpty) throw Exception('No arguments');
 
-        // Parse Range: MODULE_ID:TAB_ID:SHEET_NAME!A:A
+        // Parse Range: MODULE_NAME:TAB_ID:SHEET_NAME!A:A
         final rangePart = args[0];
         final exclIndex = rangePart.indexOf('!');
         if (exclIndex == -1) {
@@ -158,11 +158,11 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
           throw Exception('Invalid Range');
         }
 
-        final moduleId = refParts[0].trim();
+        final moduleName = refParts[0].trim();
         final tabId = refParts[1].trim();
         final sheetName = refParts[2].trim();
 
-        if (moduleId != widget.module.id) {
+        if (moduleName != widget.module.name) {
           throw Exception('Module mismatch');
         }
 

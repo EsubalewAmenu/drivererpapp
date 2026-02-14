@@ -76,8 +76,8 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
   }
 
   void _tryParseExistingFormula(String formula) {
-    // Try to extract module, tab, and sheet name from formula
-    // Format: =FUNCTION(MODULE_ID:TAB_ID:SHEET_NAME!COLUMN, ...)
+    // Try to extract module name, tab, and sheet name from formula
+    // Format: =FUNCTION(MODULE_NAME:TAB_ID:SHEET_NAME!COLUMN, ...)
     if (!formula.startsWith('=')) {
       _mode = 'custom';
       return;
@@ -94,7 +94,7 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
       final func = content.substring(0, parenIndex).toUpperCase();
       final argsStr = content.substring(parenIndex + 1, content.lastIndexOf(')'));
       
-      // Parse MODULE_ID:TAB_ID:SHEET_NAME!COLUMN format
+      // Parse MODULE_NAME:TAB_ID:SHEET_NAME!COLUMN format
       if (argsStr.contains(':') && argsStr.contains('!')) {
         final firstComma = argsStr.indexOf(',');
         final reference = firstComma > 0 ? argsStr.substring(0, firstComma).trim() : argsStr.trim();
@@ -103,11 +103,11 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
         final colonParts = reference.substring(0, exclIndex).split(':');
         
         if (exclIndex > 0 && colonParts.length == 3) {
-          final moduleId = colonParts[0];
+          final moduleName = colonParts[0];
           final tabId = colonParts[1];
           final sheetName = colonParts[2];
           
-          if (moduleId == widget.module.id) {
+          if (moduleName == widget.module.name) {
             _selectedTabId = tabId;
             _selectedSheetName = sheetName;
           }
@@ -534,7 +534,7 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
           decoration: InputDecoration(
             filled: true,
             fillColor: theme.cardTheme.color,
-            hintText: '=SUM(MODULE_ID:TAB_ID:SHEET_NAME!A:A)',
+            hintText: '=SUM(MODULE_NAME:TAB_ID:SHEET_NAME!A:A)',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           ),
         ),
@@ -549,12 +549,12 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Format: =FUNCTION(MODULE_ID:TAB_ID:SHEET_NAME!COLUMN)',
+                'Format: =FUNCTION(MODULE_NAME:TAB_ID:SHEET_NAME!COLUMN)',
                 style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.w600, color: theme.primaryColor),
               ),
               const SizedBox(height: 4),
               Text(
-                'Example: =SUM(crm:contacts:Contacts!B:B)',
+                'Example: =SUM(CRM:contacts:Contacts!B:B)',
                 style: AppTheme.inter(fontSize: 11, color: theme.primaryColor.withValues(alpha: 0.8)),
               ),
             ],
@@ -601,7 +601,7 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
       return 'Incomplete configuration';
     }
 
-    final reference = '${widget.module.id}:$_selectedTabId:$_selectedSheetName!$_selectedColumnKey:$_selectedColumnKey';
+    final reference = '${widget.module.name}:$_selectedTabId:$_selectedSheetName!$_selectedColumnKey:$_selectedColumnKey';
 
     switch (_selectedOperator) {
       case 'count':
@@ -625,6 +625,6 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
     }
 
     // Format: =CHART(MODULE_ID:TAB_ID:SHEET_NAME!X_COL:Y_COL)
-    return '=CHART(${widget.module.id}:$_chartTabId:$_chartSheetName!$_xAxisColumn:$_yAxisColumn)';
+    return '=CHART(${widget.module.name}:$_chartTabId:$_chartSheetName!$_xAxisColumn:$_yAxisColumn)';
   }
 }
