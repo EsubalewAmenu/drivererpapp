@@ -1160,7 +1160,82 @@ class _AddModuleDialogState extends State<_AddModuleDialog> {
           config,
         );
 
-        // Step 4: Update user access
+        // Step 4: Grant permissions to the invited user
+        setState(() {
+          _progressMessage = 'Granting permissions for ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
+        });
+        
+        // Grant read access to dashboard, settings, and tabs
+        final dashboardId = configIds['dashboard'] ?? '';
+        final settingsId = configIds['settings'] ?? '';
+        final tabsId = configIds['tabs'] ?? '';
+        
+        if (dashboardId.isNotEmpty) {
+          try {
+            await driveService.driveApi.permissions.create(
+              drive.Permission()
+                ..type = 'user'
+                ..role = 'reader'
+                ..emailAddress = widget.email,
+              dashboardId,
+              sendNotificationEmail: false,
+              supportsAllDrives: true,
+            );
+          } catch (e) {
+            debugPrint('Warning: Could not grant dashboard permission: $e');
+          }
+        }
+        
+        if (settingsId.isNotEmpty) {
+          try {
+            await driveService.driveApi.permissions.create(
+              drive.Permission()
+                ..type = 'user'
+                ..role = 'reader'
+                ..emailAddress = widget.email,
+              settingsId,
+              sendNotificationEmail: false,
+              supportsAllDrives: true,
+            );
+          } catch (e) {
+            debugPrint('Warning: Could not grant settings permission: $e');
+          }
+        }
+        
+        if (tabsId.isNotEmpty) {
+          try {
+            await driveService.driveApi.permissions.create(
+              drive.Permission()
+                ..type = 'user'
+                ..role = 'reader'
+                ..emailAddress = widget.email,
+              tabsId,
+              sendNotificationEmail: false,
+              supportsAllDrives: true,
+            );
+          } catch (e) {
+            debugPrint('Warning: Could not grant tabs permission: $e');
+          }
+        }
+        
+        // Grant write access to module_files
+        if (module.moduleFilesId.isNotEmpty) {
+          try {
+            await driveService.driveApi.permissions.create(
+              drive.Permission()
+                ..type = 'user'
+                ..role = 'writer'
+                ..emailAddress = widget.email,
+              module.moduleFilesId,
+              sendNotificationEmail: false,
+              supportsAllDrives: true,
+            );
+          } catch (e) {
+            debugPrint('Warning: Could not grant module_files permission: $e');
+          }
+        }
+
+        // Step 5: Update user access
         setState(() {
           _progressMessage = 'Registering ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
         });
