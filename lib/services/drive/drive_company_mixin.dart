@@ -58,20 +58,31 @@ mixin DriveCompanyMixin {
               ),
             ),
           ),
+          // Add 'shared_configs' sheet
+          sheets.Request(
+            addSheet: sheets.AddSheetRequest(
+              properties: sheets.SheetProperties(
+                title: 'shared_configs',
+                gridProperties: sheets.GridProperties(frozenRowCount: 1),
+              ),
+            ),
+          ),
         ],
       );
       await retryOp(() => sheetsApi.spreadsheets.batchUpdate(batchReq, fileId!));
 
-      // 4. Add Headers for both sheets
+      // 4. Add Headers for all sheets
       final companyHeaders = ['id', 'name', 'folderId', 'user_access_folder_id', 'logoUrl', 'role'];
       final userAccessHeaders = ['company_folder_id', 'email', 'spreadsheet_id'];
+      final sharedConfigsHeaders = ['module_id', 'module_name', 'shared_config_name', 'shared_config_type', 'spreadsheet_id'];
 
-      // Write headers to companies and user_access using batchUpdate for values
+      // Write headers to companies, user_access, and shared_configs using batchUpdate for values
       final valueBatchReq = sheets.BatchUpdateValuesRequest(
         valueInputOption: 'RAW',
         data: [
           sheets.ValueRange(range: 'companies!A1', values: [companyHeaders]),
           sheets.ValueRange(range: 'user_access!A1', values: [userAccessHeaders]),
+          sheets.ValueRange(range: 'shared_configs!A1', values: [sharedConfigsHeaders]),
         ],
       );
       await retryOp(() => sheetsApi.spreadsheets.values.batchUpdate(valueBatchReq, fileId!));

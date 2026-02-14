@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
@@ -24,6 +25,8 @@ import 'package:googleapis/sheets/v4.dart' as sheets;
 
 // Local Mocks to ensure isolation and control
 class MockAuthService extends Mock implements AuthService {}
+
+class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
 
 class MockDriveService extends Mock implements DriveService {
   @override
@@ -90,6 +93,8 @@ void main() {
     registerFallbackValue(sheets.ValueRange());
     registerFallbackValue(drive.Permission());
     registerFallbackValue(drive.PermissionList());
+    registerFallbackValue(drive.File());
+    registerFallbackValue(sheets.BatchUpdateSpreadsheetRequest(requests: []));
     registerFallbackValue(Company(
       id: 'fallback_company_id',
       name: 'Fallback Company',
@@ -304,6 +309,35 @@ void main() {
       expect(find.text('newuser@example.com'), findsOneWidget);
     });
 
+    testWidgets('Filter current user from the list in User Control screen', (WidgetTester tester) async {
+      // Setup state
+      workspaceProvider.setRootFolderId('root_123');
+      workspaceProvider.setWorkspace(drive.File(id: 'workspace_123', name: 'Test Workspace'));
+
+      // Mock current user email (AuthService)
+      final mockUser = MockGoogleSignInAccount();
+      when(() => mockUser.email).thenReturn('admin@example.com');
+      when(() => mockAuthService.currentUser).thenReturn(mockUser);
+
+      // Mock registry and user list including the admin
+      when(() => mockDriveService.ensureCompanyRegistry(any()))
+          .thenAnswer((_) async => 'registry_id');
+      when(() => mockValues.get('registry_id', 'user_access!A:C'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['company_folder_id', 'email', 'spreadsheet_id'],
+            ['workspace_123', 'admin@example.com', 'admin_sheet'],
+            ['workspace_123', 'other@example.com', 'other_sheet'],
+          ]));
+
+      await tester.pumpWidget(createTestApp(const UserControlScreen()));
+      await tester.pumpAndSettle();
+
+      // Verify "other@example.com" is visible
+      expect(find.text('other@example.com'), findsOneWidget);
+      // Verify "admin@example.com" is NOT visible
+      expect(find.text('admin@example.com'), findsNothing);
+    });
+
     testWidgets('Show error when adding user with empty email', (WidgetTester tester) async {
       workspaceProvider.setRootFolderId('root_123');
       workspaceProvider.setWorkspace(drive.File(id: 'workspace_123', name: 'Test Workspace'));
@@ -386,15 +420,26 @@ void main() {
 
       // Mock various DriveService calls during "Add"
       when(() => mockDriveService.getOrCreateSubFolder(any(), any()))
-          .thenAnswer((_) async => 'config_folder_id');
-      when(() => mockDriveService.readDashboardById(any()))
-          .thenAnswer((_) async => {'cards': []});
-      when(() => mockDriveService.readSettingsById(any()))
-          .thenAnswer((_) async => {'theme': 'light'});
-      when(() => mockDriveService.readTabsById(any()))
-          .thenAnswer((_) async => []);
-      when(() => mockDriveService.createModuleConfig(any(), any(), any()))
-          .thenAnswer((_) async => {'dashboard': 'd_id', 'settings': 's_id', 'tabs': 't_id'});
+          .thenAnswer((_) async => 'shared_config_folder_id');
+      
+      // Mock shared_configs sheet read (empty, so it will create new ones)
+      when(() => mockValues.get('registry_id', 'shared_configs!A:E'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['moduleId', 'moduleName', 'configName', 'configType', 'spreadsheetId']]));
+
+      // Mock file copying
+      final mockFiles = mockDriveService.driveApi.files as MockFilesResource;
+      when(() => mockFiles.copy(any(), any(), supportsAllDrives: any(named: 'supportsAllDrives')))
+          .thenAnswer((_) async => drive.File(id: 'new_shared_id'));
+
+      // Mock permissions
+      final mockPermissions = mockDriveService.driveApi.permissions as MockPermissionsResource;
+      when(() => mockPermissions.create(any(), any(), sendNotificationEmail: any(named: 'sendNotificationEmail'), supportsAllDrives: any(named: 'supportsAllDrives')))
+          .thenAnswer((_) async => drive.Permission());
+
+      // Mock shared_configs append
+      when(() => mockValues.append(any(), any(), any(), valueInputOption: any(named: 'valueInputOption'), insertDataOption: any(named: 'insertDataOption')))
+          .thenAnswer((_) async => sheets.AppendValuesResponse());
+
       when(() => mockDriveService.upsertUserAccessModule(any(), any(), any(), any(), any(), any(), any(), moduleType: any(named: 'moduleType')))
           .thenAnswer((_) async => {});
       when(() => mockDriveService.setUserAccessModuleStatus(any(), any(), any()))
@@ -426,14 +471,31 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pumpAndSettle();
       
-      // Module loading works but test might need adjustment for async FutureBuilder
-      // Skip module selection for now as the dialog structure changed
-      // Just verify the dialog loaded and close it
-      await tester.tap(find.text('Cancel'));
+      // Select the CRM Module
+      final crmModuleItem = find.text('CRM Module');
+      expect(crmModuleItem, findsOneWidget);
+      await tester.tap(crmModuleItem);
       await tester.pumpAndSettle();
 
-      // TODO: Fix this test to properly wait for FutureBuilder to load modules
-      // The new dialog uses FutureBuilder which may need different test approach
+      // Tap Add Modules button in the dialog
+      final addBtn = find.text('Add Modules').last;
+      await tester.tap(addBtn);
+      
+      // Wait for addition process
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pumpAndSettle();
+
+      // Verify dialog is closed and snackbar appears
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.textContaining('module added successfully'), findsOneWidget);
+
+      // Verify mocks were called
+      verify(() => mockFiles.copy(any(), 'dash_crm', supportsAllDrives: true)).called(1);
+      verify(() => mockFiles.copy(any(), 'set_crm', supportsAllDrives: true)).called(1);
+      verify(() => mockFiles.copy(any(), 'tabs_crm', supportsAllDrives: true)).called(1);
+      verify(() => mockPermissions.create(any(), 'new_shared_id', sendNotificationEmail: false, supportsAllDrives: true)).called(3);
+      verify(() => mockPermissions.create(any(), 'files_crm', sendNotificationEmail: false, supportsAllDrives: true)).called(1);
     });
 
     testWidgets('Deactivate and activate module access', (WidgetTester tester) async {
@@ -506,6 +568,104 @@ void main() {
         any(), any(), any(), 
         valueInputOption: 'RAW'
       )).called(1);
+    });
+
+    testWidgets('Revoke user access successfully', (WidgetTester tester) async {
+      // 1. Setup state
+      workspaceProvider.setRootFolderId('root_123');
+      workspaceProvider.setWorkspace(drive.File(id: 'workspace_123', name: 'Test Workspace'));
+
+      // 2. Mock specific behaviors
+      when(() => mockDriveService.ensureCompanyRegistry(any()))
+          .thenAnswer((_) async => 'registry_id');
+
+      // Mock spreadsheet metadata (for sheet mapping)
+      when(() => mockDriveService.sheetsApi.spreadsheets.get('registry_id'))
+          .thenAnswer((_) async => sheets.Spreadsheet(
+            sheets: [
+              sheets.Sheet(properties: sheets.SheetProperties(title: 'user_access', sheetId: 101))
+            ]
+          ));
+
+      // Mock user_access search
+      when(() => mockValues.get('registry_id', 'user_access!A:C'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['company_folder_id', 'email', 'spreadsheet_id'],
+            ['workspace_123', 'test@example.com', 'sheet_123'],
+          ]));
+
+      // Mock shared_configs search (empty for this test to allow deletion)
+      when(() => mockValues.get('registry_id', 'shared_configs!E:E'))
+          .thenAnswer((_) async => sheets.ValueRange(values: []));
+
+      // Mock loading modules for the user to find files to delete
+      when(() => mockValues.get('sheet_123', 'modules!A1:Z1'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [['id', 'dashboard', 'settings', 'tabs', 'module_files', 'config_folder_id']]));
+      when(() => mockValues.get('sheet_123', 'modules!A2:F'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['crm_folder', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'conf_folder_id']
+          ]));
+
+      // Mock permission listing for revocation
+      final mockPermissions = mockDriveService.driveApi.permissions as MockPermissionsResource;
+      when(() => mockPermissions.list(any(), supportsAllDrives: any(named: 'supportsAllDrives'), $fields: any(named: r'$fields')))
+          .thenAnswer((_) async => drive.PermissionList(permissions: [
+            drive.Permission(id: 'p123', emailAddress: 'test@example.com', type: 'user')
+          ]));
+
+      // Mock deletion
+      when(() => mockPermissions.delete(any(), any(), supportsAllDrives: any(named: 'supportsAllDrives')))
+          .thenAnswer((_) async => {});
+      final mockFiles = mockDriveService.driveApi.files as MockFilesResource;
+      when(() => mockFiles.delete(any(), supportsAllDrives: any(named: 'supportsAllDrives')))
+          .thenAnswer((_) async => {});
+      
+      // Mock registry row deletion
+      when(() => mockDriveService.sheetsApi.spreadsheets.batchUpdate(any(), any()))
+          .thenAnswer((_) async => sheets.BatchUpdateSpreadsheetResponse());
+
+      // Mock management screen initial load
+      when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
+          .thenAnswer((_) async => sheets.ValueRange(values: [
+            ['module_id', 'module_name', 'dashboard', 'settings', 'tabs', 'files', 'type', 'status'],
+          ]));
+
+      // 3. Start at UserControlScreen to have a proper navigation stack for popping
+      await tester.pumpWidget(createTestApp(const UserControlScreen()));
+      await tester.pumpAndSettle();
+
+      // Navigate to Management screen
+      await tester.tap(find.text('test@example.com'));
+      await tester.pumpAndSettle();
+
+      // Find "REVOKE ACCESS" button in Landing tab
+      final revokeBtn = find.text('REVOKE ACCESS');
+      expect(revokeBtn, findsOneWidget);
+      await tester.tap(revokeBtn);
+      await tester.pumpAndSettle();
+
+      // Verify confirmation dialog
+      expect(find.textContaining('revoke access for test@example.com'), findsOneWidget);
+      expect(find.text('This will:'), findsOneWidget);
+      
+      // Confirm revocation
+      final confirmBtn = find.widgetWithText(ElevatedButton, 'Revoke Access');
+      await tester.tap(confirmBtn);
+      
+      // Wait for deletions and pops
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 5)); // Give it more time
+      await tester.pumpAndSettle();
+
+      // Verify we are back to User Control screen
+      expect(find.text('USER CONTROL'), findsOneWidget);
+
+      // Verify mocks
+      verify(() => mockFiles.delete('dash_id', supportsAllDrives: true)).called(1);
+      verify(() => mockFiles.delete('set_id', supportsAllDrives: true)).called(1);
+      verify(() => mockFiles.delete('tabs_id', supportsAllDrives: true)).called(1);
+      verify(() => mockFiles.delete('sheet_123', supportsAllDrives: true)).called(1);
+      verify(() => mockDriveService.sheetsApi.spreadsheets.batchUpdate(any(), any())).called(1);
     });
 
     testWidgets('Navigate to Module Detail page and verify Permissions tab', (WidgetTester tester) async {

@@ -4,6 +4,7 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import '../../theme/app_theme.dart';
 import '../../providers/workspace_provider.dart';
 import '../../providers/drive_provider.dart';
+import '../../services/auth_service.dart';
 import '../../services/drive_service.dart';
 import 'user_access_management_screen.dart';
 
@@ -63,6 +64,10 @@ class _UserControlScreenState extends State<UserControlScreen> {
       final driveService = driveContext.driveService;
       final rootFolderId = driveContext.rootFolderId;
       final currentWorkspaceId = driveContext.currentWorkspaceId;
+      
+      // Get current user email
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUserEmail = authService.currentUser?.email?.trim().toLowerCase();
 
       // Get companies registry ID directly
       final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
@@ -86,7 +91,10 @@ class _UserControlScreenState extends State<UserControlScreen> {
       final userRows = values.skip(1).where((row) {
         if (row.isEmpty) return false;
         final companyFolderId = row[0].toString();
-        return companyFolderId == currentWorkspaceId;
+        final email = row.length > 1 ? row[1].toString().trim().toLowerCase() : '';
+        // Filter by workspace and exclude current user
+        return companyFolderId == currentWorkspaceId && 
+               (currentUserEmail == null || email != currentUserEmail);
       }).toList();
 
       // Map to user list
@@ -241,7 +249,7 @@ class _UserControlScreenState extends State<UserControlScreen> {
               spreadsheetId: spreadsheetId,
             ),
           ),
-        );
+        ).then((_) => _loadUsers());
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
@@ -301,6 +309,9 @@ class _UserControlScreenState extends State<UserControlScreen> {
   }
 
   void _showAddUserDialog(ThemeData theme) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserEmail = authService.currentUser?.email?.trim().toLowerCase();
+    
     showDialog(
       context: context,
       builder: (context) => _AddUserDialog(
@@ -310,6 +321,7 @@ class _UserControlScreenState extends State<UserControlScreen> {
         },
         getDriveContext: _getDriveContext,
         workspaceProvider: _workspaceProvider,
+        currentUserEmail: currentUserEmail,
       ),
     );
   }
@@ -332,12 +344,14 @@ class _AddUserDialog extends StatefulWidget {
   final VoidCallback onUserAdded;
   final _DriveContext Function() getDriveContext;
   final WorkspaceProvider? workspaceProvider;
+  final String? currentUserEmail;
 
   const _AddUserDialog({
     required this.theme,
     required this.onUserAdded,
     required this.getDriveContext,
     required this.workspaceProvider,
+    this.currentUserEmail,
   });
 
   @override
@@ -367,6 +381,10 @@ class _AddUserDialogState extends State<_AddUserDialog> {
     }
     if (!_emailRegex.hasMatch(value.trim())) {
       return 'Please enter a valid email address';
+    }
+    if (widget.currentUserEmail != null && 
+        value.trim().toLowerCase() == widget.currentUserEmail) {
+      return 'You cannot invite yourself';
     }
     return null;
   }

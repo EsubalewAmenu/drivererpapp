@@ -432,6 +432,8 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
       // Step 3: Read user's modules to get config file IDs and revoke targets
       final Set<String> fileIdsToDelete = {widget.spreadsheetId};
       final Set<String> revokeAccessIds = {};
+      // Will hold spreadsheetIds of shared configs to avoid deleting them
+      final Set<String> sharedConfigIds = {};
 
       String colLetter(int idx) {
         int i = idx;
@@ -467,6 +469,22 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         final moduleFilesIndex = headerRow.indexOf('module_files');
         final configFolderIndex = headerRow.indexOf('config_folder_id');
 
+        // --- Fetch shared config spreadsheet IDs from companies shared_configs sheet ---
+        try {
+          final sharedConfigsResp = await driveService.sheetsApi.spreadsheets.values.get(
+            companiesRegistryId,
+            'shared_configs!E2:E',
+          );
+          final sharedConfigsValues = sharedConfigsResp.values ?? [];
+          for (final row in sharedConfigsValues) {
+            if (row.isNotEmpty && row[0].toString().isNotEmpty) {
+              sharedConfigIds.add(row[0].toString());
+            }
+          }
+        } catch (e) {
+          debugPrint('Warning: Could not read shared_configs sheet: $e');
+        }
+
         String cellAt(List<dynamic> row, int index) {
           if (index < 0 || index >= row.length) return '';
           return row[index].toString().trim();
@@ -484,9 +502,28 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
           if (moduleFilesId.isNotEmpty) revokeAccessIds.add(moduleFilesId);
           if (configFolderId.isNotEmpty) revokeAccessIds.add(configFolderId);
 
-          if (dashboardId.isNotEmpty) fileIdsToDelete.add(dashboardId);
-          if (settingsId.isNotEmpty) fileIdsToDelete.add(settingsId);
-          if (tabsId.isNotEmpty) fileIdsToDelete.add(tabsId);
+          // Only add dashboard/settings/tabs to fileIdsToDelete if NOT a shared config
+          if (dashboardId.isNotEmpty) {
+            if (sharedConfigIds.contains(dashboardId)) {
+              revokeAccessIds.add(dashboardId);
+            } else {
+              fileIdsToDelete.add(dashboardId);
+            }
+          }
+          if (settingsId.isNotEmpty) {
+            if (sharedConfigIds.contains(settingsId)) {
+              revokeAccessIds.add(settingsId);
+            } else {
+              fileIdsToDelete.add(settingsId);
+            }
+          }
+          if (tabsId.isNotEmpty) {
+            if (sharedConfigIds.contains(tabsId)) {
+              revokeAccessIds.add(tabsId);
+            } else {
+              fileIdsToDelete.add(tabsId);
+            }
+          }
         }
       } catch (e) {
         debugPrint('Warning: Could not read user modules before deletion: $e');
@@ -1117,48 +1154,181 @@ class _AddModuleDialogState extends State<_AddModuleDialog> {
       final toAdd = allModules.where((m) => _selectedModules.contains(m.moduleId)).toList();
       _totalModules = toAdd.length;
 
+      // Get workspace info for shared_configs access
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      final rootFolderId = workspaceProvider.rootFolderId;
+      if (rootFolderId == null || rootFolderId.isEmpty) {
+        throw Exception('Root folder not found');
+      }
+
+      final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
+
       for (int i = 0; i < toAdd.length; i++) {
         final module = toAdd[i];
         _currentModuleIndex = i + 1;
 
-        // Step 1: Create config folder
+        // Step 1: Get or create shared configs
         setState(() {
-          _progressMessage = 'Creating folder for ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
+          _progressMessage = 'Loading shared configs for ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
         });
+
         final configFolderId = await driveService.getOrCreateSubFolder(
           module.moduleId,
-          'config',
+          'shared_configs',
         );
 
-        // Step 2: Read configurations
-        setState(() {
-          _progressMessage = 'Loading ${module.moduleName} configuration ($_currentModuleIndex/$_totalModules)...';
-        });
-        final settings = module.settingsId.isNotEmpty
-            ? await driveService.readSettingsById(module.settingsId)
-            : null;
-        final dashboard = module.dashboardId.isNotEmpty
-            ? await driveService.readDashboardById(module.dashboardId)
-            : null;
-        final tabs = module.tabsId.isNotEmpty
-            ? await driveService.readTabsById(module.tabsId)
-            : null;
-
-        final config = {
-          'settings': settings ?? <String, dynamic>{},
-          'dashboard': dashboard ?? <String, dynamic>{'cards': []},
-          'tabs': tabs ?? <dynamic>[],
-        };
-
-        // Step 3: Create module config
-        setState(() {
-          _progressMessage = 'Setting up ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
-        });
-        final configIds = await driveService.createModuleConfig(
-          configFolderId,
-          widget.email,
-          config,
+        // Read shared_configs sheet to check for existing configs
+        final sharedConfigsResp = await driveService.sheetsApi.spreadsheets.values.get(
+          companiesRegistryId,
+          'shared_configs!A:E',
         );
+        final sharedConfigsValues = sharedConfigsResp.values ?? [];
+
+        // Create or get shared config IDs for each type
+        String dashboardId = '';
+        String settingsId = '';
+        String tabsId = '';
+
+        for (final configType in ['dashboard', 'settings', 'tabs']) {
+          // Check if config already exists
+          bool configExists = false;
+          String? existingId;
+
+          for (int i = 1; i < sharedConfigsValues.length; i++) {
+            final row = sharedConfigsValues[i];
+            if (row.length >= 5) {
+              final moduleId = row[0].toString();
+              final configTypeInSheet = row[3].toString();
+              final spreadsheetId = row[4].toString();
+
+              if (moduleId == module.moduleId && configTypeInSheet == configType) {
+                configExists = true;
+                existingId = spreadsheetId;
+                break;
+              }
+            }
+          }
+
+          if (configExists && existingId != null) {
+            // Use existing config
+            if (configType == 'dashboard') {
+              dashboardId = existingId;
+            } else if (configType == 'settings') {
+              settingsId = existingId;
+            } else if (configType == 'tabs') {
+              tabsId = existingId;
+            }
+          } else {
+            // Create new shared config by copying the source
+            final configName = 'General Purpose ${configType.substring(0, 1).toUpperCase()}${configType.substring(1)}';
+
+            String sourceId = '';
+            if (configType == 'dashboard') sourceId = module.dashboardId;
+            else if (configType == 'settings') sourceId = module.settingsId;
+            else if (configType == 'tabs') sourceId = module.tabsId;
+
+            String newSpreadsheetId;
+            final copy = await driveService.driveApi.files.copy(
+              drive.File()
+                ..name = configName
+                ..parents = [configFolderId],
+              sourceId,
+              supportsAllDrives: true,
+            );
+            newSpreadsheetId = copy.id!;
+
+            // Update the corresponding ID variable
+            if (configType == 'dashboard') {
+              dashboardId = newSpreadsheetId;
+            } else if (configType == 'settings') {
+              settingsId = newSpreadsheetId;
+            } else if (configType == 'tabs') {
+              tabsId = newSpreadsheetId;
+            }
+
+            // Add to shared_configs sheet
+            await driveService.sheetsApi.spreadsheets.values.append(
+              sheets.ValueRange(values: [
+                [module.moduleId, module.moduleName, configName, configType, newSpreadsheetId]
+              ]),
+              companiesRegistryId,
+              'shared_configs!A:E',
+              valueInputOption: 'RAW',
+              insertDataOption: 'INSERT_ROWS',
+            );
+          }
+        }
+
+        // Step 3: Grant permissions to the invited user
+        setState(() {
+          _progressMessage = 'Granting permissions for ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
+        });
+        
+        // Grant read access to dashboard, settings, and tabs
+        if (dashboardId.isNotEmpty) {
+          try {
+            await driveService.driveApi.permissions.create(
+              drive.Permission()
+                ..type = 'user'
+                ..role = 'reader'
+                ..emailAddress = widget.email,
+              dashboardId,
+              sendNotificationEmail: false,
+              supportsAllDrives: true,
+            );
+          } catch (e) {
+            debugPrint('Warning: Could not grant dashboard permission: $e');
+          }
+        }
+        
+        if (settingsId.isNotEmpty) {
+          try {
+            await driveService.driveApi.permissions.create(
+              drive.Permission()
+                ..type = 'user'
+                ..role = 'reader'
+                ..emailAddress = widget.email,
+              settingsId,
+              sendNotificationEmail: false,
+              supportsAllDrives: true,
+            );
+          } catch (e) {
+            debugPrint('Warning: Could not grant settings permission: $e');
+          }
+        }
+        
+        if (tabsId.isNotEmpty) {
+          try {
+            await driveService.driveApi.permissions.create(
+              drive.Permission()
+                ..type = 'user'
+                ..role = 'reader'
+                ..emailAddress = widget.email,
+              tabsId,
+              sendNotificationEmail: false,
+              supportsAllDrives: true,
+            );
+          } catch (e) {
+            debugPrint('Warning: Could not grant tabs permission: $e');
+          }
+        }
+        
+        // Grant write access to module_files
+        if (module.moduleFilesId.isNotEmpty) {
+          try {
+            await driveService.driveApi.permissions.create(
+              drive.Permission()
+                ..type = 'user'
+                ..role = 'writer'
+                ..emailAddress = widget.email,
+              module.moduleFilesId,
+              sendNotificationEmail: false,
+              supportsAllDrives: true,
+            );
+          } catch (e) {
+            debugPrint('Warning: Could not grant module_files permission: $e');
+          }
+        }
 
         // Step 4: Update user access
         setState(() {
@@ -1168,9 +1338,9 @@ class _AddModuleDialogState extends State<_AddModuleDialog> {
           widget.spreadsheetId,
           module.moduleId,
           module.moduleName,
-          configIds['dashboard'] ?? '',
-          configIds['settings'] ?? '',
-          configIds['tabs'] ?? '',
+          dashboardId,
+          settingsId,
+          tabsId,
           module.moduleFilesId,
           moduleType: module.moduleType,
         );
