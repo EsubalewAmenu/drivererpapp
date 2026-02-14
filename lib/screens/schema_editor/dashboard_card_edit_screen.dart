@@ -42,6 +42,13 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
   // Available sheets for selected spreadsheet
   List<String> _availableSheets = [];
   bool _loadingSheets = false;
+  List<String> _availableColumns = [];
+  bool _loadingColumns = false;
+  final Map<String, String> _columnLetterMap = {};
+  final Map<String, String> _columnHeaderByLetter = {};
+  String? _selectedColumnHeader;
+  String? _selectedXAxisHeader;
+  String? _selectedYAxisHeader;
 
   final Map<String, String> _operations = {
     'count': 'Count All',
@@ -147,6 +154,12 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
     setState(() {
       _loadingSheets = true;
       _availableSheets = [];
+      _availableColumns = [];
+      _columnLetterMap.clear();
+      _columnHeaderByLetter.clear();
+      _selectedColumnHeader = null;
+      _selectedXAxisHeader = null;
+      _selectedYAxisHeader = null;
     });
 
     try {
@@ -180,6 +193,82 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
         _loadingSheets = false;
       });
     }
+  }
+
+  Future<void> _loadColumnsForTabSheet(String tabId, String sheetName) async {
+    setState(() {
+      _loadingColumns = true;
+      _availableColumns = [];
+      _columnLetterMap.clear();
+      _columnHeaderByLetter.clear();
+      _selectedColumnHeader = null;
+      _selectedXAxisHeader = null;
+      _selectedYAxisHeader = null;
+    });
+
+    try {
+      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+      if (driveService == null) {
+        throw Exception('Drive service not available');
+      }
+
+      final tab = widget.module.tabs.firstWhere(
+        (t) => t.id == tabId,
+        orElse: () => widget.module.tabs.first,
+      );
+      final spreadsheetId = tab.fileId;
+      if (spreadsheetId == null || spreadsheetId.isEmpty) {
+        throw Exception('Spreadsheet not found for selected tab');
+      }
+
+      final resp = await driveService.sheetsApi.spreadsheets.values.get(
+        spreadsheetId,
+        '$sheetName!1:1',
+      );
+
+      final headerRow = (resp.values != null && resp.values!.isNotEmpty)
+          ? resp.values!.first
+          : <dynamic>[];
+
+      final columns = <String>[];
+      for (int i = 0; i < headerRow.length; i++) {
+        final raw = headerRow[i]?.toString().trim() ?? '';
+        final letter = _indexToColumnLetter(i);
+        final label = raw.isNotEmpty ? raw : 'Column $letter';
+        columns.add(label);
+        _columnLetterMap[label] = letter;
+        _columnHeaderByLetter[letter] = label;
+      }
+
+      setState(() {
+        _availableColumns = columns;
+        _loadingColumns = false;
+        if (_selectedColumnKey != null && _selectedColumnKey!.isNotEmpty) {
+          _selectedColumnHeader = _columnHeaderByLetter[_selectedColumnKey!];
+        }
+        if (_xAxisColumn != null && _xAxisColumn!.isNotEmpty) {
+          _selectedXAxisHeader = _columnHeaderByLetter[_xAxisColumn!];
+        }
+        if (_yAxisColumn != null && _yAxisColumn!.isNotEmpty) {
+          _selectedYAxisHeader = _columnHeaderByLetter[_yAxisColumn!];
+        }
+      });
+    } catch (e) {
+      debugPrint('Error loading columns: $e');
+      setState(() {
+        _loadingColumns = false;
+      });
+    }
+  }
+
+  String _indexToColumnLetter(int colIndex) {
+    String letter = '';
+    int index = colIndex;
+    while (index >= 0) {
+      letter = String.fromCharCode((index % 26) + 65) + letter;
+      index = (index / 26).floor() - 1;
+    }
+    return letter;
   }
 
   @override
@@ -332,26 +421,36 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
                     setState(() {
                       _selectedSheetName = val;
                       _selectedColumnKey = null;
+                      _selectedColumnHeader = null;
                     });
+                    if (val != null && _selectedTabId != null) {
+                      _loadColumnsForTabSheet(_selectedTabId!, val);
+                    }
                   },
                 ),
         ],
 
         if (_selectedSheetName != null) ...[
           const SizedBox(height: 24),
-          // Column Selection (Manual Entry)
-          Text('Column Letter', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+          // Column Selection
+          Text('Column', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
           const SizedBox(height: 8),
-          TextField(
-            controller: TextEditingController(text: _selectedColumnKey),
-            onChanged: (val) => setState(() => _selectedColumnKey = val.toUpperCase()),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: theme.cardTheme.color,
-              hintText: 'e.g., A, B, C, D',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            ),
-          ),
+          _loadingColumns
+              ? const Center(child: CircularProgressIndicator())
+              : _buildDropdown<String>(
+                  value: _selectedColumnHeader,
+                  hint: 'Select Column',
+                  items: _availableColumns.map((c) => DropdownMenuItem(
+                    value: c,
+                    child: Text(c),
+                  )).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedColumnHeader = val;
+                      _selectedColumnKey = val != null ? _columnLetterMap[val] : null;
+                    });
+                  },
+                ),
         ],
 
         if (_selectedColumnKey != null && _selectedColumnKey!.isNotEmpty) ...[
@@ -436,6 +535,8 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
               _chartSheetName = null;
               _xAxisColumn = null;
               _yAxisColumn = null;
+              _selectedXAxisHeader = null;
+              _selectedYAxisHeader = null;
             });
             if (val != null) {
               _loadSheetsForTab(val);
@@ -457,7 +558,18 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
                     value: s,
                     child: Text(s),
                   )).toList(),
-                  onChanged: (val) => setState(() => _chartSheetName = val),
+                  onChanged: (val) {
+                    setState(() {
+                      _chartSheetName = val;
+                      _xAxisColumn = null;
+                      _yAxisColumn = null;
+                      _selectedXAxisHeader = null;
+                      _selectedYAxisHeader = null;
+                    });
+                    if (val != null && _chartTabId != null) {
+                      _loadColumnsForTabSheet(_chartTabId!, val);
+                    }
+                  },
                 ),
         ],
 
@@ -466,31 +578,43 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
           // X-Axis Column
           Text('X-Axis Column (Labels)', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
           const SizedBox(height: 8),
-          TextField(
-            controller: TextEditingController(text: _xAxisColumn),
-            onChanged: (val) => setState(() => _xAxisColumn = val.toUpperCase()),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: theme.cardTheme.color,
-              hintText: 'e.g., A',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            ),
-          ),
+          _loadingColumns
+              ? const Center(child: CircularProgressIndicator())
+              : _buildDropdown<String>(
+                  value: _selectedXAxisHeader,
+                  hint: 'Select Column',
+                  items: _availableColumns.map((c) => DropdownMenuItem(
+                    value: c,
+                    child: Text(c),
+                  )).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedXAxisHeader = val;
+                      _xAxisColumn = val != null ? _columnLetterMap[val] : null;
+                    });
+                  },
+                ),
 
           const SizedBox(height: 16),
           // Y-Axis Column
           Text('Y-Axis Column (Values)', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
           const SizedBox(height: 8),
-          TextField(
-            controller: TextEditingController(text: _yAxisColumn),
-            onChanged: (val) => setState(() => _yAxisColumn = val.toUpperCase()),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: theme.cardTheme.color,
-              hintText: 'e.g., B',
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-            ),
-          ),
+          _loadingColumns
+              ? const Center(child: CircularProgressIndicator())
+              : _buildDropdown<String>(
+                  value: _selectedYAxisHeader,
+                  hint: 'Select Column',
+                  items: _availableColumns.map((c) => DropdownMenuItem(
+                    value: c,
+                    child: Text(c),
+                  )).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedYAxisHeader = val;
+                      _yAxisColumn = val != null ? _columnLetterMap[val] : null;
+                    });
+                  },
+                ),
         ],
 
         if (_xAxisColumn != null && _yAxisColumn != null) ...[
