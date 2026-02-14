@@ -537,8 +537,10 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
             supportsAllDrives: true,
             $fields: 'permissions(id,emailAddress,type)',
           );
+          final normalizedTargetEmail = widget.email.trim().toLowerCase();
           for (final perm in perms.permissions ?? <drive.Permission>[]) {
-            if (perm.type == 'user' && perm.emailAddress == widget.email) {
+            final permEmail = perm.emailAddress?.trim().toLowerCase() ?? '';
+            if (perm.type == 'user' && permEmail == normalizedTargetEmail) {
               final permissionId = perm.id;
               if (permissionId == null || permissionId.isEmpty) continue;
               await driveService.driveApi.permissions.delete(
