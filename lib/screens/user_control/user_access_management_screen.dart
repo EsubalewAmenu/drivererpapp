@@ -425,34 +425,6 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         }
       }
 
-      // Fallback match by spreadsheet ID if not found
-      if (rowIndexToDelete == null) {
-        for (int i = 1; i < values.length; i++) {
-          final row = values[i];
-          if (row.length > 2) {
-            final spreadsheetId = row[2].toString().trim();
-            if (spreadsheetId == widget.spreadsheetId) {
-              rowIndexToDelete = i;
-              break;
-            }
-          }
-        }
-      }
-
-      // Final fallback match by email only
-      if (rowIndexToDelete == null) {
-        for (int i = 1; i < values.length; i++) {
-          final row = values[i];
-          if (row.length > 1) {
-            final email = row[1].toString().trim().toLowerCase();
-            if (email == normalizedEmail) {
-              rowIndexToDelete = i;
-              break;
-            }
-          }
-        }
-      }
-
       if (rowIndexToDelete == null) {
         debugPrint('Revoke access: user_access row not found in companies registry.');
       }
