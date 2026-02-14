@@ -13,7 +13,7 @@
     "cards": [
       {
         "label": "Low Stock Alerts",
-        "formula": "=COUNTIF(variants!G:G, \"<10\")",
+        "formula": "=COUNTIF(Purchase Orders:variants:variants!G:G, \"<10\")",
         "format": "number",
         "color": "#F44336"
       }

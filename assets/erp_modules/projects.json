@@ -8,7 +8,7 @@
   },
   "dashboard": {
     "cards": [
-      { "label": "Completion Rate", "formula": "=AVERAGE(tasks!D:D)", "format": "percentage" }
+      { "label": "Completion Rate", "formula": "=AVERAGE(Projects:tasks:tasks!D:D)", "format": "percentage" }
     ]
   },
   "tabs": [

@@ -28,7 +28,7 @@ mixin DriveSheetGviz on DriveSheetMixin {
         gid = exactMatch.properties?.sheetId ?? 0;
       }
 
-      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=0&gid=$gid';
+      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=1&gid=$gid';
       
       final response = await authClient.get(Uri.parse(url));
       if (response.statusCode != 200) {
@@ -85,7 +85,7 @@ mixin DriveSheetGviz on DriveSheetMixin {
         gid = exactMatch.properties?.sheetId ?? 0;
       }
 
-      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=0&gid=$gid';
+      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=1&gid=$gid';
 
       final response = await authClient.get(Uri.parse(url));
       if (response.statusCode != 200) {
@@ -143,7 +143,7 @@ mixin DriveSheetGviz on DriveSheetMixin {
         gid = exactMatch.properties?.sheetId ?? 0;
       }
 
-      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=0&gid=$gid';
+      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=1&gid=$gid';
       final response = await authClient.get(Uri.parse(url));
       
       if (response.statusCode != 200) return null;
@@ -210,7 +210,7 @@ mixin DriveSheetGviz on DriveSheetMixin {
         gid = exactMatch.properties?.sheetId ?? 0;
       }
 
-      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=0&gid=$gid';
+      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=1&gid=$gid';
       final response = await authClient.get(Uri.parse(url));
 
       if (response.statusCode != 200) return null;

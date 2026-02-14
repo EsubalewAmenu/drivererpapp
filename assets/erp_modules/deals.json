@@ -13,7 +13,7 @@
     "cards": [
       {
         "label": "Pipeline Value",
-        "formula": "=SUM(deals!D:D)", 
+        "formula": "=SUM(Deals:deals:deals!D:D)", 
         "format": "currency"
       }
     ]

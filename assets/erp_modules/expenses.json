@@ -10,7 +10,7 @@
     "cards": [
       {
         "label": "Total Spend",
-        "formula": "=SUM(expense_entries!E:E)",
+        "formula": "=SUM(Expenses:expense_entries:expense_entries!E:E)",
         "format": "currency"
       }
     ]

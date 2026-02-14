@@ -8,7 +8,7 @@
   },
   "dashboard": {
     "cards": [
-      { "label": "Active Campaigns", "formula": "=COUNTIF(campaigns!E:E, \"Active\")", "format": "number" }
+      { "label": "Active Campaigns", "formula": "=COUNTIF(Marketing:campaigns:campaigns!E:E, \"Active\")", "format": "number" }
     ]
   },
   "tabs": [
