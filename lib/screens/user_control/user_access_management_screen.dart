@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:googleapis/sheets/v4.dart' as sheets;
+import 'package:googleapis/drive/v3.dart' as drive;
 import 'dart:convert';
 import '../../theme/app_theme.dart';
 import '../../providers/drive_provider.dart';
@@ -187,195 +188,421 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
   }
 
   Future<void> _showAddModuleDialog(ThemeData theme) async {
-    final future = _loadAvailableModules();
-    final selected = <String>{};
-
     await showDialog(
       context: context,
-      builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(
-                'Add Modules',
-                style: AppTheme.inter(fontWeight: FontWeight.w700, fontSize: 18),
-              ),
-              content: SizedBox(
-                width: double.maxFinite,
-                child: FutureBuilder<List<_ModuleSourceItem>>(
-                  future: future,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
-
-                    if (snapshot.hasError) {
-                      return Text(
-                        'Failed to load modules: ${snapshot.error}',
-                        style: AppTheme.inter(fontSize: 12, color: theme.disabledColor),
-                      );
-                    }
-
-                    final modules = snapshot.data ?? [];
-                    if (modules.isEmpty) {
-                      return Text(
-                        'No additional modules available to add.',
-                        style: AppTheme.inter(fontSize: 13, color: theme.textTheme.bodyMedium?.color),
-                      );
-                    }
-
-                    return ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: modules.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, index) {
-                        final module = modules[index];
-                        final isSelected = selected.contains(module.moduleId);
-                        return InkWell(
-                          onTap: () {
-                            setDialogState(() {
-                              if (isSelected) {
-                                selected.remove(module.moduleId);
-                              } else {
-                                selected.add(module.moduleId);
-                              }
-                            });
-                          },
-                          child: Row(
-                            children: [
-                              Checkbox(
-                                value: isSelected,
-                                onChanged: (value) {
-                                  setDialogState(() {
-                                    if (value == true) {
-                                      selected.add(module.moduleId);
-                                    } else {
-                                      selected.remove(module.moduleId);
-                                    }
-                                  });
-                                },
-                              ),
-                              Expanded(
-                                child: Text(
-                                  module.moduleName.isNotEmpty ? module.moduleName : module.moduleId,
-                                  style: AppTheme.inter(fontSize: 14, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: Text(
-                    'Cancel',
-                    style: AppTheme.inter(fontWeight: FontWeight.w600),
-                  ),
-                ),
-                TextButton(
-                  onPressed: _isAddingModules
-                      ? null
-                      : () async {
-                          try {
-                            setState(() {
-                              _isAddingModules = true;
-                            });
-
-                            final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-                            final driveService = driveProvider.driveService;
-                            if (driveService == null) {
-                              throw Exception('Drive service not available');
-                            }
-
-                            final modules = await future;
-                            final toAdd = modules.where((m) => selected.contains(m.moduleId)).toList();
-                            if (toAdd.isEmpty) {
-                              Navigator.pop(context);
-                              return;
-                            }
-
-                            for (final module in toAdd) {
-                              final configFolderId = await driveService.getOrCreateSubFolder(
-                                module.moduleId,
-                                'config',
-                              );
-
-                              final settings = module.settingsId.isNotEmpty
-                                  ? await driveService.readSettingsById(module.settingsId)
-                                  : null;
-                              final dashboard = module.dashboardId.isNotEmpty
-                                  ? await driveService.readDashboardById(module.dashboardId)
-                                  : null;
-                              final tabs = module.tabsId.isNotEmpty
-                                  ? await driveService.readTabsById(module.tabsId)
-                                  : null;
-
-                              final config = {
-                                'settings': settings ?? <String, dynamic>{},
-                                'dashboard': dashboard ?? <String, dynamic>{'cards': []},
-                                'tabs': tabs ?? <dynamic>[],
-                              };
-
-                              final configIds = await driveService.createModuleConfig(
-                                configFolderId,
-                                widget.email,
-                                config,
-                              );
-
-                              await driveService.upsertUserAccessModule(
-                                widget.spreadsheetId,
-                                module.moduleId,
-                                module.moduleName,
-                                configIds['dashboard'] ?? '',
-                                configIds['settings'] ?? '',
-                                configIds['tabs'] ?? '',
-                                module.moduleFilesId,
-                                moduleType: module.moduleType,
-                              );
-                              await driveService.setUserAccessModuleStatus(
-                                widget.spreadsheetId,
-                                module.moduleId,
-                                'activated',
-                              );
-                            }
-
-                            if (mounted) {
-                              Navigator.pop(context);
-                              await _loadUserAccess();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Modules added successfully')),
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error adding modules: $e')),
-                              );
-                            }
-                          } finally {
-                            if (mounted) {
-                              setState(() {
-                                _isAddingModules = false;
-                              });
-                            }
-                          }
-                        },
-                  child: Text(
-                    'Add',
-                    style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.primaryColor),
-                  ),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (context) => _AddModuleDialog(
+        theme: theme,
+        email: widget.email,
+        spreadsheetId: widget.spreadsheetId,
+        onModulesAdded: () {
+          _loadUserAccess();
+        },
+        loadAvailableModules: _loadAvailableModules,
+        currentModules: _modules,
+      ),
     );
+  }
+
+  Future<void> _showRevokeAccessDialog(ThemeData theme) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.red,
+              size: 24,
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'Revoke Access',
+              style: AppTheme.inter(
+                fontWeight: FontWeight.w700,
+                fontSize: 20,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to revoke access for ${widget.email}?',
+              style: AppTheme.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'This will:',
+              style: AppTheme.inter(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: theme.textTheme.bodyMedium?.color,
+              ),
+            ),
+            const SizedBox(height: 8),
+            _buildRevokeActionItem('Delete user access spreadsheet', theme),
+            _buildRevokeActionItem('Remove user from companies registry', theme),
+            _buildRevokeActionItem('Remove all module access', theme),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.red.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 18, color: Colors.red),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This action cannot be undone',
+                      style: AppTheme.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: AppTheme.inter(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Text(
+              'Revoke Access',
+              style: AppTheme.inter(
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _revokeAccess(theme);
+    }
+  }
+
+  Widget _buildRevokeActionItem(String text, ThemeData theme) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            Icons.check_circle,
+            size: 16,
+            color: theme.textTheme.bodySmall?.color,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: AppTheme.inter(
+                fontSize: 13,
+                color: theme.textTheme.bodySmall?.color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _revokeAccess(ThemeData theme) async {
+    // Show progress dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                'Revoking access...',
+                style: AppTheme.inter(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    try {
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      
+      final driveService = driveProvider.driveService;
+      if (driveService == null) {
+        throw Exception('Drive service not available');
+      }
+
+      final rootFolderId = workspaceProvider.rootFolderId;
+      if (rootFolderId == null || rootFolderId.isEmpty) {
+        throw Exception('Root folder not found');
+      }
+
+      final currentWorkspaceId = workspaceProvider.currentWorkspace?.id;
+      if (currentWorkspaceId == null || currentWorkspaceId.isEmpty) {
+        throw Exception('No workspace selected');
+      }
+
+      // Step 1: Get companies registry ID and sheet metadata
+      final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
+
+      // Get spreadsheet metadata to find the correct sheet ID for user_access
+      final spreadsheetMetadata = await driveService.sheetsApi.spreadsheets.get(companiesRegistryId);
+      int? userAccessSheetId;
+      
+      for (final sheet in spreadsheetMetadata.sheets ?? []) {
+        if (sheet.properties?.title == 'user_access') {
+          userAccessSheetId = sheet.properties?.sheetId;
+          break;
+        }
+      }
+
+      if (userAccessSheetId == null) {
+        throw Exception('user_access sheet not found in companies registry');
+      }
+
+      // Step 2: Find the row to delete in companies registry (match by company_folder_id and email)
+      final response = await driveService.sheetsApi.spreadsheets.values.get(
+        companiesRegistryId,
+        'user_access!A:C',
+      );
+
+      final values = response.values ?? [];
+      int? rowIndexToDelete;
+      final normalizedEmail = widget.email.trim().toLowerCase();
+      final normalizedWorkspaceId = currentWorkspaceId.trim();
+
+      debugPrint('Revoke access lookup: workspaceId=$normalizedWorkspaceId email=$normalizedEmail spreadsheetId=${widget.spreadsheetId}');
+
+      for (int i = 1; i < values.length; i++) {
+        final row = values[i];
+        if (row.isEmpty) continue;
+        final companyFolderId = row.isNotEmpty ? row[0].toString().trim() : '';
+        final email = row.length > 1 ? row[1].toString().trim().toLowerCase() : '';
+        final spreadsheetId = row.length > 2 ? row[2].toString().trim() : '';
+
+        if (companyFolderId == normalizedWorkspaceId && email == normalizedEmail) {
+          rowIndexToDelete = i; // 0-based index for the data (row i+1 in sheet)
+          break;
+        }
+      }
+
+      if (rowIndexToDelete == null) {
+        debugPrint('Revoke access: user_access row not found in companies registry.');
+      }
+
+      // Step 3: Read user's modules to get config file IDs and revoke targets
+      final Set<String> fileIdsToDelete = {widget.spreadsheetId};
+      final Set<String> revokeAccessIds = {};
+
+      String colLetter(int idx) {
+        int i = idx;
+        String ret = '';
+        while (i >= 0) {
+          ret = String.fromCharCode(65 + (i % 26)) + ret;
+          i = (i ~/ 26) - 1;
+        }
+        return ret;
+      }
+
+      try {
+        final headerResp = await driveService.sheetsApi.spreadsheets.values.get(
+          widget.spreadsheetId,
+          'modules!A1:Z1',
+        );
+        final headerRow = (headerResp.values != null && headerResp.values!.isNotEmpty)
+            ? List<String>.from(headerResp.values!.first.map((e) => e.toString()))
+            : <String>[];
+
+        final lastCol = headerRow.isNotEmpty ? colLetter(headerRow.length - 1) : 'H';
+        final dataResp = await driveService.sheetsApi.spreadsheets.values.get(
+          widget.spreadsheetId,
+          'modules!A2:$lastCol',
+        );
+
+        final moduleValues = dataResp.values ?? [];
+
+        final idIndex = headerRow.indexOf('id');
+        final dashboardIndex = headerRow.indexOf('dashboard');
+        final settingsIndex = headerRow.indexOf('settings');
+        final tabsIndex = headerRow.indexOf('tabs');
+        final moduleFilesIndex = headerRow.indexOf('module_files');
+        final configFolderIndex = headerRow.indexOf('config_folder_id');
+
+        String cellAt(List<dynamic> row, int index) {
+          if (index < 0 || index >= row.length) return '';
+          return row[index].toString().trim();
+        }
+
+        for (final row in moduleValues) {
+          final moduleFolderId = cellAt(row, idIndex);
+          final dashboardId = cellAt(row, dashboardIndex);
+          final settingsId = cellAt(row, settingsIndex);
+          final tabsId = cellAt(row, tabsIndex);
+          final moduleFilesId = cellAt(row, moduleFilesIndex);
+          final configFolderId = cellAt(row, configFolderIndex);
+
+          if (moduleFolderId.isNotEmpty) revokeAccessIds.add(moduleFolderId);
+          if (moduleFilesId.isNotEmpty) revokeAccessIds.add(moduleFilesId);
+          if (configFolderId.isNotEmpty) revokeAccessIds.add(configFolderId);
+
+          if (dashboardId.isNotEmpty) fileIdsToDelete.add(dashboardId);
+          if (settingsId.isNotEmpty) fileIdsToDelete.add(settingsId);
+          if (tabsId.isNotEmpty) fileIdsToDelete.add(tabsId);
+        }
+      } catch (e) {
+        debugPrint('Warning: Could not read user modules before deletion: $e');
+      }
+
+      Future<void> revokeUserPermission(String fileId) async {
+        if (fileId.isEmpty) return;
+        try {
+          final perms = await driveService.driveApi.permissions.list(
+            fileId,
+            supportsAllDrives: true,
+            $fields: 'permissions(id,emailAddress,type)',
+          );
+          for (final perm in perms.permissions ?? <drive.Permission>[]) {
+            if (perm.type == 'user' && perm.emailAddress == widget.email) {
+              final permissionId = perm.id;
+              if (permissionId == null || permissionId.isEmpty) continue;
+              await driveService.driveApi.permissions.delete(
+                fileId,
+                permissionId,
+                supportsAllDrives: true,
+              );
+            }
+          }
+        } catch (e) {
+          debugPrint('Warning: Could not revoke permissions for $fileId: $e');
+        }
+      }
+
+      // Step 4: Revoke access from module folder, module_files folder, and config folder
+      for (final fileId in revokeAccessIds) {
+        await revokeUserPermission(fileId);
+      }
+
+      // Step 5: Delete dashboard/settings/tabs files first, then user access spreadsheet
+      if (fileIdsToDelete.contains(widget.spreadsheetId)) {
+        fileIdsToDelete.remove(widget.spreadsheetId);
+      }
+
+      for (final fileId in fileIdsToDelete) {
+        try {
+          await driveService.driveApi.files.delete(
+            fileId,
+            supportsAllDrives: true,
+          );
+          debugPrint('Deleted file: $fileId');
+        } catch (e) {
+          debugPrint('Warning: Could not delete file $fileId: $e');
+        }
+      }
+
+      // Delete the user access spreadsheet last
+      try {
+        await driveService.driveApi.files.delete(
+          widget.spreadsheetId,
+          supportsAllDrives: true,
+        );
+        debugPrint('Deleted user access spreadsheet: ${widget.spreadsheetId}');
+      } catch (e) {
+        debugPrint('Warning: Could not delete user access spreadsheet: $e');
+      }
+
+      // Step 6: Delete the row from companies registry
+      if (rowIndexToDelete != null) {
+        // rowIndexToDelete is index in values (0-based for data rows where values[1] is sheet row 2)
+        final startIndex = rowIndexToDelete; // sheet row index (0-based)
+        final endIndex = rowIndexToDelete + 1;
+
+        await driveService.sheetsApi.spreadsheets.batchUpdate(
+          sheets.BatchUpdateSpreadsheetRequest(
+            requests: [
+              sheets.Request(
+                deleteDimension: sheets.DeleteDimensionRequest(
+                  range: sheets.DimensionRange(
+                    sheetId: userAccessSheetId,
+                    dimension: 'ROWS',
+                    startIndex: startIndex,
+                    endIndex: endIndex,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          companiesRegistryId,
+        );
+      }
+
+      if (!mounted) return;
+
+      // Close progress dialog
+      Navigator.pop(context);
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Access revoked for ${widget.email}'),
+          backgroundColor: Colors.green,
+        ),
+      );
+
+      // Navigate back to user control screen
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+
+      // Close progress dialog
+      Navigator.pop(context);
+
+      // Show error message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error revoking access: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Future<void> _saveChanges() async {
@@ -554,10 +781,32 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
   }
 
   Widget _buildLandingTab(ThemeData theme) {
-    return UserAccessLandingTab(
-      email: widget.email,
-      invitationCode: widget.spreadsheetId,
-      userName: null, // TODO: Load user name from Firebase auth or user registry
+    return Column(
+      children: [
+        Expanded(
+          child: UserAccessLandingTab(
+            email: widget.email,
+            invitationCode: widget.spreadsheetId,
+            userName: null, // TODO: Load user name from Firebase auth or user registry
+          ),
+        ),
+        SafeArea(
+          minimum: const EdgeInsets.all(16),
+          child: OutlinedButton.icon(
+            onPressed: () => _showRevokeAccessDialog(theme),
+            icon: const Icon(Icons.remove_circle_outline),
+            label: Text(
+              'REVOKE ACCESS',
+              style: AppTheme.inter(fontWeight: FontWeight.w700),
+            ),
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              side: BorderSide(color: Colors.red.withValues(alpha: 0.6)),
+              foregroundColor: Colors.red,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -811,3 +1060,404 @@ class _ModuleSourceItem {
     required this.moduleType,
   });
 }
+
+class _AddModuleDialog extends StatefulWidget {
+  final ThemeData theme;
+  final String email;
+  final String spreadsheetId;
+  final VoidCallback onModulesAdded;
+  final Future<List<_ModuleSourceItem>> Function() loadAvailableModules;
+  final List<_ModuleAccessItem> currentModules;
+
+  const _AddModuleDialog({
+    required this.theme,
+    required this.email,
+    required this.spreadsheetId,
+    required this.onModulesAdded,
+    required this.loadAvailableModules,
+    required this.currentModules,
+  });
+
+  @override
+  State<_AddModuleDialog> createState() => _AddModuleDialogState();
+}
+
+class _AddModuleDialogState extends State<_AddModuleDialog> {
+  late Future<List<_ModuleSourceItem>> _modulesFuture;
+  final Set<String> _selectedModules = {};
+  bool _isAdding = false;
+  String _progressMessage = '';
+  int _currentModuleIndex = 0;
+  int _totalModules = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _modulesFuture = widget.loadAvailableModules();
+  }
+
+  Future<void> _addModules(List<_ModuleSourceItem> allModules) async {
+    if (_selectedModules.isEmpty) {
+      Navigator.pop(context);
+      return;
+    }
+
+    setState(() {
+      _isAdding = true;
+      _progressMessage = 'Preparing modules...';
+    });
+
+    try {
+      final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+      final driveService = driveProvider.driveService;
+      if (driveService == null) {
+        throw Exception('Drive service not available');
+      }
+
+      final toAdd = allModules.where((m) => _selectedModules.contains(m.moduleId)).toList();
+      _totalModules = toAdd.length;
+
+      for (int i = 0; i < toAdd.length; i++) {
+        final module = toAdd[i];
+        _currentModuleIndex = i + 1;
+
+        // Step 1: Create config folder
+        setState(() {
+          _progressMessage = 'Creating folder for ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
+        });
+        final configFolderId = await driveService.getOrCreateSubFolder(
+          module.moduleId,
+          'config',
+        );
+
+        // Step 2: Read configurations
+        setState(() {
+          _progressMessage = 'Loading ${module.moduleName} configuration ($_currentModuleIndex/$_totalModules)...';
+        });
+        final settings = module.settingsId.isNotEmpty
+            ? await driveService.readSettingsById(module.settingsId)
+            : null;
+        final dashboard = module.dashboardId.isNotEmpty
+            ? await driveService.readDashboardById(module.dashboardId)
+            : null;
+        final tabs = module.tabsId.isNotEmpty
+            ? await driveService.readTabsById(module.tabsId)
+            : null;
+
+        final config = {
+          'settings': settings ?? <String, dynamic>{},
+          'dashboard': dashboard ?? <String, dynamic>{'cards': []},
+          'tabs': tabs ?? <dynamic>[],
+        };
+
+        // Step 3: Create module config
+        setState(() {
+          _progressMessage = 'Setting up ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
+        });
+        final configIds = await driveService.createModuleConfig(
+          configFolderId,
+          widget.email,
+          config,
+        );
+
+        // Step 4: Update user access
+        setState(() {
+          _progressMessage = 'Registering ${module.moduleName} ($_currentModuleIndex/$_totalModules)...';
+        });
+        await driveService.upsertUserAccessModule(
+          widget.spreadsheetId,
+          module.moduleId,
+          module.moduleName,
+          configIds['dashboard'] ?? '',
+          configIds['settings'] ?? '',
+          configIds['tabs'] ?? '',
+          module.moduleFilesId,
+          moduleType: module.moduleType,
+        );
+        await driveService.setUserAccessModuleStatus(
+          widget.spreadsheetId,
+          module.moduleId,
+          'activated',
+        );
+      }
+
+      if (!mounted) return;
+
+      Navigator.pop(context);
+      widget.onModulesAdded();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${_totalModules} ${_totalModules == 1 ? 'module' : 'modules'} added successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isAdding = false;
+        _progressMessage = '';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error adding modules: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(
+            Icons.add_circle_outline,
+            color: widget.theme.primaryColor,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Add Modules',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Select modules to grant access to ${widget.email}',
+              style: AppTheme.inter(
+                fontSize: 14,
+                color: widget.theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Flexible(
+              child: FutureBuilder<List<_ModuleSourceItem>>(
+                future: _modulesFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24.0),
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  }
+
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 48,
+                            color: widget.theme.disabledColor,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Failed to load modules',
+                            style: AppTheme.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: widget.theme.textTheme.bodyMedium?.color,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            snapshot.error.toString(),
+                            style: AppTheme.inter(
+                              fontSize: 12,
+                              color: widget.theme.disabledColor,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final modules = snapshot.data ?? [];
+                  if (modules.isEmpty) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 48,
+                            color: widget.theme.disabledColor,
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'No additional modules available',
+                            style: AppTheme.inter(
+                              fontSize: 14,
+                              color: widget.theme.textTheme.bodyMedium?.color,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: modules.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final module = modules[index];
+                      final isSelected = _selectedModules.contains(module.moduleId);
+                      return CheckboxListTile(
+                        value: isSelected,
+                        enabled: !_isAdding,
+                        onChanged: (value) {
+                          setState(() {
+                            if (value == true) {
+                              _selectedModules.add(module.moduleId);
+                            } else {
+                              _selectedModules.remove(module.moduleId);
+                            }
+                          });
+                        },
+                        title: Text(
+                          module.moduleName.isNotEmpty ? module.moduleName : module.moduleId,
+                          style: AppTheme.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: _isAdding
+                                ? widget.theme.textTheme.bodyMedium?.color?.withOpacity(0.5)
+                                : widget.theme.textTheme.bodyMedium?.color,
+                          ),
+                        ),
+                        subtitle: module.moduleType.isNotEmpty
+                            ? Text(
+                                module.moduleType.toUpperCase(),
+                                style: AppTheme.inter(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  color: widget.theme.primaryColor.withOpacity(0.7),
+                                ),
+                              )
+                            : null,
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        activeColor: widget.theme.primaryColor,
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+            if (_isAdding) ...[
+              const SizedBox(height: 20),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: widget.theme.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              widget.theme.primaryColor,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            _progressMessage,
+                            style: AppTheme.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: widget.theme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_totalModules > 0) ...[
+                      const SizedBox(height: 12),
+                      LinearProgressIndicator(
+                        value: _currentModuleIndex / _totalModules,
+                        backgroundColor: widget.theme.primaryColor.withOpacity(0.2),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          widget.theme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isAdding ? null : () => Navigator.pop(context),
+          child: Text(
+            'Cancel',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w600,
+              color: _isAdding
+                  ? widget.theme.textTheme.bodyMedium?.color?.withOpacity(0.3)
+                  : widget.theme.textTheme.bodyMedium?.color,
+            ),
+          ),
+        ),
+        ElevatedButton.icon(
+          onPressed: _isAdding
+              ? null
+              : () async {
+                  final modules = await _modulesFuture;
+                  await _addModules(modules);
+                },
+          icon: _isAdding
+              ? const SizedBox.shrink()
+              : const Icon(Icons.add, size: 18),
+          label: Text(
+            _isAdding ? 'Adding...' : 'Add Modules',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: widget.theme.primaryColor,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: widget.theme.primaryColor.withOpacity(0.3),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+

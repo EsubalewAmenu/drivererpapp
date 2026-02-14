@@ -301,129 +301,16 @@ class _UserControlScreenState extends State<UserControlScreen> {
   }
 
   void _showAddUserDialog(ThemeData theme) {
-    final emailController = TextEditingController();
-
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text(
-            'Add User',
-            style: AppTheme.inter(
-              fontWeight: FontWeight.w700,
-              fontSize: 18,
-            ),
-          ),
-          content: TextField(
-            controller: emailController,
-            decoration: InputDecoration(
-              hintText: 'Enter email address',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            ),
-            keyboardType: TextInputType.emailAddress,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: AppTheme.inter(
-                  fontWeight: FontWeight.w600,
-                  color: theme.textTheme.bodyMedium?.color,
-                ),
-              ),
-            ),
-            TextButton(
-              onPressed: () async {
-                final email = emailController.text.trim();
-                if (email.isEmpty) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please enter an email address')),
-                  );
-                  return;
-                }
-
-                try {
-                  final driveContext = _getDriveContext();
-                  final driveService = driveContext.driveService;
-                  final rootFolderId = driveContext.rootFolderId;
-                  final currentWorkspaceId = driveContext.currentWorkspaceId;
-
-                  // Get current workspace/company info
-                  final currentCompany = _workspaceProvider?.currentCompany;
-                  if (currentCompany == null) {
-                    throw Exception('No workspace selected');
-                  }
-
-                  // Get or create user_access folder
-                  final userAccessFolderId = await driveService.getOrCreateSubFolder(
-                    currentWorkspaceId,
-                    'user_access',
-                  );
-
-                  // Create user spreadsheet
-                  final spreadsheetId = await driveService.createUserAccessSpreadsheet(
-                    userAccessFolderId,
-                    email,
-                  );
-
-                  // Grant read access to invited user without notification
-                  await driveService.driveApi.permissions.create(
-                    drive.Permission()
-                      ..type = 'user'
-                      ..role = 'reader'
-                      ..emailAddress = email,
-                    spreadsheetId,
-                    sendNotificationEmail: false,
-                    supportsAllDrives: true,
-                  );
-
-                  // Populate company_info in the user's spreadsheet
-                  await driveService.populateUserCompanyInfo(
-                    spreadsheetId,
-                    currentCompany.id,
-                    currentCompany.name,
-                    currentCompany.folderId,
-                    userAccessFolderId,
-                    currentCompany.logoUrl ?? '',
-                  );
-
-                  // Register user in companies registry
-                  await driveService.upsertCompanyUserAccess(
-                    rootFolderId,
-                    currentWorkspaceId,
-                    email,
-                    spreadsheetId,
-                  );
-
-                  Navigator.pop(context);
-                  
-                  // Reload users list
-                  _loadUsers();
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('User $email added successfully')),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error adding user: $e')),
-                  );
-                }
-              },
-              child: Text(
-                'Add',
-                style: AppTheme.inter(
-                  fontWeight: FontWeight.w600,
-                  color: theme.primaryColor,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+      builder: (context) => _AddUserDialog(
+        theme: theme,
+        onUserAdded: () {
+          _loadUsers();
+        },
+        getDriveContext: _getDriveContext,
+        workspaceProvider: _workspaceProvider,
+      ),
     );
   }
 }
@@ -438,4 +325,306 @@ class _DriveContext {
     required this.rootFolderId,
     required this.currentWorkspaceId,
   });
+}
+
+class _AddUserDialog extends StatefulWidget {
+  final ThemeData theme;
+  final VoidCallback onUserAdded;
+  final _DriveContext Function() getDriveContext;
+  final WorkspaceProvider? workspaceProvider;
+
+  const _AddUserDialog({
+    required this.theme,
+    required this.onUserAdded,
+    required this.getDriveContext,
+    required this.workspaceProvider,
+  });
+
+  @override
+  State<_AddUserDialog> createState() => _AddUserDialogState();
+}
+
+class _AddUserDialogState extends State<_AddUserDialog> {
+  final _emailController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _isLoading = false;
+  String _progressMessage = '';
+
+  // Email validation regex
+  static final _emailRegex = RegExp(
+    r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+  );
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  String? _validateEmail(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter an email address';
+    }
+    if (!_emailRegex.hasMatch(value.trim())) {
+      return 'Please enter a valid email address';
+    }
+    return null;
+  }
+
+  Future<void> _addUser() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _progressMessage = 'Initializing...';
+    });
+
+    try {
+      final email = _emailController.text.trim();
+      final driveContext = widget.getDriveContext();
+      final driveService = driveContext.driveService;
+      final rootFolderId = driveContext.rootFolderId;
+      final currentWorkspaceId = driveContext.currentWorkspaceId;
+
+      // Get current workspace/company info
+      final currentCompany = widget.workspaceProvider?.currentCompany;
+      if (currentCompany == null) {
+        throw Exception('No workspace selected');
+      }
+
+      // Step 1: Get or create user_access folder
+      setState(() {
+        _progressMessage = 'Setting up user folder...';
+      });
+      final userAccessFolderId = await driveService.getOrCreateSubFolder(
+        currentWorkspaceId,
+        'user_access',
+      );
+
+      // Step 2: Create user spreadsheet
+      setState(() {
+        _progressMessage = 'Creating user spreadsheet...';
+      });
+      final spreadsheetId = await driveService.createUserAccessSpreadsheet(
+        userAccessFolderId,
+        email,
+      );
+
+      // Step 3: Grant read access to invited user
+      setState(() {
+        _progressMessage = 'Granting access permissions...';
+      });
+      await driveService.driveApi.permissions.create(
+        drive.Permission()
+          ..type = 'user'
+          ..role = 'reader'
+          ..emailAddress = email,
+        spreadsheetId,
+        sendNotificationEmail: false,
+        supportsAllDrives: true,
+      );
+
+      // Step 4: Populate company_info in the user's spreadsheet
+      setState(() {
+        _progressMessage = 'Configuring user access...';
+      });
+      await driveService.populateUserCompanyInfo(
+        spreadsheetId,
+        currentCompany.id,
+        currentCompany.name,
+        currentCompany.folderId,
+        userAccessFolderId,
+        currentCompany.logoUrl ?? '',
+      );
+
+      // Step 5: Register user in companies registry
+      setState(() {
+        _progressMessage = 'Finalizing setup...';
+      });
+      await driveService.upsertCompanyUserAccess(
+        rootFolderId,
+        currentWorkspaceId,
+        email,
+        spreadsheetId,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pop(context);
+      widget.onUserAdded();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('User $email added successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+        _progressMessage = '';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error adding user: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(
+            Icons.person_add,
+            color: widget.theme.primaryColor,
+            size: 24,
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'Add New User',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 400,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Enter the email address of the user you want to invite',
+                style: AppTheme.inter(
+                  fontSize: 14,
+                  color: widget.theme.textTheme.bodyMedium?.color?.withOpacity(0.7),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _emailController,
+                decoration: InputDecoration(
+                  hintText: 'user@example.com',
+                  prefixIcon: Icon(
+                    Icons.email_outlined,
+                    color: widget.theme.primaryColor,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: widget.theme.dividerColor,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: widget.theme.primaryColor,
+                      width: 2,
+                    ),
+                  ),
+                  errorBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(
+                      color: Colors.red,
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: _validateEmail,
+                enabled: !_isLoading,
+              ),
+              if (_isLoading) ...[
+                const SizedBox(height: 20),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: widget.theme.primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            widget.theme.primaryColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          _progressMessage,
+                          style: AppTheme.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: widget.theme.primaryColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.pop(context),
+          child: Text(
+            'Cancel',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w600,
+              color: _isLoading
+                  ? widget.theme.textTheme.bodyMedium?.color?.withOpacity(0.3)
+                  : widget.theme.textTheme.bodyMedium?.color,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _addUser,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: widget.theme.primaryColor,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor: widget.theme.primaryColor.withOpacity(0.3),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: Text(
+            'Add User',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
