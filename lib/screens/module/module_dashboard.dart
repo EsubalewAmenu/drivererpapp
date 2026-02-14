@@ -110,10 +110,41 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
                 }
               }
             }
+          } else if (formula.startsWith('=QUERY(')) {
+            final content = formula.substring(7, formula.length - 1);
+            final commaIndex = content.indexOf(',');
+            if (commaIndex > 0) {
+              final ref = content.substring(0, commaIndex).trim();
+              final queryPart = content.substring(commaIndex + 1).trim();
+              final refParts = ref.split(':');
+              if (refParts.length == 3) {
+                final moduleName = refParts[0].trim();
+                tabId = refParts[1].trim();
+                sheetName = refParts[2].trim();
+
+                if (moduleName != widget.module.name) {
+                  throw Exception('Module mismatch');
+                }
+
+                final tab = widget.module.tabs.firstWhere(
+                  (t) => t.id == tabId,
+                  orElse: () => widget.module.tabs.first,
+                );
+                spreadsheetId = tab.fileId ?? '';
+
+                if (queryPart.startsWith('"') && queryPart.endsWith('"')) {
+                  query = queryPart.substring(1, queryPart.length - 1);
+                } else if (queryPart.startsWith("'") && queryPart.endsWith("'")) {
+                  query = queryPart.substring(1, queryPart.length - 1);
+                } else {
+                  query = queryPart;
+                }
+              }
+            }
           }
 
           if (spreadsheetId.isEmpty || sheetName.isEmpty || query.isEmpty) {
-            throw Exception('Invalid CHART format');
+            throw Exception('Invalid chart/query format');
           }
 
           final results = await driveService.executeGvizTableQueryBySpreadsheetId(
