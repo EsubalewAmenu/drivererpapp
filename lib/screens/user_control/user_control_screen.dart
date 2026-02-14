@@ -249,7 +249,7 @@ class _UserControlScreenState extends State<UserControlScreen> {
               spreadsheetId: spreadsheetId,
             ),
           ),
-        );
+        ).then((_) => _loadUsers());
       },
       borderRadius: BorderRadius.circular(16),
       child: Container(
