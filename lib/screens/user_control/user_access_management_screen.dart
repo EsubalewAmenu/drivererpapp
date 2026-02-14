@@ -432,6 +432,8 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
       // Step 3: Read user's modules to get config file IDs and revoke targets
       final Set<String> fileIdsToDelete = {widget.spreadsheetId};
       final Set<String> revokeAccessIds = {};
+      // Will hold spreadsheetIds of shared configs to avoid deleting them
+      final Set<String> sharedConfigIds = {};
 
       String colLetter(int idx) {
         int i = idx;
@@ -467,6 +469,22 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
         final moduleFilesIndex = headerRow.indexOf('module_files');
         final configFolderIndex = headerRow.indexOf('config_folder_id');
 
+        // --- Fetch shared config spreadsheet IDs from companies shared_configs sheet ---
+        try {
+          final sharedConfigsResp = await driveService.sheetsApi.spreadsheets.values.get(
+            companiesRegistryId,
+            'shared_configs!E2:E',
+          );
+          final sharedConfigsValues = sharedConfigsResp.values ?? [];
+          for (final row in sharedConfigsValues) {
+            if (row.isNotEmpty && row[0].toString().isNotEmpty) {
+              sharedConfigIds.add(row[0].toString());
+            }
+          }
+        } catch (e) {
+          debugPrint('Warning: Could not read shared_configs sheet: $e');
+        }
+
         String cellAt(List<dynamic> row, int index) {
           if (index < 0 || index >= row.length) return '';
           return row[index].toString().trim();
@@ -484,9 +502,28 @@ class _UserAccessManagementScreenState extends State<UserAccessManagementScreen>
           if (moduleFilesId.isNotEmpty) revokeAccessIds.add(moduleFilesId);
           if (configFolderId.isNotEmpty) revokeAccessIds.add(configFolderId);
 
-          if (dashboardId.isNotEmpty) fileIdsToDelete.add(dashboardId);
-          if (settingsId.isNotEmpty) fileIdsToDelete.add(settingsId);
-          if (tabsId.isNotEmpty) fileIdsToDelete.add(tabsId);
+          // Only add dashboard/settings/tabs to fileIdsToDelete if NOT a shared config
+          if (dashboardId.isNotEmpty) {
+            if (sharedConfigIds.contains(dashboardId)) {
+              revokeAccessIds.add(dashboardId);
+            } else {
+              fileIdsToDelete.add(dashboardId);
+            }
+          }
+          if (settingsId.isNotEmpty) {
+            if (sharedConfigIds.contains(settingsId)) {
+              revokeAccessIds.add(settingsId);
+            } else {
+              fileIdsToDelete.add(settingsId);
+            }
+          }
+          if (tabsId.isNotEmpty) {
+            if (sharedConfigIds.contains(tabsId)) {
+              revokeAccessIds.add(tabsId);
+            } else {
+              fileIdsToDelete.add(tabsId);
+            }
+          }
         }
       } catch (e) {
         debugPrint('Warning: Could not read user modules before deletion: $e');
