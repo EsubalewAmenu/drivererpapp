@@ -309,6 +309,9 @@ class _UserControlScreenState extends State<UserControlScreen> {
   }
 
   void _showAddUserDialog(ThemeData theme) {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUserEmail = authService.currentUser?.email?.trim().toLowerCase();
+    
     showDialog(
       context: context,
       builder: (context) => _AddUserDialog(
@@ -318,6 +321,7 @@ class _UserControlScreenState extends State<UserControlScreen> {
         },
         getDriveContext: _getDriveContext,
         workspaceProvider: _workspaceProvider,
+        currentUserEmail: currentUserEmail,
       ),
     );
   }
@@ -340,12 +344,14 @@ class _AddUserDialog extends StatefulWidget {
   final VoidCallback onUserAdded;
   final _DriveContext Function() getDriveContext;
   final WorkspaceProvider? workspaceProvider;
+  final String? currentUserEmail;
 
   const _AddUserDialog({
     required this.theme,
     required this.onUserAdded,
     required this.getDriveContext,
     required this.workspaceProvider,
+    this.currentUserEmail,
   });
 
   @override
@@ -375,6 +381,10 @@ class _AddUserDialogState extends State<_AddUserDialog> {
     }
     if (!_emailRegex.hasMatch(value.trim())) {
       return 'Please enter a valid email address';
+    }
+    if (widget.currentUserEmail != null && 
+        value.trim().toLowerCase() == widget.currentUserEmail) {
+      return 'You cannot invite yourself';
     }
     return null;
   }
