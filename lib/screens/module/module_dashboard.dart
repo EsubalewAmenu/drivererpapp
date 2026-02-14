@@ -72,59 +72,49 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
            continue;
         }
         
-        // Handle Charts (Line, Bar, Pie)
+        // Handle Charts (Line, Bar, Pie, Progress, List)
         if (card.type != 'kpi') {
-           // For charts, we expect formula to be custom or parsed differently later.
-           // For now, let's assume valid SQL: =QUERY(sheet, "SELECT A, B")
-           // Or simplified: =CHART(sheet!A:B) -> SELECT A, B
-           
-           // Simple parsing for =CHART(sheet!A:B) or just use custom query if it starts with SELECT inside
-           // For MVP, let's support: =CHART(sheet!A:B) which implies fetch first two cols in range
-           
-           String sheetName = "";
-           String query = "";
-           
-           if (formula.startsWith('=CHART(')) {
-              final content = formula.substring(7, formula.length - 1);
-              final parts = content.split('!');
-              if (parts.length == 2) {
-                sheetName = parts[0];
-                final range = parts[1]; // A:B
-                final cols = range.split(':');
-                if (cols.length == 2) {
-                   // e.g. A and B
-                   final col1 = cols[0].replaceAll(RegExp(r'[^A-Z]'), '');
-                   final col2 = cols[1].replaceAll(RegExp(r'[^A-Z]'), '');
-                   // If range is same letter (A:A), fetch A. If A:B, fetch A, B
-                   if (col1 == col2) {
-                     query = "SELECT $col1";
-                   } else {
-                     query = "SELECT $col1, $col2";
-                   }
+          // Expected format: =CHART(SPREADSHEET_ID:SHEET_NAME!A:B)
+          String spreadsheetId = '';
+          String sheetName = '';
+          String query = '';
+
+          if (formula.startsWith('=CHART(')) {
+            final content = formula.substring(7, formula.length - 1);
+            final exclIndex = content.indexOf('!');
+            final colonIndex = content.indexOf(':');
+            if (exclIndex > 0 && colonIndex > 0 && colonIndex < exclIndex) {
+              spreadsheetId = content.substring(0, colonIndex).trim();
+              sheetName = content.substring(colonIndex + 1, exclIndex).trim();
+              final range = content.substring(exclIndex + 1); // A:B
+              final cols = range.split(':');
+              if (cols.length == 2) {
+                final col1 = cols[0].replaceAll(RegExp(r'[^A-Z]'), '');
+                final col2 = cols[1].replaceAll(RegExp(r'[^A-Z]'), '');
+                if (col1.isNotEmpty && col2.isNotEmpty) {
+                  query = col1 == col2 ? "SELECT $col1" : "SELECT $col1, $col2";
                 }
               }
-           } else if (formula.contains('SELECT')) {
-             // Custom Query: =QUERY(sheet, "SELECT...") ? Too complex to parse reliably without strict format
-             // Let's stick to the =CHART(sheet!A:B) format for the builder, 
-             // or reuse existing parser structure if possible.
-             throw Exception("Use =CHART(sheet!A:B) format");
-           }
-           
-           if (sheetName.isNotEmpty && query.isNotEmpty) {
-              final results = await driveService.executeGvizTableQuery(
-                widget.module.id,
-                sheetName,
-                query
-              );
-              
-              if (mounted) {
-                setState(() {
-                  _chartDataMap[card.label] = results ?? [];
-                  _loadingMap[card.label] = false;
-                });
-              }
-           }
-           continue; 
+            }
+          }
+
+          if (spreadsheetId.isEmpty || sheetName.isEmpty || query.isEmpty) {
+            throw Exception('Invalid CHART format');
+          }
+
+          final results = await driveService.executeGvizTableQueryBySpreadsheetId(
+            spreadsheetId,
+            sheetName,
+            query,
+          );
+
+          if (mounted) {
+            setState(() {
+              _chartDataMap[card.label] = results ?? [];
+              _loadingMap[card.label] = false;
+            });
+          }
+          continue;
         }
 
         // ... Existing KPI Logic ...
@@ -142,14 +132,22 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
         
         if (args.isEmpty) throw Exception('No arguments');
 
-        // Parse Range: sheet!A:A or sheet!A
+        // Parse Range: SPREADSHEET_ID:SHEET_NAME!A:A
         final rangePart = args[0];
-        final rangeSplit = rangePart.split('!');
-        if (rangeSplit.length != 2) throw Exception('Invalid Range');
-        
-        final sheetName = rangeSplit[0]; // e.g. "stocks"
-        final colRange = rangeSplit[1];   // e.g. "B:B" or "B"
+        final exclIndex = rangePart.indexOf('!');
+        final colonIndex = rangePart.indexOf(':');
+        if (exclIndex == -1 || colonIndex == -1 || colonIndex > exclIndex) {
+          throw Exception('Invalid Range');
+        }
+
+        final spreadsheetId = rangePart.substring(0, colonIndex).trim();
+        final sheetName = rangePart.substring(colonIndex + 1, exclIndex).trim();
+        final colRange = rangePart.substring(exclIndex + 1); // e.g. "B:B" or "B"
         final colLetter = colRange.split(':')[0].replaceAll(RegExp(r'[^A-Z]'), '');
+
+        if (spreadsheetId.isEmpty || sheetName.isEmpty || colLetter.isEmpty) {
+          throw Exception('Invalid Range');
+        }
 
         String query = "";
         
@@ -190,10 +188,10 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
         }
 
         // Execute
-        final result = await driveService.executeGvizQuery(
-          widget.module.id, // Module folder ID
-          sheetName,        // Spreadsheet Name (Tab ID)
-          query
+        final result = await driveService.executeGvizQueryBySpreadsheetId(
+          spreadsheetId,
+          sheetName,
+          query,
         );
 
         if (mounted) {
