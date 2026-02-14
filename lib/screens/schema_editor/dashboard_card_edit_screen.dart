@@ -27,14 +27,14 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
   late String _mode; // 'builder', 'custom'
 
   // Builder State for KPI
-  String? _selectedSpreadsheetId;
+  String? _selectedTabId;
   String? _selectedSheetName;
   String? _selectedColumnKey;
   String? _selectedOperator;
   late TextEditingController _conditionController;
 
   // Builder State for Charts
-  String? _chartSpreadsheetId;
+  String? _chartTabId;
   String? _chartSheetName;
   String? _xAxisColumn;
   String? _yAxisColumn;
@@ -76,8 +76,8 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
   }
 
   void _tryParseExistingFormula(String formula) {
-    // Try to extract spreadsheet ID and sheet name from formula
-    // Format: =FUNCTION(SPREADSHEET_ID:SHEET_NAME!COLUMN, ...)
+    // Try to extract module, tab, and sheet name from formula
+    // Format: =FUNCTION(MODULE_ID:TAB_ID:SHEET_NAME!COLUMN, ...)
     if (!formula.startsWith('=')) {
       _mode = 'custom';
       return;
@@ -94,17 +94,23 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
       final func = content.substring(0, parenIndex).toUpperCase();
       final argsStr = content.substring(parenIndex + 1, content.lastIndexOf(')'));
       
-      // Parse SPREADSHEET_ID:SHEET_NAME!COLUMN format
+      // Parse MODULE_ID:TAB_ID:SHEET_NAME!COLUMN format
       if (argsStr.contains(':') && argsStr.contains('!')) {
         final firstComma = argsStr.indexOf(',');
         final reference = firstComma > 0 ? argsStr.substring(0, firstComma).trim() : argsStr.trim();
         
-        final colonIndex = reference.indexOf(':');
         final exclIndex = reference.indexOf('!');
+        final colonParts = reference.substring(0, exclIndex).split(':');
         
-        if (colonIndex > 0 && exclIndex > colonIndex) {
-          _selectedSpreadsheetId = reference.substring(0, colonIndex);
-          _selectedSheetName = reference.substring(colonIndex + 1, exclIndex);
+        if (exclIndex > 0 && colonParts.length == 3) {
+          final moduleId = colonParts[0];
+          final tabId = colonParts[1];
+          final sheetName = colonParts[2];
+          
+          if (moduleId == widget.module.id) {
+            _selectedTabId = tabId;
+            _selectedSheetName = sheetName;
+          }
           
           // Extract column
           final columnPart = reference.substring(exclIndex + 1);
@@ -125,9 +131,9 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
             _selectedOperator = 'count';
           }
           
-          // Load sheets for this spreadsheet
-          if (_selectedSpreadsheetId != null) {
-            _loadSheetsForSpreadsheet(_selectedSpreadsheetId!);
+          // Load sheets for this tab
+          if (_selectedTabId != null) {
+            _loadSheetsForTab(_selectedTabId!);
           }
         }
       }
@@ -137,7 +143,7 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
     }
   }
 
-  Future<void> _loadSheetsForSpreadsheet(String spreadsheetId) async {
+  Future<void> _loadSheetsForTab(String tabId) async {
     setState(() {
       _loadingSheets = true;
       _availableSheets = [];
@@ -147,6 +153,15 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
       final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
       if (driveService == null) {
         throw Exception('Drive service not available');
+      }
+
+      final tab = widget.module.tabs.firstWhere(
+        (t) => t.id == tabId,
+        orElse: () => widget.module.tabs.first,
+      );
+      final spreadsheetId = tab.fileId;
+      if (spreadsheetId == null || spreadsheetId.isEmpty) {
+        throw Exception('Spreadsheet not found for selected tab');
       }
 
       final spreadsheet = await driveService.sheetsApi.spreadsheets.get(spreadsheetId);
@@ -281,25 +296,25 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
         Text('Data Source', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
         const SizedBox(height: 8),
         _buildDropdown<String>(
-          value: _selectedSpreadsheetId,
-          hint: 'Select Spreadsheet',
+          value: _selectedTabId,
+          hint: 'Select Tab',
           items: availableTabs.map((t) => DropdownMenuItem(
-            value: t.fileId!,
+            value: t.id,
             child: Text(t.label),
           )).toList(),
           onChanged: (val) {
             setState(() {
-              _selectedSpreadsheetId = val;
+              _selectedTabId = val;
               _selectedSheetName = null;
               _selectedColumnKey = null;
             });
             if (val != null) {
-              _loadSheetsForSpreadsheet(val);
+              _loadSheetsForTab(val);
             }
           },
         ),
 
-        if (_selectedSpreadsheetId != null) ...[
+        if (_selectedTabId != null) ...[
           const SizedBox(height: 24),
           // Sheet Name Selection
           Text('Sheet Name', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
@@ -409,26 +424,26 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
         Text('Data Source', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
         const SizedBox(height: 8),
         _buildDropdown<String>(
-          value: _chartSpreadsheetId,
-          hint: 'Select Spreadsheet',
+          value: _chartTabId,
+          hint: 'Select Tab',
           items: availableTabs.map((t) => DropdownMenuItem(
-            value: t.fileId!,
+            value: t.id,
             child: Text(t.label),
           )).toList(),
           onChanged: (val) {
             setState(() {
-              _chartSpreadsheetId = val;
+              _chartTabId = val;
               _chartSheetName = null;
               _xAxisColumn = null;
               _yAxisColumn = null;
             });
             if (val != null) {
-              _loadSheetsForSpreadsheet(val);
+              _loadSheetsForTab(val);
             }
           },
         ),
 
-        if (_chartSpreadsheetId != null) ...[
+        if (_chartTabId != null) ...[
           const SizedBox(height: 24),
           // Sheet Name
           Text('Sheet Name', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
@@ -519,7 +534,7 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
           decoration: InputDecoration(
             filled: true,
             fillColor: theme.cardTheme.color,
-            hintText: '=SUM(SPREADSHEET_ID:SHEET_NAME!A:A)',
+            hintText: '=SUM(MODULE_ID:TAB_ID:SHEET_NAME!A:A)',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           ),
         ),
@@ -534,12 +549,12 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Format: =FUNCTION(SPREADSHEET_ID:SHEET_NAME!COLUMN)',
+                'Format: =FUNCTION(MODULE_ID:TAB_ID:SHEET_NAME!COLUMN)',
                 style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.w600, color: theme.primaryColor),
               ),
               const SizedBox(height: 4),
               Text(
-                'Example: =SUM(1a2b3c:Sales!B:B)',
+                'Example: =SUM(crm:contacts:Contacts!B:B)',
                 style: AppTheme.inter(fontSize: 11, color: theme.primaryColor.withValues(alpha: 0.8)),
               ),
             ],
@@ -582,11 +597,11 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
   }
 
   String _generateKpiFormula() {
-    if (_selectedSpreadsheetId == null || _selectedSheetName == null || _selectedColumnKey == null || _selectedOperator == null) {
+    if (_selectedTabId == null || _selectedSheetName == null || _selectedColumnKey == null || _selectedOperator == null) {
       return 'Incomplete configuration';
     }
 
-    final reference = '$_selectedSpreadsheetId:$_selectedSheetName!$_selectedColumnKey:$_selectedColumnKey';
+    final reference = '${widget.module.id}:$_selectedTabId:$_selectedSheetName!$_selectedColumnKey:$_selectedColumnKey';
 
     switch (_selectedOperator) {
       case 'count':
@@ -605,11 +620,11 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
   }
 
   String _generateChartFormula() {
-    if (_chartSpreadsheetId == null || _chartSheetName == null || _xAxisColumn == null || _yAxisColumn == null) {
+    if (_chartTabId == null || _chartSheetName == null || _xAxisColumn == null || _yAxisColumn == null) {
       return 'Incomplete configuration';
     }
 
-    // Format: =CHART(SPREADSHEET_ID:SHEET_NAME!X_COL:Y_COL)
-    return '=CHART($_chartSpreadsheetId:$_chartSheetName!$_xAxisColumn:$_yAxisColumn)';
+    // Format: =CHART(MODULE_ID:TAB_ID:SHEET_NAME!X_COL:Y_COL)
+    return '=CHART(${widget.module.id}:$_chartTabId:$_chartSheetName!$_xAxisColumn:$_yAxisColumn)';
   }
 }

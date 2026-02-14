@@ -74,18 +74,32 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
         
         // Handle Charts (Line, Bar, Pie, Progress, List)
         if (card.type != 'kpi') {
-          // Expected format: =CHART(SPREADSHEET_ID:SHEET_NAME!A:B)
+          // Expected format: =CHART(MODULE_ID:TAB_ID:SHEET_NAME!A:B)
           String spreadsheetId = '';
+          String tabId = '';
           String sheetName = '';
           String query = '';
 
           if (formula.startsWith('=CHART(')) {
             final content = formula.substring(7, formula.length - 1);
             final exclIndex = content.indexOf('!');
-            final colonIndex = content.indexOf(':');
-            if (exclIndex > 0 && colonIndex > 0 && colonIndex < exclIndex) {
-              spreadsheetId = content.substring(0, colonIndex).trim();
-              sheetName = content.substring(colonIndex + 1, exclIndex).trim();
+            if (exclIndex > 0) {
+              final refParts = content.substring(0, exclIndex).split(':');
+              if (refParts.length == 3) {
+                final moduleId = refParts[0].trim();
+                tabId = refParts[1].trim();
+                sheetName = refParts[2].trim();
+
+                if (moduleId != widget.module.id) {
+                  throw Exception('Module mismatch');
+                }
+
+                final tab = widget.module.tabs.firstWhere(
+                  (t) => t.id == tabId,
+                  orElse: () => widget.module.tabs.first,
+                );
+                spreadsheetId = tab.fileId ?? '';
+              }
               final range = content.substring(exclIndex + 1); // A:B
               final cols = range.split(':');
               if (cols.length == 2) {
@@ -132,16 +146,31 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
         
         if (args.isEmpty) throw Exception('No arguments');
 
-        // Parse Range: SPREADSHEET_ID:SHEET_NAME!A:A
+        // Parse Range: MODULE_ID:TAB_ID:SHEET_NAME!A:A
         final rangePart = args[0];
         final exclIndex = rangePart.indexOf('!');
-        final colonIndex = rangePart.indexOf(':');
-        if (exclIndex == -1 || colonIndex == -1 || colonIndex > exclIndex) {
+        if (exclIndex == -1) {
           throw Exception('Invalid Range');
         }
 
-        final spreadsheetId = rangePart.substring(0, colonIndex).trim();
-        final sheetName = rangePart.substring(colonIndex + 1, exclIndex).trim();
+        final refParts = rangePart.substring(0, exclIndex).split(':');
+        if (refParts.length != 3) {
+          throw Exception('Invalid Range');
+        }
+
+        final moduleId = refParts[0].trim();
+        final tabId = refParts[1].trim();
+        final sheetName = refParts[2].trim();
+
+        if (moduleId != widget.module.id) {
+          throw Exception('Module mismatch');
+        }
+
+        final tab = widget.module.tabs.firstWhere(
+          (t) => t.id == tabId,
+          orElse: () => widget.module.tabs.first,
+        );
+        final spreadsheetId = tab.fileId ?? '';
         final colRange = rangePart.substring(exclIndex + 1); // e.g. "B:B" or "B"
         final colLetter = colRange.split(':')[0].replaceAll(RegExp(r'[^A-Z]'), '');
 
