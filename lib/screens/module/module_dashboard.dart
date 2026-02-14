@@ -224,8 +224,11 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
 
           // Build Where Clause
           String where = "";
-          if (criteria.startsWith('<') || criteria.startsWith('>')) {
-            where = "$colLetter $criteria";
+          if (criteria.startsWith('<=') || criteria.startsWith('>=') || criteria.startsWith('<') || criteria.startsWith('>') || criteria.startsWith('=')) {
+            final operatorMatch = RegExp(r'^(<=|>=|<|>|=)').firstMatch(criteria);
+            final operator = operatorMatch != null ? operatorMatch.group(0)! : '';
+            final value = criteria.substring(operator.length).trim();
+            where = value.isNotEmpty ? "$colLetter $operator $value" : "$colLetter $criteria";
           } else {
              // Exact match string or number
              final isNum = double.tryParse(criteria) != null;
@@ -237,12 +240,172 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
           }
           query = "SELECT count($colLetter) WHERE $where";
 
+        } else if (func == 'COUNTIFS' && args.length >= 2) {
+          // =COUNTIFS(range1, criteria1, range2, criteria2, ...)
+          if (args.length % 2 != 0) {
+            throw Exception('Invalid COUNTIFS arguments');
+          }
+
+          final whereClauses = <String>[];
+          String? sharedSpreadsheetId;
+          String? sharedSheetName;
+
+          for (int i = 0; i < args.length; i += 2) {
+            final rangeArg = args[i];
+            var criteria = args[i + 1];
+
+            if (criteria.startsWith('"') && criteria.endsWith('"')) {
+              criteria = criteria.substring(1, criteria.length - 1);
+            } else if (criteria.startsWith("'") && criteria.endsWith("'")) {
+              criteria = criteria.substring(1, criteria.length - 1);
+            }
+
+            final excl = rangeArg.indexOf('!');
+            if (excl == -1) throw Exception('Invalid Range');
+            final refParts = rangeArg.substring(0, excl).split(':');
+            if (refParts.length != 3) throw Exception('Invalid Range');
+
+            final moduleName = refParts[0].trim();
+            final tabId = refParts[1].trim();
+            final sheet = refParts[2].trim();
+
+            if (moduleName != widget.module.name) {
+              throw Exception('Module mismatch');
+            }
+
+            final tab = widget.module.tabs.firstWhere(
+              (t) => t.id == tabId,
+              orElse: () => widget.module.tabs.first,
+            );
+            final spreadsheetId = tab.fileId ?? '';
+
+            if (sharedSpreadsheetId == null) {
+              sharedSpreadsheetId = spreadsheetId;
+              sharedSheetName = sheet;
+            } else if (sharedSpreadsheetId != spreadsheetId || sharedSheetName != sheet) {
+              throw Exception('COUNTIFS ranges must be on the same sheet');
+            }
+
+            final colRangeArg = rangeArg.substring(excl + 1);
+            final col = colRangeArg.split(':')[0].replaceAll(RegExp(r'[^A-Z]'), '');
+            if (col.isEmpty) throw Exception('Invalid Range');
+
+            String clause = '';
+            if (criteria.startsWith('<=') || criteria.startsWith('>=') || criteria.startsWith('<') || criteria.startsWith('>') || criteria.startsWith('=')) {
+              final operatorMatch = RegExp(r'^(<=|>=|<|>|=)').firstMatch(criteria);
+              final operator = operatorMatch != null ? operatorMatch.group(0)! : '';
+              final value = criteria.substring(operator.length).trim();
+              clause = value.isNotEmpty ? "$col $operator $value" : "$col $criteria";
+            } else {
+              final isNum = double.tryParse(criteria) != null;
+              clause = isNum ? "$col = $criteria" : "$col = '$criteria'";
+            }
+
+            whereClauses.add(clause);
+          }
+
+          if (sharedSpreadsheetId == null || sharedSheetName == null) {
+            throw Exception('Invalid COUNTIFS ranges');
+          }
+
+          query = "SELECT count(A) WHERE ${whereClauses.join(' AND ')}";
+
+          // Override sheet context based on COUNTIFS ranges
+          final spreadsheetId = sharedSpreadsheetId;
+          final sheetName = sharedSheetName;
+
+          final result = await driveService.executeGvizQueryBySpreadsheetId(
+            spreadsheetId!,
+            sheetName!,
+            query,
+          );
+
+          if (mounted) {
+            if (result != null) {
+              _updateCardValue(card, result.toString());
+            } else {
+              _updateCardValue(card, "0");
+            }
+          }
+          continue;
+
         } else if (func == 'SUM') {
            query = "SELECT sum($colLetter)";
         } else if (func == 'AVERAGE') {
            query = "SELECT avg($colLetter)";
         } else if (func == 'COUNTA' || func == 'COUNT') {
            query = "SELECT count($colLetter)";
+        } else if (func == 'SUMPRODUCT' && args.length >= 2) {
+          // =SUMPRODUCT(range1, range2)
+          final range1 = args[0];
+          final range2 = args[1];
+
+          String parseCol(String range) {
+            final excl = range.indexOf('!');
+            if (excl == -1) throw Exception('Invalid Range');
+            final colRange = range.substring(excl + 1);
+            return colRange.split(':')[0].replaceAll(RegExp(r'[^A-Z]'), '');
+          }
+
+          Map<String, String> parseRef(String range) {
+            final excl = range.indexOf('!');
+            if (excl == -1) throw Exception('Invalid Range');
+            final refParts = range.substring(0, excl).split(':');
+            if (refParts.length != 3) throw Exception('Invalid Range');
+
+            final moduleName = refParts[0].trim();
+            final tabId = refParts[1].trim();
+            final sheet = refParts[2].trim();
+
+            if (moduleName != widget.module.name) {
+              throw Exception('Module mismatch');
+            }
+
+            final tab = widget.module.tabs.firstWhere(
+              (t) => t.id == tabId,
+              orElse: () => widget.module.tabs.first,
+            );
+            final spreadsheetId = tab.fileId ?? '';
+            return {
+              'spreadsheetId': spreadsheetId,
+              'sheetName': sheet,
+            };
+          }
+
+          final ref1 = parseRef(range1);
+          final ref2 = parseRef(range2);
+          final spreadsheetId1 = ref1['spreadsheetId'] ?? '';
+          final sheetName1 = ref1['sheetName'] ?? '';
+          final spreadsheetId2 = ref2['spreadsheetId'] ?? '';
+          final sheetName2 = ref2['sheetName'] ?? '';
+
+          if (spreadsheetId1.isEmpty || spreadsheetId2.isEmpty || sheetName1.isEmpty || sheetName2.isEmpty) {
+            throw Exception('Invalid Range');
+          }
+          if (spreadsheetId1 != spreadsheetId2 || sheetName1 != sheetName2) {
+            throw Exception('SUMPRODUCT ranges must be on the same sheet');
+          }
+
+          final col1 = parseCol(range1);
+          final col2 = parseCol(range2);
+          if (col1.isEmpty || col2.isEmpty) throw Exception('Invalid Range');
+
+          query = "SELECT sum($col1 * $col2)";
+
+          final result = await driveService.executeGvizQueryBySpreadsheetId(
+            spreadsheetId1,
+            sheetName1,
+            query,
+          );
+
+          if (mounted) {
+            if (result != null) {
+              _updateCardValue(card, result.toString());
+            } else {
+              _updateCardValue(card, "0");
+            }
+          }
+          continue;
         } else {
            throw Exception('Unknown Function: $func');
         }

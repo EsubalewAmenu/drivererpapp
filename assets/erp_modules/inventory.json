@@ -12,12 +12,12 @@
   "dashboard": {"cards": [
       {
         "label": "Total Stock Value",
-        "formula": "=SUMPRODUCT(Inventory:variants:variants!G:G, Inventory:variants:variants!H:H)", 
+        "formula": "=SUMPRODUCT(Inventory:variants:variants!F:F, Inventory:variants:variants!G:G)", 
         "format": "currency"
       },
       {
         "label": "Low Stock Alerts",
-        "formula": "=COUNTIF(Inventory:variants:variants!G:G, \"<10\")",
+        "formula": "=COUNTIF(Inventory:variants:variants!H:H, \"<10\")",
         "format": "number",
         "color": "#F44336"
       }
