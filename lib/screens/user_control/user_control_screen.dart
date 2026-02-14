@@ -4,6 +4,7 @@ import 'package:googleapis/drive/v3.dart' as drive;
 import '../../theme/app_theme.dart';
 import '../../providers/workspace_provider.dart';
 import '../../providers/drive_provider.dart';
+import '../../services/auth_service.dart';
 import '../../services/drive_service.dart';
 import 'user_access_management_screen.dart';
 
@@ -63,6 +64,10 @@ class _UserControlScreenState extends State<UserControlScreen> {
       final driveService = driveContext.driveService;
       final rootFolderId = driveContext.rootFolderId;
       final currentWorkspaceId = driveContext.currentWorkspaceId;
+      
+      // Get current user email
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final currentUserEmail = authService.currentUser?.email?.trim().toLowerCase();
 
       // Get companies registry ID directly
       final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
@@ -86,7 +91,10 @@ class _UserControlScreenState extends State<UserControlScreen> {
       final userRows = values.skip(1).where((row) {
         if (row.isEmpty) return false;
         final companyFolderId = row[0].toString();
-        return companyFolderId == currentWorkspaceId;
+        final email = row.length > 1 ? row[1].toString().trim().toLowerCase() : '';
+        // Filter by workspace and exclude current user
+        return companyFolderId == currentWorkspaceId && 
+               (currentUserEmail == null || email != currentUserEmail);
       }).toList();
 
       // Map to user list
