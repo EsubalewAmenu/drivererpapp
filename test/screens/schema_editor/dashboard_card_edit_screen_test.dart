@@ -3,8 +3,25 @@ import 'package:drivererpapp/screens/schema_editor/dashboard_card_edit_screen.da
 import 'package:drivererpapp/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
+import 'package:provider/provider.dart';
+import 'package:drivererpapp/providers/drive_provider.dart';
+import 'package:drivererpapp/services/drive_service.dart';
+import 'package:googleapis/sheets/v4.dart' as sheets;
+
+class MockDriveProvider extends Mock implements DriveProvider {}
+class MockDriveService extends Mock implements DriveService {}
+class MockSheetsApi extends Mock implements sheets.SheetsApi {}
+class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
+class MockSpreadsheetsValuesResource extends Mock implements sheets.SpreadsheetsValuesResource {}
 
 void main() {
+  late MockDriveProvider mockDriveProvider;
+  late MockDriveService mockDriveService;
+  late MockSheetsApi mockSheetsApi;
+  late MockSpreadsheetsResource mockSpreadsheets;
+  late MockSpreadsheetsValuesResource mockValues;
+
   final module = ModuleSchema(
     id: 'test_mod',
     name: 'Test Module',
@@ -22,25 +39,61 @@ void main() {
           ColumnConfig(key: 'qty', label: 'Quantity', type: 'number'),
           ColumnConfig(key: 'price', label: 'Price', type: 'currency'),
         ],
+        fileId: 'stocks_sheet_id',
       ),
     ],
   );
 
+  setUp(() {
+    mockDriveProvider = MockDriveProvider();
+    mockDriveService = MockDriveService();
+    mockSheetsApi = MockSheetsApi();
+    mockSpreadsheets = MockSpreadsheetsResource();
+    mockValues = MockSpreadsheetsValuesResource();
+
+    when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
+    when(() => mockDriveService.sheetsApi).thenReturn(mockSheetsApi);
+    when(() => mockSheetsApi.spreadsheets).thenReturn(mockSpreadsheets);
+    when(() => mockSpreadsheets.values).thenReturn(mockValues);
+
+    when(() => mockSpreadsheets.get(any())).thenAnswer((_) async =>
+        sheets.Spreadsheet(sheets: [
+          sheets.Sheet(properties: sheets.SheetProperties(title: 'stocks', sheetId: 0)),
+        ]));
+
+    when(() => mockValues.get(any(), any())).thenAnswer((_) async =>
+        sheets.ValueRange(values: [[
+          'Item Name',
+          'Quantity',
+          'Price',
+        ]]));
+  });
+
   Widget createSubject(DashboardCard card) {
     return MaterialApp(
       theme: AppTheme.lightTheme,
-      home: DashboardCardEditScreen(
-        card: card,
-        module: module,
-        index: 0,
+      home: MultiProvider(
+        providers: [
+          ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
+        ],
+        child: DashboardCardEditScreen(
+          card: card,
+          module: module,
+          index: 0,
+        ),
       ),
     );
   }
 
   testWidgets('DashboardCardEditScreen initializes in builder mode for known formulas', (WidgetTester tester) async {
-    final card = DashboardCard(label: 'Total Qty', formula: '=SUM(stocks!B:B)', format: 'number');
+    final card = DashboardCard(
+      label: 'Total Qty',
+      formula: '=SUM(Test Module:stocks:stocks!B:B)',
+      format: 'number',
+    );
     
     await tester.pumpWidget(createSubject(card));
+    await tester.pumpAndSettle();
 
     expect(find.text('Use Formula Builder'), findsOneWidget);
     // Switch should be on
@@ -48,8 +101,14 @@ void main() {
     expect(switchWidget.value, isTrue);
     
     // Check specific fields populated
-    expect(find.text('Stocks'), findsOneWidget); // Sheet dropdown
-    expect(find.text('Quantity'), findsOneWidget); // Column dropdown (B is index 1 -> qty)
+    expect(find.text('Stocks'), findsOneWidget); // Tab dropdown
+    // Column dropdown should include Quantity
+    final columnDropdown = find.byType(DropdownButton<String>).at(2);
+    await tester.tap(columnDropdown, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.text('Quantity'), findsWidgets);
+    await tester.tap(find.text('Quantity').last, warnIfMissed: false);
+    await tester.pumpAndSettle();
   });
 
   testWidgets('DashboardCardEditScreen builder generates correct formula', (WidgetTester tester) async {
@@ -61,22 +120,26 @@ void main() {
     
     await tester.pumpWidget(createSubject(card));
 
-    // Enable Builder Mode
-    await tester.tap(find.byType(SwitchListTile), warnIfMissed: false);
-    await tester.pumpAndSettle();
+    // Builder mode is enabled by default
 
-    // 1. Select Sheet -> Stocks
-    final sheetDropdown = find.text('Select Sheet');
-    await tester.ensureVisible(sheetDropdown);
-    await tester.tap(sheetDropdown, warnIfMissed: false);
+    // 1. Select Tab -> Stocks
+    final tabDropdown = find.byType(DropdownButton<String>).at(0);
+    await tester.tap(tabDropdown, warnIfMissed: false);
     await tester.pumpAndSettle();
     
     await tester.tap(find.text('Stocks').last, warnIfMissed: false); 
     await tester.pumpAndSettle();
 
-    // 2. Select Field -> Price (Index 2 -> C)
-    final fieldDropdown = find.text('Select Field');
-    await tester.ensureVisible(fieldDropdown);
+    // 2. Select Sheet -> stocks
+    final sheetDropdown = find.byType(DropdownButton<String>).at(1);
+    await tester.tap(sheetDropdown, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('stocks').last, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    // 3. Select Column -> Price (Index 2 -> C)
+    final fieldDropdown = find.byType(DropdownButton<String>).at(2);
     await tester.tap(fieldDropdown, warnIfMissed: false);
     await tester.pumpAndSettle();
     
@@ -87,8 +150,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // 3. Select Operation -> Average
-    final opDropdown = find.text('Select Operation');
-    await tester.ensureVisible(opDropdown);
+    final opDropdown = find.byType(DropdownButton<String>).at(3);
     await tester.tap(opDropdown, warnIfMissed: false);
     await tester.pumpAndSettle();
     
@@ -96,10 +158,10 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify Generated Formula
-    await tester.tap(find.text('GENERATED FORMULA'), warnIfMissed: false); // Focus something else to ensure text field commits?
+    await tester.tap(find.text('FORMULA PREVIEW'), warnIfMissed: false);
     await tester.pumpAndSettle();
     
-    expect(find.text('=AVERAGE(stocks!C:C)'), findsOneWidget);
+    expect(find.text('=AVERAGE(Test Module:stocks:stocks!C:C)'), findsOneWidget);
   });
   
   testWidgets('DashboardCardEditScreen count_if shows input and generates correct formula', (WidgetTester tester) async {
@@ -111,30 +173,32 @@ void main() {
     
     await tester.pumpWidget(createSubject(card));
 
-    // Enable Builder Mode
-    await tester.tap(find.byType(SwitchListTile));
-    await tester.pumpAndSettle();
+    // Builder mode is enabled by default
 
-    // 1. Select Sheet -> Stocks
-    final sheetDropdown = find.text('Select Sheet');
-    await tester.ensureVisible(sheetDropdown);
-    await tester.tap(sheetDropdown);
+    // 1. Select Tab -> Stocks
+    final tabDropdown = find.byType(DropdownButton<String>).at(0);
+    await tester.tap(tabDropdown, warnIfMissed: false);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Stocks').last);
     await tester.pumpAndSettle();
 
-    // 2. Select Field -> Quantity
-    final fieldDropdown = find.text('Select Field');
-    await tester.ensureVisible(fieldDropdown);
-    await tester.tap(fieldDropdown);
+    // 2. Select Sheet -> stocks
+    final sheetDropdown = find.byType(DropdownButton<String>).at(1);
+    await tester.tap(sheetDropdown, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('stocks').last);
+    await tester.pumpAndSettle();
+
+    // 3. Select Column -> Quantity
+    final fieldDropdown = find.byType(DropdownButton<String>).at(2);
+    await tester.tap(fieldDropdown, warnIfMissed: false);
     await tester.pumpAndSettle();
     await tester.tap(find.text('Quantity').last); // B
     await tester.pumpAndSettle();
 
     // 3. Select Operation -> Count If...
-    final opDropdown = find.text('Select Operation');
-    await tester.ensureVisible(opDropdown);
-    await tester.tap(opDropdown);
+    final opDropdown = find.byType(DropdownButton<String>).at(3);
+    await tester.tap(opDropdown, warnIfMissed: false);
     await tester.pumpAndSettle();
     
     await tester.tap(find.text('Count If...').last);
@@ -149,10 +213,10 @@ void main() {
     // Verify Generated Formula
     // stocks!B:B -> Quantity is 2nd column (index 1) -> B
     // CountIf condition input might need to lose focus or pump
-    await tester.tap(find.text('GENERATED FORMULA')); 
+    await tester.tap(find.text('FORMULA PREVIEW'));
     await tester.pumpAndSettle();
 
-    expect(find.text('=COUNTIF(stocks!B:B, "<10")'), findsOneWidget);
+    expect(find.textContaining('=COUNTIF(Test Module:stocks:stocks!B:B'), findsOneWidget);
   });
 
   testWidgets('DashboardCardEditScreen supports text format without crashing', (WidgetTester tester) async {

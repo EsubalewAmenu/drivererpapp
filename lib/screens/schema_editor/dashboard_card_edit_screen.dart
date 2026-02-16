@@ -142,6 +142,11 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
           if (_selectedTabId != null) {
             _loadSheetsForTab(_selectedTabId!);
           }
+
+          // Load columns for selected sheet when available
+          if (_selectedTabId != null && _selectedSheetName != null) {
+            _loadColumnsForTabSheet(_selectedTabId!, _selectedSheetName!);
+          }
         }
       }
     } catch (e) {
