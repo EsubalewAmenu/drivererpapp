@@ -14,28 +14,28 @@
     "cards": [
       {
         "label": "Total Contacts",
-        "formula": "=COUNTA(contacts!A:A)",
+        "formula": "=COUNTA(CRM:contacts:contacts!A:A)",
         "type": "kpi",
         "format": "number"
       },
       {
         "label": "Contacts by Status",
-        "formula": "=QUERY(contacts, \"SELECT F, count(A) GROUP BY F\")",
+        "formula": "=QUERY(CRM:contacts:contacts, \"SELECT F, count(A) GROUP BY F\")",
         "type": "pie"
       },
       {
         "label": "Sources Breakdown",
-        "formula": "=QUERY(contacts, \"SELECT H, count(A) GROUP BY H\")",
+        "formula": "=QUERY(CRM:contacts:contacts, \"SELECT K, count(A) GROUP BY K\")",
         "type": "bar"
       },
       {
         "label": "Monthly Growth",
-        "formula": "=QUERY(contacts, \"SELECT month(M), count(A) GROUP BY month(M)\")",
+        "formula": "=QUERY(CRM:contacts:contacts, \"SELECT A, count(A) GROUP BY A\")",
         "type": "line"
       },
       {
         "label": "Recent Additions",
-        "formula": "=QUERY(contacts, \"SELECT B, F, H ORDER BY L DESC LIMIT 5\")",
+        "formula": "=QUERY(CRM:contacts:contacts, \"SELECT B, F, K ORDER BY B DESC LIMIT 5\")",
         "type": "list"
       }
     ]

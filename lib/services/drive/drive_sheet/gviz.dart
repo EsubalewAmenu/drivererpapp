@@ -28,7 +28,7 @@ mixin DriveSheetGviz on DriveSheetMixin {
         gid = exactMatch.properties?.sheetId ?? 0;
       }
 
-      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=0&gid=$gid';
+      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=1&gid=$gid';
       
       final response = await authClient.get(Uri.parse(url));
       if (response.statusCode != 200) {
@@ -44,6 +44,63 @@ mixin DriveSheetGviz on DriveSheetMixin {
       final jsonStr = body.substring(start, end + 1);
       final decoded = jsonDecode(jsonStr);
       
+      if (decoded['status'] == 'error') {
+        debugPrint('Gviz Error: ${decoded['errors']}');
+        return null;
+      }
+
+      final table = decoded['table'];
+      final rows = table['rows'] as List;
+      if (rows.isEmpty) return null;
+
+      final firstRow = rows[0];
+      final cells = firstRow['c'] as List;
+      if (cells.isNotEmpty && cells[0] != null) {
+        return cells[0]['v'];
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error executing Gviz query: $e');
+      return null;
+    }
+  }
+
+  /// Executes a raw Google Visualization API Query (tq) using a known spreadsheet ID.
+  Future<dynamic> executeGvizQueryBySpreadsheetId(
+    String spreadsheetId,
+    String sheetName,
+    String query,
+  ) async {
+    try {
+      if (spreadsheetId.isEmpty) return null;
+
+      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+
+      int gid = 0;
+      if (spreadsheet.sheets != null && spreadsheet.sheets!.isNotEmpty) {
+        final exactMatch = spreadsheet.sheets!.firstWhere(
+          (s) => s.properties?.title == sheetName,
+          orElse: () => spreadsheet.sheets!.first,
+        );
+        gid = exactMatch.properties?.sheetId ?? 0;
+      }
+
+      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=1&gid=$gid';
+
+      final response = await authClient.get(Uri.parse(url));
+      if (response.statusCode != 200) {
+        debugPrint('Gviz query failed: ${response.statusCode} for $url');
+        return null;
+      }
+
+      final body = response.body;
+      final start = body.indexOf('{');
+      final end = body.lastIndexOf('}');
+      if (start == -1 || end == -1) return null;
+
+      final jsonStr = body.substring(start, end + 1);
+      final decoded = jsonDecode(jsonStr);
+
       if (decoded['status'] == 'error') {
         debugPrint('Gviz Error: ${decoded['errors']}');
         return null;
@@ -86,7 +143,7 @@ mixin DriveSheetGviz on DriveSheetMixin {
         gid = exactMatch.properties?.sheetId ?? 0;
       }
 
-      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=0&gid=$gid';
+      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=1&gid=$gid';
       final response = await authClient.get(Uri.parse(url));
       
       if (response.statusCode != 200) return null;
@@ -120,6 +177,73 @@ mixin DriveSheetGviz on DriveSheetMixin {
             rowData[colLabel] = cells[i]['v'];
             if (cells[i]['f'] != null) {
                rowData['${colLabel}_f'] = cells[i]['f'];
+            }
+          } else {
+            rowData[colLabel] = null;
+          }
+        }
+        result.add(rowData);
+      }
+      return result;
+    } catch (e) {
+      debugPrint('Error executing Gviz table query: $e');
+      return null;
+    }
+  }
+
+  /// Executes a Gviz query expecting a table result (for Charts) using a known spreadsheet ID.
+  Future<List<Map<String, dynamic>>?> executeGvizTableQueryBySpreadsheetId(
+    String spreadsheetId,
+    String sheetName,
+    String query,
+  ) async {
+    try {
+      if (spreadsheetId.isEmpty) return null;
+
+      final spreadsheet = await retryOp(() => sheetsApi.spreadsheets.get(spreadsheetId));
+      int gid = 0;
+      if (spreadsheet.sheets != null && spreadsheet.sheets!.isNotEmpty) {
+        final exactMatch = spreadsheet.sheets!.firstWhere(
+          (s) => s.properties?.title == sheetName,
+          orElse: () => spreadsheet.sheets!.first,
+        );
+        gid = exactMatch.properties?.sheetId ?? 0;
+      }
+
+      final url = 'https://docs.google.com/spreadsheets/d/$spreadsheetId/gviz/tq?tqx=out:json&tq=${Uri.encodeComponent(query)}&headers=1&gid=$gid';
+      final response = await authClient.get(Uri.parse(url));
+
+      if (response.statusCode != 200) return null;
+
+      final body = response.body;
+      final start = body.indexOf('{');
+      final end = body.lastIndexOf('}');
+      if (start == -1 || end == -1) return null;
+
+      final jsonStr = body.substring(start, end + 1);
+      final decoded = jsonDecode(jsonStr);
+
+      if (decoded['status'] == 'error') return null;
+
+      final table = decoded['table'];
+      final cols = table['cols'] as List;
+      final rows = table['rows'] as List;
+
+      List<Map<String, dynamic>> result = [];
+
+      for (var row in rows) {
+        final cells = row['c'] as List;
+        final rowData = <String, dynamic>{};
+
+        for (int i = 0; i < cols.length; i++) {
+          final colLabel = cols[i]['label']?.toString().isNotEmpty == true
+              ? cols[i]['label']
+              : 'col_$i';
+
+          if (i < cells.length && cells[i] != null) {
+            rowData[colLabel] = cells[i]['v'];
+            if (cells[i]['f'] != null) {
+              rowData['${colLabel}_f'] = cells[i]['f'];
             }
           } else {
             rowData[colLabel] = null;

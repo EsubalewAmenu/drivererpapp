@@ -13,7 +13,7 @@
     "cards": [
       {
         "label": "Open Tickets",
-        "formula": "=COUNTIF(tickets!C:C, \"Open\")",
+        "formula": "=COUNTIF(Support Tickets:tickets:tickets!C:C, \"Open\")",
         "format": "number"
       }
     ]

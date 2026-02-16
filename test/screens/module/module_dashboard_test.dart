@@ -27,17 +27,19 @@ void main() {
       primaryColor: '#F59E0B',
       version: '1.0.0',
       settings: {},
-      tabs: [],
+      tabs: [
+        TabConfig(id: 'sheet1', label: 'Sheet 1', columns: const [], fileId: 'sheet1_id'),
+      ],
       dashboard: DashboardConfig(cards: [
-        DashboardCard(label: 'Total Sales', formula: '=SUM(sheet1!A:A)', format: 'currency'),
-        DashboardCard(label: 'Active Users', formula: '=COUNT(sheet1!B:B)', format: 'number'),
+        DashboardCard(label: 'Total Sales', formula: '=SUM(Test Module:sheet1:sheet1!A:A)', format: 'currency'),
+        DashboardCard(label: 'Active Users', formula: '=COUNT(Test Module:sheet1:sheet1!B:B)', format: 'number'),
       ]),
     );
 
     when(() => mockDriveProvider.driveService).thenReturn(mockDriveService);
-    when(() => mockDriveService.executeGvizQuery(any(), any(), any()))
+    when(() => mockDriveService.executeGvizQueryBySpreadsheetId(any(), any(), any()))
         .thenAnswer((_) async => 1000);
-    when(() => mockDriveService.executeGvizTableQuery(any(), any(), any()))
+    when(() => mockDriveService.executeGvizTableQueryBySpreadsheetId(any(), any(), any()))
       .thenAnswer((_) async => [
           {'ColA': 'Jan', 'ColB': 10},
           {'ColA': 'Feb', 'ColB': 20},
@@ -75,7 +77,7 @@ void main() {
   });
 
   testWidgets('ModuleDashboard displays KPI card and refresh works', (WidgetTester tester) async {
-    when(() => mockDriveService.executeGvizQuery(any(), any(), any())).thenAnswer((_) async => 100);
+    when(() => mockDriveService.executeGvizQueryBySpreadsheetId(any(), any(), any())).thenAnswer((_) async => 100);
 
     testModule = ModuleSchema(
       id: 'm2',
@@ -84,8 +86,10 @@ void main() {
       primaryColor: '#2196F3',
       version: '1.0',
       settings: {},
-      tabs: [],
-      dashboard: DashboardConfig(cards: [DashboardCard(label: 'Total', formula: '=SUM(sheet1!A:A)', format: '', type: 'kpi')]),
+      tabs: [
+        TabConfig(id: 'sheet1', label: 'Sheet 1', columns: const [], fileId: 'sheet1_id'),
+      ],
+      dashboard: DashboardConfig(cards: [DashboardCard(label: 'Total', formula: '=SUM(KPI Module:sheet1:sheet1!A:A)', format: '', type: 'kpi')]),
     );
 
       await tester.pumpWidget(createModuleDashboard(primary: Colors.blue));
@@ -108,10 +112,12 @@ void main() {
       primaryColor: '#10B981',
       version: '1.0',
       settings: {},
-      tabs: [],
+      tabs: [
+        TabConfig(id: 'sheet1', label: 'Sheet 1', columns: const [], fileId: 'sheet1_id'),
+      ],
       dashboard: DashboardConfig(cards: [
-        DashboardCard(label: 'Sales Chart', formula: '=CHART(sheet1!A:B)', type: 'bar', format: ''),
-        DashboardCard(label: 'Data List', formula: '=CHART(sheet1!A:B)', type: 'list', format: ''),
+        DashboardCard(label: 'Sales Chart', formula: '=CHART(Chart Module:sheet1:sheet1!A:B)', type: 'bar', format: ''),
+        DashboardCard(label: 'Data List', formula: '=CHART(Chart Module:sheet1:sheet1!A:B)', type: 'list', format: ''),
       ]),
     );
 
@@ -131,7 +137,7 @@ void main() {
   });
 
   testWidgets('ModuleDashboard displays progress and alert states', (WidgetTester tester) async {
-    when(() => mockDriveService.executeGvizQuery(any(), any(), any())).thenAnswer((_) async => 0.5);
+    when(() => mockDriveService.executeGvizQueryBySpreadsheetId(any(), any(), any())).thenAnswer((_) async => 0.5);
 
     final progressModule = ModuleSchema(
       id: 'm4',
@@ -140,20 +146,22 @@ void main() {
       primaryColor: '#EF4444',
       version: '1.0',
       settings: {},
-      tabs: [],
+      tabs: [
+        TabConfig(id: 'sheet1', label: 'Sheet 1', columns: const [], fileId: 'sheet1_id'),
+      ],
       dashboard: DashboardConfig(cards: [
-        DashboardCard(label: 'Completion', formula: '=CHART(sheet1!A:B)', type: 'progress', format: ''),
-        DashboardCard(label: 'Shortages', formula: '=SUM(sheet1!B:B)', type: 'kpi', format: ''),
+        DashboardCard(label: 'Completion', formula: '=CHART(Progress Module:sheet1:sheet1!A:B)', type: 'progress', format: ''),
+        DashboardCard(label: 'Shortages', formula: '=SUM(Progress Module:sheet1:sheet1!B:B)', type: 'kpi', format: ''),
       ]),
     );
 
-    when(() => mockDriveService.executeGvizQuery(any(), any(), any())).thenAnswer((inv) async {
+    when(() => mockDriveService.executeGvizQueryBySpreadsheetId(any(), any(), any())).thenAnswer((inv) async {
       final q = inv.positionalArguments[2] as String;
       if (q.contains('B')) return 5; // shortages >0
       return 0; 
     });
 
-    when(() => mockDriveService.executeGvizTableQuery(any(), any(), any())).thenAnswer((inv) async {
+    when(() => mockDriveService.executeGvizTableQueryBySpreadsheetId(any(), any(), any())).thenAnswer((inv) async {
       return [
         {'ColA': 'label', 'ColB': 0.5},
       ];
@@ -181,10 +189,13 @@ void main() {
       primaryColor: '#2196F3',
       version: '1.0',
       settings: {},
-      tabs: [],
+      tabs: [
+        TabConfig(id: 'S1', label: 'S1', columns: const [], fileId: 's1_id'),
+        TabConfig(id: 'S2', label: 'S2', columns: const [], fileId: 's2_id'),
+      ],
       dashboard: DashboardConfig(cards: [
-        DashboardCard(label: 'Pie', formula: '=CHART(S1!A:B)', format: '', type: 'pie'),
-        DashboardCard(label: 'Bar', formula: '=CHART(S2!A:B)', format: '', type: 'bar'),
+        DashboardCard(label: 'Pie', formula: '=CHART(Charts:S1:S1!A:B)', format: '', type: 'pie'),
+        DashboardCard(label: 'Bar', formula: '=CHART(Charts:S2:S2!A:B)', format: '', type: 'bar'),
       ]),
     );
 

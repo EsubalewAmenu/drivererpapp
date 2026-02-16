@@ -10,7 +10,7 @@
     "cards": [
       {
         "label": "Monthly Revenue",
-        "formula": "=SUM(orders!G:G)",
+        "formula": "=SUM(Sales:orders:orders!G:G)",
         "format": "currency"
       }
     ]

@@ -32,18 +32,18 @@
     "cards": [
       {
         "label": "Total Headcount",
-        "formula": "=COUNTIFS(employees!E:E, \"Active\")",
+        "formula": "=COUNTIFS(HR:employees:employees!E:E, \"Active\")",
         "format": "number"
       },
       {
         "label": "On Leave Today",
-        "formula": "=COUNTIFS(leaves!D:D, \"<=\"&TODAY(), leaves!E:E, \">=\"&TODAY(), leaves!F:F, \"Approved\")",
+        "formula": "=COUNTIFS(HR:leaves:leaves!D:D, \"<\"&TODAY(), HR:leaves:leaves!E:E, \">\"&TODAY(), HR:leaves:leaves!F:F, \"Approved\")",
         "format": "number",
         "color": "#FF9800"
       },
       {
         "label": "Monthly Payroll",
-        "formula": "=SUM(employees!F:F)", 
+        "formula": "=SUM(HR:employees:employees!F:F)", 
         "format": "currency",
         "note": "Visible to Admin only via role logic in UI"
       }

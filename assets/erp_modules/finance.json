@@ -13,18 +13,18 @@
     "cards": [
       {
         "label": "Net Profit",
-        "formula": "=SUMIF(invoices!E:E, \"Paid\", invoices!F:F) - SUMIF(bills!E:E, \"Paid\", bills!F:F)",
+        "formula": "=SUMIF(Finance:invoices:invoices!E:E, \"Paid\", Finance:invoices:invoices!F:F) - SUMIF(Finance:bills:bills!E:E, \"Paid\", Finance:bills:bills!F:F)",
         "format": "currency"
       },
       {
         "label": "Overdue Invoices",
-        "formula": "=COUNTIFS(invoices!E:E, \"Unpaid\", invoices!C:C, \"<\"&TODAY())",
+        "formula": "=COUNTIFS(Finance:invoices:invoices!E:E, \"Unpaid\", Finance:invoices:invoices!C:C, \"<\"&TODAY())",
         "format": "number",
         "color": "#F44336"
       },
       {
         "label": "Expense Breakdown",
-        "formula": "=CHART(bills!C:C)",
+        "formula": "=CHART(Finance:bills:bills!C:C)",
         "format": "text",
         "type": "pie"
       }

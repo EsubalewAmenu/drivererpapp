@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../models/schema_models.dart';
 import '../../theme/app_theme.dart';
+import '../../providers/drive_provider.dart';
 
 class DashboardCardEditScreen extends StatefulWidget {
   final DashboardCard card;
   final ModuleSchema module;
-  final int index; // For updating list
+  final int index;
 
   const DashboardCardEditScreen({
     super.key,
@@ -21,17 +23,33 @@ class DashboardCardEditScreen extends StatefulWidget {
 class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
   late TextEditingController _labelController;
   late TextEditingController _customFormulaController;
-  late TextEditingController _conditionController;
   String? _format;
   late String _mode; // 'builder', 'custom'
 
-  // Builder State
+  // Builder State for KPI
   String? _selectedTabId;
+  String? _selectedSheetName;
   String? _selectedColumnKey;
-  String? _selectedOperator; // For conditional logic
-  String? _conditionValue;
-  
-  // Generic operations map
+  String? _selectedOperator;
+  late TextEditingController _conditionController;
+
+  // Builder State for Charts
+  String? _chartTabId;
+  String? _chartSheetName;
+  String? _xAxisColumn;
+  String? _yAxisColumn;
+
+  // Available sheets for selected spreadsheet
+  List<String> _availableSheets = [];
+  bool _loadingSheets = false;
+  List<String> _availableColumns = [];
+  bool _loadingColumns = false;
+  final Map<String, String> _columnLetterMap = {};
+  final Map<String, String> _columnHeaderByLetter = {};
+  String? _selectedColumnHeader;
+  String? _selectedXAxisHeader;
+  String? _selectedYAxisHeader;
+
   final Map<String, String> _operations = {
     'count': 'Count All',
     'count_if': 'Count If...',
@@ -45,10 +63,15 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
     _labelController = TextEditingController(text: widget.card.label);
     _customFormulaController = TextEditingController(text: widget.card.formula);
     _format = widget.card.format;
+    _conditionController = TextEditingController();
     
-    // Intelligently determine if we can reverse-engineer the formula for the builder
-    _tryParseFormula(widget.card.formula);
-    _conditionController = TextEditingController(text: _conditionValue ?? '');
+    // Start with builder mode by default
+    _mode = 'builder';
+    
+    // If there's an existing formula, try to parse it
+    if (widget.card.formula.isNotEmpty) {
+      _tryParseExistingFormula(widget.card.formula);
+    }
   }
 
   @override
@@ -59,81 +82,198 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
     super.dispose();
   }
 
-  void _tryParseFormula(String formula) {
-    // Basic heuristics to pre-fill builder UI
-    // Example: =COUNTIF(stocks!D:D, "<10")
-    
-    // Charts default to custom for now
-    if (widget.card.type != 'kpi') {
+  void _tryParseExistingFormula(String formula) {
+    // Try to extract module name, tab, and sheet name from formula
+    // Format: =FUNCTION(MODULE_NAME:TAB_ID:SHEET_NAME!COLUMN, ...)
+    if (!formula.startsWith('=')) {
       _mode = 'custom';
       return;
     }
 
-    _mode = 'builder'; // Default
     try {
-      if (formula.startsWith('=COUNTIF(')) {
-        _selectedOperator = 'count_if';
-        final content = formula.substring(9, formula.length - 1); // stocks!D:D, "<10"
-        final parts = content.split(',');
-        if (parts.length >= 2) {
-           _parseRange(parts[0].trim());
-           _conditionValue = parts[1].trim().replaceAll('"', '');
-        }
-      } else if (formula.startsWith('=SUM(')) {
-        _selectedOperator = 'sum';
-        _parseRange(formula.substring(5, formula.length - 1));
-      } else if (formula.startsWith('=AVERAGE(')) {
-        _selectedOperator = 'average';
-        _parseRange(formula.substring(9, formula.length - 1));
-      } else if (formula.startsWith('=COUNTA(')) {
-        _selectedOperator = 'count';
-        _parseRange(formula.substring(8, formula.length - 1));
-      } else {
+      final content = formula.substring(1);
+      final parenIndex = content.indexOf('(');
+      if (parenIndex == -1) {
         _mode = 'custom';
+        return;
+      }
+
+      final func = content.substring(0, parenIndex).toUpperCase();
+      final argsStr = content.substring(parenIndex + 1, content.lastIndexOf(')'));
+      
+      // Parse MODULE_NAME:TAB_ID:SHEET_NAME!COLUMN format
+      if (argsStr.contains(':') && argsStr.contains('!')) {
+        final firstComma = argsStr.indexOf(',');
+        final reference = firstComma > 0 ? argsStr.substring(0, firstComma).trim() : argsStr.trim();
+        
+        final exclIndex = reference.indexOf('!');
+        final colonParts = reference.substring(0, exclIndex).split(':');
+        
+        if (exclIndex > 0 && colonParts.length == 3) {
+          final moduleName = colonParts[0];
+          final tabId = colonParts[1];
+          final sheetName = colonParts[2];
+          
+          if (moduleName == widget.module.name) {
+            _selectedTabId = tabId;
+            _selectedSheetName = sheetName;
+          }
+          
+          // Extract column
+          final columnPart = reference.substring(exclIndex + 1);
+          _selectedColumnKey = columnPart.replaceAll(RegExp(r'[^A-Z]'), '');
+          
+          // Set operator
+          if (func == 'COUNTIF') {
+            _selectedOperator = 'count_if';
+            if (firstComma > 0) {
+              final condition = argsStr.substring(firstComma + 1).trim().replaceAll('"', '').replaceAll("'", '');
+              _conditionController.text = condition;
+            }
+          } else if (func == 'SUM') {
+            _selectedOperator = 'sum';
+          } else if (func == 'AVERAGE') {
+            _selectedOperator = 'average';
+          } else if (func == 'COUNTA' || func == 'COUNT') {
+            _selectedOperator = 'count';
+          }
+          
+          // Load sheets for this tab
+          if (_selectedTabId != null) {
+            _loadSheetsForTab(_selectedTabId!);
+          }
+
+          // Load columns for selected sheet when available
+          if (_selectedTabId != null && _selectedSheetName != null) {
+            _loadColumnsForTabSheet(_selectedTabId!, _selectedSheetName!);
+          }
+        }
       }
     } catch (e) {
+      debugPrint('Could not parse formula: $e');
       _mode = 'custom';
     }
   }
 
-  void _parseRange(String range) {
-    // stocks!D:D
-    final parts = range.split('!');
-    if (parts.length == 2) {
-      final potentialTabId = parts[0];
-      // Only set if tab actually exists in this module
-      if (widget.module.tabs.any((t) => t.id == potentialTabId)) {
-        _selectedTabId = potentialTabId;
-      } else {
-        _selectedTabId = null;
+  Future<void> _loadSheetsForTab(String tabId) async {
+    setState(() {
+      _loadingSheets = true;
+      _availableSheets = [];
+      _availableColumns = [];
+      _columnLetterMap.clear();
+      _columnHeaderByLetter.clear();
+      _selectedColumnHeader = null;
+      _selectedXAxisHeader = null;
+      _selectedYAxisHeader = null;
+    });
+
+    try {
+      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+      if (driveService == null) {
+        throw Exception('Drive service not available');
       }
+
+      final tab = widget.module.tabs.firstWhere(
+        (t) => t.id == tabId,
+        orElse: () => widget.module.tabs.first,
+      );
+      final spreadsheetId = tab.fileId;
+      if (spreadsheetId == null || spreadsheetId.isEmpty) {
+        throw Exception('Spreadsheet not found for selected tab');
+      }
+
+      final spreadsheet = await driveService.sheetsApi.spreadsheets.get(spreadsheetId);
+      final sheets = spreadsheet.sheets ?? [];
       
-      // Try to parse 'D:D' to get 'D'
-      final colPart = parts[1];
-      if (colPart.contains(':')) {
-        final colLetter = colPart.split(':')[0].replaceAll(RegExp(r'[^A-Z]'), '');
-        if (colLetter.isNotEmpty) {
-           try {
-             final colIndex = _colLetterToIndex(colLetter);
-             // Find column in tab
-             final tab = widget.module.tabs.firstWhere((t) => t.id == _selectedTabId, orElse: () => widget.module.tabs.first);
-             if (colIndex >= 0 && colIndex < tab.columns.length) {
-               _selectedColumnKey = tab.columns[colIndex].key;
-             }
-           } catch (e) {
-             // Ignore parsing error
-           }
-        }
-      }
+      setState(() {
+        _availableSheets = sheets
+            .map((s) => s.properties?.title ?? '')
+            .where((title) => title.isNotEmpty)
+            .toList();
+        _loadingSheets = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading sheets: $e');
+      setState(() {
+        _loadingSheets = false;
+      });
     }
   }
 
-  int _colLetterToIndex(String letter) {
-    int index = 0;
-    for (int i = 0; i < letter.length; i++) {
-      index = index * 26 + (letter.codeUnitAt(i) - 65 + 1);
+  Future<void> _loadColumnsForTabSheet(String tabId, String sheetName) async {
+    setState(() {
+      _loadingColumns = true;
+      _availableColumns = [];
+      _columnLetterMap.clear();
+      _columnHeaderByLetter.clear();
+      _selectedColumnHeader = null;
+      _selectedXAxisHeader = null;
+      _selectedYAxisHeader = null;
+    });
+
+    try {
+      final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
+      if (driveService == null) {
+        throw Exception('Drive service not available');
+      }
+
+      final tab = widget.module.tabs.firstWhere(
+        (t) => t.id == tabId,
+        orElse: () => widget.module.tabs.first,
+      );
+      final spreadsheetId = tab.fileId;
+      if (spreadsheetId == null || spreadsheetId.isEmpty) {
+        throw Exception('Spreadsheet not found for selected tab');
+      }
+
+      final resp = await driveService.sheetsApi.spreadsheets.values.get(
+        spreadsheetId,
+        '$sheetName!1:1',
+      );
+
+      final headerRow = (resp.values != null && resp.values!.isNotEmpty)
+          ? resp.values!.first
+          : <dynamic>[];
+
+      final columns = <String>[];
+      for (int i = 0; i < headerRow.length; i++) {
+        final raw = headerRow[i]?.toString().trim() ?? '';
+        final letter = _indexToColumnLetter(i);
+        final label = raw.isNotEmpty ? raw : 'Column $letter';
+        columns.add(label);
+        _columnLetterMap[label] = letter;
+        _columnHeaderByLetter[letter] = label;
+      }
+
+      setState(() {
+        _availableColumns = columns;
+        _loadingColumns = false;
+        if (_selectedColumnKey != null && _selectedColumnKey!.isNotEmpty) {
+          _selectedColumnHeader = _columnHeaderByLetter[_selectedColumnKey!];
+        }
+        if (_xAxisColumn != null && _xAxisColumn!.isNotEmpty) {
+          _selectedXAxisHeader = _columnHeaderByLetter[_xAxisColumn!];
+        }
+        if (_yAxisColumn != null && _yAxisColumn!.isNotEmpty) {
+          _selectedYAxisHeader = _columnHeaderByLetter[_yAxisColumn!];
+        }
+      });
+    } catch (e) {
+      debugPrint('Error loading columns: $e');
+      setState(() {
+        _loadingColumns = false;
+      });
     }
-    return index - 1;
+  }
+
+  String _indexToColumnLetter(int colIndex) {
+    String letter = '';
+    int index = colIndex;
+    while (index >= 0) {
+      letter = String.fromCharCode((index % 26) + 65) + letter;
+      index = (index / 26).floor() - 1;
+    }
+    return letter;
   }
 
   @override
@@ -146,8 +286,8 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
         title: Text(
           'CONFIGURE CARD',
           style: AppTheme.inter(
-            fontWeight: FontWeight.w900, 
-            letterSpacing: 1.0, 
+            fontWeight: FontWeight.w900,
+            letterSpacing: 1.0,
             color: theme.textTheme.titleLarge?.color
           ),
         ),
@@ -157,11 +297,12 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
         actions: [
           TextButton(
             onPressed: () {
+              final formula = _mode == 'builder' ? _generateFormula() : _customFormulaController.text;
               Navigator.pop(context, DashboardCard(
                 label: _labelController.text,
-                formula: _mode == 'builder' ? _generateFormula() : _customFormulaController.text,
+                formula: formula,
                 format: _format,
-                type: widget.card.type, // Preserve Type
+                type: widget.card.type,
                 config: widget.card.config,
               ));
             },
@@ -185,9 +326,9 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             // Configuration Mode
             Container(
               decoration: BoxDecoration(
@@ -195,26 +336,25 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
               ),
-              child: Column(
-                children: [
-                  SwitchListTile(
-                    title: const Text('Use Formula Builder'),
-                    subtitle: const Text('Easily construct rules without code'),
-                    value: _mode == 'builder',
-                    onChanged: (val) => setState(() => _mode = val ? 'builder' : 'custom'),
-                  ),
-                ],
+              child: SwitchListTile(
+                title: const Text('Use Formula Builder'),
+                subtitle: const Text('Visual builder for formulas'),
+                value: _mode == 'builder',
+                onChanged: (val) => setState(() => _mode = val ? 'builder' : 'custom'),
               ),
             ),
 
             const SizedBox(height: 24),
 
-            if (_mode == 'builder') _buildBuilderUI(theme) else _buildCustomUI(theme),
+            if (_mode == 'builder')
+              widget.card.type == 'kpi' ? _buildKpiBuilder(theme) : _buildChartBuilder(theme)
+            else
+              _buildCustomUI(theme),
 
             const SizedBox(height: 32),
-            
+
             // Format Section
-             Text('Display Format', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+            Text('Display Format', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -239,94 +379,273 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
     );
   }
 
-  Widget _buildBuilderUI(ThemeData theme) {
+  Widget _buildKpiBuilder(ThemeData theme) {
+    // Get available tabs that have fileId
+    final availableTabs = widget.module.tabs.where((t) => t.fileId != null && t.fileId!.isNotEmpty).toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Data Source (Tab)
-        Text('Data Source (Sheet)', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+        // Spreadsheet Selection
+        Text('Data Source', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
         const SizedBox(height: 8),
-        _buildDropdown(
+        _buildDropdown<String>(
           value: _selectedTabId,
-          hint: 'Select Sheet',
-          items: widget.module.tabs.map((t) => DropdownMenuItem(value: t.id, child: Text(t.label))).toList(),
+          hint: 'Select Tab',
+          items: availableTabs.map((t) => DropdownMenuItem(
+            value: t.id,
+            child: Text(t.label),
+          )).toList(),
           onChanged: (val) {
             setState(() {
               _selectedTabId = val;
-              _selectedColumnKey = null; // Reset column when tab changes
+              _selectedSheetName = null;
+              _selectedColumnKey = null;
             });
+            if (val != null) {
+              _loadSheetsForTab(val);
+            }
           },
         ),
 
         if (_selectedTabId != null) ...[
           const SizedBox(height: 24),
-          // 2. Column Selection
-          Text('Field (Column)', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+          // Sheet Name Selection
+          Text('Sheet Name', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
           const SizedBox(height: 8),
-          _buildDropdown(
-            value: _selectedColumnKey,
-            hint: 'Select Field',
-            items: _getColumnsForTab(_selectedTabId!).map((c) => DropdownMenuItem(value: c.key, child: Text(c.label))).toList(),
-            onChanged: (val) => setState(() => _selectedColumnKey = val),
-          ),
+          _loadingSheets
+              ? const Center(child: CircularProgressIndicator())
+              : _buildDropdown<String>(
+                  value: _selectedSheetName,
+                  hint: 'Select Sheet',
+                  items: _availableSheets.map((s) => DropdownMenuItem(
+                    value: s,
+                    child: Text(s),
+                  )).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedSheetName = val;
+                      _selectedColumnKey = null;
+                      _selectedColumnHeader = null;
+                    });
+                    if (val != null && _selectedTabId != null) {
+                      _loadColumnsForTabSheet(_selectedTabId!, val);
+                    }
+                  },
+                ),
         ],
 
-        if (_selectedColumnKey != null) ...[
+        if (_selectedSheetName != null) ...[
           const SizedBox(height: 24),
-          // 3. Operation
-          Text('Logic / Operation', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+          // Column Selection
+          Text('Column', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
           const SizedBox(height: 8),
-          _buildDropdown(
+          _loadingColumns
+              ? const Center(child: CircularProgressIndicator())
+              : _buildDropdown<String>(
+                  value: _selectedColumnHeader,
+                  hint: 'Select Column',
+                  items: _availableColumns.map((c) => DropdownMenuItem(
+                    value: c,
+                    child: Text(c),
+                  )).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedColumnHeader = val;
+                      _selectedColumnKey = val != null ? _columnLetterMap[val] : null;
+                    });
+                  },
+                ),
+        ],
+
+        if (_selectedColumnKey != null && _selectedColumnKey!.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          // Operation Selection
+          Text('Operation', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+          const SizedBox(height: 8),
+          _buildDropdown<String>(
             value: _selectedOperator,
             hint: 'Select Operation',
-            items: _operations.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+            items: _operations.entries.map((e) => DropdownMenuItem(
+              value: e.key,
+              child: Text(e.value),
+            )).toList(),
             onChanged: (val) => setState(() => _selectedOperator = val),
           ),
         ],
 
         if (_selectedOperator == 'count_if') ...[
-           const SizedBox(height: 24),
-           // 4. Condition Value
-           Text('Condition Rule', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
-           const SizedBox(height: 8),
-           TextField(
-             controller: _conditionController,
-             onChanged: (val) {
-                setState(() {
-                  _conditionValue = val;
-                });
-             },
-             decoration: InputDecoration(
-               filled: true,
-               fillColor: theme.cardTheme.color,
-               hintText: '<10, Pending, Approved',
-               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-             ),
-           ),
+          const SizedBox(height: 24),
+          // Condition Input
+          Text('Condition', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _conditionController,
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: theme.cardTheme.color,
+              hintText: 'e.g., <10, >100, Approved',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+            ),
+          ),
         ],
 
-        const SizedBox(height: 24),
-        // Preview
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: theme.dividerColor),
+        if (_selectedOperator != null) ...[
+          const SizedBox(height: 24),
+          // Formula Preview
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.dividerColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('FORMULA PREVIEW', style: AppTheme.inter(fontSize: 10, fontWeight: FontWeight.w700, color: theme.disabledColor)),
+                const SizedBox(height: 8),
+                Text(
+                  _generateFormula(),
+                  style: AppTheme.sourceCodePro(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-               Text('GENERATED FORMULA', style: AppTheme.inter(fontSize: 10, fontWeight: FontWeight.w700, color: theme.disabledColor)),
-               const SizedBox(height: 4),
-               Text(
-                 _generateFormula(),
-                 style: AppTheme.sourceCodePro(fontWeight: FontWeight.w600),
-               ),
-            ],
-          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildChartBuilder(ThemeData theme) {
+    final availableTabs = widget.module.tabs.where((t) => t.fileId != null && t.fileId!.isNotEmpty).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Spreadsheet Selection
+        Text('Data Source', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+        const SizedBox(height: 8),
+        _buildDropdown<String>(
+          value: _chartTabId,
+          hint: 'Select Tab',
+          items: availableTabs.map((t) => DropdownMenuItem(
+            value: t.id,
+            child: Text(t.label),
+          )).toList(),
+          onChanged: (val) {
+            setState(() {
+              _chartTabId = val;
+              _chartSheetName = null;
+              _xAxisColumn = null;
+              _yAxisColumn = null;
+              _selectedXAxisHeader = null;
+              _selectedYAxisHeader = null;
+            });
+            if (val != null) {
+              _loadSheetsForTab(val);
+            }
+          },
         ),
+
+        if (_chartTabId != null) ...[
+          const SizedBox(height: 24),
+          // Sheet Name
+          Text('Sheet Name', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+          const SizedBox(height: 8),
+          _loadingSheets
+              ? const Center(child: CircularProgressIndicator())
+              : _buildDropdown<String>(
+                  value: _chartSheetName,
+                  hint: 'Select Sheet',
+                  items: _availableSheets.map((s) => DropdownMenuItem(
+                    value: s,
+                    child: Text(s),
+                  )).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _chartSheetName = val;
+                      _xAxisColumn = null;
+                      _yAxisColumn = null;
+                      _selectedXAxisHeader = null;
+                      _selectedYAxisHeader = null;
+                    });
+                    if (val != null && _chartTabId != null) {
+                      _loadColumnsForTabSheet(_chartTabId!, val);
+                    }
+                  },
+                ),
+        ],
+
+        if (_chartSheetName != null) ...[
+          const SizedBox(height: 24),
+          // X-Axis Column
+          Text('X-Axis Column (Labels)', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+          const SizedBox(height: 8),
+          _loadingColumns
+              ? const Center(child: CircularProgressIndicator())
+              : _buildDropdown<String>(
+                  value: _selectedXAxisHeader,
+                  hint: 'Select Column',
+                  items: _availableColumns.map((c) => DropdownMenuItem(
+                    value: c,
+                    child: Text(c),
+                  )).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedXAxisHeader = val;
+                      _xAxisColumn = val != null ? _columnLetterMap[val] : null;
+                    });
+                  },
+                ),
+
+          const SizedBox(height: 16),
+          // Y-Axis Column
+          Text('Y-Axis Column (Values)', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+          const SizedBox(height: 8),
+          _loadingColumns
+              ? const Center(child: CircularProgressIndicator())
+              : _buildDropdown<String>(
+                  value: _selectedYAxisHeader,
+                  hint: 'Select Column',
+                  items: _availableColumns.map((c) => DropdownMenuItem(
+                    value: c,
+                    child: Text(c),
+                  )).toList(),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedYAxisHeader = val;
+                      _yAxisColumn = val != null ? _columnLetterMap[val] : null;
+                    });
+                  },
+                ),
+        ],
+
+        if (_xAxisColumn != null && _yAxisColumn != null) ...[
+          const SizedBox(height: 24),
+          // Formula Preview
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: theme.dividerColor),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('FORMULA PREVIEW', style: AppTheme.inter(fontSize: 10, fontWeight: FontWeight.w700, color: theme.disabledColor)),
+                const SizedBox(height: 8),
+                Text(
+                  _generateFormula(),
+                  style: AppTheme.sourceCodePro(fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -335,25 +654,52 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Spreadsheet Formula', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
+        Text('Custom Formula', style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.disabledColor)),
         const SizedBox(height: 8),
         TextField(
           controller: _customFormulaController,
-          maxLines: 3,
+          maxLines: 4,
           style: AppTheme.sourceCodePro(),
           decoration: InputDecoration(
             filled: true,
             fillColor: theme.cardTheme.color,
-            hintText: '=SUM(sheet!A:A)',
+            hintText: '=SUM(MODULE_NAME:TAB_ID:SHEET_NAME!A:A)',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.primaryColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Format: =FUNCTION(MODULE_NAME:TAB_ID:SHEET_NAME!COLUMN)',
+                style: AppTheme.inter(fontSize: 11, fontWeight: FontWeight.w600, color: theme.primaryColor),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Example: =SUM(CRM:contacts:Contacts!B:B)',
+                style: AppTheme.inter(fontSize: 11, color: theme.primaryColor.withValues(alpha: 0.8)),
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildDropdown<T>({required T? value, required String hint, required List<DropdownMenuItem<T>> items, required Function(T?) onChanged}) {
-     return Container(
+  Widget _buildDropdown<T>({
+    required T? value,
+    required String hint,
+    required List<DropdownMenuItem<T>> items,
+    required Function(T?) onChanged,
+  }) {
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
         color: Theme.of(context).cardTheme.color,
@@ -371,46 +717,43 @@ class _DashboardCardEditScreenState extends State<DashboardCardEditScreen> {
     );
   }
 
-  List<ColumnConfig> _getColumnsForTab(String tabId) {
-    final tab = widget.module.tabs.firstWhere((t) => t.id == tabId, orElse: () => widget.module.tabs.first);
-    // Flatten columns if needed, but for now top-level
-    return tab.columns;
+  String _generateFormula() {
+    if (widget.card.type == 'kpi') {
+      return _generateKpiFormula();
+    } else {
+      return _generateChartFormula();
+    }
   }
 
-  String _generateFormula() {
-    if (_selectedColumnKey == null || _selectedTabId == null) return 'Select Sheet & Field';
-    
-    // Calculate Column Letter
-    final tab = widget.module.tabs.firstWhere((t) => t.id == _selectedTabId);
-    final colIndex = tab.columns.indexWhere((c) => c.key == _selectedColumnKey);
-    if (colIndex == -1) return 'Invalid Column';
-    
-    final colLetter = _getColLetter(colIndex);
-    final range = '$_selectedTabId!$colLetter:$colLetter';
-    
+  String _generateKpiFormula() {
+    if (_selectedTabId == null || _selectedSheetName == null || _selectedColumnKey == null || _selectedOperator == null) {
+      return 'Incomplete configuration';
+    }
+
+    final reference = '${widget.module.name}:$_selectedTabId:$_selectedSheetName!$_selectedColumnKey:$_selectedColumnKey';
+
     switch (_selectedOperator) {
       case 'count':
-        return '=COUNTA($range)';
+        return '=COUNTA($reference)';
       case 'sum':
-        return '=SUM($range)';
+        return '=SUM($reference)';
       case 'average':
-        return '=AVERAGE($range)';
+        return '=AVERAGE($reference)';
       case 'count_if':
-        final val = _conditionValue ?? '';
-        // If val contains operator, wrap in quotes if not already there? 
-        // Typically user types "<10" or "Pending"
-        return '=COUNTIF($range, "$val")';
+        final condition = _conditionController.text.trim();
+        if (condition.isEmpty) return '=COUNTIF($reference, "condition")';
+        return '=COUNTIF($reference, "$condition")';
       default:
-        return '...';
+        return 'Unknown operator';
     }
   }
 
-  String _getColLetter(int colIndex) {
-    String letter = "";
-    while (colIndex >= 0) {
-      letter = String.fromCharCode((colIndex % 26) + 65) + letter;
-      colIndex = (colIndex / 26).floor() - 1;
+  String _generateChartFormula() {
+    if (_chartTabId == null || _chartSheetName == null || _xAxisColumn == null || _yAxisColumn == null) {
+      return 'Incomplete configuration';
     }
-    return letter;
+
+    // Format: =CHART(MODULE_ID:TAB_ID:SHEET_NAME!X_COL:Y_COL)
+    return '=CHART(${widget.module.name}:$_chartTabId:$_chartSheetName!$_xAxisColumn:$_yAxisColumn)';
   }
 }

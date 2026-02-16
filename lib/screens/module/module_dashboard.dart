@@ -72,59 +72,94 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
            continue;
         }
         
-        // Handle Charts (Line, Bar, Pie)
+        // Handle Charts (Line, Bar, Pie, Progress, List)
         if (card.type != 'kpi') {
-           // For charts, we expect formula to be custom or parsed differently later.
-           // For now, let's assume valid SQL: =QUERY(sheet, "SELECT A, B")
-           // Or simplified: =CHART(sheet!A:B) -> SELECT A, B
-           
-           // Simple parsing for =CHART(sheet!A:B) or just use custom query if it starts with SELECT inside
-           // For MVP, let's support: =CHART(sheet!A:B) which implies fetch first two cols in range
-           
-           String sheetName = "";
-           String query = "";
-           
-           if (formula.startsWith('=CHART(')) {
-              final content = formula.substring(7, formula.length - 1);
-              final parts = content.split('!');
-              if (parts.length == 2) {
-                sheetName = parts[0];
-                final range = parts[1]; // A:B
-                final cols = range.split(':');
-                if (cols.length == 2) {
-                   // e.g. A and B
-                   final col1 = cols[0].replaceAll(RegExp(r'[^A-Z]'), '');
-                   final col2 = cols[1].replaceAll(RegExp(r'[^A-Z]'), '');
-                   // If range is same letter (A:A), fetch A. If A:B, fetch A, B
-                   if (col1 == col2) {
-                     query = "SELECT $col1";
-                   } else {
-                     query = "SELECT $col1, $col2";
-                   }
+          // Expected format: =CHART(MODULE_NAME:TAB_ID:SHEET_NAME!A:B)
+          String spreadsheetId = '';
+          String tabId = '';
+          String sheetName = '';
+          String query = '';
+
+          if (formula.startsWith('=CHART(')) {
+            final content = formula.substring(7, formula.length - 1);
+            final exclIndex = content.indexOf('!');
+            if (exclIndex > 0) {
+              final refParts = content.substring(0, exclIndex).split(':');
+              if (refParts.length == 3) {
+                final moduleName = refParts[0].trim();
+                tabId = refParts[1].trim();
+                sheetName = refParts[2].trim();
+
+                if (moduleName != widget.module.name) {
+                  throw Exception('Module mismatch');
+                }
+
+                final tab = widget.module.tabs.firstWhere(
+                  (t) => t.id == tabId,
+                  orElse: () => widget.module.tabs.first,
+                );
+                spreadsheetId = tab.fileId ?? '';
+              }
+              final range = content.substring(exclIndex + 1); // A:B
+              final cols = range.split(':');
+              if (cols.length == 2) {
+                final col1 = cols[0].replaceAll(RegExp(r'[^A-Z]'), '');
+                final col2 = cols[1].replaceAll(RegExp(r'[^A-Z]'), '');
+                if (col1.isNotEmpty && col2.isNotEmpty) {
+                  query = col1 == col2 ? "SELECT $col1" : "SELECT $col1, $col2";
                 }
               }
-           } else if (formula.contains('SELECT')) {
-             // Custom Query: =QUERY(sheet, "SELECT...") ? Too complex to parse reliably without strict format
-             // Let's stick to the =CHART(sheet!A:B) format for the builder, 
-             // or reuse existing parser structure if possible.
-             throw Exception("Use =CHART(sheet!A:B) format");
-           }
-           
-           if (sheetName.isNotEmpty && query.isNotEmpty) {
-              final results = await driveService.executeGvizTableQuery(
-                widget.module.id,
-                sheetName,
-                query
-              );
-              
-              if (mounted) {
-                setState(() {
-                  _chartDataMap[card.label] = results ?? [];
-                  _loadingMap[card.label] = false;
-                });
+            }
+          } else if (formula.startsWith('=QUERY(')) {
+            final content = formula.substring(7, formula.length - 1);
+            final commaIndex = content.indexOf(',');
+            if (commaIndex > 0) {
+              final ref = content.substring(0, commaIndex).trim();
+              final queryPart = content.substring(commaIndex + 1).trim();
+              final refParts = ref.split(':');
+              if (refParts.length == 3) {
+                final moduleName = refParts[0].trim();
+                tabId = refParts[1].trim();
+                sheetName = refParts[2].trim();
+
+                if (moduleName != widget.module.name) {
+                  throw Exception('Module mismatch');
+                }
+
+                final tab = widget.module.tabs.firstWhere(
+                  (t) => t.id == tabId,
+                  orElse: () => widget.module.tabs.first,
+                );
+                spreadsheetId = tab.fileId ?? '';
+
+                if (queryPart.startsWith('"') && queryPart.endsWith('"')) {
+                  query = queryPart.substring(1, queryPart.length - 1);
+                } else if (queryPart.startsWith("'") && queryPart.endsWith("'")) {
+                  query = queryPart.substring(1, queryPart.length - 1);
+                } else {
+                  query = queryPart;
+                }
               }
-           }
-           continue; 
+            }
+          }
+
+          if (spreadsheetId.isEmpty || sheetName.isEmpty || query.isEmpty) {
+            throw Exception('Invalid chart/query format');
+          }
+
+          final results = await driveService.executeGvizTableQueryBySpreadsheetId(
+            spreadsheetId,
+            sheetName,
+            query,
+          );
+
+          if (mounted) {
+            setState(() {
+              _chartDataMap[card.label] = results ?? [];
+              _loadingMap[card.label] = false;
+            });
+          }
+          continue;
         }
 
         // ... Existing KPI Logic ...
@@ -142,14 +177,37 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
         
         if (args.isEmpty) throw Exception('No arguments');
 
-        // Parse Range: sheet!A:A or sheet!A
+        // Parse Range: MODULE_NAME:TAB_ID:SHEET_NAME!A:A
         final rangePart = args[0];
-        final rangeSplit = rangePart.split('!');
-        if (rangeSplit.length != 2) throw Exception('Invalid Range');
-        
-        final sheetName = rangeSplit[0]; // e.g. "stocks"
-        final colRange = rangeSplit[1];   // e.g. "B:B" or "B"
+        final exclIndex = rangePart.indexOf('!');
+        if (exclIndex == -1) {
+          throw Exception('Invalid Range');
+        }
+
+        final refParts = rangePart.substring(0, exclIndex).split(':');
+        if (refParts.length != 3) {
+          throw Exception('Invalid Range');
+        }
+
+        final moduleName = refParts[0].trim();
+        final tabId = refParts[1].trim();
+        final sheetName = refParts[2].trim();
+
+        if (moduleName != widget.module.name) {
+          throw Exception('Module mismatch');
+        }
+
+        final tab = widget.module.tabs.firstWhere(
+          (t) => t.id == tabId,
+          orElse: () => widget.module.tabs.first,
+        );
+        final spreadsheetId = tab.fileId ?? '';
+        final colRange = rangePart.substring(exclIndex + 1); // e.g. "B:B" or "B"
         final colLetter = colRange.split(':')[0].replaceAll(RegExp(r'[^A-Z]'), '');
+
+        if (spreadsheetId.isEmpty || sheetName.isEmpty || colLetter.isEmpty) {
+          throw Exception('Invalid Range');
+        }
 
         String query = "";
         
@@ -166,8 +224,11 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
 
           // Build Where Clause
           String where = "";
-          if (criteria.startsWith('<') || criteria.startsWith('>')) {
-            where = "$colLetter $criteria";
+          if (criteria.startsWith('<=') || criteria.startsWith('>=') || criteria.startsWith('<') || criteria.startsWith('>') || criteria.startsWith('=')) {
+            final operatorMatch = RegExp(r'^(<=|>=|<|>|=)').firstMatch(criteria);
+            final operator = operatorMatch != null ? operatorMatch.group(0)! : '';
+            final value = criteria.substring(operator.length).trim();
+            where = value.isNotEmpty ? "$colLetter $operator $value" : "$colLetter $criteria";
           } else {
              // Exact match string or number
              final isNum = double.tryParse(criteria) != null;
@@ -179,21 +240,181 @@ class _ModuleDashboardState extends State<ModuleDashboard> {
           }
           query = "SELECT count($colLetter) WHERE $where";
 
+        } else if (func == 'COUNTIFS' && args.length >= 2) {
+          // =COUNTIFS(range1, criteria1, range2, criteria2, ...)
+          if (args.length % 2 != 0) {
+            throw Exception('Invalid COUNTIFS arguments');
+          }
+
+          final whereClauses = <String>[];
+          String? sharedSpreadsheetId;
+          String? sharedSheetName;
+
+          for (int i = 0; i < args.length; i += 2) {
+            final rangeArg = args[i];
+            var criteria = args[i + 1];
+
+            if (criteria.startsWith('"') && criteria.endsWith('"')) {
+              criteria = criteria.substring(1, criteria.length - 1);
+            } else if (criteria.startsWith("'") && criteria.endsWith("'")) {
+              criteria = criteria.substring(1, criteria.length - 1);
+            }
+
+            final excl = rangeArg.indexOf('!');
+            if (excl == -1) throw Exception('Invalid Range');
+            final refParts = rangeArg.substring(0, excl).split(':');
+            if (refParts.length != 3) throw Exception('Invalid Range');
+
+            final moduleName = refParts[0].trim();
+            final tabId = refParts[1].trim();
+            final sheet = refParts[2].trim();
+
+            if (moduleName != widget.module.name) {
+              throw Exception('Module mismatch');
+            }
+
+            final tab = widget.module.tabs.firstWhere(
+              (t) => t.id == tabId,
+              orElse: () => widget.module.tabs.first,
+            );
+            final spreadsheetId = tab.fileId ?? '';
+
+            if (sharedSpreadsheetId == null) {
+              sharedSpreadsheetId = spreadsheetId;
+              sharedSheetName = sheet;
+            } else if (sharedSpreadsheetId != spreadsheetId || sharedSheetName != sheet) {
+              throw Exception('COUNTIFS ranges must be on the same sheet');
+            }
+
+            final colRangeArg = rangeArg.substring(excl + 1);
+            final col = colRangeArg.split(':')[0].replaceAll(RegExp(r'[^A-Z]'), '');
+            if (col.isEmpty) throw Exception('Invalid Range');
+
+            String clause = '';
+            if (criteria.startsWith('<=') || criteria.startsWith('>=') || criteria.startsWith('<') || criteria.startsWith('>') || criteria.startsWith('=')) {
+              final operatorMatch = RegExp(r'^(<=|>=|<|>|=)').firstMatch(criteria);
+              final operator = operatorMatch != null ? operatorMatch.group(0)! : '';
+              final value = criteria.substring(operator.length).trim();
+              clause = value.isNotEmpty ? "$col $operator $value" : "$col $criteria";
+            } else {
+              final isNum = double.tryParse(criteria) != null;
+              clause = isNum ? "$col = $criteria" : "$col = '$criteria'";
+            }
+
+            whereClauses.add(clause);
+          }
+
+          if (sharedSpreadsheetId == null || sharedSheetName == null) {
+            throw Exception('Invalid COUNTIFS ranges');
+          }
+
+          query = "SELECT count(A) WHERE ${whereClauses.join(' AND ')}";
+
+          // Override sheet context based on COUNTIFS ranges
+          final spreadsheetId = sharedSpreadsheetId;
+          final sheetName = sharedSheetName;
+
+          final result = await driveService.executeGvizQueryBySpreadsheetId(
+            spreadsheetId!,
+            sheetName!,
+            query,
+          );
+
+          if (mounted) {
+            if (result != null) {
+              _updateCardValue(card, result.toString());
+            } else {
+              _updateCardValue(card, "0");
+            }
+          }
+          continue;
+
         } else if (func == 'SUM') {
            query = "SELECT sum($colLetter)";
         } else if (func == 'AVERAGE') {
            query = "SELECT avg($colLetter)";
         } else if (func == 'COUNTA' || func == 'COUNT') {
            query = "SELECT count($colLetter)";
+        } else if (func == 'SUMPRODUCT' && args.length >= 2) {
+          // =SUMPRODUCT(range1, range2)
+          final range1 = args[0];
+          final range2 = args[1];
+
+          String parseCol(String range) {
+            final excl = range.indexOf('!');
+            if (excl == -1) throw Exception('Invalid Range');
+            final colRange = range.substring(excl + 1);
+            return colRange.split(':')[0].replaceAll(RegExp(r'[^A-Z]'), '');
+          }
+
+          Map<String, String> parseRef(String range) {
+            final excl = range.indexOf('!');
+            if (excl == -1) throw Exception('Invalid Range');
+            final refParts = range.substring(0, excl).split(':');
+            if (refParts.length != 3) throw Exception('Invalid Range');
+
+            final moduleName = refParts[0].trim();
+            final tabId = refParts[1].trim();
+            final sheet = refParts[2].trim();
+
+            if (moduleName != widget.module.name) {
+              throw Exception('Module mismatch');
+            }
+
+            final tab = widget.module.tabs.firstWhere(
+              (t) => t.id == tabId,
+              orElse: () => widget.module.tabs.first,
+            );
+            final spreadsheetId = tab.fileId ?? '';
+            return {
+              'spreadsheetId': spreadsheetId,
+              'sheetName': sheet,
+            };
+          }
+
+          final ref1 = parseRef(range1);
+          final ref2 = parseRef(range2);
+          final spreadsheetId1 = ref1['spreadsheetId'] ?? '';
+          final sheetName1 = ref1['sheetName'] ?? '';
+          final spreadsheetId2 = ref2['spreadsheetId'] ?? '';
+          final sheetName2 = ref2['sheetName'] ?? '';
+
+          if (spreadsheetId1.isEmpty || spreadsheetId2.isEmpty || sheetName1.isEmpty || sheetName2.isEmpty) {
+            throw Exception('Invalid Range');
+          }
+          if (spreadsheetId1 != spreadsheetId2 || sheetName1 != sheetName2) {
+            throw Exception('SUMPRODUCT ranges must be on the same sheet');
+          }
+
+          final col1 = parseCol(range1);
+          final col2 = parseCol(range2);
+          if (col1.isEmpty || col2.isEmpty) throw Exception('Invalid Range');
+
+          query = "SELECT sum($col1 * $col2)";
+
+          final result = await driveService.executeGvizQueryBySpreadsheetId(
+            spreadsheetId1,
+            sheetName1,
+            query,
+          );
+
+          if (mounted) {
+            if (result != null) {
+              _updateCardValue(card, result.toString());
+            } else {
+              _updateCardValue(card, "0");
+            }
+          }
+          continue;
         } else {
            throw Exception('Unknown Function: $func');
         }
 
         // Execute
-        final result = await driveService.executeGvizQuery(
-          widget.module.id, // Module folder ID
-          sheetName,        // Spreadsheet Name (Tab ID)
-          query
+        final result = await driveService.executeGvizQueryBySpreadsheetId(
+          spreadsheetId,
+          sheetName,
+          query,
         );
 
         if (mounted) {
