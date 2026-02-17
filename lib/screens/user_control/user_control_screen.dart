@@ -93,8 +93,8 @@ class _UserControlScreenState extends State<UserControlScreen> {
         final companyFolderId = row[0].toString();
         final email = row.length > 1 ? row[1].toString().trim().toLowerCase() : '';
         // Filter by workspace and exclude current user
-        return companyFolderId == currentWorkspaceId && 
-               (currentUserEmail == null || email != currentUserEmail);
+        return companyFolderId == currentWorkspaceId;
+          // && (currentUserEmail == null || email != currentUserEmail);
       }).toList();
 
       // Map to user list
