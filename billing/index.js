@@ -68,7 +68,10 @@ async function writeBillingEvent(payload, source) {
 	});
 }
 
-exports.googlePlayRtdn = onMessagePublished("google-play-rtdn", async (event) => {
+const projectId = process.env.GCLOUD_PROJECT || "driveerp-1d5d5";
+const rtdnTopic = `projects/${projectId}/topics/driver-erp-google-play-rtdn`;
+
+exports.googlePlayRtdn = onMessagePublished({ topic: rtdnTopic }, async (event) => {
 		let payload = null;
 		try {
 			const message = event.data.message;
