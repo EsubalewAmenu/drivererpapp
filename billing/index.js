@@ -71,6 +71,56 @@ async function writeBillingEvent(payload, source) {
 const projectId = process.env.GCLOUD_PROJECT || "driveerp-1d5d5";
 const rtdnTopic = `projects/${projectId}/topics/driver-erp-google-play-rtdn`;
 
+// Helper to get Play Developer API access token
+async function getPlayDeveloperAccessToken() {
+	const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || "{}");
+	const jwtClient = new (require("google-auth-library")).JWT({
+		email: serviceAccount.client_email,
+		key: serviceAccount.private_key,
+		scopes: ["https://www.googleapis.com/auth/androidpublisher"],
+	});
+	const tokens = await jwtClient.authorize();
+	return tokens.access_token;
+}
+
+// Verify subscription with Play Developer API
+async function verifyPlaySubscription(packageName, subscriptionId, purchaseToken) {
+	try {
+		const accessToken = await getPlayDeveloperAccessToken();
+		const endpoint = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/subscriptions/${subscriptionId}/purchases/tokens/${purchaseToken}`;
+		
+		const response = await fetch(endpoint, {
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+			},
+		});
+
+		if (!response.ok) {
+			logger.warn(`Play API verification failed: ${response.status}`, {
+				packageName,
+				subscriptionId,
+				purchaseToken,
+			});
+			return null;
+		}
+
+		const data = await response.json();
+		logger.info("Play subscription verified", {
+			packageName,
+			subscriptionId,
+			expiryTime: data.expiryTimeMillis,
+			autoRenewing: data.autoRenewing,
+		});
+		return data;
+	} catch (e) {
+		logger.error("Play API verification error", e, {
+			packageName,
+			subscriptionId,
+		});
+		return null;
+	}
+}
+
 exports.googlePlayRtdn = onMessagePublished({ topic: rtdnTopic }, async (event) => {
 		let payload = null;
 		try {
@@ -92,9 +142,18 @@ exports.googlePlayRtdn = onMessagePublished({ topic: rtdnTopic }, async (event) 
 		const sub = payload.subscriptionNotification;
 		if (!sub || !sub.purchaseToken) return;
 
+		const packageName = payload.packageName;
 		const purchaseToken = sub.purchaseToken;
+		const subscriptionId = sub.subscriptionId;
 		const notificationType = sub.notificationType;
 		const status = normalizeStatus(notificationType);
+
+		// Verify with Play Developer API
+		const verifiedData = await verifyPlaySubscription(packageName, subscriptionId, purchaseToken);
+		if (!verifiedData) {
+			logger.warn("Skipping update for unverified subscription", { purchaseToken });
+			return;
+		}
 
 		const subsSnap = await db
 			.collection("subscriptions")
@@ -113,9 +172,13 @@ exports.googlePlayRtdn = onMessagePublished({ topic: rtdnTopic }, async (event) 
 		const moduleId = subData.moduleId;
 		const companyId = subData.companyId;
 
+		const expiryTime = verifiedData.expiryTimeMillis ? new Date(parseInt(verifiedData.expiryTimeMillis)) : null;
+
 		await subDoc.ref.set(
 			{
 				status,
+				autoRenewing: verifiedData.autoRenewing,
+				expiryTime,
 				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 				source: "google",
 			},
@@ -145,7 +208,8 @@ exports.googlePlayRtdn = onMessagePublished({ topic: rtdnTopic }, async (event) 
 				status,
 				payerType: subData.payerType || "self",
 				payerUid: subData.payerUid || uid,
-				renewalDate: subData.renewalDate || null,
+				renewalDate: expiryTime,
+				autoRenewing: verifiedData.autoRenewing,
 				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 				source: "google",
 			},
