@@ -328,7 +328,50 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
               color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
             ),
           ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () => _showSubscribeDialog(theme),
+              icon: const Icon(Icons.shopping_cart_outlined),
+              label: Text(
+                'Subscribe',
+                style: AppTheme.inter(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: theme.primaryColor,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _showSubscribeDialog(ThemeData theme) {
+    showDialog(
+      context: context,
+      builder: (context) => _SubscribePlanDialog(
+        theme: theme,
+        moduleName: widget.moduleName,
+        email: widget.email,
+        moduleId: widget.moduleId,
+        spreadsheetId: widget.spreadsheetId,
+        onSubscribeSuccess: () {
+          Navigator.of(context).pop();
+          _refreshStatus();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Subscription added successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        },
       ),
     );
   }
@@ -443,4 +486,330 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
   }
 
   String _pad(int number) => number.toString().padLeft(2, '0');
+}
+
+class _SubscribePlanDialog extends StatefulWidget {
+  final ThemeData theme;
+  final String moduleName;
+  final String email;
+  final String moduleId;
+  final String spreadsheetId;
+  final VoidCallback onSubscribeSuccess;
+
+  const _SubscribePlanDialog({
+    required this.theme,
+    required this.moduleName,
+    required this.email,
+    required this.moduleId,
+    required this.spreadsheetId,
+    required this.onSubscribeSuccess,
+  });
+
+  @override
+  State<_SubscribePlanDialog> createState() => _SubscribePlanDialogState();
+}
+
+class _SubscribePlanDialogState extends State<_SubscribePlanDialog> {
+  String _selectedPlan = 'monthly'; // 'monthly' or 'annual'
+  bool _isProcessing = false;
+  String? _errorMessage;
+
+  // Pricing: most modules are $1, some are free
+  final double _monthlyPrice = 1.0;
+  final double _annualPrice = 10.0; // 10 months worth
+
+  Future<void> _processPurchase() async {
+    setState(() {
+      _isProcessing = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final workspaceProvider =
+          Provider.of<WorkspaceProvider>(context, listen: false);
+      final companyId = workspaceProvider.currentCompany?.id;
+
+      if (companyId == null) {
+        throw Exception('Company not found');
+      }
+
+      // Generate a test purchase token (in production, this comes from Play Billing Library)
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final planSuffix = _selectedPlan == 'monthly' ? '.monthly' : '.annual';
+      final purchaseToken =
+          'test_token_${widget.email}_${widget.moduleId}${planSuffix}_$timestamp';
+
+      // Get package name (would be from your app config in production)
+      const packageName = 'com.drivererpapp'; // Change to your actual package
+
+      // Call billing service to record the subscription
+      final response = await BillingService.recordPlaySubscription(
+        uid: widget.email,
+        packageName: packageName,
+        subscriptionId: 'subscription$planSuffix', // e.g., subscription.monthly
+        purchaseToken: purchaseToken,
+        companyId: companyId,
+        moduleId: widget.moduleId,
+      );
+
+      if (!mounted) return;
+
+      if (response['success'] == true) {
+        widget.onSubscribeSuccess();
+      } else {
+        throw Exception('Failed to process subscription');
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = e.toString();
+        _isProcessing = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Row(
+        children: [
+          Icon(Icons.shopping_cart_outlined,
+              color: widget.theme.primaryColor, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Subscribe to ${widget.moduleName}',
+              style: AppTheme.inter(fontWeight: FontWeight.w700, fontSize: 18),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Choose a subscription plan for ${widget.email}',
+                style: AppTheme.inter(
+                  fontSize: 13,
+                  color: widget.theme.textTheme.bodyMedium?.color
+                      ?.withValues(alpha: 0.7),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Monthly Plan
+              _buildPlanOption(
+                planId: 'monthly',
+                title: 'Monthly',
+                price: _monthlyPrice,
+                period: '/month',
+                isSelected: _selectedPlan == 'monthly',
+              ),
+              const SizedBox(height: 12),
+              // Annual Plan
+              _buildPlanOption(
+                planId: 'annual',
+                title: 'Annual',
+                price: _annualPrice,
+                period: '/year',
+                badge: 'Save \$2',
+                isSelected: _selectedPlan == 'annual',
+              ),
+              if (_errorMessage != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    _errorMessage!,
+                    style: AppTheme.inter(
+                      fontSize: 12,
+                      color: Colors.red,
+                    ),
+                  ),
+                ),
+              ],
+              if (_isProcessing) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: widget.theme.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            widget.theme.primaryColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Processing subscription...',
+                        style: AppTheme.inter(
+                          fontSize: 12,
+                          color: widget.theme.primaryColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isProcessing ? null : () => Navigator.of(context).pop(),
+          child: Text(
+            'Cancel',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w600,
+              color: _isProcessing
+                  ? widget.theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.3)
+                  : widget.theme.textTheme.bodyMedium?.color,
+            ),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _isProcessing ? null : _processPurchase,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: widget.theme.primaryColor,
+            foregroundColor: Colors.white,
+            disabledBackgroundColor:
+                widget.theme.primaryColor.withValues(alpha: 0.3),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
+          child: Text(
+            _isProcessing ? 'Processing...' : 'Subscribe',
+            style: AppTheme.inter(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlanOption({
+    required String planId,
+    required String title,
+    required double price,
+    required String period,
+    required bool isSelected,
+    String? badge,
+  }) {
+    return GestureDetector(
+      onTap: _isProcessing ? null : () => setState(() => _selectedPlan = planId),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? widget.theme.primaryColor.withValues(alpha: 0.1)
+              : widget.theme.cardTheme.color,
+          border: Border.all(
+            color: isSelected
+                ? widget.theme.primaryColor
+                : widget.theme.dividerColor.withValues(alpha: 0.2),
+            width: isSelected ? 2 : 1,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                // ignore: deprecated_member_use
+                Radio<String>(
+                  value: planId,
+                  // ignore: deprecated_member_use
+                  groupValue: _selectedPlan,
+                  // ignore: deprecated_member_use
+                  onChanged: _isProcessing ? null : (value) {
+                    if (value != null) {
+                      setState(() => _selectedPlan = value);
+                    }
+                  },
+                  activeColor: widget.theme.primaryColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: AppTheme.inter(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: widget.theme.textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                ),
+                if (badge != null)
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      badge,
+                      style: AppTheme.inter(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.green,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  '\$${price.toStringAsFixed(2)}',
+                  style: AppTheme.inter(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: widget.theme.primaryColor,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  period,
+                  style: AppTheme.inter(
+                    fontSize: 12,
+                    color: widget.theme.textTheme.bodyMedium?.color
+                        ?.withValues(alpha: 0.7),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

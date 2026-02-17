@@ -121,6 +121,45 @@ class BillingService {
     }
   }
 
+  /// Record a new subscription purchase
+  /// This is called after a successful purchase from the Play Store
+  static Future<Map<String, dynamic>> recordPlaySubscription({
+    required String uid,
+    required String packageName,
+    required String subscriptionId,
+    required String purchaseToken,
+    required String companyId,
+    required String moduleId,
+    String? payerType,
+    String? payerUid,
+  }) async {
+    try {
+      final url = Uri.parse('$baseUrl/recordPlaySubscription');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'uid': uid,
+          'packageName': packageName,
+          'subscriptionId': subscriptionId,
+          'purchaseToken': purchaseToken,
+          'companyId': companyId,
+          'moduleId': moduleId,
+          'payerType': payerType ?? 'self',
+          'payerUid': payerUid ?? uid,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to record subscription: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error recording subscription: $e');
+    }
+  }
+
   /// Health check for billing service
   static Future<bool> healthCheck() async {
     try {
