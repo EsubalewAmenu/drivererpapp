@@ -217,6 +217,182 @@ exports.googlePlayRtdn = onMessagePublished({ topic: rtdnTopic }, async (event) 
 		);
 	});
 
+// Handle initial subscription purchase from Play Store
+exports.recordPlaySubscription = onRequest(async (req, res) => {
+	try {
+		const {uid, packageName, subscriptionId, purchaseToken, companyId, moduleId, payerType, payerUid} = req.body;
+
+		if (!uid || !packageName || !subscriptionId || !purchaseToken || !companyId || !moduleId) {
+			return res.status(400).send("Missing required fields");
+		}
+
+		// Verify with Play Developer API
+		const verifiedData = await verifyPlaySubscription(packageName, subscriptionId, purchaseToken);
+		if (!verifiedData) {
+			return res.status(401).send("Subscription verification failed");
+		}
+
+		const expiryTime = verifiedData.expiryTimeMillis ? new Date(parseInt(verifiedData.expiryTimeMillis)) : null;
+
+		// Create subscription record
+		await db.collection("subscriptions").doc(purchaseToken).set({
+			uid,
+			packageName,
+			subscriptionId,
+			purchaseToken,
+			companyId,
+			moduleId,
+			payerType: payerType || "self",
+			payerUid: payerUid || uid,
+			status: "active",
+			autoRenewing: verifiedData.autoRenewing,
+			expiryTime,
+			createdAt: admin.firestore.FieldValue.serverTimestamp(),
+			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+			source: "google",
+		});
+
+		// Create entitlement record
+		const entitlementId = `${uid}_${moduleId}`;
+		await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
+			uid,
+			moduleId,
+			status: "active",
+			payerType: payerType || "self",
+			payerUid: payerUid || uid,
+			renewalDate: expiryTime,
+			autoRenewing: verifiedData.autoRenewing,
+			purchaseToken,
+			createdAt: admin.firestore.FieldValue.serverTimestamp(),
+			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+			source: "google",
+		});
+
+		await writeBillingEvent({
+			type: "subscription_recorded",
+			uid,
+			moduleId,
+			packageName,
+			subscriptionId,
+		}, "google");
+
+		logger.info("Subscription recorded", {uid, moduleId, packageName});
+		res.status(200).json({
+			success: true,
+			entitlementId,
+			expiryTime,
+			autoRenewing: verifiedData.autoRenewing,
+		});
+	} catch (e) {
+		logger.error("Record subscription error", e);
+		res.status(500).send("ERROR");
+	}
+});
+
+// Verify and refresh a subscription
+exports.refreshPlaySubscription = onRequest(async (req, res) => {
+	try {
+		const {purchaseToken} = req.body;
+
+		if (!purchaseToken) {
+			return res.status(400).send("Missing purchaseToken");
+		}
+
+		const subsSnap = await db.collection("subscriptions").doc(purchaseToken).get();
+		if (!subsSnap.exists) {
+			return res.status(404).send("Subscription not found");
+		}
+
+		const subData = subsSnap.data();
+		const {packageName, subscriptionId} = subData;
+
+		// Verify with Play Developer API
+		const verifiedData = await verifyPlaySubscription(packageName, subscriptionId, purchaseToken);
+		if (!verifiedData) {
+			return res.status(401).send("Subscription verification failed");
+		}
+
+		const expiryTime = verifiedData.expiryTimeMillis ? new Date(parseInt(verifiedData.expiryTimeMillis)) : null;
+		const status = verifiedData.autoRenewing || new Date(expiryTime) > new Date() ? "active" : "expired";
+
+		// Update subscription
+		await subsSnap.ref.set({
+			status,
+			autoRenewing: verifiedData.autoRenewing,
+			expiryTime,
+			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+		}, {merge: true});
+
+		// Update entitlement
+		const {uid, moduleId, companyId} = subData;
+		const entitlementId = `${uid}_${moduleId}`;
+		await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
+			status,
+			renewalDate: expiryTime,
+			autoRenewing: verifiedData.autoRenewing,
+			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+		}, {merge: true});
+
+		await writeBillingEvent({
+			type: "subscription_refreshed",
+			uid,
+			moduleId,
+			status,
+		}, "google");
+
+		logger.info("Subscription refreshed", {purchaseToken, status});
+		res.status(200).json({
+			success: true,
+			status,
+			expiryTime,
+			autoRenewing: verifiedData.autoRenewing,
+		});
+	} catch (e) {
+		logger.error("Refresh subscription error", e);
+		res.status(500).send("ERROR");
+	}
+});
+
+// Check entitlement status
+exports.getEntitlementStatus = onRequest(async (req, res) => {
+	try {
+		const {uid, companyId, moduleId} = req.body;
+
+		if (!uid || !companyId || !moduleId) {
+			return res.status(400).send("Missing required fields");
+		}
+
+		const entitlementId = `${uid}_${moduleId}`;
+		const entSnap = await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).get();
+
+		if (!entSnap.exists) {
+			return res.status(404).json({
+				status: "none",
+				hasAccess: false,
+			});
+		}
+
+		const entData = entSnap.data();
+		const now = new Date();
+		const expiryTime = entData.renewalDate ? new Date(entData.renewalDate) : null;
+		const hasExpired = expiryTime && expiryTime < now;
+		const hasAccess = entData.status === "active" && !hasExpired;
+
+		res.status(200).json({
+			status: entData.status,
+			hasAccess,
+			renewalDate: expiryTime,
+			autoRenewing: entData.autoRenewing,
+			payerType: entData.payerType,
+			source: entData.source,
+			lastVerifiedAt: entData.lastVerifiedAt,
+		});
+	} catch (e) {
+		logger.error("Get entitlement error", e);
+		res.status(500).send("ERROR");
+	}
+});
+
 exports.appleServerNotifications = onRequest(async (req, res) => {
 	try {
 		const payload = req.body;
