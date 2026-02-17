@@ -7,10 +7,6 @@
   },
   "functions": [
     {
-      "codebase": "default",
-      "source": "functions"
-    },
-    {
       "source": "billing",
       "codebase": "billing",
       "disallowLegacyRuntimeConfig": true,
