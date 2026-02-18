@@ -540,7 +540,7 @@ class _SubscribePlanDialogState extends State<_SubscribePlanDialog> {
           'test_token_${widget.email}_${widget.moduleId}${planSuffix}_$timestamp';
 
       // Get package name (would be from your app config in production)
-      const packageName = 'com.drivererpapp'; // Change to your actual package
+      const packageName = 'com.datascience.apps.drivererp'; // Correct package name from google-services.json
 
       // Call billing service to record the subscription
       final response = await BillingService.recordPlaySubscription(

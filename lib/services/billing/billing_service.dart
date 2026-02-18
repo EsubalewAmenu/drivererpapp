@@ -1,4 +1,5 @@
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
 
 class SubscriptionStatus {
@@ -24,12 +25,21 @@ class SubscriptionStatus {
     return SubscriptionStatus(
       status: json['status'] ?? 'unknown',
       hasAccess: json['hasAccess'] ?? false,
-      renewalDate: json['renewalDate'] != null ? DateTime.parse(json['renewalDate']) : null,
+      renewalDate: _parseDate(json['renewalDate']),
       autoRenewing: json['autoRenewing'],
       payerType: json['payerType'],
       source: json['source'],
-      lastVerifiedAt: json['lastVerifiedAt'] != null ? DateTime.parse(json['lastVerifiedAt']) : null,
+      lastVerifiedAt: _parseDate(json['lastVerifiedAt']),
     );
+  }
+
+  static DateTime? _parseDate(dynamic date) {
+    if (date == null) return null;
+    if (date is String) return DateTime.tryParse(date);
+    if (date is Map && date.containsKey('_seconds')) {
+      return DateTime.fromMillisecondsSinceEpoch(date['_seconds'] * 1000);
+    }
+    return null;
   }
 
   /// Days until renewal, null if not renewing or expired
@@ -134,10 +144,21 @@ class BillingService {
     String? payerUid,
   }) async {
     try {
+      // Get Firebase ID token for authentication
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+      
+      final idToken = await user.getIdToken();
+      
       final url = Uri.parse('$baseUrl/recordPlaySubscription');
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
         body: jsonEncode({
           'uid': uid,
           'packageName': packageName,
@@ -153,7 +174,7 @@ class BillingService {
       if (response.statusCode == 200) {
         return jsonDecode(response.body);
       } else {
-        throw Exception('Failed to record subscription: ${response.statusCode}');
+        throw Exception('Failed to record subscription: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
       throw Exception('Error recording subscription: $e');
