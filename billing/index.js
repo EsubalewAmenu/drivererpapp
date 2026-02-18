@@ -38,6 +38,15 @@ exports.health = onRequest((request, response) => {
 
 const db = admin.firestore();
 
+function toJsDate(value) {
+	if (!value) return null;
+	if (value instanceof Date) return value;
+	if (typeof value.toDate === "function") return value.toDate();
+	if (value._seconds) return new Date(value._seconds * 1000);
+	if (typeof value === "string") return new Date(value);
+	return null;
+}
+
 function normalizeStatus(notificationType) {
 	// Google Play RTDN types: https://developer.android.com/google/play/billing/rtdn-reference
 	switch (notificationType) {
@@ -273,6 +282,7 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			payerUid: payerUid || uid,
 			renewalDate: expiryTime,
 			autoRenewing: verifiedData.autoRenewing,
+			subscriptionId,
 			purchaseToken,
 			createdAt: admin.firestore.FieldValue.serverTimestamp(),
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -366,7 +376,7 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 		res.status(200).json({
 			success: true,
 			status,
-			expiryTime,
+			expiryTime: expiryTime ? expiryTime.toISOString() : null,
 			autoRenewing: verifiedData.autoRenewing,
 		});
 	} catch (e) {
@@ -396,7 +406,7 @@ exports.getEntitlementStatus = onRequest(async (req, res) => {
 
 		const entData = entSnap.data();
 		const now = new Date();
-		const expiryTime = entData.renewalDate ? new Date(entData.renewalDate) : null;
+		const expiryTime = toJsDate(entData.renewalDate);
 		const hasExpired = expiryTime && expiryTime < now;
 		const hasAccess = entData.status === "active" && !hasExpired;
 
@@ -407,8 +417,9 @@ exports.getEntitlementStatus = onRequest(async (req, res) => {
 			autoRenewing: entData.autoRenewing,
 			payerType: entData.payerType,
 			source: entData.source,
-			lastVerifiedAt: entData.lastVerifiedAt && entData.lastVerifiedAt.toDate ? entData.lastVerifiedAt.toDate().toISOString() : 
-							(entData.lastVerifiedAt instanceof Date ? entData.lastVerifiedAt.toISOString() : entData.lastVerifiedAt),
+			subscriptionId: entData.subscriptionId,
+			purchaseToken: entData.purchaseToken,
+			lastVerifiedAt: toJsDate(entData.lastVerifiedAt) ? toJsDate(entData.lastVerifiedAt).toISOString() : null,
 		});
 	} catch (e) {
 		logger.error("Get entitlement error", e);

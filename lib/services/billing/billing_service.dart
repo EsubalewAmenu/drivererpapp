@@ -9,6 +9,8 @@ class SubscriptionStatus {
   final bool? autoRenewing;
   final String? payerType; // 'self' or 'gift'
   final String? source; // 'google' or 'apple'
+  final String? subscriptionId; // 'subscription.monthly' or 'subscription.annual'
+  final String? purchaseToken;
   final DateTime? lastVerifiedAt;
 
   SubscriptionStatus({
@@ -18,6 +20,8 @@ class SubscriptionStatus {
     this.autoRenewing,
     this.payerType,
     this.source,
+    this.subscriptionId,
+    this.purchaseToken,
     this.lastVerifiedAt,
   });
 
@@ -29,6 +33,8 @@ class SubscriptionStatus {
       autoRenewing: json['autoRenewing'],
       payerType: json['payerType'],
       source: json['source'],
+      subscriptionId: json['subscriptionId'],
+      purchaseToken: json['purchaseToken'],
       lastVerifiedAt: _parseDate(json['lastVerifiedAt']),
     );
   }

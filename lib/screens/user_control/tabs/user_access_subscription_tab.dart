@@ -248,37 +248,70 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
             theme,
           ),
           const SizedBox(height: 12),
-          if (status.payerType != null)
+          if (status.subscriptionId != null) ...[
+            _buildDetailRow(
+              'Plan',
+              status.subscriptionId!.contains('annual') ? 'Annual Subscription' : 'Monthly Subscription',
+              theme.primaryColor,
+              theme,
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (status.payerType != null) ...[
             _buildDetailRow(
               'Payment Type',
-              status.payerType == 'self' ? 'Self-paid' : 'Gift',
+              status.payerType == 'self' ? 'Self-paid' : 'Gifted Access',
               theme.textTheme.bodyLarge?.color ?? Colors.grey,
               theme,
             ),
-          if (status.payerType != null) const SizedBox(height: 12),
-          if (status.renewalDate != null)
+            const SizedBox(height: 12),
+          ],
+          if (status.renewalDate != null) ...[
             _buildDetailRow(
-              'Renewal Date',
+              status.status == 'expired' ? 'Expired On' : 'Renewal Date',
               _formatDate(status.renewalDate!),
-              theme.textTheme.bodyLarge?.color ?? Colors.grey,
+              status.status == 'expired' ? Colors.red : (theme.textTheme.bodyLarge?.color ?? Colors.grey),
               theme,
             ),
-          if (status.renewalDate != null) const SizedBox(height: 12),
-          if (status.autoRenewing != null)
+            const SizedBox(height: 12),
+          ],
+          if (status.autoRenewing != null) ...[
             _buildDetailRow(
               'Auto Renewal',
               status.autoRenewing! ? 'Enabled' : 'Disabled',
               status.autoRenewing! ? Colors.green : Colors.orange,
               theme,
             ),
-          if (status.autoRenewing != null) const SizedBox(height: 12),
-          if (status.source != null)
+            const SizedBox(height: 12),
+          ],
+          if (status.source != null) ...[
             _buildDetailRow(
               'Platform',
               status.source == 'google' ? 'Google Play' : 'Apple App Store',
-              theme.primaryColor,
+              const Color(0xFF4285F4), // Google Blue
               theme,
             ),
+            const SizedBox(height: 12),
+          ],
+          if (status.purchaseToken != null) ...[
+            _buildDetailRow(
+              'Purchase ID',
+              status.purchaseToken!.length > 20 
+                  ? '${status.purchaseToken!.substring(0, 10)}...${status.purchaseToken!.substring(status.purchaseToken!.length - 10)}' 
+                  : status.purchaseToken!,
+              theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5) ?? Colors.grey,
+              theme,
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (status.lastVerifiedAt != null) ...[
+            _buildDetailRow(
+              'Last Verified',
+              '${_formatDate(status.lastVerifiedAt!)} ${_formatTime(status.lastVerifiedAt!)}',
+              theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5) ?? Colors.grey,
+              theme,
+            ),
+          ],
         ],
       ),
     );
