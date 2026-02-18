@@ -240,7 +240,8 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 		if (purchaseToken.startsWith("test_token_")) {
 			// Allow test tokens for development/demo purposes
 			const isAnnual = subscriptionId && subscriptionId.includes("annual");
-			const durationDays = isAnnual ? 365 : 30;
+			const isDaily = subscriptionId && subscriptionId.includes("daily");
+			const durationDays = isAnnual ? 365 : (isDaily ? 1 : 30);
 			
 			verifiedData = {
 				expiryTimeMillis: (Date.now() + durationDays * 24 * 60 * 60 * 1000).toString(),
@@ -335,7 +336,8 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 		if (purchaseToken.startsWith("test_token_")) {
 			// Allow test tokens for development/demo purposes
 			const isAnnual = subscriptionId && subscriptionId.includes("annual");
-			const durationDays = isAnnual ? 365 : 30;
+			const isDaily = subscriptionId && subscriptionId.includes("daily");
+			const durationDays = isAnnual ? 365 : (isDaily ? 1 : 30);
 			const storedExpiry = toJsDate(subData.expiryTime);
 			const expiryMillis = storedExpiry
 				? storedExpiry.getTime()
@@ -596,6 +598,7 @@ exports.getModulePricing = onRequest(async (req, res) => {
 			moduleName,
 			moduleId,
 			isFree,
+			dailyPrice: isFree ? 0 : 0.5,
 			monthlyPrice: isFree ? 0 : 1,
 			annualPrice: isFree ? 0 : 10,
 			currency: "USD",

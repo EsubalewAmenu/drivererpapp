@@ -30,7 +30,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
   DateTime? _lastRefreshed;
 
   late Future<Map<String, dynamic>> _pricingFuture;
-  String _selectedPlan = 'monthly'; // 'monthly' or 'annual'
+  String _selectedPlan = 'monthly'; // 'daily', 'monthly', or 'annual'
   bool _isProcessing = false;
   String? _errorMessage;
   bool _isUpdatingAutoRenew = false;
@@ -102,7 +102,9 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
 
       // Generate a test purchase token (in production, this comes from Play Billing Library)
       final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final planSuffix = _selectedPlan == 'monthly' ? '.monthly' : '.annual';
+        final planSuffix = _selectedPlan == 'daily'
+          ? '.daily'
+          : (_selectedPlan == 'annual' ? '.annual' : '.monthly');
       final purchaseToken =
           'test_token_${widget.email}_${widget.moduleId}${planSuffix}_$timestamp';
 
@@ -478,7 +480,11 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
           if (status.subscriptionId != null) ...[
             _buildDetailRow(
               'Plan',
-              status.subscriptionId!.contains('annual') ? 'Annual Subscription' : 'Monthly Subscription',
+              status.subscriptionId!.contains('annual')
+                  ? 'Annual Subscription'
+                  : (status.subscriptionId!.contains('daily')
+                      ? '1-Day Plan'
+                      : 'Monthly Subscription'),
               theme.primaryColor,
               theme,
             ),
@@ -740,6 +746,8 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
 
               final pricing = snapshot.data ?? {};
               final isFree = pricing['isFree'] == true;
+                final dailyPrice =
+                  (pricing['dailyPrice'] as num?)?.toDouble() ?? 0.5;
               final monthlyPrice =
                   (pricing['monthlyPrice'] as num?)?.toDouble() ?? 1.0;
               final annualPrice =
@@ -774,6 +782,15 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
 
               return Column(
                 children: [
+                  _buildPlanOption(
+                    theme: theme,
+                    planId: 'daily',
+                    title: '1-Day',
+                    price: dailyPrice,
+                    period: '/day',
+                    isSelected: _selectedPlan == 'daily',
+                  ),
+                  const SizedBox(height: 12),
                   _buildPlanOption(
                     theme: theme,
                     planId: 'monthly',
