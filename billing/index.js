@@ -239,11 +239,14 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 		let verifiedData;
 		if (purchaseToken.startsWith("test_token_")) {
 			// Allow test tokens for development/demo purposes
+			const isAnnual = subscriptionId && subscriptionId.includes("annual");
+			const durationDays = isAnnual ? 365 : 30;
+			
 			verifiedData = {
-				expiryTimeMillis: (Date.now() + 30 * 24 * 60 * 60 * 1000).toString(), // 30 days from now
+				expiryTimeMillis: (Date.now() + durationDays * 24 * 60 * 60 * 1000).toString(),
 				autoRenewing: true,
 			};
-			logger.info("Using mock verification for test token", {uid, purchaseToken});
+			logger.info("Using mock verification for test token", {uid, purchaseToken, isAnnual});
 		} else {
 			verifiedData = await verifyPlaySubscription(packageName, subscriptionId, purchaseToken);
 		}
@@ -331,11 +334,14 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 		let verifiedData;
 		if (purchaseToken.startsWith("test_token_")) {
 			// Allow test tokens for development/demo purposes
+			const isAnnual = subscriptionId && subscriptionId.includes("annual");
+			const durationDays = isAnnual ? 365 : 30;
+
 			verifiedData = {
-				expiryTimeMillis: (Date.now() + 30 * 24 * 60 * 60 * 1000).toString(), // 30 days from now
+				expiryTimeMillis: (Date.now() + durationDays * 24 * 60 * 60 * 1000).toString(),
 				autoRenewing: true,
 			};
-			logger.info("Using mock verification for test token refresh", {purchaseToken});
+			logger.info("Using mock verification for test token refresh", {purchaseToken, isAnnual});
 		} else {
 			verifiedData = await verifyPlaySubscription(packageName, subscriptionId, purchaseToken);
 		}

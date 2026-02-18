@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../../theme/app_theme.dart';
 import '../../../services/billing/billing_service.dart';
 import '../../../providers/workspace_provider.dart';
+import '../../../services/auth_service.dart';
 
 class UserAccessSubscriptionTab extends StatefulWidget {
   final String email;
@@ -560,11 +561,21 @@ class _SubscribePlanDialogState extends State<_SubscribePlanDialog> {
     try {
       final workspaceProvider =
           Provider.of<WorkspaceProvider>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      
       final companyId = workspaceProvider.currentCompany?.id;
+      final currentEmail = authService.currentUser?.email;
 
       if (companyId == null) {
         throw Exception('Company not found');
       }
+
+      if (currentEmail == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Determine if this is a self-purchase or a gift (admin buying for user)
+      final isGift = currentEmail != widget.email;
 
       // Generate a test purchase token (in production, this comes from Play Billing Library)
       final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -583,6 +594,8 @@ class _SubscribePlanDialogState extends State<_SubscribePlanDialog> {
         purchaseToken: purchaseToken,
         companyId: companyId,
         moduleId: widget.moduleId,
+        payerType: isGift ? 'gift' : 'self',
+        payerUid: currentEmail,
       );
 
       if (!mounted) return;
