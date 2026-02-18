@@ -29,10 +29,16 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
   late Future<SubscriptionStatus> _statusFuture;
   DateTime? _lastRefreshed;
 
+  late Future<Map<String, dynamic>> _pricingFuture;
+  String _selectedPlan = 'monthly'; // 'monthly' or 'annual'
+  bool _isProcessing = false;
+  String? _errorMessage;
+
   @override
   void initState() {
     super.initState();
     _loadSubscriptionStatus();
+    _loadPricing();
   }
 
   void _loadSubscriptionStatus() {
@@ -47,6 +53,96 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
         companyId: companyId,
         moduleId: widget.moduleId,
       );
+    }
+  }
+
+  void _loadPricing() {
+    _pricingFuture = BillingService.getModulePricing(
+      moduleName: widget.moduleName,
+      moduleId: widget.moduleId,
+    );
+  }
+
+  Future<void> _processPurchase() async {
+    setState(() {
+      _isProcessing = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final pricing = await _pricingFuture;
+      final isFree = pricing['isFree'] == true;
+      if (isFree) {
+        setState(() {
+          _isProcessing = false;
+          _errorMessage = 'This module is free. No subscription is required.';
+        });
+        return;
+      }
+
+      final workspaceProvider =
+          Provider.of<WorkspaceProvider>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+
+      final companyId = workspaceProvider.currentCompany?.id;
+      final currentEmail = authService.currentUser?.email;
+
+      if (companyId == null) {
+        throw Exception('Company not found');
+      }
+
+      if (currentEmail == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Determine if this is a self-purchase or a gift (admin buying for user)
+      final isGift = currentEmail != widget.email;
+
+      // Generate a test purchase token (in production, this comes from Play Billing Library)
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final planSuffix = _selectedPlan == 'monthly' ? '.monthly' : '.annual';
+      final purchaseToken =
+          'test_token_${widget.email}_${widget.moduleId}${planSuffix}_$timestamp';
+
+      // Get package name (would be from your app config in production)
+      const packageName = 'com.datascience.apps.drivererp'; // Correct package name from google-services.json
+
+      // Call billing service to record the subscription
+      final response = await BillingService.recordPlaySubscription(
+        uid: widget.email,
+        packageName: packageName,
+        subscriptionId: 'subscription$planSuffix', // e.g., subscription.monthly
+        purchaseToken: purchaseToken,
+        companyId: companyId,
+        moduleId: widget.moduleId,
+        payerType: isGift ? 'gift' : 'self',
+        payerUid: currentEmail,
+      );
+
+      if (!mounted) return;
+
+      if (response['success'] == true) {
+        _refreshStatus();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Subscription added successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        throw Exception('Failed to process subscription');
+      }
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _errorMessage = e.toString();
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+      });
     }
   }
 
@@ -363,49 +459,190 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
             ),
           ),
           const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton.icon(
-              onPressed: () => _showSubscribeDialog(theme),
-              icon: const Icon(Icons.shopping_cart_outlined),
-              label: Text(
-                'Subscribe',
-                style: AppTheme.inter(fontWeight: FontWeight.w600),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: theme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-            ),
+          FutureBuilder<Map<String, dynamic>>(
+            future: _pricingFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            theme.primaryColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Loading pricing...',
+                        style: AppTheme.inter(
+                          fontSize: 12,
+                          color: theme.textTheme.bodyMedium?.color,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Pricing unavailable',
+                      style: AppTheme.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => setState(_loadPricing),
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('Retry'),
+                    ),
+                  ],
+                );
+              }
+
+              final pricing = snapshot.data ?? {};
+              final isFree = pricing['isFree'] == true;
+              final monthlyPrice =
+                  (pricing['monthlyPrice'] as num?)?.toDouble() ?? 1.0;
+              final annualPrice =
+                  (pricing['annualPrice'] as num?)?.toDouble() ?? 10.0;
+
+              if (isFree) {
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'This module is free. No subscription is required.',
+                          style: AppTheme.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.green,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return Column(
+                children: [
+                  _buildPlanOption(
+                    theme: theme,
+                    planId: 'monthly',
+                    title: 'Monthly',
+                    price: monthlyPrice,
+                    period: '/month',
+                    isSelected: _selectedPlan == 'monthly',
+                  ),
+                  const SizedBox(height: 12),
+                  _buildPlanOption(
+                    theme: theme,
+                    planId: 'annual',
+                    title: 'Annual',
+                    price: annualPrice,
+                    period: '/year',
+                    badge: 'Save \$2',
+                    isSelected: _selectedPlan == 'annual',
+                  ),
+                  if (_errorMessage != null) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                      ),
+                      child: Text(
+                        _errorMessage!,
+                        style: AppTheme.inter(
+                          fontSize: 12,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (_isProcessing) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: theme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                theme.primaryColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Processing subscription...',
+                            style: AppTheme.inter(
+                              fontSize: 12,
+                              color: theme.primaryColor,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: _isProcessing ? null : _processPurchase,
+                      icon: const Icon(Icons.shopping_cart_outlined),
+                      label: Text(
+                        _isProcessing ? 'Processing...' : 'Subscribe',
+                        style: AppTheme.inter(fontWeight: FontWeight.w600),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: theme.primaryColor,
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor:
+                            theme.primaryColor.withValues(alpha: 0.3),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ],
-      ),
-    );
-  }
-
-  void _showSubscribeDialog(ThemeData theme) {
-    showDialog(
-      context: context,
-      builder: (context) => _SubscribePlanDialog(
-        theme: theme,
-        moduleName: widget.moduleName,
-        email: widget.email,
-        moduleId: widget.moduleId,
-        spreadsheetId: widget.spreadsheetId,
-        onSubscribeSuccess: () {
-          Navigator.of(context).pop();
-          _refreshStatus();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Subscription added successfully!'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        },
       ),
     );
   }
@@ -520,244 +757,9 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
   }
 
   String _pad(int number) => number.toString().padLeft(2, '0');
-}
-
-class _SubscribePlanDialog extends StatefulWidget {
-  final ThemeData theme;
-  final String moduleName;
-  final String email;
-  final String moduleId;
-  final String spreadsheetId;
-  final VoidCallback onSubscribeSuccess;
-
-  const _SubscribePlanDialog({
-    required this.theme,
-    required this.moduleName,
-    required this.email,
-    required this.moduleId,
-    required this.spreadsheetId,
-    required this.onSubscribeSuccess,
-  });
-
-  @override
-  State<_SubscribePlanDialog> createState() => _SubscribePlanDialogState();
-}
-
-class _SubscribePlanDialogState extends State<_SubscribePlanDialog> {
-  String _selectedPlan = 'monthly'; // 'monthly' or 'annual'
-  bool _isProcessing = false;
-  String? _errorMessage;
-
-  // Pricing: most modules are $1, some are free
-  final double _monthlyPrice = 1.0;
-  final double _annualPrice = 10.0; // 10 months worth
-
-  Future<void> _processPurchase() async {
-    setState(() {
-      _isProcessing = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final workspaceProvider =
-          Provider.of<WorkspaceProvider>(context, listen: false);
-      final authService = Provider.of<AuthService>(context, listen: false);
-      
-      final companyId = workspaceProvider.currentCompany?.id;
-      final currentEmail = authService.currentUser?.email;
-
-      if (companyId == null) {
-        throw Exception('Company not found');
-      }
-
-      if (currentEmail == null) {
-        throw Exception('User not authenticated');
-      }
-
-      // Determine if this is a self-purchase or a gift (admin buying for user)
-      final isGift = currentEmail != widget.email;
-
-      // Generate a test purchase token (in production, this comes from Play Billing Library)
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final planSuffix = _selectedPlan == 'monthly' ? '.monthly' : '.annual';
-      final purchaseToken =
-          'test_token_${widget.email}_${widget.moduleId}${planSuffix}_$timestamp';
-
-      // Get package name (would be from your app config in production)
-      const packageName = 'com.datascience.apps.drivererp'; // Correct package name from google-services.json
-
-      // Call billing service to record the subscription
-      final response = await BillingService.recordPlaySubscription(
-        uid: widget.email,
-        packageName: packageName,
-        subscriptionId: 'subscription$planSuffix', // e.g., subscription.monthly
-        purchaseToken: purchaseToken,
-        companyId: companyId,
-        moduleId: widget.moduleId,
-        payerType: isGift ? 'gift' : 'self',
-        payerUid: currentEmail,
-      );
-
-      if (!mounted) return;
-
-      if (response['success'] == true) {
-        widget.onSubscribeSuccess();
-      } else {
-        throw Exception('Failed to process subscription');
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _errorMessage = e.toString();
-        _isProcessing = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: Row(
-        children: [
-          Icon(Icons.shopping_cart_outlined,
-              color: widget.theme.primaryColor, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Subscribe to ${widget.moduleName}',
-              style: AppTheme.inter(fontWeight: FontWeight.w700, fontSize: 18),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
-      ),
-      content: SingleChildScrollView(
-        child: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Choose a subscription plan for ${widget.email}',
-                style: AppTheme.inter(
-                  fontSize: 13,
-                  color: widget.theme.textTheme.bodyMedium?.color
-                      ?.withValues(alpha: 0.7),
-                ),
-              ),
-              const SizedBox(height: 20),
-              // Monthly Plan
-              _buildPlanOption(
-                planId: 'monthly',
-                title: 'Monthly',
-                price: _monthlyPrice,
-                period: '/month',
-                isSelected: _selectedPlan == 'monthly',
-              ),
-              const SizedBox(height: 12),
-              // Annual Plan
-              _buildPlanOption(
-                planId: 'annual',
-                title: 'Annual',
-                price: _annualPrice,
-                period: '/year',
-                badge: 'Save \$2',
-                isSelected: _selectedPlan == 'annual',
-              ),
-              if (_errorMessage != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    _errorMessage!,
-                    style: AppTheme.inter(
-                      fontSize: 12,
-                      color: Colors.red,
-                    ),
-                  ),
-                ),
-              ],
-              if (_isProcessing) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: widget.theme.primaryColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            widget.theme.primaryColor,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Processing subscription...',
-                        style: AppTheme.inter(
-                          fontSize: 12,
-                          color: widget.theme.primaryColor,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isProcessing ? null : () => Navigator.of(context).pop(),
-          child: Text(
-            'Cancel',
-            style: AppTheme.inter(
-              fontWeight: FontWeight.w600,
-              color: _isProcessing
-                  ? widget.theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.3)
-                  : widget.theme.textTheme.bodyMedium?.color,
-            ),
-          ),
-        ),
-        ElevatedButton(
-          onPressed: _isProcessing ? null : _processPurchase,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: widget.theme.primaryColor,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor:
-                widget.theme.primaryColor.withValues(alpha: 0.3),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
-          child: Text(
-            _isProcessing ? 'Processing...' : 'Subscribe',
-            style: AppTheme.inter(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 
   Widget _buildPlanOption({
+    required ThemeData theme,
     required String planId,
     required String title,
     required double price,
@@ -771,12 +773,12 @@ class _SubscribePlanDialogState extends State<_SubscribePlanDialog> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: isSelected
-              ? widget.theme.primaryColor.withValues(alpha: 0.1)
-              : widget.theme.cardTheme.color,
+              ? theme.primaryColor.withValues(alpha: 0.1)
+              : theme.cardTheme.color,
           border: Border.all(
             color: isSelected
-                ? widget.theme.primaryColor
-                : widget.theme.dividerColor.withValues(alpha: 0.2),
+                ? theme.primaryColor
+                : theme.dividerColor.withValues(alpha: 0.2),
             width: isSelected ? 2 : 1,
           ),
           borderRadius: BorderRadius.circular(12),
@@ -797,7 +799,7 @@ class _SubscribePlanDialogState extends State<_SubscribePlanDialog> {
                       setState(() => _selectedPlan = value);
                     }
                   },
-                  activeColor: widget.theme.primaryColor,
+                  activeColor: theme.primaryColor,
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -806,7 +808,7 @@ class _SubscribePlanDialogState extends State<_SubscribePlanDialog> {
                     style: AppTheme.inter(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: widget.theme.textTheme.bodyLarge?.color,
+                      color: theme.textTheme.bodyLarge?.color,
                     ),
                   ),
                 ),
@@ -839,7 +841,7 @@ class _SubscribePlanDialogState extends State<_SubscribePlanDialog> {
                   style: AppTheme.inter(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
-                    color: widget.theme.primaryColor,
+                    color: theme.primaryColor,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -847,7 +849,7 @@ class _SubscribePlanDialogState extends State<_SubscribePlanDialog> {
                   period,
                   style: AppTheme.inter(
                     fontSize: 12,
-                    color: widget.theme.textTheme.bodyMedium?.color
+                    color: theme.textTheme.bodyMedium?.color
                         ?.withValues(alpha: 0.7),
                   ),
                 ),

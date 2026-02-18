@@ -391,6 +391,39 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 	}
 });
 
+// Get module pricing and free-plan status
+exports.getModulePricing = onRequest(async (req, res) => {
+	try {
+		const {moduleName, moduleId} = req.body;
+		if (!moduleName && !moduleId) {
+			return res.status(400).send("Missing moduleName or moduleId");
+		}
+
+		const normalize = (value) =>
+			value
+				.toString()
+				.toLowerCase()
+				.trim();
+
+		const normalizedName = moduleName ? normalize(moduleName) : "";
+		const normalizedId = moduleId ? normalize(moduleId) : "";
+		const freeModules = ["crm", "inventory", "hr"];
+		const isFree = freeModules.includes(normalizedId) || freeModules.includes(normalizedName);
+		
+		res.status(200).json({
+			moduleName,
+			moduleId,
+			isFree,
+			monthlyPrice: isFree ? 0 : 1,
+			annualPrice: isFree ? 0 : 10,
+			currency: "USD",
+		});
+	} catch (e) {
+		logger.error("Get module pricing error", e);
+		res.status(500).send("ERROR");
+	}
+});
+
 // Check entitlement status
 exports.getEntitlementStatus = onRequest(async (req, res) => {
 	try {

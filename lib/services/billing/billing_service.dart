@@ -66,6 +66,32 @@ class SubscriptionStatus {
 class BillingService {
   static const String baseUrl = 'https://us-central1-driveerp-1d5d5.cloudfunctions.net';
 
+  /// Get pricing for a module and whether it is free
+  static Future<Map<String, dynamic>> getModulePricing({
+    required String moduleName,
+    String? moduleId,
+  }) async {
+    try {
+      final url = Uri.parse('$baseUrl/getModulePricing');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'moduleName': moduleName,
+          'moduleId': moduleId,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        throw Exception('Failed to get module pricing: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error fetching module pricing: $e');
+    }
+  }
+
   /// Get subscription and entitlement status for a user's module
   /// Returns subscription status with renewal/payer information
   static Future<SubscriptionStatus> getEntitlementStatus({
