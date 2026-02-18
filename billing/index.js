@@ -336,10 +336,14 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 			// Allow test tokens for development/demo purposes
 			const isAnnual = subscriptionId && subscriptionId.includes("annual");
 			const durationDays = isAnnual ? 365 : 30;
+			const storedExpiry = toJsDate(subData.expiryTime);
+			const expiryMillis = storedExpiry
+				? storedExpiry.getTime()
+				: Date.now() + durationDays * 24 * 60 * 60 * 1000;
 
 			verifiedData = {
-				expiryTimeMillis: (Date.now() + durationDays * 24 * 60 * 60 * 1000).toString(),
-				autoRenewing: true,
+				expiryTimeMillis: expiryMillis.toString(),
+				autoRenewing: subData.autoRenewing !== undefined ? subData.autoRenewing : true,
 			};
 			logger.info("Using mock verification for test token refresh", {purchaseToken, isAnnual});
 		} else {
@@ -387,6 +391,126 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 		});
 	} catch (e) {
 		logger.error("Refresh subscription error", e);
+		res.status(500).send("ERROR");
+	}
+});
+
+// Disable auto-renew for a subscription
+exports.disablePlayAutoRenew = onRequest(async (req, res) => {
+	try {
+		const {purchaseToken} = req.body;
+
+		if (!purchaseToken) {
+			return res.status(400).send("Missing purchaseToken");
+		}
+
+		const subsSnap = await db.collection("subscriptions").doc(purchaseToken).get();
+		if (!subsSnap.exists) {
+			return res.status(404).send("Subscription not found");
+		}
+
+		const subData = subsSnap.data();
+		const {packageName, subscriptionId, companyId, uid, moduleId} = subData;
+
+		if (!packageName || !subscriptionId) {
+			return res.status(400).send("Missing subscription metadata");
+		}
+
+		if (purchaseToken.startsWith("test_token_")) {
+			const expiryTime = toJsDate(subData.expiryTime);
+			const status = expiryTime && expiryTime > new Date() ? "active" : "expired";
+
+			await subsSnap.ref.set({
+				autoRenewing: false,
+				status,
+				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+			}, {merge: true});
+
+			if (companyId && uid && moduleId) {
+				const entitlementId = `${uid}_${moduleId}`;
+				await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
+					autoRenewing: false,
+					status,
+					renewalDate: expiryTime,
+					lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+				}, {merge: true});
+			}
+
+			await writeBillingEvent({
+				type: "subscription_auto_renew_disabled",
+				uid,
+				moduleId,
+			}, "google");
+
+			return res.status(200).json({
+				success: true,
+				status,
+				autoRenewing: false,
+				expiryTime: expiryTime ? expiryTime.toISOString() : null,
+			});
+		}
+
+		const accessToken = await getPlayDeveloperAccessToken();
+		const endpoint = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/subscriptions/${subscriptionId}/purchases/tokens/${purchaseToken}:cancel`;
+
+		const response = await fetch(endpoint, {
+			method: "POST",
+			headers: {
+				Authorization: `Bearer ${accessToken}`,
+			},
+		});
+
+		if (!response.ok) {
+			logger.warn("Play API cancel failed", {
+				status: response.status,
+				packageName,
+				subscriptionId,
+				purchaseToken,
+			});
+			return res.status(502).send("Play cancel failed");
+		}
+
+		const verifiedData = await verifyPlaySubscription(packageName, subscriptionId, purchaseToken);
+		if (!verifiedData) {
+			return res.status(401).send("Subscription verification failed");
+		}
+
+		const expiryTime = verifiedData.expiryTimeMillis
+			? new Date(parseInt(verifiedData.expiryTimeMillis))
+			: null;
+		const status = expiryTime && expiryTime > new Date() ? "active" : "expired";
+
+		await subsSnap.ref.set({
+			autoRenewing: verifiedData.autoRenewing,
+			status,
+			expiryTime,
+			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+		}, {merge: true});
+
+		if (companyId && uid && moduleId) {
+			const entitlementId = `${uid}_${moduleId}`;
+			await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
+				autoRenewing: verifiedData.autoRenewing,
+				status,
+				renewalDate: expiryTime,
+				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+			}, {merge: true});
+		}
+
+		await writeBillingEvent({
+			type: "subscription_auto_renew_disabled",
+			uid,
+			moduleId,
+		}, "google");
+
+		return res.status(200).json({
+			success: true,
+			status,
+			autoRenewing: verifiedData.autoRenewing,
+			expiryTime: expiryTime ? expiryTime.toISOString() : null,
+		});
+	} catch (e) {
+		logger.error("Disable auto-renew error", e);
 		res.status(500).send("ERROR");
 	}
 });

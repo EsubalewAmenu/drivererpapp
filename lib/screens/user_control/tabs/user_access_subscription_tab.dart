@@ -33,6 +33,8 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
   String _selectedPlan = 'monthly'; // 'monthly' or 'annual'
   bool _isProcessing = false;
   String? _errorMessage;
+  bool _isUpdatingAutoRenew = false;
+  String? _autoRenewError;
 
   @override
   void initState() {
@@ -152,6 +154,70 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
     });
     _loadSubscriptionStatus();
     setState(() {});
+  }
+
+  Future<void> _disableAutoRenew(SubscriptionStatus status) async {
+    if (status.purchaseToken == null) {
+      setState(() {
+        _autoRenewError = 'Missing purchase token for this subscription.';
+      });
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Disable auto-renew?'),
+          content: const Text(
+            'This will stop future renewals. Access will remain active until the current period ends.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Disable'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isUpdatingAutoRenew = true;
+      _autoRenewError = null;
+    });
+
+    try {
+      await BillingService.disableAutoRenew(
+        purchaseToken: status.purchaseToken!,
+      );
+
+      if (!mounted) return;
+
+      _refreshStatus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Auto-renew disabled.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _autoRenewError = e.toString();
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isUpdatingAutoRenew = false;
+      });
+    }
   }
 
   @override
@@ -378,6 +444,79 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
               status.autoRenewing! ? 'Enabled' : 'Disabled',
               status.autoRenewing! ? Colors.green : Colors.orange,
               theme,
+            ),
+            const SizedBox(height: 12),
+          ],
+          if ((status.status == 'active' || status.status == 'grace') &&
+              status.autoRenewing != null &&
+              status.purchaseToken != null) ...[
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.primaryColor.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: theme.primaryColor.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'AUTO RENEWAL',
+                    style: AppTheme.inter(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.4,
+                      color: theme.textTheme.bodySmall?.color
+                          ?.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    status.autoRenewing == true
+                        ? 'Auto-renew is on. You can disable future renewals.'
+                        : 'Auto-renew is off. Access will end on the renewal date.',
+                    style: AppTheme.inter(
+                      fontSize: 12,
+                      color: theme.textTheme.bodyMedium?.color,
+                    ),
+                  ),
+                  if (status.autoRenewing == true) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _isUpdatingAutoRenew
+                            ? null
+                            : () => _disableAutoRenew(status),
+                        icon: _isUpdatingAutoRenew
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.block, size: 16),
+                        label: Text(
+                          _isUpdatingAutoRenew
+                              ? 'Disabling...'
+                              : 'Disable auto-renew',
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (_autoRenewError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _autoRenewError!,
+                      style: AppTheme.inter(
+                        fontSize: 11,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(height: 12),
           ],
