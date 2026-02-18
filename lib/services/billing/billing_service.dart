@@ -194,6 +194,37 @@ class BillingService {
     }
   }
 
+  /// Enable auto-renew for a subscription
+  static Future<SubscriptionStatus> enableAutoRenew({
+    required String purchaseToken,
+  }) async {
+    try {
+      final url = Uri.parse('$baseUrl/enablePlayAutoRenew');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'purchaseToken': purchaseToken,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return SubscriptionStatus(
+          status: data['status'] ?? 'unknown',
+          hasAccess: data['status'] == 'active',
+          renewalDate:
+              data['expiryTime'] != null ? DateTime.parse(data['expiryTime']) : null,
+          autoRenewing: data['autoRenewing'],
+        );
+      } else {
+        throw Exception('Failed to enable auto-renew: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Error enabling auto-renew: $e');
+    }
+  }
+
   /// Record a new subscription purchase
   /// This is called after a successful purchase from the Play Store
   static Future<Map<String, dynamic>> recordPlaySubscription({

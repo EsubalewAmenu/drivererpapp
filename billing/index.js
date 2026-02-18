@@ -515,6 +515,64 @@ exports.disablePlayAutoRenew = onRequest(async (req, res) => {
 	}
 });
 
+// Enable auto-renew for a subscription
+exports.enablePlayAutoRenew = onRequest(async (req, res) => {
+	try {
+		const {purchaseToken} = req.body;
+
+		if (!purchaseToken) {
+			return res.status(400).send("Missing purchaseToken");
+		}
+
+		const subsSnap = await db.collection("subscriptions").doc(purchaseToken).get();
+		if (!subsSnap.exists) {
+			return res.status(404).send("Subscription not found");
+		}
+
+		const subData = subsSnap.data();
+		const {companyId, uid, moduleId} = subData;
+
+		if (purchaseToken.startsWith("test_token_")) {
+			const expiryTime = toJsDate(subData.expiryTime);
+			const status = expiryTime && expiryTime > new Date() ? "active" : "expired";
+
+			await subsSnap.ref.set({
+				autoRenewing: true,
+				status,
+				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+			}, {merge: true});
+
+			if (companyId && uid && moduleId) {
+				const entitlementId = `${uid}_${moduleId}`;
+				await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
+					autoRenewing: true,
+					status,
+					renewalDate: expiryTime,
+					lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+				}, {merge: true});
+			}
+
+			await writeBillingEvent({
+				type: "subscription_auto_renew_enabled",
+				uid,
+				moduleId,
+			}, "google");
+
+			return res.status(200).json({
+				success: true,
+				status,
+				autoRenewing: true,
+				expiryTime: expiryTime ? expiryTime.toISOString() : null,
+			});
+		}
+
+		return res.status(400).send("Enable auto-renew in Google Play Store and refresh.");
+	} catch (e) {
+		logger.error("Enable auto-renew error", e);
+		res.status(500).send("ERROR");
+	}
+});
+
 // Get module pricing and free-plan status
 exports.getModulePricing = onRequest(async (req, res) => {
 	try {

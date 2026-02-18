@@ -220,6 +220,70 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
     }
   }
 
+  Future<void> _enableAutoRenew(SubscriptionStatus status) async {
+    if (status.purchaseToken == null) {
+      setState(() {
+        _autoRenewError = 'Missing purchase token for this subscription.';
+      });
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Enable auto-renew?'),
+          content: const Text(
+            'Auto-renew will be turned back on for future renewals.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Enable'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isUpdatingAutoRenew = true;
+      _autoRenewError = null;
+    });
+
+    try {
+      await BillingService.enableAutoRenew(
+        purchaseToken: status.purchaseToken!,
+      );
+
+      if (!mounted) return;
+
+      _refreshStatus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Auto-renew enabled.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _autoRenewError = e.toString();
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isUpdatingAutoRenew = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -501,6 +565,29 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
                           _isUpdatingAutoRenew
                               ? 'Disabling...'
                               : 'Disable auto-renew',
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (status.autoRenewing == false) ...[
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton.icon(
+                        onPressed: _isUpdatingAutoRenew
+                            ? null
+                            : () => _enableAutoRenew(status),
+                        icon: _isUpdatingAutoRenew
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.autorenew, size: 16),
+                        label: Text(
+                          _isUpdatingAutoRenew
+                              ? 'Enabling...'
+                              : 'Enable auto-renew',
                         ),
                       ),
                     ),
