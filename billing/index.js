@@ -281,9 +281,27 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 
 		const newBalance = currentBalance - creditsNeeded;
 		
-		// Record the deduction
+		// Record the deduction and add to transaction history
+		const deductionTransaction = {
+			amount: -(creditsNeeded * 0.01),
+			credits: -creditsNeeded,
+			date: new Date().toISOString(),
+			type: "subscription",
+			moduleId: moduleId,
+			subscriptionId: subscriptionId,
+			uid: uid,
+		};
+
+		const transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory
+			? Array.isArray(billingSnap.data().transactionHistory)
+				? billingSnap.data().transactionHistory
+				: []
+			: [];
+		transactionHistory.push(deductionTransaction);
+
 		await billingRef.set({
 			balance: newBalance,
+			transactionHistory: transactionHistory,
 			lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
 
@@ -722,22 +740,39 @@ exports.getWorkspaceCredits = onRequest(async (req, res) => {
 		if (!billingSnap.exists) {
 			return res.status(404).json({
 				balance: 0,
-				topupHistory: [],
+				transactionHistory: [],
 				autoTopupEnabled: false,
 			});
 		}
 
 		const billingData = billingSnap.data();
-		const topupHistory = (billingData.topupHistory || []).map(t => ({
+		
+		// Merge old topupHistory with new transactionHistory
+		const oldTopups = (billingData.topupHistory || []).map(t => ({
 			amount: t.amount,
 			credits: t.credits,
 			date: t.date instanceof admin.firestore.Timestamp ? t.date.toDate().toISOString() : t.date,
-			type: t.type || "manual",
+			type: "topup",
 		}));
+		
+		const newTransactions = (billingData.transactionHistory || []).map(t => ({
+			amount: t.amount,
+			credits: t.credits,
+			date: t.date instanceof admin.firestore.Timestamp ? t.date.toDate().toISOString() : t.date,
+			type: t.type || "topup",
+			moduleId: t.moduleId,
+			subscriptionId: t.subscriptionId,
+			uid: t.uid,
+		}));
+		
+		// Combine and sort by date (newest first)
+		const allTransactions = [...oldTopups, ...newTransactions].sort((a, b) => 
+			new Date(b.date).getTime() - new Date(a.date).getTime()
+		);
 
 		res.status(200).json({
 			balance: billingData.balance || 0,
-			topupHistory,
+			transactionHistory: allTransactions,
 			autoTopupEnabled: billingData.autoTopupEnabled || false,
 			autoTopupAmount: billingData.autoTopupAmount,
 			lastAutoTopupDate: billingData.lastAutoTopupDate
@@ -775,7 +810,7 @@ exports.topupWorkspaceCredits = onRequest(async (req, res) => {
 			amount: amountUsd,
 			credits,
 			date: new Date().toISOString(), // Use ISO string instead of serverTimestamp
-			type: "manual",
+			type: "topup",
 		};
 
 		logger.info("About to write to Firestore", {
@@ -788,18 +823,18 @@ exports.topupWorkspaceCredits = onRequest(async (req, res) => {
 			logger.info("Starting Firestore write...", {billingPath: billingRef.path});
 			
 			// Manually manage the array instead of using arrayUnion
-			const topupHistory = billingSnap.exists && billingSnap.data().topupHistory 
-				? Array.isArray(billingSnap.data().topupHistory) 
-					? billingSnap.data().topupHistory 
+			const transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory 
+				? Array.isArray(billingSnap.data().transactionHistory) 
+					? billingSnap.data().transactionHistory 
 					: []
 				: [];
 			
-			topupHistory.push(newTopup);
-			logger.info("Updated topup history", {historyLength: topupHistory.length});
+			transactionHistory.push(newTopup);
+			logger.info("Updated transaction history", {historyLength: transactionHistory.length});
 			
 			await billingRef.set({
 				balance: newBalance,
-				topupHistory: topupHistory,
+				transactionHistory: transactionHistory,
 				lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 			}, {merge: true});
 			logger.info("Firestore write succeeded", {newBalance});
@@ -823,7 +858,7 @@ exports.topupWorkspaceCredits = onRequest(async (req, res) => {
 
 		res.status(200).json({
 			balance: newBalance,
-			topupHistory: [],
+			transactionHistory: [],
 			autoTopupEnabled: billingSnap.exists ? (billingSnap.data().autoTopupEnabled || false) : false,
 		});
 	} catch (e) {
@@ -872,7 +907,7 @@ exports.setAutoTopup = onRequest(async (req, res) => {
 
 		res.status(200).json({
 			balance: currentBalance,
-			topupHistory: [],
+			transactionHistory: [],
 			autoTopupEnabled: enabled,
 			autoTopupAmount: enabled ? (amount || 1000) : null,
 		});

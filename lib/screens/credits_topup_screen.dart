@@ -530,7 +530,7 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
   }
 
   Widget _buildHistorySection(WorkspaceCredits credits, ThemeData theme) {
-    if (credits.topupHistory.isEmpty) {
+    if (credits.transactionHistory.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -542,7 +542,7 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'TOPUP HISTORY',
+              'TRANSACTION HISTORY',
               style: AppTheme.inter(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
@@ -552,7 +552,7 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'No topup history yet',
+              'No transactions yet',
               style: AppTheme.inter(
                 fontSize: 12,
                 color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
@@ -574,7 +574,7 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'TOPUP HISTORY',
+            'TRANSACTION HISTORY',
             style: AppTheme.inter(
               fontSize: 12,
               fontWeight: FontWeight.w700,
@@ -583,41 +583,86 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          ...credits.topupHistory.take(10).map((transaction) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+          ...credits.transactionHistory.take(20).map((transaction) {
+            final isDeduction = transaction.isDeduction;
+            final iconData = isDeduction ? Icons.remove_circle_outline : Icons.add_circle_outline;
+            final color = isDeduction ? Colors.red : Colors.green;
+            final typeLabel = transaction.type == 'subscription' 
+                ? 'Module subscription' 
+                : transaction.type == 'topup' 
+                    ? 'Credit topup' 
+                    : transaction.type.toUpperCase();
+            
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isDeduction 
+                    ? Colors.red.withValues(alpha: 0.05)
+                    : Colors.green.withValues(alpha: 0.05),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: isDeduction 
+                      ? Colors.red.withValues(alpha: 0.2)
+                      : Colors.green.withValues(alpha: 0.2),
+                ),
+              ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Icon(iconData, color: color, size: 20),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '${transaction.credits} credits',
+                          typeLabel,
                           style: AppTheme.inter(
-                            fontSize: 13,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                             color: theme.textTheme.bodyLarge?.color,
                           ),
                         ),
+                        if (transaction.moduleId != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Module: ${transaction.moduleId}',
+                            style: AppTheme.inter(
+                              fontSize: 10,
+                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 2),
                         Text(
-                          '${transaction.date.year}-${transaction.date.month.toString().padLeft(2, '0')}-${transaction.date.day.toString().padLeft(2, '0')}',
+                          '${transaction.date.year}-${transaction.date.month.toString().padLeft(2, '0')}-${transaction.date.day.toString().padLeft(2, '0')} ${transaction.date.hour.toString().padLeft(2, '0')}:${transaction.date.minute.toString().padLeft(2, '0')}',
                           style: AppTheme.inter(
-                            fontSize: 11,
-                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                            fontSize: 10,
+                            color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  Text(
-                    '${CreditsService.creditsToUsd(transaction.credits)}',
-                    style: AppTheme.inter(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.green,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${isDeduction ? '' : '+'}${transaction.credits}',
+                        style: AppTheme.inter(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                      Text(
+                        '${CreditsService.creditsToUsd(transaction.credits.abs())}',
+                        style: AppTheme.inter(
+                          fontSize: 11,
+                          color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

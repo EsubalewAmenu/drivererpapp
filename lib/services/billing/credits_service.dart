@@ -4,14 +4,14 @@ import 'dart:convert';
 
 class WorkspaceCredits {
   final double balance; // Total credits available
-  final List<TopupTransaction> topupHistory;
+  final List<CreditTransaction> transactionHistory;
   final bool autoTopupEnabled;
   final int? autoTopupAmount; // Credits to auto-topup monthly
   final DateTime? lastAutoTopupDate;
 
   WorkspaceCredits({
     required this.balance,
-    required this.topupHistory,
+    required this.transactionHistory,
     required this.autoTopupEnabled,
     this.autoTopupAmount,
     this.lastAutoTopupDate,
@@ -20,8 +20,8 @@ class WorkspaceCredits {
   factory WorkspaceCredits.fromJson(Map<String, dynamic> json) {
     return WorkspaceCredits(
       balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
-      topupHistory: ((json['topupHistory'] as List?) ?? [])
-          .map((item) => TopupTransaction.fromJson(item as Map<String, dynamic>))
+      transactionHistory: ((json['transactionHistory'] as List?) ?? [])
+          .map((item) => CreditTransaction.fromJson(item as Map<String, dynamic>))
           .toList(),
       autoTopupEnabled: json['autoTopupEnabled'] ?? false,
       autoTopupAmount: json['autoTopupAmount'],
@@ -32,27 +32,39 @@ class WorkspaceCredits {
   }
 }
 
-class TopupTransaction {
-  final double amount; // Amount in USD
-  final int credits; // Credits purchased
+class CreditTransaction {
+  final double amount; // Amount in USD (negative for deductions)
+  final int credits; // Credits added or deducted (negative for deductions)
   final DateTime date;
-  final String type; // 'manual', 'auto'
+  final String type; // 'topup', 'subscription', 'auto'
+  final String? moduleId;
+  final String? subscriptionId;
+  final String? uid;
 
-  TopupTransaction({
+  CreditTransaction({
     required this.amount,
     required this.credits,
     required this.date,
     required this.type,
+    this.moduleId,
+    this.subscriptionId,
+    this.uid,
   });
 
-  factory TopupTransaction.fromJson(Map<String, dynamic> json) {
-    return TopupTransaction(
+  factory CreditTransaction.fromJson(Map<String, dynamic> json) {
+    return CreditTransaction(
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       credits: (json['credits'] as num?)?.toInt() ?? 0,
       date: json['date'] != null ? DateTime.parse(json['date'] as String) : DateTime.now(),
-      type: json['type'] ?? 'manual',
+      type: json['type'] ?? 'topup',
+      moduleId: json['moduleId'],
+      subscriptionId: json['subscriptionId'],
+      uid: json['uid'],
     );
   }
+
+  bool get isDeduction => credits < 0;
+  bool get isTopup => credits > 0;
 }
 
 class CreditsService {
@@ -77,7 +89,7 @@ class CreditsService {
         // No credits record yet
         return WorkspaceCredits(
           balance: 0.0,
-          topupHistory: [],
+          transactionHistory: [],
           autoTopupEnabled: false,
         );
       } else {
