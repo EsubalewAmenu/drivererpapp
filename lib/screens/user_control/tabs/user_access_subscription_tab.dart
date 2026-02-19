@@ -120,6 +120,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
         purchaseToken: purchaseToken,
         companyId: companyId,
         moduleId: widget.moduleId,
+        moduleName: widget.moduleName,
         payerType: isGift ? 'gift' : 'self',
         payerUid: currentEmail,
       );

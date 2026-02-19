@@ -234,6 +234,7 @@ class BillingService {
     required String purchaseToken,
     required String companyId,
     required String moduleId,
+    required String moduleName,
     String? payerType,
     String? payerUid,
   }) async {
@@ -260,6 +261,7 @@ class BillingService {
           'purchaseToken': purchaseToken,
           'companyId': companyId,
           'moduleId': moduleId,
+          'moduleName': moduleName,
           'payerType': payerType ?? 'self',
           'payerUid': payerUid ?? uid,
         }),

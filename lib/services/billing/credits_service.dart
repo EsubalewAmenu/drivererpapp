@@ -38,8 +38,10 @@ class CreditTransaction {
   final DateTime date;
   final String type; // 'topup', 'subscription', 'auto'
   final String? moduleId;
+  final String? moduleName;
   final String? subscriptionId;
   final String? uid;
+  final String? userEmail;
 
   CreditTransaction({
     required this.amount,
@@ -47,8 +49,10 @@ class CreditTransaction {
     required this.date,
     required this.type,
     this.moduleId,
+    this.moduleName,
     this.subscriptionId,
     this.uid,
+    this.userEmail,
   });
 
   factory CreditTransaction.fromJson(Map<String, dynamic> json) {
@@ -58,8 +62,10 @@ class CreditTransaction {
       date: json['date'] != null ? DateTime.parse(json['date'] as String) : DateTime.now(),
       type: json['type'] ?? 'topup',
       moduleId: json['moduleId'],
+      moduleName: json['moduleName'],
       subscriptionId: json['subscriptionId'],
       uid: json['uid'],
+      userEmail: json['userEmail'],
     );
   }
 

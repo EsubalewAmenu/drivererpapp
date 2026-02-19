@@ -623,10 +623,21 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
                             color: theme.textTheme.bodyLarge?.color,
                           ),
                         ),
-                        if (transaction.moduleId != null) ...[
+                        if (transaction.moduleName != null) ...[
                           const SizedBox(height: 2),
                           Text(
-                            'Module: ${transaction.moduleId}',
+                            'Module: ${transaction.moduleName}',
+                            style: AppTheme.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                            ),
+                          ),
+                        ],
+                        if (transaction.userEmail != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'For: ${transaction.userEmail}',
                             style: AppTheme.inter(
                               fontSize: 10,
                               color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),

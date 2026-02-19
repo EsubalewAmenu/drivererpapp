@@ -229,7 +229,7 @@ exports.googlePlayRtdn = onMessagePublished({ topic: rtdnTopic }, async (event) 
 // Handle initial subscription purchase from Play Store
 exports.recordPlaySubscription = onRequest(async (req, res) => {
 	try {
-		const {uid, packageName, subscriptionId, purchaseToken, companyId, moduleId, payerType, payerUid} = req.body;
+		const {uid, packageName, subscriptionId, purchaseToken, companyId, moduleId, moduleName, payerType, payerUid} = req.body;
 
 		if (!uid || !packageName || !subscriptionId || !purchaseToken || !companyId || !moduleId) {
 			return res.status(400).send("Missing required fields");
@@ -281,6 +281,12 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 
 		const newBalance = currentBalance - creditsNeeded;
 		
+		// Use module name and uid (which is the user email) for transaction record
+		const effectiveModuleName = moduleName || moduleId;
+		const userEmail = uid; // uid is actually the user's email
+		
+		logger.info("Recording transaction", {moduleName: effectiveModuleName, userEmail});
+		
 		// Record the deduction and add to transaction history
 		const deductionTransaction = {
 			amount: -(creditsNeeded * 0.01),
@@ -288,8 +294,10 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			date: new Date().toISOString(),
 			type: "subscription",
 			moduleId: moduleId,
+			moduleName: effectiveModuleName,
 			subscriptionId: subscriptionId,
 			uid: uid,
+			userEmail: userEmail,
 		};
 
 		const transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory
@@ -761,8 +769,10 @@ exports.getWorkspaceCredits = onRequest(async (req, res) => {
 			date: t.date instanceof admin.firestore.Timestamp ? t.date.toDate().toISOString() : t.date,
 			type: t.type || "topup",
 			moduleId: t.moduleId,
+			moduleName: t.moduleName,
 			subscriptionId: t.subscriptionId,
 			uid: t.uid,
+			userEmail: t.userEmail,
 		}));
 		
 		// Combine and sort by date (newest first)
