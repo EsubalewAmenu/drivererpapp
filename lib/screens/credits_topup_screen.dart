@@ -85,6 +85,151 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
     }
   }
 
+  Future<void> _showAutoTopupDialog(WorkspaceCredits currentCredits) async {
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    final companyId = workspaceProvider.currentCompany?.id;
+
+    if (companyId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Company not found')),
+      );
+      return;
+    }
+
+    int selectedAmount = currentCredits.autoTopupAmount ?? 1000;
+    bool enableAutoTopup = currentCredits.autoTopupEnabled;
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final theme = Theme.of(context);
+          return AlertDialog(
+            title: Text(
+              'Auto-Topup Configuration',
+              style: AppTheme.inter(fontWeight: FontWeight.w700),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Automatically add credits on the 1st of each month.',
+                  style: AppTheme.inter(fontSize: 13, color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.7)),
+                ),
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  title: Text('Enable Auto-Topup', style: AppTheme.inter(fontSize: 14, fontWeight: FontWeight.w600)),
+                  value: enableAutoTopup,
+                  onChanged: (value) {
+                    setDialogState(() {
+                      enableAutoTopup = value;
+                    });
+                  },
+                ),
+                if (enableAutoTopup) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    'Monthly Amount',
+                    style: AppTheme.inter(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [100, 500, 1000, 5000, 10000].map((amount) {
+                      final isSelected = selectedAmount == amount;
+                      return ChoiceChip(
+                        label: Text(
+                          '$amount',
+                          style: AppTheme.inter(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isSelected ? Colors.white : theme.textTheme.bodyMedium?.color,
+                          ),
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setDialogState(() {
+                              selectedAmount = amount;
+                            });
+                          }
+                        },
+                        selectedColor: theme.primaryColor,
+                        backgroundColor: theme.cardTheme.color,
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Monthly cost: ${CreditsService.creditsToUsd(selectedAmount)}',
+                    style: AppTheme.inter(fontSize: 11, color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7)),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text('Cancel', style: AppTheme.inter()),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context, {
+                    'enabled': enableAutoTopup,
+                    'amount': selectedAmount,
+                  });
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+                child: Text('Save', style: AppTheme.inter(fontWeight: FontWeight.w600)),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    if (result == null) return;
+
+    // Save the auto-topup configuration
+    try {
+      final updatedCredits = await CreditsService.setAutoTopup(
+        companyId: companyId,
+        enabled: result['enabled'] as bool,
+        amount: result['amount'] as int?,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _creditsFuture = Future.value(updatedCredits);
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result['enabled'] 
+                ? 'Auto-topup enabled successfully!' 
+                : 'Auto-topup disabled',
+          ),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -511,13 +656,7 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Auto-topup configuration coming soon'),
-                  ),
-                );
-              },
+              onPressed: () => _showAutoTopupDialog(credits),
               icon: const Icon(Icons.settings),
               label: Text(
                 credits.autoTopupEnabled ? 'Modify auto-topup' : 'Enable auto-topup',

@@ -899,6 +899,7 @@ exports.setAutoTopup = onRequest(async (req, res) => {
 		const billingSnap = await billingRef.get();
 
 		const currentBalance = billingSnap.exists ? (billingSnap.data().balance || 0) : 0;
+		const lastAutoTopupDate = billingSnap.exists ? billingSnap.data().lastAutoTopupDate : null;
 
 		await billingRef.set({
 			autoTopupEnabled: enabled,
@@ -920,6 +921,11 @@ exports.setAutoTopup = onRequest(async (req, res) => {
 			transactionHistory: [],
 			autoTopupEnabled: enabled,
 			autoTopupAmount: enabled ? (amount || 1000) : null,
+			lastAutoTopupDate: lastAutoTopupDate 
+				? (lastAutoTopupDate instanceof admin.firestore.Timestamp
+					? lastAutoTopupDate.toDate().toISOString()
+					: lastAutoTopupDate)
+				: null,
 		});
 	} catch (e) {
 		logger.error("Set auto-topup error", e);
