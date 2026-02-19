@@ -832,15 +832,15 @@ exports.topupWorkspaceCredits = onRequest(async (req, res) => {
 			topupData: newTopup,
 		});
 
+		// Manually manage the array instead of using arrayUnion
+		let transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory 
+			? Array.isArray(billingSnap.data().transactionHistory) 
+				? billingSnap.data().transactionHistory 
+				: []
+			: [];
+
 		try {
 			logger.info("Starting Firestore write...", {billingPath: billingRef.path});
-			
-			// Manually manage the array instead of using arrayUnion
-			const transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory 
-				? Array.isArray(billingSnap.data().transactionHistory) 
-					? billingSnap.data().transactionHistory 
-					: []
-				: [];
 			
 			transactionHistory.push(newTopup);
 			logger.info("Updated transaction history", {historyLength: transactionHistory.length});
@@ -869,10 +869,28 @@ exports.topupWorkspaceCredits = onRequest(async (req, res) => {
 
 		logger.info("Credits topup recorded", {companyId, credits, newBalance});
 
+		// Format and sort transaction history for response
+		const formattedTransactions = transactionHistory.map(t => ({
+			amount: t.amount,
+			credits: t.credits,
+			date: t.date instanceof admin.firestore.Timestamp ? t.date.toDate().toISOString() : t.date,
+			type: t.type || "topup",
+			moduleId: t.moduleId,
+			moduleName: t.moduleName,
+			subscriptionId: t.subscriptionId,
+			uid: t.uid,
+			userEmail: t.userEmail,
+			platform: t.platform,
+			purchaseId: t.purchaseId,
+		})).sort((a, b) => 
+			new Date(b.date).getTime() - new Date(a.date).getTime()
+		);
+
 		res.status(200).json({
 			balance: newBalance,
-			transactionHistory: [],
+			transactionHistory: formattedTransactions,
 			autoTopupEnabled: billingSnap.exists ? (billingSnap.data().autoTopupEnabled || false) : false,
+			autoTopupAmount: billingSnap.exists ? billingSnap.data().autoTopupAmount : null,
 		});
 	} catch (e) {
 		logger.error("Topup credits error", e, {
@@ -903,6 +921,9 @@ exports.setAutoTopup = onRequest(async (req, res) => {
 
 		const currentBalance = billingSnap.exists ? (billingSnap.data().balance || 0) : 0;
 		const lastAutoTopupDate = billingSnap.exists ? billingSnap.data().lastAutoTopupDate : null;
+		const currentTransactionHistory = billingSnap.exists && billingSnap.data().transactionHistory
+			? billingSnap.data().transactionHistory
+			: [];
 
 		await billingRef.set({
 			autoTopupEnabled: enabled,
@@ -919,9 +940,26 @@ exports.setAutoTopup = onRequest(async (req, res) => {
 
 		logger.info("Auto-topup setting updated", {companyId, enabled, amount});
 
+		// Format and sort transaction history for response
+		const formattedTransactions = currentTransactionHistory.map(t => ({
+			amount: t.amount,
+			credits: t.credits,
+			date: t.date instanceof admin.firestore.Timestamp ? t.date.toDate().toISOString() : t.date,
+			type: t.type || "topup",
+			moduleId: t.moduleId,
+			moduleName: t.moduleName,
+			subscriptionId: t.subscriptionId,
+			uid: t.uid,
+			userEmail: t.userEmail,
+			platform: t.platform,
+			purchaseId: t.purchaseId,
+		})).sort((a, b) => 
+			new Date(b.date).getTime() - new Date(a.date).getTime()
+		);
+
 		res.status(200).json({
 			balance: currentBalance,
-			transactionHistory: [],
+			transactionHistory: formattedTransactions,
 			autoTopupEnabled: enabled,
 			autoTopupAmount: enabled ? (amount || 1000) : null,
 			lastAutoTopupDate: lastAutoTopupDate 
