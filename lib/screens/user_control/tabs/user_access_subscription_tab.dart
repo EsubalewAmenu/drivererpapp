@@ -492,10 +492,24 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
             ),
             const SizedBox(height: 12),
           ],
+          // Show credits cost instead of payment type
+          if (status.subscriptionId != null) ...[
+            _buildDetailRow(
+              'Credits Cost',
+              status.subscriptionId!.contains('annual')
+                  ? '1,000 credits / year'
+                  : (status.subscriptionId!.contains('daily')
+                      ? '50 credits / day'
+                      : '100 credits / month'),
+              const Color(0xFFFFA500), // Orange for credits
+              theme,
+            ),
+            const SizedBox(height: 12),
+          ],
           if (status.payerType != null) ...[
             _buildDetailRow(
-              'Payment Type',
-              status.payerType == 'self' ? 'Self-paid' : 'Gifted Access',
+              'Access Type',
+              status.payerType == 'self' ? 'Self-purchased' : 'Gifted Access',
               theme.textTheme.bodyLarge?.color ?? Colors.grey,
               theme,
             ),
@@ -614,34 +628,6 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
               ),
             ),
             const SizedBox(height: 12),
-          ],
-          if (status.source != null) ...[
-            _buildDetailRow(
-              'Platform',
-              status.source == 'google' ? 'Google Play' : 'Apple App Store',
-              const Color(0xFF4285F4), // Google Blue
-              theme,
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (status.purchaseToken != null) ...[
-            _buildDetailRow(
-              'Purchase ID',
-              status.purchaseToken!.length > 20 
-                  ? '${status.purchaseToken!.substring(0, 10)}...${status.purchaseToken!.substring(status.purchaseToken!.length - 10)}' 
-                  : status.purchaseToken!,
-              theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5) ?? Colors.grey,
-              theme,
-            ),
-            const SizedBox(height: 12),
-          ],
-          if (status.lastVerifiedAt != null) ...[
-            _buildDetailRow(
-              'Last Verified',
-              '${_formatDate(status.lastVerifiedAt!)} ${_formatTime(status.lastVerifiedAt!)}',
-              theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5) ?? Colors.grey,
-              theme,
-            ),
           ],
         ],
       ),
