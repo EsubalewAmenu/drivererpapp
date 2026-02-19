@@ -662,3 +662,179 @@ exports.appleServerNotifications = onRequest(async (req, res) => {
 		res.status(500).send("ERROR");
 	}
 });
+
+// Get workspace credits and topup history
+exports.getWorkspaceCredits = onRequest(async (req, res) => {
+	try {
+		const {companyId} = req.body;
+
+		if (!companyId) {
+			return res.status(400).send("Missing companyId");
+		}
+
+		const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+		const billingSnap = await billingRef.get();
+
+		if (!billingSnap.exists) {
+			return res.status(404).json({
+				balance: 0,
+				topupHistory: [],
+				autoTopupEnabled: false,
+			});
+		}
+
+		const billingData = billingSnap.data();
+		const topupHistory = (billingData.topupHistory || []).map(t => ({
+			amount: t.amount,
+			credits: t.credits,
+			date: t.date instanceof admin.firestore.Timestamp ? t.date.toDate().toISOString() : t.date,
+			type: t.type || "manual",
+		}));
+
+		res.status(200).json({
+			balance: billingData.balance || 0,
+			topupHistory,
+			autoTopupEnabled: billingData.autoTopupEnabled || false,
+			autoTopupAmount: billingData.autoTopupAmount,
+			lastAutoTopupDate: billingData.lastAutoTopupDate
+				? (billingData.lastAutoTopupDate instanceof admin.firestore.Timestamp
+					? billingData.lastAutoTopupDate.toDate().toISOString()
+					: billingData.lastAutoTopupDate)
+				: null,
+		});
+	} catch (e) {
+		logger.error("Get workspace credits error", e);
+		res.status(500).send("ERROR");
+	}
+});
+
+// Topup workspace credits
+exports.topupWorkspaceCredits = onRequest(async (req, res) => {
+	try {
+		const {companyId, credits} = req.body;
+		logger.info("Topup request received", {companyId, credits});
+
+		if (!companyId || !credits || credits <= 0) {
+			logger.warn("Invalid parameters", {companyId, credits});
+			return res.status(400).send("Missing or invalid parameters");
+		}
+
+		const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+		const billingSnap = await billingRef.get();
+		logger.info("Got billing snapshot", {companyIdLength: companyId.length, docExists: billingSnap.exists});
+
+		const currentBalance = billingSnap.exists ? (billingSnap.data().balance || 0) : 0;
+		const newBalance = currentBalance + credits;
+		const amountUsd = credits * 0.01; // 1 credit = $0.01
+
+		const newTopup = {
+			amount: amountUsd,
+			credits,
+			date: new Date().toISOString(), // Use ISO string instead of serverTimestamp
+			type: "manual",
+		};
+
+		logger.info("About to write to Firestore", {
+			currentBalance,
+			newBalance,
+			topupData: newTopup,
+		});
+
+		try {
+			logger.info("Starting Firestore write...", {billingPath: billingRef.path});
+			
+			// Manually manage the array instead of using arrayUnion
+			const topupHistory = billingSnap.exists && billingSnap.data().topupHistory 
+				? Array.isArray(billingSnap.data().topupHistory) 
+					? billingSnap.data().topupHistory 
+					: []
+				: [];
+			
+			topupHistory.push(newTopup);
+			logger.info("Updated topup history", {historyLength: topupHistory.length});
+			
+			await billingRef.set({
+				balance: newBalance,
+				topupHistory: topupHistory,
+				lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+			}, {merge: true});
+			logger.info("Firestore write succeeded", {newBalance});
+		} catch (firebaseError) {
+			logger.error("Firestore write failed", firebaseError, {
+				newTopupKeys: Object.keys(newTopup),
+				newTopupValues: `amount=${newTopup.amount}, credits=${newTopup.credits}, date=${newTopup.date}, type=${newTopup.type}`,
+				errorMessage: firebaseError.message,
+			});
+			throw firebaseError;
+		}
+
+		await writeBillingEvent({
+			type: "credits_topup",
+			companyId,
+			credits,
+			amountUsd,
+		}, "system");
+
+		logger.info("Credits topup recorded", {companyId, credits, newBalance});
+
+		res.status(200).json({
+			balance: newBalance,
+			topupHistory: [],
+			autoTopupEnabled: billingSnap.exists ? (billingSnap.data().autoTopupEnabled || false) : false,
+		});
+	} catch (e) {
+		logger.error("Topup credits error", e, {
+			companyId: req.body.companyId,
+			credits: req.body.credits,
+			errorMessage: e.message,
+			errorStack: e.stack,
+		});
+		res.status(500).json({
+			error: "Topup failed",
+			message: e.message,
+			type: e.constructor.name,
+		});
+	}
+});
+
+// Enable/disable auto-topup
+exports.setAutoTopup = onRequest(async (req, res) => {
+	try {
+		const {companyId, enabled, amount} = req.body;
+
+		if (!companyId) {
+			return res.status(400).send("Missing companyId");
+		}
+
+		const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+		const billingSnap = await billingRef.get();
+
+		const currentBalance = billingSnap.exists ? (billingSnap.data().balance || 0) : 0;
+
+		await billingRef.set({
+			autoTopupEnabled: enabled,
+			autoTopupAmount: enabled ? (amount || 1000) : null,
+			lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+		}, {merge: true});
+
+		await writeBillingEvent({
+			type: "auto_topup_set",
+			companyId,
+			enabled,
+			amount: enabled ? (amount || 1000) : null,
+		}, "system");
+
+		logger.info("Auto-topup setting updated", {companyId, enabled, amount});
+
+		res.status(200).json({
+			balance: currentBalance,
+			topupHistory: [],
+			autoTopupEnabled: enabled,
+			autoTopupAmount: enabled ? (amount || 1000) : null,
+		});
+	} catch (e) {
+		logger.error("Set auto-topup error", e);
+		res.status(500).send("ERROR");
+	}
+});
+

@@ -7,6 +7,7 @@ import '../screens/settings_screen.dart';
 import '../screens/user_control/user_control_screen.dart';
 import '../screens/system_scanning_screen.dart';
 import '../screens/landing_screen.dart';
+import '../screens/credits_topup_screen.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -139,6 +140,13 @@ class AppDrawer extends StatelessWidget {
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const UserControlScreen()),
+          );
+        }),
+        _buildNavItem(context, Icons.credit_card_rounded, 'Credits & Billing', onTap: () {
+          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const CreditsTopupScreen()),
           );
         }),
         _buildNavItem(context, Icons.settings_rounded, 'Settings', onTap: () {

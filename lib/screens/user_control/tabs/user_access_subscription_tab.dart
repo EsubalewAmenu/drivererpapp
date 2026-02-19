@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../theme/app_theme.dart';
 import '../../../services/billing/billing_service.dart';
+import '../../../services/billing/credits_service.dart';
 import '../../../providers/workspace_provider.dart';
 import '../../../services/auth_service.dart';
 
@@ -746,12 +747,14 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
 
               final pricing = snapshot.data ?? {};
               final isFree = pricing['isFree'] == true;
-                final dailyPrice =
-                  (pricing['dailyPrice'] as num?)?.toDouble() ?? 0.5;
-              final monthlyPrice =
-                  (pricing['monthlyPrice'] as num?)?.toDouble() ?? 1.0;
-              final annualPrice =
-                  (pricing['annualPrice'] as num?)?.toDouble() ?? 10.0;
+              final dailyPrice = (pricing['dailyPrice'] as num?)?.toDouble() ?? 0.5;
+              final monthlyPrice = (pricing['monthlyPrice'] as num?)?.toDouble() ?? 1.0;
+              final annualPrice = (pricing['annualPrice'] as num?)?.toDouble() ?? 10.0;
+
+              // Calculate credits needed for each plan
+              final dailyCredits = CreditsService.calculateModuleCost(planType: 'daily', modulePrice: dailyPrice);
+              final monthlyCredits = CreditsService.calculateModuleCost(planType: 'monthly', modulePrice: monthlyPrice);
+              final annualCredits = CreditsService.calculateModuleCost(planType: 'annual', modulePrice: annualPrice);
 
               if (isFree) {
                 return Container(
@@ -786,7 +789,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
                     theme: theme,
                     planId: 'daily',
                     title: '1-Day',
-                    price: dailyPrice,
+                    creditsNeeded: dailyCredits,
                     period: '/day',
                     isSelected: _selectedPlan == 'daily',
                   ),
@@ -795,7 +798,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
                     theme: theme,
                     planId: 'monthly',
                     title: 'Monthly',
-                    price: monthlyPrice,
+                    creditsNeeded: monthlyCredits,
                     period: '/month',
                     isSelected: _selectedPlan == 'monthly',
                   ),
@@ -804,11 +807,13 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
                     theme: theme,
                     planId: 'annual',
                     title: 'Annual',
-                    price: annualPrice,
+                    creditsNeeded: annualCredits,
                     period: '/year',
-                    badge: 'Save \$2',
+                    badge: 'Save 90 credits',
                     isSelected: _selectedPlan == 'annual',
                   ),
+                  const SizedBox(height: 16),
+                  _buildCreditBalanceInfo(theme),
                   if (_errorMessage != null) ...[
                     const SizedBox(height: 16),
                     Container(
@@ -1005,7 +1010,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
     required ThemeData theme,
     required String planId,
     required String title,
-    required double price,
+    required int creditsNeeded,
     required String period,
     required bool isSelected,
     String? badge,
@@ -1080,7 +1085,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
               textBaseline: TextBaseline.alphabetic,
               children: [
                 Text(
-                  '\$${price.toStringAsFixed(2)}',
+                  '$creditsNeeded',
                   style: AppTheme.inter(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
@@ -1089,7 +1094,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  period,
+                  'credits $period',
                   style: AppTheme.inter(
                     fontSize: 12,
                     color: theme.textTheme.bodyMedium?.color
@@ -1101,6 +1106,100 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCreditBalanceInfo(ThemeData theme) {
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    final companyId = workspaceProvider.currentCompany?.id;
+
+    if (companyId == null) {
+      return SizedBox.shrink();
+    }
+
+    return FutureBuilder<WorkspaceCredits>(
+      future: CreditsService.getWorkspaceCredits(companyId: companyId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(theme.primaryColor),
+                ),
+              ),
+            ),
+          );
+        }
+
+        final credits = snapshot.data;
+        if (credits == null) {
+          return Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.warning_outlined, color: Colors.orange, size: 18),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'No credits available. Buy credits from the Credits page to subscribe.',
+                    style: AppTheme.inter(
+                      fontSize: 12,
+                      color: Colors.orange,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.primaryColor.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: theme.primaryColor.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.account_balance_wallet, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${credits.balance.toInt()} credits available',
+                      style: AppTheme.inter(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: theme.primaryColor,
+                      ),
+                    ),
+                    Text(
+                      'Manage credits in the Credits & Billing page',
+                      style: AppTheme.inter(
+                        fontSize: 10,
+                        color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
