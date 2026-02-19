@@ -428,11 +428,13 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 		}
 
 		const expiryTime = verifiedData.expiryTimeMillis ? new Date(parseInt(verifiedData.expiryTimeMillis)) : null;
-		const status = verifiedData.autoRenewing || new Date(expiryTime) > new Date() ? "active" : "expired";
+		const newStatus = verifiedData.autoRenewing || new Date(expiryTime) > new Date() ? "active" : "expired";
+		const previousStatus = subData.status;
+		const wasRenewed = previousStatus !== "active" && newStatus === "active" && verifiedData.autoRenewing;
 
 		// Update subscription
 		await subsSnap.ref.set({
-			status,
+			status: newStatus,
 			autoRenewing: verifiedData.autoRenewing,
 			expiryTime,
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -442,23 +444,88 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 		const {uid, moduleId, companyId} = subData;
 		const entitlementId = `${uid}_${moduleId}`;
 		await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
-			status,
+			status: newStatus,
 			renewalDate: expiryTime,
 			autoRenewing: verifiedData.autoRenewing,
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
 
+		// Deduct credits if subscription was renewed (renewed via refresh call and autoRenewing is true)
+		if (wasRenewed && verifiedData.autoRenewing) {
+			try {
+				const isAnnual = subscriptionId && subscriptionId.includes("annual");
+				const isDaily = subscriptionId && subscriptionId.includes("daily");
+				const creditsToDeduct = isAnnual ? 1000 : (isDaily ? 50 : 100);
+				const amountUsd = creditsToDeduct * 0.01;
+
+				const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+				const billingSnap = await billingRef.get();
+
+				const currentBalance = billingSnap.exists ? (billingSnap.data().balance || 0) : 0;
+
+				if (currentBalance >= creditsToDeduct) {
+					const newBalance = currentBalance - creditsToDeduct;
+
+					const renewalTransaction = {
+						amount: -amountUsd,
+						credits: -creditsToDeduct,
+						date: new Date().toISOString(),
+						type: "subscription",
+						moduleId,
+						moduleName: subData.moduleName,
+						subscriptionId,
+						uid,
+						userEmail: uid,
+					};
+
+					let transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory
+						? Array.isArray(billingSnap.data().transactionHistory)
+							? billingSnap.data().transactionHistory
+							: []
+						: [];
+
+					transactionHistory.push(renewalTransaction);
+
+					await billingRef.set({
+						balance: newBalance,
+						transactionHistory: transactionHistory,
+						lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+					}, {merge: true});
+
+					logger.info("Subscription renewal credits deducted", {
+						companyId,
+						uid,
+						moduleId,
+						creditsDeducted: creditsToDeduct,
+						newBalance,
+					});
+				} else {
+					logger.warn("Insufficient credits for subscription renewal", {
+						companyId,
+						uid,
+						moduleId,
+						currentBalance,
+						creditsNeeded: creditsToDeduct,
+					});
+				}
+			} catch (creditError) {
+				logger.error("Failed to deduct credits for subscription renewal", creditError);
+				// Still allow the refresh to succeed, just log the credit error
+			}
+		}
+
 		await writeBillingEvent({
 			type: "subscription_refreshed",
 			uid,
 			moduleId,
-			status,
+			status: newStatus,
+			wasRenewed,
 		}, "google");
 
-		logger.info("Subscription refreshed", {purchaseToken, status});
+		logger.info("Subscription refreshed", {purchaseToken, status: newStatus, wasRenewed});
 		res.status(200).json({
 			success: true,
-			status,
+			status: newStatus,
 			expiryTime: expiryTime ? expiryTime.toISOString() : null,
 			autoRenewing: verifiedData.autoRenewing,
 		});
@@ -1078,3 +1145,174 @@ exports.monthlyAutoTopup = onSchedule({
 	}
 });
 
+// Scheduled function: Process subscription renewals daily and deduct credits
+exports.processSubscriptionRenewals = onSchedule({
+	schedule: "0 0 * * *", // Run at midnight UTC every day
+	timeZone: "UTC",
+}, async (context) => {
+	try {
+		const now = new Date();
+		logger.info("Starting subscription renewal process", {timestamp: now.toISOString()});
+
+		const companiesSnapshot = await db.collection("companies").get();
+		let totalSubscriptions = 0;
+		let renewedCount = 0;
+		let failedCount = 0;
+
+		// Iterate through all companies
+		for (const companyDoc of companiesSnapshot.docs) {
+			const companyId = companyDoc.id;
+			const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+			const billingSnap = await billingRef.get();
+
+			// Get all subscriptions for this company
+			const subscriptionsSnapshot = await db.collection("subscriptions")
+				.where("companyId", "==", companyId)
+				.where("autoRenewing", "==", true)
+				.where("status", "==", "active")
+				.get();
+
+			totalSubscriptions += subscriptionsSnapshot.size;
+
+			for (const subDoc of subscriptionsSnapshot.docs) {
+				const subData = subDoc.data();
+				const {uid, moduleId, expiryTime, subscriptionId} = subData;
+
+				const expiryDate = expiryTime instanceof admin.firestore.Timestamp 
+					? expiryTime.toDate() 
+					: new Date(expiryTime);
+
+				// Check if subscription is due for renewal (expiry date has passed)
+				if (expiryDate <= now) {
+					try {
+						// Calculate credits to deduct based on subscription type
+						const isAnnual = subscriptionId && subscriptionId.includes("annual");
+						const isDaily = subscriptionId && subscriptionId.includes("daily");
+						const creditsToDeduct = isAnnual ? 1000 : (isDaily ? 50 : 100);
+						const amountUsd = creditsToDeduct * 0.01;
+
+						// Get current billing data
+						const currentBillingData = billingSnap.exists ? billingSnap.data() : {};
+						const currentBalance = currentBillingData.balance || 0;
+
+						// Check if company has sufficient credits
+						if (currentBalance < creditsToDeduct) {
+							logger.warn("Insufficient credits for renewal", {
+								companyId,
+								uid,
+								moduleId,
+								currentBalance,
+								creditsNeeded: creditsToDeduct,
+							});
+							// Update entitlement status to expired if insufficient credits
+							const entitlementId = `${uid}_${moduleId}`;
+							await db.collection("companies").doc(companyId)
+								.collection("entitlements").doc(entitlementId).set({
+									status: "expired",
+									autoRenewing: false,
+									lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+								}, {merge: true});
+							failedCount++;
+							continue;
+						}
+
+						const newBalance = currentBalance - creditsToDeduct;
+
+						// Record renewal transaction
+						const renewalTransaction = {
+							amount: -amountUsd,
+							credits: -creditsToDeduct,
+							date: new Date().toISOString(),
+							type: "subscription",
+							moduleId,
+							moduleName: subData.moduleName,
+							subscriptionId,
+							uid,
+							userEmail: uid,
+						};
+
+						// Get existing transaction history
+						let transactionHistory = currentBillingData.transactionHistory
+							? Array.isArray(currentBillingData.transactionHistory)
+								? currentBillingData.transactionHistory
+								: []
+							: [];
+
+						transactionHistory.push(renewalTransaction);
+
+						// Update billing with new balance and transaction
+						await billingRef.set({
+							balance: newBalance,
+							transactionHistory: transactionHistory,
+							lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+						}, {merge: true});
+
+						// Calculate new expiry date (add 30/365 days based on plan)
+						const durationDays = isAnnual ? 365 : (isDaily ? 1 : 30);
+						const newExpiryDate = new Date(expiryDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+						// Update subscription with new expiry date
+						await subDoc.ref.set({
+							expiryTime: newExpiryDate,
+							status: "active",
+							lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+						}, {merge: true});
+
+						// Update entitlement
+						const entitlementId = `${uid}_${moduleId}`;
+						await db.collection("companies").doc(companyId)
+							.collection("entitlements").doc(entitlementId).set({
+								renewalDate: newExpiryDate,
+								status: "active",
+								lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+							}, {merge: true});
+
+						// Record billing event
+						await writeBillingEvent({
+							type: "subscription_auto_renewed",
+							companyId,
+							uid,
+							moduleId,
+							creditsDeducted: creditsToDeduct,
+							newBalance,
+						}, "system");
+
+						logger.info("Subscription renewed successfully", {
+							companyId,
+							uid,
+							moduleId,
+							creditsDeducted,
+							newBalance,
+							newExpiryDate: newExpiryDate.toISOString(),
+						});
+
+						renewedCount++;
+					} catch (renewalError) {
+						logger.error("Failed to process subscription renewal", renewalError, {
+							companyId,
+							subscriptionId: subDoc.id,
+							error: renewalError.message,
+						});
+						failedCount++;
+					}
+				}
+			}
+		}
+
+		logger.info("Subscription renewal process completed", {
+			totalSubscriptions,
+			renewedCount,
+			failedCount,
+		});
+
+		return {
+			success: true,
+			totalSubscriptions,
+			renewedCount,
+			failedCount,
+		};
+	} catch (error) {
+		logger.error("Subscription renewal process failed", error);
+		throw error;
+	}
+});
