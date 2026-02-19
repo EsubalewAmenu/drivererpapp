@@ -724,13 +724,20 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
           const SizedBox(height: 16),
           ...credits.transactionHistory.take(20).map((transaction) {
             final isDeduction = transaction.isDeduction;
-            final iconData = isDeduction ? Icons.remove_circle_outline : Icons.add_circle_outline;
+            final isAutoTopup = transaction.type == 'auto-topup';
+            final iconData = isDeduction 
+                ? Icons.remove_circle_outline 
+                : isAutoTopup 
+                    ? Icons.schedule 
+                    : Icons.add_circle_outline;
             final color = isDeduction ? Colors.red : Colors.green;
             final typeLabel = transaction.type == 'subscription' 
                 ? 'Module subscription' 
                 : transaction.type == 'topup' 
-                    ? 'Credit topup' 
-                    : transaction.type.toUpperCase();
+                    ? 'Credit topup'
+                    : transaction.type == 'auto-topup'
+                        ? 'Auto-topup (Monthly)'
+                        : transaction.type.toUpperCase();
             
             return Container(
               margin: const EdgeInsets.only(bottom: 12),

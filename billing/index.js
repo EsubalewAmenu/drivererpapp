@@ -12,6 +12,7 @@ const admin = require("firebase-admin");
 const {setGlobalOptions} = require("firebase-functions");
 const {onRequest} = require("firebase-functions/https");
 const {onMessagePublished} = require("firebase-functions/v2/pubsub");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 
 // For cost control, you can set the maximum number of containers that can be
@@ -930,6 +931,110 @@ exports.setAutoTopup = onRequest(async (req, res) => {
 	} catch (e) {
 		logger.error("Set auto-topup error", e);
 		res.status(500).send("ERROR");
+	}
+});
+
+// Scheduled function: Run monthly auto-topup on the 1st of each month
+exports.monthlyAutoTopup = onSchedule({
+	schedule: "0 0 1 * *", // Run at midnight UTC on the 1st day of every month
+	timeZone: "UTC",
+}, async (event) => {
+	logger.info("Starting monthly auto-topup process");
+
+	try {
+		// Query all companies to find those with auto-topup enabled
+		const companiesSnapshot = await db.collection("companies").get();
+		
+		let successCount = 0;
+		let errorCount = 0;
+		const errors = [];
+
+		for (const companyDoc of companiesSnapshot.docs) {
+			const companyId = companyDoc.id;
+			
+			try {
+				const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+				const billingSnap = await billingRef.get();
+
+				if (!billingSnap.exists) {
+					continue; // No billing data, skip
+				}
+
+				const billingData = billingSnap.data();
+				
+				if (!billingData.autoTopupEnabled || !billingData.autoTopupAmount) {
+					continue; // Auto-topup not enabled, skip
+				}
+
+				const autoTopupAmount = billingData.autoTopupAmount;
+				const currentBalance = billingData.balance || 0;
+				const newBalance = currentBalance + autoTopupAmount;
+				const amountUsd = autoTopupAmount * 0.01;
+
+				// Create auto-topup transaction
+				const autoTopupTransaction = {
+					amount: amountUsd,
+					credits: autoTopupAmount,
+					date: new Date().toISOString(),
+					type: "auto-topup",
+				};
+
+				// Get existing transaction history
+				const transactionHistory = billingData.transactionHistory
+					? Array.isArray(billingData.transactionHistory)
+						? billingData.transactionHistory
+						: []
+					: [];
+				
+				transactionHistory.push(autoTopupTransaction);
+
+				// Update balance and record transaction
+				await billingRef.set({
+					balance: newBalance,
+					transactionHistory: transactionHistory,
+					lastAutoTopupDate: admin.firestore.FieldValue.serverTimestamp(),
+					lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+				}, {merge: true});
+
+				// Log billing event
+				await writeBillingEvent({
+					type: "auto_topup_executed",
+					companyId,
+					credits: autoTopupAmount,
+					amountUsd,
+					balanceAfter: newBalance,
+				}, "system");
+
+				logger.info("Auto-topup successful", {
+					companyId,
+					credits: autoTopupAmount,
+					newBalance,
+				});
+
+				successCount++;
+			} catch (error) {
+				logger.error("Auto-topup failed for company", error, {companyId});
+				errors.push({companyId, error: error.message});
+				errorCount++;
+			}
+		}
+
+		logger.info("Monthly auto-topup completed", {
+			totalCompanies: companiesSnapshot.size,
+			successCount,
+			errorCount,
+			errors: errors.length > 0 ? errors : undefined,
+		});
+
+		return {
+			success: true,
+			totalCompanies: companiesSnapshot.size,
+			successCount,
+			errorCount,
+		};
+	} catch (error) {
+		logger.error("Monthly auto-topup process failed", error);
+		throw error;
 	}
 });
 
