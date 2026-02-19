@@ -42,6 +42,8 @@ class CreditTransaction {
   final String? subscriptionId;
   final String? uid;
   final String? userEmail;
+  final String? platform; // 'google_play', 'apple', 'stripe', etc.
+  final String? purchaseId; // Transaction/purchase token
 
   CreditTransaction({
     required this.amount,
@@ -53,6 +55,8 @@ class CreditTransaction {
     this.subscriptionId,
     this.uid,
     this.userEmail,
+    this.platform,
+    this.purchaseId,
   });
 
   factory CreditTransaction.fromJson(Map<String, dynamic> json) {
@@ -66,6 +70,8 @@ class CreditTransaction {
       subscriptionId: json['subscriptionId'],
       uid: json['uid'],
       userEmail: json['userEmail'],
+      platform: json['platform'],
+      purchaseId: json['purchaseId'],
     );
   }
 
@@ -110,6 +116,8 @@ class CreditsService {
   static Future<WorkspaceCredits> topupCredits({
     required String companyId,
     required int credits,
+    String? platform, // 'google_play', 'apple', 'stripe', etc.
+    String? purchaseId, // Transaction ID from payment platform
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -119,16 +127,25 @@ class CreditsService {
 
       final idToken = await user.getIdToken();
       final url = Uri.parse('$baseUrl/topupWorkspaceCredits');
+      final body = {
+        'companyId': companyId,
+        'credits': credits,
+      };
+      
+      if (platform != null) {
+        body['platform'] = platform;
+      }
+      if (purchaseId != null) {
+        body['purchaseId'] = purchaseId;
+      }
+
       final response = await http.post(
         url,
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer $idToken',
         },
-        body: jsonEncode({
-          'companyId': companyId,
-          'credits': credits,
-        }),
+        body: jsonEncode(body),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {

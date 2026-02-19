@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:io';
 import '../../theme/app_theme.dart';
 import '../../services/billing/credits_service.dart';
 import '../../providers/workspace_provider.dart';
@@ -54,9 +55,17 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
     });
 
     try {
+      // Detect platform
+      final platform = Platform.isAndroid ? 'google_play' : Platform.isIOS ? 'apple' : 'stripe';
+      
+      // Generate a test purchase ID (timestamp-based)
+      final purchaseId = 'test_${DateTime.now().millisecondsSinceEpoch}';
+
       final updatedCredits = await CreditsService.topupCredits(
         companyId: companyId,
         credits: _selectedTopupAmount,
+        platform: platform,
+        purchaseId: purchaseId,
       );
 
       if (!mounted) return;
@@ -790,6 +799,38 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
                             ),
                           ),
                         ],
+                        if (transaction.platform != null && transaction.type == 'topup') ...[
+                          const SizedBox(height: 2),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: transaction.platform == 'google_play'
+                                  ? const Color(0xFF4285F4).withValues(alpha: 0.15)
+                                  : const Color(0xFF555555).withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              transaction.platform == 'google_play' ? '🔵 Google Play' : '🍎 Apple',
+                              style: AppTheme.inter(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: transaction.platform == 'google_play'
+                                    ? const Color(0xFF4285F4)
+                                    : const Color(0xFF555555),
+                              ),
+                            ),
+                          ),
+                        ],
+                        if (transaction.purchaseId != null && transaction.type == 'topup') ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'ID: ${_truncatePurchaseId(transaction.purchaseId!)}',
+                            style: AppTheme.inter(
+                              fontSize: 9,
+                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.5),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 2),
                         Text(
                           '${transaction.date.year}-${transaction.date.month.toString().padLeft(2, '0')}-${transaction.date.day.toString().padLeft(2, '0')} ${transaction.date.hour.toString().padLeft(2, '0')}:${transaction.date.minute.toString().padLeft(2, '0')}',
@@ -828,5 +869,13 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
         ],
       ),
     );
+  }
+
+  /// Truncate purchase ID for display (show first 10 and last 10 chars)
+  String _truncatePurchaseId(String purchaseId) {
+    if (purchaseId.length <= 20) {
+      return purchaseId;
+    }
+    return '${purchaseId.substring(0, 10)}...${purchaseId.substring(purchaseId.length - 10)}';
   }
 }

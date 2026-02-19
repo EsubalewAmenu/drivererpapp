@@ -756,15 +756,7 @@ exports.getWorkspaceCredits = onRequest(async (req, res) => {
 
 		const billingData = billingSnap.data();
 		
-		// Merge old topupHistory with new transactionHistory
-		const oldTopups = (billingData.topupHistory || []).map(t => ({
-			amount: t.amount,
-			credits: t.credits,
-			date: t.date instanceof admin.firestore.Timestamp ? t.date.toDate().toISOString() : t.date,
-			type: "topup",
-		}));
-		
-		const newTransactions = (billingData.transactionHistory || []).map(t => ({
+		const transactions = (billingData.transactionHistory || []).map(t => ({
 			amount: t.amount,
 			credits: t.credits,
 			date: t.date instanceof admin.firestore.Timestamp ? t.date.toDate().toISOString() : t.date,
@@ -774,10 +766,12 @@ exports.getWorkspaceCredits = onRequest(async (req, res) => {
 			subscriptionId: t.subscriptionId,
 			uid: t.uid,
 			userEmail: t.userEmail,
+			platform: t.platform,
+			purchaseId: t.purchaseId,
 		}));
-		
-		// Combine and sort by date (newest first)
-		const allTransactions = [...oldTopups, ...newTransactions].sort((a, b) => 
+
+		// Sort by date (newest first)
+		const allTransactions = transactions.sort((a, b) => 
 			new Date(b.date).getTime() - new Date(a.date).getTime()
 		);
 
@@ -801,8 +795,8 @@ exports.getWorkspaceCredits = onRequest(async (req, res) => {
 // Topup workspace credits
 exports.topupWorkspaceCredits = onRequest(async (req, res) => {
 	try {
-		const {companyId, credits} = req.body;
-		logger.info("Topup request received", {companyId, credits});
+		const {companyId, credits, platform, purchaseId} = req.body;
+		logger.info("Topup request received", {companyId, credits, platform, purchaseId});
 
 		if (!companyId || !credits || credits <= 0) {
 			logger.warn("Invalid parameters", {companyId, credits});
@@ -823,6 +817,14 @@ exports.topupWorkspaceCredits = onRequest(async (req, res) => {
 			date: new Date().toISOString(), // Use ISO string instead of serverTimestamp
 			type: "topup",
 		};
+
+		// Add optional platform and purchaseId if provided
+		if (platform) {
+			newTopup.platform = platform;
+		}
+		if (purchaseId) {
+			newTopup.purchaseId = purchaseId;
+		}
 
 		logger.info("About to write to Firestore", {
 			currentBalance,
