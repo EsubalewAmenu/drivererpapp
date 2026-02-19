@@ -258,6 +258,47 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 
 		const expiryTime = verifiedData.expiryTimeMillis ? new Date(parseInt(verifiedData.expiryTimeMillis)) : null;
 
+		// Determine plan type and credits needed
+		const isAnnual = subscriptionId && subscriptionId.toLowerCase().includes("annual");
+		const isDaily = subscriptionId && subscriptionId.toLowerCase().includes("daily");
+		const creditsNeeded = isAnnual ? 1000 : (isDaily ? 50 : 100); // annual=1000, daily=50, monthly=100
+		
+		logger.info("Calculating credits for subscription", {subscriptionId, isAnnual, isDaily, creditsNeeded});
+
+		// Deduct credits from company balance
+		const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+		const billingSnap = await billingRef.get();
+		const currentBalance = billingSnap.exists ? (billingSnap.data().balance || 0) : 0;
+
+		if (currentBalance < creditsNeeded) {
+			logger.warn("Insufficient credits", {companyId, currentBalance, creditsNeeded});
+			return res.status(402).json({
+				error: "Insufficient credits",
+				currentBalance,
+				creditsNeeded,
+			});
+		}
+
+		const newBalance = currentBalance - creditsNeeded;
+		
+		// Record the deduction
+		await billingRef.set({
+			balance: newBalance,
+			lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+		}, {merge: true});
+
+		await writeBillingEvent({
+			type: "credits_deducted",
+			companyId,
+			uid,
+			moduleId,
+			subscriptionId,
+			creditsDeducted: creditsNeeded,
+			balanceAfter: newBalance,
+		}, "system");
+
+		logger.info("Credits deducted", {companyId, creditsDeducted: creditsNeeded, newBalance});
+
 		// Create subscription record
 		await db.collection("subscriptions").doc(purchaseToken).set({
 			uid,
@@ -271,6 +312,7 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			status: "active",
 			autoRenewing: verifiedData.autoRenewing,
 			expiryTime,
+			creditsCharged: creditsNeeded,
 			createdAt: admin.firestore.FieldValue.serverTimestamp(),
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 			source: "google",
@@ -301,12 +343,14 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			subscriptionId,
 		}, "google");
 
-		logger.info("Subscription recorded", {uid, moduleId, packageName});
+		logger.info("Subscription recorded", {uid, moduleId, packageName, creditsCharged: creditsNeeded});
 		res.status(200).json({
 			success: true,
 			entitlementId,
 			expiryTime,
 			autoRenewing: verifiedData.autoRenewing,
+			creditsCharged: creditsNeeded,
+			creditsRemaining: newBalance,
 		});
 	} catch (e) {
 		logger.error("Record subscription error", e);
