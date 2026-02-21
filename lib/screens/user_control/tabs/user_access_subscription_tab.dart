@@ -734,9 +734,9 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
 
               final pricing = snapshot.data ?? {};
               final isFree = pricing['isFree'] == true;
-              final dailyPrice = (pricing['dailyPrice'] as num?)?.toDouble() ?? 0.5;
-              final monthlyPrice = (pricing['monthlyPrice'] as num?)?.toDouble() ?? 1.0;
-              final annualPrice = (pricing['annualPrice'] as num?)?.toDouble() ?? 10.0;
+              final dailyPrice = (pricing['dailyPrice'] as num?)?.toDouble() ?? 0.49;
+              final monthlyPrice = (pricing['monthlyPrice'] as num?)?.toDouble() ?? 0.99;
+              final annualPrice = (pricing['annualPrice'] as num?)?.toDouble() ?? 9.99;
 
               // Calculate credits needed for each plan
               final dailyCredits = CreditsService.calculateModuleCost(planType: 'daily', modulePrice: dailyPrice);

@@ -262,7 +262,7 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 		// Determine plan type and credits needed
 		const isAnnual = subscriptionId && subscriptionId.toLowerCase().includes("annual");
 		const isDaily = subscriptionId && subscriptionId.toLowerCase().includes("daily");
-		const creditsNeeded = isAnnual ? 1000 : (isDaily ? 50 : 100); // annual=1000, daily=50, monthly=100
+		const creditsNeeded = isAnnual ? 999 : (isDaily ? 49 : 99); // annual=999, daily=49, monthly=99
 		
 		logger.info("Calculating credits for subscription", {subscriptionId, isAnnual, isDaily, creditsNeeded});
 
@@ -455,7 +455,7 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 			try {
 				const isAnnual = subscriptionId && subscriptionId.includes("annual");
 				const isDaily = subscriptionId && subscriptionId.includes("daily");
-				const creditsToDeduct = isAnnual ? 1000 : (isDaily ? 50 : 100);
+				const creditsToDeduct = isAnnual ? 999 : (isDaily ? 49 : 99);
 				const amountUsd = creditsToDeduct * 0.01;
 
 				const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
@@ -736,9 +736,9 @@ exports.getModulePricing = onRequest(async (req, res) => {
 			moduleName,
 			moduleId,
 			isFree,
-			dailyPrice: isFree ? 0 : 0.5,
-			monthlyPrice: isFree ? 0 : 1,
-			annualPrice: isFree ? 0 : 10,
+			dailyPrice: isFree ? 0 : 0.49,
+			monthlyPrice: isFree ? 0 : 0.99,
+			annualPrice: isFree ? 0 : 9.99,
 			currency: "USD",
 		});
 	} catch (e) {
@@ -1188,7 +1188,7 @@ exports.processSubscriptionRenewals = onSchedule({
 						// Calculate credits to deduct based on subscription type
 						const isAnnual = subscriptionId && subscriptionId.includes("annual");
 						const isDaily = subscriptionId && subscriptionId.includes("daily");
-						const creditsToDeduct = isAnnual ? 1000 : (isDaily ? 50 : 100);
+						const creditsToDeduct = isAnnual ? 999 : (isDaily ? 49 : 99);
 						const amountUsd = creditsToDeduct * 0.01;
 
 						// Get current billing data
