@@ -770,10 +770,34 @@ exports.getEntitlementStatus = onRequest(async (req, res) => {
 		const now = new Date();
 		const expiryTime = toJsDate(entData.renewalDate);
 		const hasExpired = expiryTime && expiryTime < now;
-		const hasAccess = entData.status === "active" && !hasExpired;
+
+		let effectiveStatus = entData.status;
+		if (hasExpired && entData.status !== "expired") {
+			effectiveStatus = "expired";
+			await entSnap.ref.set({
+				status: "expired",
+				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+			}, {merge: true});
+
+			if (entData.purchaseToken) {
+				await db.collection("subscriptions").doc(entData.purchaseToken).set({
+					status: "expired",
+					lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+				}, {merge: true});
+			}
+
+			logger.info("Entitlement auto-expired by backend", {
+				companyId,
+				uid,
+				moduleId,
+				renewalDate: expiryTime ? expiryTime.toISOString() : null,
+			});
+		}
+
+		const hasAccess = effectiveStatus === "active" && !hasExpired;
 
 		res.status(200).json({
-			status: entData.status,
+			status: effectiveStatus,
 			hasAccess,
 			renewalDate: expiryTime ? expiryTime.toISOString() : null,
 			autoRenewing: entData.autoRenewing,
