@@ -734,6 +734,13 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
           ...credits.transactionHistory.take(20).map((transaction) {
             final isDeduction = transaction.isDeduction;
             final isAutoTopup = transaction.type == 'auto-topup';
+            final renewalSourceLabel = transaction.renewalSource == 'manual'
+              ? 'Manual renew'
+              : transaction.renewalSource == 'auto'
+                ? 'Auto renew'
+                : transaction.renewalSource == 'subscription'
+                  ? 'New subscription'
+                  : null;
             final iconData = isDeduction 
                 ? Icons.remove_circle_outline 
                 : isAutoTopup 
@@ -796,6 +803,17 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
                             style: AppTheme.inter(
                               fontSize: 10,
                               color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
+                        if (transaction.type == 'subscription' && renewalSourceLabel != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Source: $renewalSourceLabel',
+                            style: AppTheme.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
                             ),
                           ),
                         ],

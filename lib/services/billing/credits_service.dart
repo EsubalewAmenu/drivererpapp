@@ -42,6 +42,7 @@ class CreditTransaction {
   final String? subscriptionId;
   final String? uid;
   final String? userEmail;
+  final String? renewalSource; // 'subscription', 'auto', 'manual'
   final String? platform; // 'google_play', 'apple', 'stripe', etc.
   final String? purchaseId; // Transaction/purchase token
 
@@ -55,6 +56,7 @@ class CreditTransaction {
     this.subscriptionId,
     this.uid,
     this.userEmail,
+    this.renewalSource,
     this.platform,
     this.purchaseId,
   });
@@ -70,6 +72,7 @@ class CreditTransaction {
       subscriptionId: json['subscriptionId'],
       uid: json['uid'],
       userEmail: json['userEmail'],
+      renewalSource: json['renewalSource'],
       platform: json['platform'],
       purchaseId: json['purchaseId'],
     );
