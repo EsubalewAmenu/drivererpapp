@@ -91,10 +91,19 @@ class CreditsService {
     required String companyId,
   }) async {
     try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      final idToken = await user.getIdToken();
       final url = Uri.parse('$baseUrl/getWorkspaceCredits');
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $idToken',
+        },
         body: jsonEncode({'companyId': companyId}),
       ).timeout(const Duration(seconds: 10));
 

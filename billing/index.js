@@ -48,6 +48,18 @@ function toJsDate(value) {
 	return null;
 }
 
+async function getUserKeyFromAuth(req) {
+	const authHeader = req.headers.authorization || "";
+	if (!authHeader.startsWith("Bearer ")) return null;
+	const idToken = authHeader.replace("Bearer ", "").trim();
+	const decoded = await admin.auth().verifyIdToken(idToken);
+	return decoded.email || decoded.uid || null;
+}
+
+function getUserCreditsRef(companyId, userKey) {
+	return db.collection("userCredits").doc(`${companyId}_${userKey}`);
+}
+
 function normalizeStatus(notificationType) {
 	// Google Play RTDN types: https://developer.android.com/google/play/billing/rtdn-reference
 	switch (notificationType) {
@@ -165,11 +177,12 @@ async function renewSubscriptionWithCredits({
 	}
 
 	const subData = subsSnap.data();
-	const {uid, moduleId, companyId, subscriptionId} = subData;
+	const {uid, moduleId, companyId, subscriptionId, payerUid} = subData;
 	const resolvedUid = uid || fallbackUid;
 	const resolvedModuleId = moduleId || fallbackModuleId;
 	const resolvedCompanyId = companyId || fallbackCompanyId;
 	const resolvedModuleName = subData.moduleName || fallbackModuleName || resolvedModuleId;
+	const resolvedPayerUid = payerUid || resolvedUid;
 
 	if (!resolvedUid || !resolvedModuleId || !resolvedCompanyId) {
 		throw new Error(`Missing subscription metadata for renewal: uid=${resolvedUid}, moduleId=${resolvedModuleId}, companyId=${resolvedCompanyId}`);
@@ -201,7 +214,7 @@ async function renewSubscriptionWithCredits({
 	const {creditsToDeduct, durationDays} = getPlanDetails(subscriptionId);
 	const amountUsd = creditsToDeduct * 0.01;
 
-	const billingRef = db.collection("companies").doc(resolvedCompanyId).collection("billing").doc("credits");
+	const billingRef = getUserCreditsRef(resolvedCompanyId, resolvedPayerUid);
 	const billingSnap = await billingRef.get();
 	const billingData = billingSnap.exists ? billingSnap.data() : {};
 	const currentBalance = billingData.balance || 0;
@@ -240,13 +253,15 @@ async function renewSubscriptionWithCredits({
 		moduleId: resolvedModuleId,
 		moduleName: resolvedModuleName,
 		subscriptionId,
-		uid: resolvedUid,
-		userEmail: resolvedUid,
+		uid: resolvedPayerUid,
+		userEmail: resolvedPayerUid,
 	});
 
 	await billingRef.set({
 		balance: newBalance,
 		transactionHistory,
+		companyId: resolvedCompanyId,
+		userKey: resolvedPayerUid,
 		lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 	}, {merge: true});
 
@@ -423,8 +438,9 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 		
 		logger.info("Calculating credits for subscription", {subscriptionId, isAnnual, isDaily, creditsNeeded});
 
-		// Deduct credits from company balance
-		const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+		// Deduct credits from the payer's balance (individual credits)
+		const creditOwner = payerUid || uid;
+		const billingRef = getUserCreditsRef(companyId, creditOwner);
 		const billingSnap = await billingRef.get();
 		const currentBalance = billingSnap.exists ? (billingSnap.data().balance || 0) : 0;
 
@@ -455,8 +471,8 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			moduleId: moduleId,
 			moduleName: effectiveModuleName,
 			subscriptionId: subscriptionId,
-			uid: uid,
-			userEmail: userEmail,
+			uid: creditOwner,
+			userEmail: creditOwner,
 		};
 
 		const transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory
@@ -469,6 +485,8 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 		await billingRef.set({
 			balance: newBalance,
 			transactionHistory: transactionHistory,
+			companyId,
+			userKey: creditOwner,
 			lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
 
@@ -599,7 +617,7 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 		}, {merge: true});
 
 		// Update entitlement
-		const {uid, moduleId, companyId} = subData;
+		const {uid, moduleId, companyId, payerUid} = subData;
 		const entitlementId = `${uid}_${moduleId}`;
 		await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
 			status: newStatus,
@@ -616,7 +634,8 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 				const creditsToDeduct = isAnnual ? 999 : (isDaily ? 49 : 99);
 				const amountUsd = creditsToDeduct * 0.01;
 
-				const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+				const creditOwner = payerUid || uid;
+				const billingRef = getUserCreditsRef(companyId, creditOwner);
 				const billingSnap = await billingRef.get();
 
 				const currentBalance = billingSnap.exists ? (billingSnap.data().balance || 0) : 0;
@@ -633,8 +652,8 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 						moduleId,
 						moduleName: subData.moduleName,
 						subscriptionId,
-						uid,
-						userEmail: uid,
+						uid: creditOwner,
+						userEmail: creditOwner,
 					};
 
 					let transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory
@@ -648,6 +667,8 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 					await billingRef.set({
 						balance: newBalance,
 						transactionHistory: transactionHistory,
+						companyId,
+						userKey: creditOwner,
 						lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 					}, {merge: true});
 
@@ -1069,12 +1090,13 @@ exports.appleServerNotifications = onRequest(async (req, res) => {
 exports.getWorkspaceCredits = onRequest(async (req, res) => {
 	try {
 		const {companyId} = req.body;
+		const userKey = await getUserKeyFromAuth(req);
 
-		if (!companyId) {
-			return res.status(400).send("Missing companyId");
+		if (!companyId || !userKey) {
+			return res.status(400).send("Missing companyId or user identity");
 		}
 
-		const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+		const billingRef = getUserCreditsRef(companyId, userKey);
 		const billingSnap = await billingRef.get();
 
 		if (!billingSnap.exists) {
@@ -1128,14 +1150,15 @@ exports.getWorkspaceCredits = onRequest(async (req, res) => {
 exports.topupWorkspaceCredits = onRequest(async (req, res) => {
 	try {
 		const {companyId, credits, platform, purchaseId} = req.body;
+		const userKey = await getUserKeyFromAuth(req);
 		logger.info("Topup request received", {companyId, credits, platform, purchaseId});
 
-		if (!companyId || !credits || credits <= 0) {
+		if (!companyId || !userKey || !credits || credits <= 0) {
 			logger.warn("Invalid parameters", {companyId, credits});
 			return res.status(400).send("Missing or invalid parameters");
 		}
 
-		const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+		const billingRef = getUserCreditsRef(companyId, userKey);
 		const billingSnap = await billingRef.get();
 		logger.info("Got billing snapshot", {companyIdLength: companyId.length, docExists: billingSnap.exists});
 
@@ -1180,6 +1203,8 @@ exports.topupWorkspaceCredits = onRequest(async (req, res) => {
 			await billingRef.set({
 				balance: newBalance,
 				transactionHistory: transactionHistory,
+				companyId,
+				userKey,
 				lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 			}, {merge: true});
 			logger.info("Firestore write succeeded", {newBalance});
@@ -1244,12 +1269,13 @@ exports.topupWorkspaceCredits = onRequest(async (req, res) => {
 exports.setAutoTopup = onRequest(async (req, res) => {
 	try {
 		const {companyId, enabled, amount} = req.body;
+		const userKey = await getUserKeyFromAuth(req);
 
-		if (!companyId) {
-			return res.status(400).send("Missing companyId");
+		if (!companyId || !userKey) {
+			return res.status(400).send("Missing companyId or user identity");
 		}
 
-		const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
+		const billingRef = getUserCreditsRef(companyId, userKey);
 		const billingSnap = await billingRef.get();
 
 		const currentBalance = billingSnap.exists ? (billingSnap.data().balance || 0) : 0;
@@ -1261,6 +1287,8 @@ exports.setAutoTopup = onRequest(async (req, res) => {
 		await billingRef.set({
 			autoTopupEnabled: enabled,
 			autoTopupAmount: enabled ? (amount || 1000) : null,
+			companyId,
+			userKey,
 			lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
 
@@ -1316,64 +1344,56 @@ exports.monthlyAutoTopup = onSchedule({
 	logger.info("Starting monthly auto-topup process");
 
 	try {
-		// Query all companies to find those with auto-topup enabled
-		const companiesSnapshot = await db.collection("companies").get();
-		
+		const creditsSnapshot = await db.collection("userCredits")
+			.where("autoTopupEnabled", "==", true)
+			.get();
+
 		let successCount = 0;
 		let errorCount = 0;
 		const errors = [];
 
-		for (const companyDoc of companiesSnapshot.docs) {
-			const companyId = companyDoc.id;
-			
+		for (const creditDoc of creditsSnapshot.docs) {
+			const creditData = creditDoc.data();
+			const companyId = creditData.companyId;
+			const userKey = creditData.userKey;
+
+			if (!companyId || !userKey || !creditData.autoTopupAmount) {
+				continue;
+			}
+
 			try {
-				const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
-				const billingSnap = await billingRef.get();
-
-				if (!billingSnap.exists) {
-					continue; // No billing data, skip
-				}
-
-				const billingData = billingSnap.data();
-				
-				if (!billingData.autoTopupEnabled || !billingData.autoTopupAmount) {
-					continue; // Auto-topup not enabled, skip
-				}
-
-				const autoTopupAmount = billingData.autoTopupAmount;
-				const currentBalance = billingData.balance || 0;
+				const autoTopupAmount = creditData.autoTopupAmount;
+				const currentBalance = creditData.balance || 0;
 				const newBalance = currentBalance + autoTopupAmount;
 				const amountUsd = autoTopupAmount * 0.01;
 
-				// Create auto-topup transaction
 				const autoTopupTransaction = {
 					amount: amountUsd,
 					credits: autoTopupAmount,
 					date: new Date().toISOString(),
 					type: "auto-topup",
+					uid: userKey,
+					userEmail: userKey,
 				};
 
-				// Get existing transaction history
-				const transactionHistory = billingData.transactionHistory
-					? Array.isArray(billingData.transactionHistory)
-						? billingData.transactionHistory
-						: []
+				const transactionHistory = Array.isArray(creditData.transactionHistory)
+					? creditData.transactionHistory
 					: [];
-				
 				transactionHistory.push(autoTopupTransaction);
 
-				// Update balance and record transaction
-				await billingRef.set({
+				await creditDoc.ref.set({
 					balance: newBalance,
-					transactionHistory: transactionHistory,
+					transactionHistory,
+					companyId,
+					userKey,
 					lastAutoTopupDate: admin.firestore.FieldValue.serverTimestamp(),
 					lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 				}, {merge: true});
 
-				// Log billing event
 				await writeBillingEvent({
 					type: "auto_topup_executed",
 					companyId,
+					userKey,
 					credits: autoTopupAmount,
 					amountUsd,
 					balanceAfter: newBalance,
@@ -1381,20 +1401,21 @@ exports.monthlyAutoTopup = onSchedule({
 
 				logger.info("Auto-topup successful", {
 					companyId,
+					userKey,
 					credits: autoTopupAmount,
 					newBalance,
 				});
 
 				successCount++;
 			} catch (error) {
-				logger.error("Auto-topup failed for company", error, {companyId});
-				errors.push({companyId, error: error.message});
+				logger.error("Auto-topup failed for user", error, {companyId, userKey});
+				errors.push({companyId, userKey, error: error.message});
 				errorCount++;
 			}
 		}
 
 		logger.info("Monthly auto-topup completed", {
-			totalCompanies: companiesSnapshot.size,
+			totalUsers: creditsSnapshot.size,
 			successCount,
 			errorCount,
 			errors: errors.length > 0 ? errors : undefined,
@@ -1402,7 +1423,7 @@ exports.monthlyAutoTopup = onSchedule({
 
 		return {
 			success: true,
-			totalCompanies: companiesSnapshot.size,
+			totalUsers: creditsSnapshot.size,
 			successCount,
 			errorCount,
 		};
@@ -1429,8 +1450,6 @@ exports.processSubscriptionRenewals = onSchedule({
 		// Iterate through all companies
 		for (const companyDoc of companiesSnapshot.docs) {
 			const companyId = companyDoc.id;
-			const billingRef = db.collection("companies").doc(companyId).collection("billing").doc("credits");
-			const billingSnap = await billingRef.get();
 
 			// Get all subscriptions for this company
 			const subscriptionsSnapshot = await db.collection("subscriptions")
@@ -1442,7 +1461,8 @@ exports.processSubscriptionRenewals = onSchedule({
 
 			for (const subDoc of subscriptionsSnapshot.docs) {
 				const subData = subDoc.data();
-				const {uid, moduleId, expiryTime, subscriptionId} = subData;
+				const {uid, moduleId, expiryTime, subscriptionId, payerUid} = subData;
+				const creditOwner = payerUid || uid;
 
 				const expiryDate = expiryTime instanceof admin.firestore.Timestamp 
 					? expiryTime.toDate() 
@@ -1459,6 +1479,7 @@ exports.processSubscriptionRenewals = onSchedule({
 						const amountUsd = creditsToDeduct * 0.01;
 
 						// Get fresh billing data for each renewal to avoid stale balance across modules
+						const billingRef = getUserCreditsRef(companyId, creditOwner);
 						const latestBillingSnap = await billingRef.get();
 						const currentBillingData = latestBillingSnap.exists ? latestBillingSnap.data() : {};
 						const currentBalance = currentBillingData.balance || 0;
@@ -1501,8 +1522,8 @@ exports.processSubscriptionRenewals = onSchedule({
 							moduleId,
 							moduleName: subData.moduleName,
 							subscriptionId,
-							uid,
-							userEmail: uid,
+							uid: creditOwner,
+							userEmail: creditOwner,
 						};
 
 						// Get existing transaction history
@@ -1518,6 +1539,8 @@ exports.processSubscriptionRenewals = onSchedule({
 						await billingRef.set({
 							balance: newBalance,
 							transactionHistory: transactionHistory,
+							companyId,
+							userKey: creditOwner,
 							lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 						}, {merge: true});
 
