@@ -36,6 +36,8 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
   String? _errorMessage;
   bool _isUpdatingAutoRenew = false;
   String? _autoRenewError;
+  bool _isManualRenewing = false;
+  String? _manualRenewError;
 
   @override
   void initState() {
@@ -288,6 +290,83 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
     }
   }
 
+  Future<void> _manualRenewSubscription(SubscriptionStatus status) async {
+    if (status.purchaseToken == null) {
+      setState(() {
+        _manualRenewError = 'Missing purchase token for this subscription.';
+      });
+      return;
+    }
+
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    final companyId = workspaceProvider.currentCompany?.id;
+    if (companyId == null) {
+      setState(() {
+        _manualRenewError = 'Company not found.';
+      });
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Renew now?'),
+          content: const Text(
+            'This will immediately deduct credits and renew this module subscription for the next period.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Renew now'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isManualRenewing = true;
+      _manualRenewError = null;
+    });
+
+    try {
+      await BillingService.manualRenewSubscription(
+        purchaseToken: status.purchaseToken!,
+        uid: widget.email,
+        companyId: companyId,
+        moduleId: widget.moduleId,
+        moduleName: widget.moduleName,
+      );
+
+      if (!mounted) return;
+
+      _refreshStatus();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Subscription renewed successfully.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _manualRenewError = e.toString();
+      });
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isManualRenewing = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -497,10 +576,10 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
             _buildDetailRow(
               'Credits Cost',
               status.subscriptionId!.contains('annual')
-                  ? '1,000 credits / year'
+                  ? '999 credits / year'
                   : (status.subscriptionId!.contains('daily')
-                      ? '50 credits / day'
-                      : '100 credits / month'),
+                      ? '49 credits / day'
+                      : '99 credits / month'),
               const Color(0xFFFFA500), // Orange for credits
               theme,
             ),
@@ -533,7 +612,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
             ),
             const SizedBox(height: 12),
           ],
-          if ((status.status == 'active' || status.status == 'grace') &&
+          if (status.status != 'none' &&
               status.autoRenewing != null &&
               status.purchaseToken != null) ...[
             Container(
@@ -562,7 +641,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
                   Text(
                     status.autoRenewing == true
                         ? 'Auto-renew is on. You can disable future renewals.'
-                        : 'Auto-renew is off. Access will end on the renewal date.',
+                        : 'Auto-renew is off. Use manual renewal whenever you want to extend access.',
                     style: AppTheme.inter(
                       fontSize: 12,
                       color: theme.textTheme.bodyMedium?.color,
@@ -613,11 +692,40 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
                         ),
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isManualRenewing
+                            ? null
+                            : () => _manualRenewSubscription(status),
+                        icon: _isManualRenewing
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.bolt, size: 16),
+                        label: Text(
+                          _isManualRenewing ? 'Renewing...' : 'Renew now',
+                        ),
+                      ),
+                    ),
                   ],
                   if (_autoRenewError != null) ...[
                     const SizedBox(height: 8),
                     Text(
                       _autoRenewError!,
+                      style: AppTheme.inter(
+                        fontSize: 11,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                  if (_manualRenewError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _manualRenewError!,
                       style: AppTheme.inter(
                         fontSize: 11,
                         color: Colors.red,

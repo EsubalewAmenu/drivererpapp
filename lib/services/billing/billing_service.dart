@@ -225,6 +225,52 @@ class BillingService {
     }
   }
 
+  /// Manually renew a subscription (one-time renewal using credits)
+  static Future<SubscriptionStatus> manualRenewSubscription({
+    required String purchaseToken,
+    required String uid,
+    required String companyId,
+    required String moduleId,
+    String? moduleName,
+  }) async {
+    try {
+      final url = Uri.parse('$baseUrl/manualRenewSubscription');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'purchaseToken': purchaseToken,
+          'uid': uid,
+          'companyId': companyId,
+          'moduleId': moduleId,
+          'moduleName': moduleName,
+        }),
+      ).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return SubscriptionStatus(
+          status: data['status'] ?? 'unknown',
+          hasAccess: data['status'] == 'active',
+          renewalDate:
+              data['expiryTime'] != null ? DateTime.parse(data['expiryTime']) : null,
+          autoRenewing: data['autoRenewing'],
+        );
+      } else {
+        String errorMessage = response.body;
+        try {
+          final parsed = jsonDecode(response.body);
+          if (parsed is Map<String, dynamic> && parsed['message'] != null) {
+            errorMessage = parsed['message'].toString();
+          }
+        } catch (_) {}
+        throw Exception('Failed to manually renew subscription: ${response.statusCode} - $errorMessage');
+      }
+    } catch (e) {
+      throw Exception('Error manually renewing subscription: $e');
+    }
+  }
+
   /// Record a new subscription purchase
   /// This is called after a successful purchase from the Play Store
   static Future<Map<String, dynamic>> recordPlaySubscription({
