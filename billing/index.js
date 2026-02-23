@@ -253,8 +253,8 @@ async function renewSubscriptionWithCredits({
 		moduleId: resolvedModuleId,
 		moduleName: resolvedModuleName,
 		subscriptionId,
-		uid: resolvedPayerUid,
-		userEmail: resolvedPayerUid,
+		uid: resolvedUid,
+		userEmail: resolvedUid,
 	});
 
 	await billingRef.set({
@@ -471,8 +471,8 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			moduleId: moduleId,
 			moduleName: effectiveModuleName,
 			subscriptionId: subscriptionId,
-			uid: creditOwner,
-			userEmail: creditOwner,
+			uid: uid,
+			userEmail: uid,
 		};
 
 		const transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory
@@ -652,8 +652,8 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 						moduleId,
 						moduleName: subData.moduleName,
 						subscriptionId,
-						uid: creditOwner,
-						userEmail: creditOwner,
+						uid,
+						userEmail: uid,
 					};
 
 					let transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory
@@ -1522,8 +1522,8 @@ exports.processSubscriptionRenewals = onSchedule({
 							moduleId,
 							moduleName: subData.moduleName,
 							subscriptionId,
-							uid: creditOwner,
-							userEmail: creditOwner,
+							uid,
+							userEmail: uid,
 						};
 
 						// Get existing transaction history
