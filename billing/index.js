@@ -82,14 +82,6 @@ function normalizeStatus(notificationType) {
 	}
 }
 
-async function writeBillingEvent(payload, source) {
-	await db.collection("billingEvents").add({
-		source,
-		payload,
-		createdAt: admin.firestore.FieldValue.serverTimestamp(),
-	});
-}
-
 const projectId = process.env.GCLOUD_PROJECT || "driveerp-1d5d5";
 const rtdnTopic = `projects/${projectId}/topics/driver-erp-google-play-rtdn`;
 
@@ -280,19 +272,6 @@ async function renewSubscriptionWithCredits({
 		lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 	}, {merge: true});
 
-	await writeBillingEvent({
-		type: forceRenew ? "subscription_manual_renewed" : "subscription_auto_renewed",
-		reason,
-		companyId: resolvedCompanyId,
-		uid: resolvedUid,
-		moduleId: resolvedModuleId,
-		moduleName: resolvedModuleName,
-		purchaseToken,
-		creditsDeducted: creditsToDeduct,
-		newBalance,
-		newExpiryDate: newExpiryDate.toISOString(),
-	}, "system");
-
 	return {
 		renewed: true,
 		reason,
@@ -319,8 +298,6 @@ exports.googlePlayRtdn = onMessagePublished({ topic: rtdnTopic }, async (event) 
 		}
 
 		if (!payload) return;
-
-		await writeBillingEvent(payload, "google");
 
 		const sub = payload.subscriptionNotification;
 		if (!sub || !sub.purchaseToken) return;
@@ -492,17 +469,6 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
 
-		await writeBillingEvent({
-			type: "credits_deducted",
-			companyId,
-			uid,
-			moduleId,
-			moduleName: effectiveModuleName,
-			subscriptionId,
-			creditsDeducted: creditsNeeded,
-			balanceAfter: newBalance,
-		}, "system");
-
 		logger.info("Credits deducted", {companyId, creditsDeducted: creditsNeeded, newBalance});
 
 		// Create subscription record
@@ -542,15 +508,6 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 			source: "google",
 		});
-
-		await writeBillingEvent({
-			type: "subscription_recorded",
-			uid,
-			moduleId,
-			moduleName: effectiveModuleName,
-			packageName,
-			subscriptionId,
-		}, "google");
 
 		logger.info("Subscription recorded", {uid, moduleId, packageName, creditsCharged: creditsNeeded});
 		res.status(200).json({
@@ -700,15 +657,6 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 			}
 		}
 
-		await writeBillingEvent({
-			type: "subscription_refreshed",
-			uid,
-			moduleId,
-			moduleName: subData.moduleName,
-			status: newStatus,
-			wasRenewed,
-		}, "google");
-
 		logger.info("Subscription refreshed", {purchaseToken, status: newStatus, wasRenewed});
 		res.status(200).json({
 			success: true,
@@ -808,13 +756,6 @@ exports.disablePlayAutoRenew = onRequest(async (req, res) => {
 				}, {merge: true});
 			}
 
-			await writeBillingEvent({
-				type: "subscription_auto_renew_disabled",
-				uid,
-				moduleId,
-				moduleName: subData.moduleName,
-			}, "google");
-
 			return res.status(200).json({
 				success: true,
 				status,
@@ -870,13 +811,6 @@ exports.disablePlayAutoRenew = onRequest(async (req, res) => {
 			}, {merge: true});
 		}
 
-		await writeBillingEvent({
-			type: "subscription_auto_renew_disabled",
-			uid,
-			moduleId,
-			moduleName: subData.moduleName,
-		}, "google");
-
 		return res.status(200).json({
 			success: true,
 			status,
@@ -925,13 +859,6 @@ exports.enablePlayAutoRenew = onRequest(async (req, res) => {
 					lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 				}, {merge: true});
 			}
-
-			await writeBillingEvent({
-				type: "subscription_auto_renew_enabled",
-				uid,
-				moduleId,
-				moduleName: subData.moduleName,
-			}, "google");
 
 			return res.status(200).json({
 				success: true,
@@ -1086,8 +1013,6 @@ exports.getEntitlementStatus = onRequest(async (req, res) => {
 
 exports.appleServerNotifications = onRequest(async (req, res) => {
 	try {
-		const payload = req.body;
-		await writeBillingEvent(payload, "apple");
 		// TODO: verify with App Store Server API and update subscriptions/entitlements
 		res.status(200).send("OK");
 	} catch (e) {
@@ -1227,13 +1152,6 @@ exports.topupWorkspaceCredits = onRequest(async (req, res) => {
 			throw firebaseError;
 		}
 
-		await writeBillingEvent({
-			type: "credits_topup",
-			companyId,
-			credits,
-			amountUsd,
-		}, "system");
-
 		logger.info("Credits topup recorded", {companyId, credits, newBalance});
 
 		// Format and sort transaction history for response
@@ -1301,13 +1219,6 @@ exports.setAutoTopup = onRequest(async (req, res) => {
 			userKey,
 			lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
-
-		await writeBillingEvent({
-			type: "auto_topup_set",
-			companyId,
-			enabled,
-			amount: enabled ? (amount || 1000) : null,
-		}, "system");
 
 		logger.info("Auto-topup setting updated", {companyId, enabled, amount});
 
@@ -1399,15 +1310,6 @@ exports.monthlyAutoTopup = onSchedule({
 					lastAutoTopupDate: admin.firestore.FieldValue.serverTimestamp(),
 					lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 				}, {merge: true});
-
-				await writeBillingEvent({
-					type: "auto_topup_executed",
-					companyId,
-					userKey,
-					credits: autoTopupAmount,
-					amountUsd,
-					balanceAfter: newBalance,
-				}, "system");
 
 				logger.info("Auto-topup successful", {
 					companyId,
@@ -1573,17 +1475,6 @@ exports.processSubscriptionRenewals = onSchedule({
 								status: "active",
 								lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 							}, {merge: true});
-
-						// Record billing event
-						await writeBillingEvent({
-							type: "subscription_auto_renewed",
-							companyId,
-							uid,
-							moduleId,
-							moduleName: subData.moduleName,
-							creditsDeducted: creditsToDeduct,
-							newBalance,
-						}, "system");
 
 						logger.info("Subscription renewed successfully", {
 							companyId,
