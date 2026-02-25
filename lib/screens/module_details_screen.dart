@@ -7,8 +7,10 @@ import '../theme/app_theme.dart';
 import '../providers/drive_provider.dart';
 import '../providers/schema_provider.dart';
 import '../providers/workspace_provider.dart';
+import '../services/billing/billing_service.dart';
 import '../utils/icon_lookup.dart';
 import 'dashboard_screen.dart';
+import 'module_subscription_screen.dart';
 
 class ModuleDetailsScreen extends StatefulWidget {
   final Map<String, String> moduleInfo;
@@ -68,6 +70,71 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
   }
 
   Future<void> _activateModule() async {
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final userEmail = authService.currentUser?.email;
+    final companyId = workspaceProvider.currentCompany?.id;
+    final moduleName = widget.moduleInfo['name']!;
+    final assetKey = (widget.moduleInfo['id'] ?? widget.moduleInfo['name'])!
+        .toString()
+        .toLowerCase()
+        .trim();
+
+    if (userEmail == null || userEmail.isEmpty || companyId == null || companyId.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User or company context is missing.')),
+        );
+      }
+      return;
+    }
+
+    try {
+      final pricing = await BillingService.getModulePricing(
+        moduleName: moduleName,
+        moduleId: assetKey,
+      );
+      final isFree = pricing['isFree'] == true;
+
+      if (!isFree) {
+        final status = await BillingService.getEntitlementStatus(
+          uid: userEmail,
+          companyId: companyId,
+          moduleId: assetKey,
+        );
+
+        if (!(status.hasAccess && status.status == 'active')) {
+          String? userAccessFileId = workspaceProvider.lastUserAccessSpreadsheetId;
+          if (userAccessFileId == null || userAccessFileId.isEmpty) {
+            try {
+              userAccessFileId = await WorkspaceProvider.getLastUserAccessSpreadsheetId();
+            } catch (_) {}
+          }
+
+          if (!mounted) return;
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ModuleSubscriptionScreen(
+                email: userEmail,
+                spreadsheetId: userAccessFileId ?? '',
+                moduleId: assetKey,
+                moduleName: moduleName,
+              ),
+            ),
+          );
+          return;
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to verify subscription: $e')),
+        );
+      }
+      return;
+    }
+
     setState(() {
       _isActivating = true;
       _statusMessage = "Ensuring workspace connections...";
