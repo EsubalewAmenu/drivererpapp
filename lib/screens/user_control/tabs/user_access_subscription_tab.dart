@@ -162,10 +162,12 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
     setState(() {});
   }
 
-  Future<void> _disableAutoRenew(SubscriptionStatus status) async {
-    if (status.purchaseToken == null) {
+  Future<void> _disableAutoRenew() async {
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    final companyId = workspaceProvider.currentCompany?.id;
+    if (companyId == null) {
       setState(() {
-        _autoRenewError = 'Missing purchase token for this subscription.';
+        _autoRenewError = 'Company not found.';
       });
       return;
     }
@@ -201,7 +203,9 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
 
     try {
       await BillingService.disableAutoRenew(
-        purchaseToken: status.purchaseToken!,
+        uid: widget.email,
+        companyId: companyId,
+        moduleId: widget.moduleId,
       );
 
       if (!mounted) return;
@@ -226,10 +230,12 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
     }
   }
 
-  Future<void> _enableAutoRenew(SubscriptionStatus status) async {
-    if (status.purchaseToken == null) {
+  Future<void> _enableAutoRenew() async {
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    final companyId = workspaceProvider.currentCompany?.id;
+    if (companyId == null) {
       setState(() {
-        _autoRenewError = 'Missing purchase token for this subscription.';
+        _autoRenewError = 'Company not found.';
       });
       return;
     }
@@ -265,7 +271,9 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
 
     try {
       await BillingService.enableAutoRenew(
-        purchaseToken: status.purchaseToken!,
+        uid: widget.email,
+        companyId: companyId,
+        moduleId: widget.moduleId,
       );
 
       if (!mounted) return;
@@ -290,14 +298,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
     }
   }
 
-  Future<void> _manualRenewSubscription(SubscriptionStatus status) async {
-    if (status.purchaseToken == null) {
-      setState(() {
-        _manualRenewError = 'Missing purchase token for this subscription.';
-      });
-      return;
-    }
-
+  Future<void> _manualRenewSubscription() async {
     final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
     final companyId = workspaceProvider.currentCompany?.id;
     if (companyId == null) {
@@ -338,7 +339,6 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
 
     try {
       await BillingService.manualRenewSubscription(
-        purchaseToken: status.purchaseToken!,
         uid: widget.email,
         companyId: companyId,
         moduleId: widget.moduleId,
@@ -612,9 +612,8 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
             ),
             const SizedBox(height: 12),
           ],
-          if (status.status != 'none' &&
-              status.autoRenewing != null &&
-              status.purchaseToken != null) ...[
+            if (status.status != 'none' &&
+              status.autoRenewing != null) ...[
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -654,7 +653,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
                       child: OutlinedButton.icon(
                         onPressed: _isUpdatingAutoRenew
                             ? null
-                            : () => _disableAutoRenew(status),
+                          : _disableAutoRenew,
                         icon: _isUpdatingAutoRenew
                             ? const SizedBox(
                                 width: 14,
@@ -677,7 +676,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
                       child: OutlinedButton.icon(
                         onPressed: _isUpdatingAutoRenew
                             ? null
-                            : () => _enableAutoRenew(status),
+                          : _enableAutoRenew,
                         icon: _isUpdatingAutoRenew
                             ? const SizedBox(
                                 width: 14,
@@ -698,7 +697,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
                       child: ElevatedButton.icon(
                         onPressed: _isManualRenewing
                             ? null
-                            : () => _manualRenewSubscription(status),
+                          : _manualRenewSubscription,
                         icon: _isManualRenewing
                             ? const SizedBox(
                                 width: 14,

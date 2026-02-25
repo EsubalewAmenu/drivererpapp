@@ -152,28 +152,88 @@ function toIsoOrNull(value) {
 	return date.toISOString();
 }
 
+async function getEntitlementByPurchaseToken(purchaseToken) {
+	try {
+		const entitlementsSnap = await db
+			.collectionGroup("entitlements")
+			.where("purchaseToken", "==", purchaseToken)
+			.limit(1)
+			.get();
+
+		if (entitlementsSnap.empty) {
+			return null;
+		}
+
+		const entDoc = entitlementsSnap.docs[0];
+		const companyDoc = entDoc.ref.parent.parent;
+		const companyId = companyDoc ? companyDoc.id : null;
+
+		return {
+			entRef: entDoc.ref,
+			entData: entDoc.data(),
+			companyId,
+		};
+	} catch (error) {
+		logger.warn("Collection group entitlement lookup failed; scanning companies fallback", {
+			purchaseToken,
+			error: error.message || String(error),
+		});
+
+		const companiesSnap = await db.collection("companies").get();
+		for (const companyDoc of companiesSnap.docs) {
+			const entitlementsSnap = await companyDoc.ref
+				.collection("entitlements")
+				.where("purchaseToken", "==", purchaseToken)
+				.limit(1)
+				.get();
+
+			if (!entitlementsSnap.empty) {
+				const entDoc = entitlementsSnap.docs[0];
+				return {
+					entRef: entDoc.ref,
+					entData: entDoc.data(),
+					companyId: companyDoc.id,
+				};
+			}
+		}
+
+		return null;
+	}
+}
+
+async function getEntitlementByIdentity({uid, companyId, moduleId}) {
+	if (!uid || !companyId || !moduleId) return null;
+	const entitlementId = `${uid}_${moduleId}`;
+	const entRef = db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId);
+	const entSnap = await entRef.get();
+	if (!entSnap.exists) return null;
+	return {
+		entRef,
+		entData: entSnap.data(),
+		companyId,
+	};
+}
+
 async function renewSubscriptionWithCredits({
-	purchaseToken,
+	uid,
+	companyId,
+	moduleId,
 	forceRenew = false,
 	reason = "system",
-	fallbackUid = null,
-	fallbackCompanyId = null,
-	fallbackModuleId = null,
-	fallbackModuleName = null,
+	moduleName = null,
 }) {
-	const subsRef = db.collection("subscriptions").doc(purchaseToken);
-	const subsSnap = await subsRef.get();
+	const entitlement = await getEntitlementByIdentity({uid, companyId, moduleId});
 
-	if (!subsSnap.exists) {
-		throw new Error("Subscription not found");
+	if (!entitlement) {
+		throw new Error("Entitlement not found");
 	}
 
-	const subData = subsSnap.data();
-	const {uid, moduleId, companyId, subscriptionId, payerUid} = subData;
-	const resolvedUid = uid || fallbackUid;
-	const resolvedModuleId = moduleId || fallbackModuleId;
-	const resolvedCompanyId = companyId || fallbackCompanyId;
-	const resolvedModuleName = subData.moduleName || fallbackModuleName || resolvedModuleId;
+	const {entRef, entData, companyId: companyIdFromEnt} = entitlement;
+	const {uid: entUid, moduleId: entModuleId, companyId: entCompanyId, subscriptionId, payerUid} = entData;
+	const resolvedUid = entUid || uid;
+	const resolvedModuleId = entModuleId || moduleId;
+	const resolvedCompanyId = entCompanyId || companyIdFromEnt || companyId;
+	const resolvedModuleName = entData.moduleName || moduleName || resolvedModuleId;
 	const resolvedPayerUid = payerUid || resolvedUid;
 
 	if (!resolvedUid || !resolvedModuleId || !resolvedCompanyId) {
@@ -182,13 +242,13 @@ async function renewSubscriptionWithCredits({
 
 	const entitlementId = `${resolvedUid}_${resolvedModuleId}`;
 	const now = new Date();
-	const expiryDate = toJsDate(subData.expiryTime);
+	const expiryDate = toJsDate(entData.renewalDate);
 
-	if (!forceRenew && subData.autoRenewing !== true) {
+	if (!forceRenew && entData.autoRenewing !== true) {
 		return {
 			renewed: false,
 			reason: "auto_renew_disabled",
-			status: subData.status || "expired",
+			status: entData.status || "expired",
 			expiryTime: expiryDate,
 		};
 	}
@@ -198,7 +258,7 @@ async function renewSubscriptionWithCredits({
 		return {
 			renewed: false,
 			reason: "not_due",
-			status: subData.status || "active",
+			status: entData.status || "active",
 			expiryTime: expiryDate,
 		};
 	}
@@ -212,9 +272,10 @@ async function renewSubscriptionWithCredits({
 	const currentBalance = billingData.balance || 0;
 
 	if (currentBalance < creditsToDeduct) {
-		await subsRef.set({
+		await entRef.set({
 			status: "expired",
 			autoRenewing: false,
+			renewalDate: expiryDate,
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
 
@@ -260,9 +321,9 @@ async function renewSubscriptionWithCredits({
 	const renewalBaseDate = expiryDate && expiryDate > now ? expiryDate : now;
 	const newExpiryDate = new Date(renewalBaseDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
 
-	await subsRef.set({
+	await entRef.set({
 		status: "active",
-		expiryTime: newExpiryDate,
+		renewalDate: newExpiryDate,
 		lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 	}, {merge: true});
 
@@ -277,7 +338,7 @@ async function renewSubscriptionWithCredits({
 		reason,
 		status: "active",
 		expiryTime: newExpiryDate,
-		autoRenewing: subData.autoRenewing,
+		autoRenewing: entData.autoRenewing,
 		newBalance,
 		creditsDeducted: creditsToDeduct,
 	};
@@ -315,30 +376,24 @@ exports.googlePlayRtdn = onMessagePublished({ topic: rtdnTopic }, async (event) 
 			return;
 		}
 
-		const subsSnap = await db
-			.collection("subscriptions")
-			.where("purchaseToken", "==", purchaseToken)
-			.limit(1)
-			.get();
-
-		if (subsSnap.empty) {
-			logger.warn("No subscription found for purchaseToken", purchaseToken);
+		const entitlement = await getEntitlementByPurchaseToken(purchaseToken);
+		if (!entitlement) {
+			logger.warn("No entitlement found for purchaseToken", purchaseToken);
 			return;
 		}
 
-		const subDoc = subsSnap.docs[0];
-		const subData = subDoc.data();
+		const {entRef, entData: subData, companyId: companyIdFromEnt} = entitlement;
 		const uid = subData.uid;
 		const moduleId = subData.moduleId;
-		const companyId = subData.companyId;
+		const companyId = subData.companyId || companyIdFromEnt;
 
 		const expiryTime = verifiedData.expiryTimeMillis ? new Date(parseInt(verifiedData.expiryTimeMillis)) : null;
 
-		await subDoc.ref.set(
+		await entRef.set(
 			{
 				status,
 				autoRenewing: verifiedData.autoRenewing,
-				expiryTime,
+				renewalDate: expiryTime,
 				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 				source: "google",
 			},
@@ -471,26 +526,6 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 
 		logger.info("Credits deducted", {companyId, creditsDeducted: creditsNeeded, newBalance});
 
-		// Create subscription record
-		await db.collection("subscriptions").doc(purchaseToken).set({
-			uid,
-			packageName,
-			subscriptionId,
-			purchaseToken,
-			companyId,
-			moduleId,
-			moduleName: effectiveModuleName,
-			payerType: payerType || "self",
-			payerUid: payerUid || uid,
-			status: "active",
-			autoRenewing: verifiedData.autoRenewing,
-			expiryTime,
-			creditsCharged: creditsNeeded,
-			createdAt: admin.firestore.FieldValue.serverTimestamp(),
-			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-			source: "google",
-		});
-
 		// Create entitlement record
 		const entitlementId = `${uid}_${moduleId}`;
 		await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
@@ -503,7 +538,9 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			renewalDate: expiryTime,
 			autoRenewing: verifiedData.autoRenewing,
 			subscriptionId,
+			packageName,
 			purchaseToken,
+			creditsCharged: creditsNeeded,
 			createdAt: admin.firestore.FieldValue.serverTimestamp(),
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 			source: "google",
@@ -527,142 +564,72 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 // Verify and refresh a subscription
 exports.refreshPlaySubscription = onRequest(async (req, res) => {
 	try {
-		const {purchaseToken} = req.body;
+		const {uid, companyId, moduleId} = req.body;
 
-		if (!purchaseToken) {
-			return res.status(400).send("Missing purchaseToken");
+		if (!uid || !companyId || !moduleId) {
+			return res.status(400).send("Missing uid, companyId, or moduleId");
 		}
 
-		const subsSnap = await db.collection("subscriptions").doc(purchaseToken).get();
-		if (!subsSnap.exists) {
-			return res.status(404).send("Subscription not found");
+		const entitlement = await getEntitlementByIdentity({uid, companyId, moduleId});
+		if (!entitlement) {
+			return res.status(404).send("Entitlement not found");
 		}
 
-		const subData = subsSnap.data();
-		const {packageName, subscriptionId} = subData;
+		const {entRef, entData: subData, companyId: companyIdFromEnt} = entitlement;
+		const expiryTime = toJsDate(subData.renewalDate);
+		const isExpired = !expiryTime || expiryTime <= new Date();
+		const shouldAutoRenew = isExpired && subData.autoRenewing === true;
+		let wasRenewed = false;
 
-		// Verify with Play Developer API
-		let verifiedData;
-		if (purchaseToken.startsWith("test_token_")) {
-			// Allow test tokens for development/demo purposes
-			const isAnnual = subscriptionId && subscriptionId.includes("annual");
-			const isDaily = subscriptionId && subscriptionId.includes("daily");
-			const durationDays = isAnnual ? 365 : (isDaily ? 1 : 30);
-			const storedExpiry = toJsDate(subData.expiryTime);
-			const expiryMillis = storedExpiry
-				? storedExpiry.getTime()
-				: Date.now() + durationDays * 24 * 60 * 60 * 1000;
-
-			verifiedData = {
-				expiryTimeMillis: expiryMillis.toString(),
-				autoRenewing: subData.autoRenewing !== undefined ? subData.autoRenewing : true,
-			};
-			logger.info("Using mock verification for test token refresh", {purchaseToken, isAnnual});
-		} else {
-			verifiedData = await verifyPlaySubscription(packageName, subscriptionId, purchaseToken);
+		if (shouldAutoRenew) {
+			const renewalResult = await renewSubscriptionWithCredits({
+				uid,
+				companyId,
+				moduleId,
+				forceRenew: false,
+				reason: "refresh",
+				moduleName: subData.moduleName,
+			});
+			wasRenewed = renewalResult.renewed;
 		}
 
-		if (!verifiedData) {
-			return res.status(401).send("Subscription verification failed");
-		}
+		const refreshedEntitlement = await getEntitlementByIdentity({uid, companyId, moduleId});
+		const refreshedData = refreshedEntitlement?.entData ?? subData;
+		const refreshedExpiry = toJsDate(refreshedData.renewalDate);
+		const hasActiveAccess = refreshedData.status == "active" && refreshedExpiry && refreshedExpiry > new Date();
+		const newStatus = hasActiveAccess ? "active" : (refreshedData.status || "expired");
 
-		const expiryTime = verifiedData.expiryTimeMillis ? new Date(parseInt(verifiedData.expiryTimeMillis)) : null;
-		const newStatus = verifiedData.autoRenewing || new Date(expiryTime) > new Date() ? "active" : "expired";
-		const previousStatus = subData.status;
-		const wasRenewed = previousStatus !== "active" && newStatus === "active" && verifiedData.autoRenewing;
-
-		// Update subscription
-		await subsSnap.ref.set({
+		// Update entitlement status
+		await entRef.set({
 			status: newStatus,
-			autoRenewing: verifiedData.autoRenewing,
-			expiryTime,
+			autoRenewing: refreshedData.autoRenewing,
+			renewalDate: refreshedExpiry,
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
 
 		// Update entitlement
-		const {uid, moduleId, companyId, payerUid} = subData;
-		const entitlementId = `${uid}_${moduleId}`;
-		await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
+		const {uid: entUid, moduleId: entModuleId, companyId: entCompanyId} = subData;
+		const effectiveCompanyId = entCompanyId || companyIdFromEnt;
+		const entitlementId = `${entUid}_${entModuleId}`;
+		await db.collection("companies").doc(effectiveCompanyId).collection("entitlements").doc(entitlementId).set({
 			status: newStatus,
-			renewalDate: expiryTime,
-			autoRenewing: verifiedData.autoRenewing,
+			renewalDate: refreshedExpiry,
+			autoRenewing: refreshedData.autoRenewing,
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
 
-		// Deduct credits if subscription was renewed (renewed via refresh call and autoRenewing is true)
-		if (wasRenewed && verifiedData.autoRenewing) {
-			try {
-				const isAnnual = subscriptionId && subscriptionId.includes("annual");
-				const isDaily = subscriptionId && subscriptionId.includes("daily");
-				const creditsToDeduct = isAnnual ? 999 : (isDaily ? 49 : 99);
-				const amountUsd = creditsToDeduct * 0.01;
-
-				const creditOwner = payerUid || uid;
-				const billingRef = getUserCreditsRef(companyId, creditOwner);
-				const billingSnap = await billingRef.get();
-
-				const currentBalance = billingSnap.exists ? (billingSnap.data().balance || 0) : 0;
-
-				if (currentBalance >= creditsToDeduct) {
-					const newBalance = currentBalance - creditsToDeduct;
-
-					const renewalTransaction = {
-						amount: -amountUsd,
-						credits: -creditsToDeduct,
-						date: new Date().toISOString(),
-						type: "subscription",
-						renewalSource: "auto",
-						moduleId,
-						moduleName: subData.moduleName,
-						subscriptionId,
-						uid,
-						userEmail: uid,
-					};
-
-					let transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory
-						? Array.isArray(billingSnap.data().transactionHistory)
-							? billingSnap.data().transactionHistory
-							: []
-						: [];
-
-					transactionHistory.push(renewalTransaction);
-
-					await billingRef.set({
-						balance: newBalance,
-						transactionHistory: transactionHistory,
-						companyId,
-						userKey: creditOwner,
-						lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-					}, {merge: true});
-
-					logger.info("Subscription renewal credits deducted", {
-						companyId,
-						uid,
-						moduleId,
-						creditsDeducted: creditsToDeduct,
-						newBalance,
-					});
-				} else {
-					logger.warn("Insufficient credits for subscription renewal", {
-						companyId,
-						uid,
-						moduleId,
-						currentBalance,
-						creditsNeeded: creditsToDeduct,
-					});
-				}
-			} catch (creditError) {
-				logger.error("Failed to deduct credits for subscription renewal", creditError);
-				// Still allow the refresh to succeed, just log the credit error
-			}
-		}
-
-		logger.info("Subscription refreshed", {purchaseToken, status: newStatus, wasRenewed});
+		logger.info("Subscription refreshed", {
+			uid: entUid,
+			companyId: effectiveCompanyId,
+			moduleId: entModuleId,
+			status: newStatus,
+			wasRenewed,
+		});
 		res.status(200).json({
 			success: true,
 			status: newStatus,
-			expiryTime: expiryTime ? expiryTime.toISOString() : null,
-			autoRenewing: verifiedData.autoRenewing,
+			expiryTime: refreshedExpiry ? refreshedExpiry.toISOString() : null,
+			autoRenewing: refreshedData.autoRenewing,
 		});
 	} catch (e) {
 		logger.error("Refresh subscription error", e);
@@ -672,20 +639,19 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 
 exports.manualRenewSubscription = onRequest(async (req, res) => {
 	try {
-		const {purchaseToken, uid, companyId, moduleId, moduleName} = req.body;
+		const {uid, companyId, moduleId, moduleName} = req.body;
 
-		if (!purchaseToken) {
-			return res.status(400).send("Missing purchaseToken");
+		if (!uid || !companyId || !moduleId) {
+			return res.status(400).send("Missing uid, companyId, or moduleId");
 		}
 
 		const renewalResult = await renewSubscriptionWithCredits({
-			purchaseToken,
+			uid,
+			companyId,
+			moduleId,
 			forceRenew: true,
 			reason: "manual_request",
-			fallbackUid: uid,
-			fallbackCompanyId: companyId,
-			fallbackModuleId: moduleId,
-			fallbackModuleName: moduleName,
+			moduleName,
 		});
 
 		if (!renewalResult.renewed && renewalResult.reason === "insufficient_credits") {
@@ -718,93 +684,34 @@ exports.manualRenewSubscription = onRequest(async (req, res) => {
 // Disable auto-renew for a subscription
 exports.disablePlayAutoRenew = onRequest(async (req, res) => {
 	try {
-		const {purchaseToken} = req.body;
+		const {uid, companyId, moduleId} = req.body;
 
-		if (!purchaseToken) {
-			return res.status(400).send("Missing purchaseToken");
+		if (!uid || !companyId || !moduleId) {
+			return res.status(400).send("Missing uid, companyId, or moduleId");
 		}
 
-		const subsSnap = await db.collection("subscriptions").doc(purchaseToken).get();
-		if (!subsSnap.exists) {
-			return res.status(404).send("Subscription not found");
+		const entitlement = await getEntitlementByIdentity({uid, companyId, moduleId});
+		if (!entitlement) {
+			return res.status(404).send("Entitlement not found");
 		}
 
-		const subData = subsSnap.data();
-		const {packageName, subscriptionId, companyId, uid, moduleId} = subData;
-
-		if (!packageName || !subscriptionId) {
-			return res.status(400).send("Missing subscription metadata");
-		}
-
-		if (purchaseToken.startsWith("test_token_")) {
-			const expiryTime = toJsDate(subData.expiryTime);
-			const status = expiryTime && expiryTime > new Date() ? "active" : "expired";
-
-			await subsSnap.ref.set({
-				autoRenewing: false,
-				status,
-				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-			}, {merge: true});
-
-			if (companyId && uid && moduleId) {
-				const entitlementId = `${uid}_${moduleId}`;
-				await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
-					autoRenewing: false,
-					status,
-					renewalDate: expiryTime,
-					lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-				}, {merge: true});
-			}
-
-			return res.status(200).json({
-				success: true,
-				status,
-				autoRenewing: false,
-				expiryTime: expiryTime ? expiryTime.toISOString() : null,
-			});
-		}
-
-		const accessToken = await getPlayDeveloperAccessToken();
-		const endpoint = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/subscriptions/${subscriptionId}/purchases/tokens/${purchaseToken}:cancel`;
-
-		const response = await fetch(endpoint, {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-			},
-		});
-
-		if (!response.ok) {
-			logger.warn("Play API cancel failed", {
-				status: response.status,
-				packageName,
-				subscriptionId,
-				purchaseToken,
-			});
-			return res.status(502).send("Play cancel failed");
-		}
-
-		const verifiedData = await verifyPlaySubscription(packageName, subscriptionId, purchaseToken);
-		if (!verifiedData) {
-			return res.status(401).send("Subscription verification failed");
-		}
-
-		const expiryTime = verifiedData.expiryTimeMillis
-			? new Date(parseInt(verifiedData.expiryTimeMillis))
-			: null;
+		const {entRef, entData: subData, companyId: companyIdFromEnt} = entitlement;
+		const {companyId: entCompanyId, uid: entUid, moduleId: entModuleId} = subData;
+		const effectiveCompanyId = entCompanyId || companyIdFromEnt;
+		const expiryTime = toJsDate(subData.renewalDate);
 		const status = expiryTime && expiryTime > new Date() ? "active" : "expired";
 
-		await subsSnap.ref.set({
-			autoRenewing: verifiedData.autoRenewing,
+		await entRef.set({
+			autoRenewing: false,
 			status,
-			expiryTime,
+			renewalDate: expiryTime,
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
 
-		if (companyId && uid && moduleId) {
-			const entitlementId = `${uid}_${moduleId}`;
-			await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
-				autoRenewing: verifiedData.autoRenewing,
+		if (effectiveCompanyId && entUid && entModuleId) {
+			const entitlementId = `${entUid}_${entModuleId}`;
+			await db.collection("companies").doc(effectiveCompanyId).collection("entitlements").doc(entitlementId).set({
+				autoRenewing: false,
 				status,
 				renewalDate: expiryTime,
 				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -814,7 +721,7 @@ exports.disablePlayAutoRenew = onRequest(async (req, res) => {
 		return res.status(200).json({
 			success: true,
 			status,
-			autoRenewing: verifiedData.autoRenewing,
+			autoRenewing: false,
 			expiryTime: expiryTime ? expiryTime.toISOString() : null,
 		});
 	} catch (e) {
@@ -826,49 +733,46 @@ exports.disablePlayAutoRenew = onRequest(async (req, res) => {
 // Enable auto-renew for a subscription
 exports.enablePlayAutoRenew = onRequest(async (req, res) => {
 	try {
-		const {purchaseToken} = req.body;
+		const {uid, companyId, moduleId} = req.body;
 
-		if (!purchaseToken) {
-			return res.status(400).send("Missing purchaseToken");
+		if (!uid || !companyId || !moduleId) {
+			return res.status(400).send("Missing uid, companyId, or moduleId");
 		}
 
-		const subsSnap = await db.collection("subscriptions").doc(purchaseToken).get();
-		if (!subsSnap.exists) {
-			return res.status(404).send("Subscription not found");
+		const entitlement = await getEntitlementByIdentity({uid, companyId, moduleId});
+		if (!entitlement) {
+			return res.status(404).send("Entitlement not found");
 		}
 
-		const subData = subsSnap.data();
-		const {companyId, uid, moduleId} = subData;
+		const {entRef, entData: subData, companyId: companyIdFromEnt} = entitlement;
+		const {companyId: entCompanyId, uid: entUid, moduleId: entModuleId} = subData;
+		const effectiveCompanyId = entCompanyId || companyIdFromEnt;
 
-		if (purchaseToken.startsWith("test_token_")) {
-			const expiryTime = toJsDate(subData.expiryTime);
-			const status = expiryTime && expiryTime > new Date() ? "active" : "expired";
+		const expiryTime = toJsDate(subData.renewalDate);
+		const status = expiryTime && expiryTime > new Date() ? "active" : "expired";
 
-			await subsSnap.ref.set({
+		await entRef.set({
+			autoRenewing: true,
+			status,
+			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+		}, {merge: true});
+
+		if (effectiveCompanyId && entUid && entModuleId) {
+			const entitlementId = `${entUid}_${entModuleId}`;
+			await db.collection("companies").doc(effectiveCompanyId).collection("entitlements").doc(entitlementId).set({
 				autoRenewing: true,
 				status,
+				renewalDate: expiryTime,
 				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 			}, {merge: true});
-
-			if (companyId && uid && moduleId) {
-				const entitlementId = `${uid}_${moduleId}`;
-				await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
-					autoRenewing: true,
-					status,
-					renewalDate: expiryTime,
-					lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-				}, {merge: true});
-			}
-
-			return res.status(200).json({
-				success: true,
-				status,
-				autoRenewing: true,
-				expiryTime: expiryTime ? expiryTime.toISOString() : null,
-			});
 		}
 
-		return res.status(400).send("Enable auto-renew in Google Play Store and refresh.");
+		return res.status(200).json({
+			success: true,
+			status,
+			autoRenewing: true,
+			expiryTime: expiryTime ? expiryTime.toISOString() : null,
+		});
 	} catch (e) {
 		logger.error("Enable auto-renew error", e);
 		res.status(500).send("ERROR");
@@ -934,16 +838,15 @@ exports.getEntitlementStatus = onRequest(async (req, res) => {
 		let expiryTime = toJsDate(currentEntData.renewalDate);
 		let hasExpired = expiryTime && expiryTime < now;
 
-		if (hasExpired && currentEntData.autoRenewing === true && currentEntData.purchaseToken) {
+		if (hasExpired && currentEntData.autoRenewing === true) {
 			try {
 				const renewalResult = await renewSubscriptionWithCredits({
-					purchaseToken: currentEntData.purchaseToken,
+					uid,
+					companyId,
+					moduleId,
 					forceRenew: false,
 					reason: "status_check",
-					fallbackUid: uid,
-					fallbackCompanyId: companyId,
-					fallbackModuleId: moduleId,
-					fallbackModuleName: currentEntData.moduleName || moduleId,
+					moduleName: currentEntData.moduleName || moduleId,
 				});
 
 				logger.info("Status-check auto-renew attempt", {
@@ -976,13 +879,6 @@ exports.getEntitlementStatus = onRequest(async (req, res) => {
 				status: "expired",
 				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 			}, {merge: true});
-
-			if (currentEntData.purchaseToken) {
-				await db.collection("subscriptions").doc(currentEntData.purchaseToken).set({
-					status: "expired",
-					lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-				}, {merge: true});
-			}
 
 			logger.info("Entitlement auto-expired by backend", {
 				companyId,
@@ -1345,173 +1241,3 @@ exports.monthlyAutoTopup = onSchedule({
 	}
 });
 
-// Scheduled function: Process subscription renewals daily and deduct credits
-exports.processSubscriptionRenewals = onSchedule({
-	schedule: "0 0 * * *", // Run at midnight UTC every day
-	timeZone: "UTC",
-}, async (context) => {
-	try {
-		const now = new Date();
-		logger.info("Starting subscription renewal process", {timestamp: now.toISOString()});
-
-		const companiesSnapshot = await db.collection("companies").get();
-		let totalSubscriptions = 0;
-		let renewedCount = 0;
-		let failedCount = 0;
-
-		// Iterate through all companies
-		for (const companyDoc of companiesSnapshot.docs) {
-			const companyId = companyDoc.id;
-
-			// Get all subscriptions for this company
-			const subscriptionsSnapshot = await db.collection("subscriptions")
-				.where("companyId", "==", companyId)
-				.where("autoRenewing", "==", true)
-				.get();
-
-			totalSubscriptions += subscriptionsSnapshot.size;
-
-			for (const subDoc of subscriptionsSnapshot.docs) {
-				const subData = subDoc.data();
-				const {uid, moduleId, expiryTime, subscriptionId, payerUid} = subData;
-				const creditOwner = payerUid || uid;
-
-				const expiryDate = expiryTime instanceof admin.firestore.Timestamp 
-					? expiryTime.toDate() 
-					: new Date(expiryTime);
-
-				// Check if subscription is due for renewal (expiry date has passed)
-				if (expiryDate <= now) {
-					try {
-						// Calculate credits to deduct based on subscription type
-						const normalizedSubscriptionId = (subscriptionId || "").toLowerCase();
-						const isAnnual = normalizedSubscriptionId.includes("annual");
-						const isDaily = normalizedSubscriptionId.includes("daily");
-						const creditsToDeduct = isAnnual ? 999 : (isDaily ? 49 : 99);
-						const amountUsd = creditsToDeduct * 0.01;
-
-						// Get fresh billing data for each renewal to avoid stale balance across modules
-						const billingRef = getUserCreditsRef(companyId, creditOwner);
-						const latestBillingSnap = await billingRef.get();
-						const currentBillingData = latestBillingSnap.exists ? latestBillingSnap.data() : {};
-						const currentBalance = currentBillingData.balance || 0;
-
-						// Check if company has sufficient credits
-						if (currentBalance < creditsToDeduct) {
-							logger.warn("Insufficient credits for renewal", {
-								companyId,
-								uid,
-								moduleId,
-								currentBalance,
-								creditsNeeded: creditsToDeduct,
-							});
-							// Update entitlement status to expired if insufficient credits
-							const entitlementId = `${uid}_${moduleId}`;
-							await db.collection("companies").doc(companyId)
-								.collection("entitlements").doc(entitlementId).set({
-									status: "expired",
-									autoRenewing: false,
-									lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-								}, {merge: true});
-							await subDoc.ref.set({
-								status: "expired",
-								autoRenewing: false,
-								lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-							}, {merge: true});
-							failedCount++;
-							continue;
-						}
-
-						const newBalance = currentBalance - creditsToDeduct;
-
-						// Record renewal transaction
-						const renewalTransaction = {
-							amount: -amountUsd,
-							credits: -creditsToDeduct,
-							date: new Date().toISOString(),
-							type: "subscription",
-							renewalSource: "auto",
-							moduleId,
-							moduleName: subData.moduleName,
-							subscriptionId,
-							uid,
-							userEmail: uid,
-						};
-
-						// Get existing transaction history
-						let transactionHistory = currentBillingData.transactionHistory
-							? Array.isArray(currentBillingData.transactionHistory)
-								? currentBillingData.transactionHistory
-								: []
-							: [];
-
-						transactionHistory.push(renewalTransaction);
-
-						// Update billing with new balance and transaction
-						await billingRef.set({
-							balance: newBalance,
-							transactionHistory: transactionHistory,
-							companyId,
-							userKey: creditOwner,
-							lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
-						}, {merge: true});
-
-						// Calculate new expiry date (add 30/365 days based on plan)
-						const durationDays = isAnnual ? 365 : (isDaily ? 1 : 30);
-						const newExpiryDate = new Date(expiryDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
-
-						// Update subscription with new expiry date
-						await subDoc.ref.set({
-							expiryTime: newExpiryDate,
-							status: "active",
-							lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-						}, {merge: true});
-
-						// Update entitlement
-						const entitlementId = `${uid}_${moduleId}`;
-						await db.collection("companies").doc(companyId)
-							.collection("entitlements").doc(entitlementId).set({
-								renewalDate: newExpiryDate,
-								status: "active",
-								lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-							}, {merge: true});
-
-						logger.info("Subscription renewed successfully", {
-							companyId,
-							uid,
-							moduleId,
-							creditsDeducted: creditsToDeduct,
-							newBalance,
-							newExpiryDate: newExpiryDate.toISOString(),
-						});
-
-						renewedCount++;
-					} catch (renewalError) {
-						logger.error("Failed to process subscription renewal", renewalError, {
-							companyId,
-							subscriptionId: subDoc.id,
-							error: renewalError.message,
-						});
-						failedCount++;
-					}
-				}
-			}
-		}
-
-		logger.info("Subscription renewal process completed", {
-			totalSubscriptions,
-			renewedCount,
-			failedCount,
-		});
-
-		return {
-			success: true,
-			totalSubscriptions,
-			renewedCount,
-			failedCount,
-		};
-	} catch (error) {
-		logger.error("Subscription renewal process failed", error);
-		throw error;
-	}
-});

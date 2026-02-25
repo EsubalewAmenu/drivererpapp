@@ -130,7 +130,9 @@ class BillingService {
   /// Refresh subscription status with Play Store
   /// Used to verify current status from Google Play
   static Future<SubscriptionStatus> refreshSubscription({
-    required String purchaseToken,
+    required String uid,
+    required String companyId,
+    required String moduleId,
   }) async {
     try {
       final url = Uri.parse('$baseUrl/refreshPlaySubscription');
@@ -138,7 +140,9 @@ class BillingService {
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'purchaseToken': purchaseToken,
+          'uid': uid,
+          'companyId': companyId,
+          'moduleId': moduleId,
         }),
       ).timeout(const Duration(seconds: 10));
 
@@ -165,7 +169,9 @@ class BillingService {
 
   /// Disable auto-renew for a subscription
   static Future<SubscriptionStatus> disableAutoRenew({
-    required String purchaseToken,
+    required String uid,
+    required String companyId,
+    required String moduleId,
   }) async {
     try {
       final url = Uri.parse('$baseUrl/disablePlayAutoRenew');
@@ -173,7 +179,9 @@ class BillingService {
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'purchaseToken': purchaseToken,
+          'uid': uid,
+          'companyId': companyId,
+          'moduleId': moduleId,
         }),
       ).timeout(const Duration(seconds: 10));
 
@@ -196,7 +204,9 @@ class BillingService {
 
   /// Enable auto-renew for a subscription
   static Future<SubscriptionStatus> enableAutoRenew({
-    required String purchaseToken,
+    required String uid,
+    required String companyId,
+    required String moduleId,
   }) async {
     try {
       final url = Uri.parse('$baseUrl/enablePlayAutoRenew');
@@ -204,7 +214,9 @@ class BillingService {
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'purchaseToken': purchaseToken,
+          'uid': uid,
+          'companyId': companyId,
+          'moduleId': moduleId,
         }),
       ).timeout(const Duration(seconds: 10));
 
@@ -227,7 +239,6 @@ class BillingService {
 
   /// Manually renew a subscription (one-time renewal using credits)
   static Future<SubscriptionStatus> manualRenewSubscription({
-    required String purchaseToken,
     required String uid,
     required String companyId,
     required String moduleId,
@@ -239,7 +250,6 @@ class BillingService {
         url,
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'purchaseToken': purchaseToken,
           'uid': uid,
           'companyId': companyId,
           'moduleId': moduleId,
