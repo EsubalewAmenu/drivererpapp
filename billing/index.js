@@ -55,7 +55,7 @@ async function getUserKeyFromAuth(req) {
 }
 
 function getUserCreditsRef(companyId, userKey) {
-	return db.collection("companies").doc(companyId).collection("users").doc(userKey);
+	return db.collection("companies").doc(companyId).collection("users").doc(userKey).collection("billing").doc("main");
 }
 
 function getPlanDetails(subscriptionId) {
@@ -926,7 +926,7 @@ exports.monthlyAutoTopup = onSchedule({
 	logger.info("Starting monthly auto-topup process");
 
 	try {
-		const creditsSnapshot = await db.collectionGroup("users")
+		const creditsSnapshot = await db.collectionGroup("billing")
 			.where("autoTopupEnabled", "==", true)
 			.get();
 
