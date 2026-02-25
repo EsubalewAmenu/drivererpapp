@@ -286,6 +286,7 @@ async function renewSubscriptionWithCredits({
 		companyId: resolvedCompanyId,
 		uid: resolvedUid,
 		moduleId: resolvedModuleId,
+		moduleName: resolvedModuleName,
 		purchaseToken,
 		creditsDeducted: creditsToDeduct,
 		newBalance,
@@ -495,6 +496,7 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			companyId,
 			uid,
 			moduleId,
+			moduleName: effectiveModuleName,
 			subscriptionId,
 			creditsDeducted: creditsNeeded,
 			balanceAfter: newBalance,
@@ -542,6 +544,7 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			type: "subscription_recorded",
 			uid,
 			moduleId,
+			moduleName: effectiveModuleName,
 			packageName,
 			subscriptionId,
 		}, "google");
@@ -698,6 +701,7 @@ exports.refreshPlaySubscription = onRequest(async (req, res) => {
 			type: "subscription_refreshed",
 			uid,
 			moduleId,
+			moduleName: subData.moduleName,
 			status: newStatus,
 			wasRenewed,
 		}, "google");
@@ -805,6 +809,7 @@ exports.disablePlayAutoRenew = onRequest(async (req, res) => {
 				type: "subscription_auto_renew_disabled",
 				uid,
 				moduleId,
+				moduleName: subData.moduleName,
 			}, "google");
 
 			return res.status(200).json({
@@ -866,6 +871,7 @@ exports.disablePlayAutoRenew = onRequest(async (req, res) => {
 			type: "subscription_auto_renew_disabled",
 			uid,
 			moduleId,
+			moduleName: subData.moduleName,
 		}, "google");
 
 		return res.status(200).json({
@@ -921,6 +927,7 @@ exports.enablePlayAutoRenew = onRequest(async (req, res) => {
 				type: "subscription_auto_renew_enabled",
 				uid,
 				moduleId,
+				moduleName: subData.moduleName,
 			}, "google");
 
 			return res.status(200).json({
@@ -1570,6 +1577,7 @@ exports.processSubscriptionRenewals = onSchedule({
 							companyId,
 							uid,
 							moduleId,
+							moduleName: subData.moduleName,
 							creditsDeducted: creditsToDeduct,
 							newBalance,
 						}, "system");
