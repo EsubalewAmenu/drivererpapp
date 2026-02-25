@@ -55,7 +55,7 @@ async function getUserKeyFromAuth(req) {
 }
 
 function getUserCreditsRef(companyId, userKey) {
-	return db.collection("userCredits").doc(companyId).collection("users").doc(userKey);
+	return db.collection("companies").doc(companyId).collection("users").doc(userKey);
 }
 
 function getPlanDetails(subscriptionId) {
