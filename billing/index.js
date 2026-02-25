@@ -512,6 +512,7 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			purchaseToken,
 			companyId,
 			moduleId,
+			moduleName: effectiveModuleName,
 			payerType: payerType || "self",
 			payerUid: payerUid || uid,
 			status: "active",
