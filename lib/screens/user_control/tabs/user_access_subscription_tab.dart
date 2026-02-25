@@ -103,23 +103,14 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
       // Determine if this is a self-purchase or a gift (admin buying for user)
       final isGift = currentEmail != widget.email;
 
-      // Generate a test purchase token (in production, this comes from Play Billing Library)
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final planSuffix = _selectedPlan == 'daily'
+      final planSuffix = _selectedPlan == 'daily'
           ? '.daily'
           : (_selectedPlan == 'annual' ? '.annual' : '.monthly');
-      final purchaseToken =
-          'test_token_${widget.email}_${widget.moduleId}${planSuffix}_$timestamp';
-
-      // Get package name (would be from your app config in production)
-      const packageName = 'com.datascience.apps.drivererp'; // Correct package name from google-services.json
 
       // Call billing service to record the subscription
       final response = await BillingService.recordPlaySubscription(
         uid: widget.email,
-        packageName: packageName,
         subscriptionId: 'subscription$planSuffix', // e.g., subscription.monthly
-        purchaseToken: purchaseToken,
         companyId: companyId,
         moduleId: widget.moduleId,
         moduleName: widget.moduleName,

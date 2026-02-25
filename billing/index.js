@@ -10,7 +10,6 @@
 const admin = require("firebase-admin");
 const {setGlobalOptions} = require("firebase-functions");
 const {onRequest} = require("firebase-functions/https");
-const {onMessagePublished} = require("firebase-functions/v2/pubsub");
 const {onSchedule} = require("firebase-functions/v2/scheduler");
 const logger = require("firebase-functions/logger");
 
@@ -59,81 +58,6 @@ function getUserCreditsRef(companyId, userKey) {
 	return db.collection("userCredits").doc(`${companyId}_${userKey}`);
 }
 
-function normalizeStatus(notificationType) {
-	// Google Play RTDN types: https://developer.android.com/google/play/billing/rtdn-reference
-	switch (notificationType) {
-		case 1: // SUBSCRIPTION_RECOVERED
-		case 2: // SUBSCRIPTION_RENEWED
-		case 4: // SUBSCRIPTION_PURCHASED
-		case 7: // SUBSCRIPTION_RESTARTED
-		case 10: // SUBSCRIPTION_PRICE_CHANGE_CONFIRMED
-			return "active";
-		case 3: // SUBSCRIPTION_CANCELED
-			return "canceled";
-		case 5: // SUBSCRIPTION_ON_HOLD
-			return "grace";
-		case 6: // SUBSCRIPTION_IN_GRACE_PERIOD
-			return "grace";
-		case 12: // SUBSCRIPTION_EXPIRED
-			return "expired";
-		default:
-			return "unknown";
-	}
-}
-
-const projectId = process.env.GCLOUD_PROJECT || "driveerp-1d5d5";
-const rtdnTopic = `projects/${projectId}/topics/driver-erp-google-play-rtdn`;
-
-// Helper to get Play Developer API access token
-async function getPlayDeveloperAccessToken() {
-	const serviceAccount = JSON.parse(process.env.GOOGLE_APPLICATION_CREDENTIALS_JSON || "{}");
-	const jwtClient = new (require("google-auth-library")).JWT({
-		email: serviceAccount.client_email,
-		key: serviceAccount.private_key,
-		scopes: ["https://www.googleapis.com/auth/androidpublisher"],
-	});
-	const tokens = await jwtClient.authorize();
-	return tokens.access_token;
-}
-
-// Verify subscription with Play Developer API
-async function verifyPlaySubscription(packageName, subscriptionId, purchaseToken) {
-	try {
-		const accessToken = await getPlayDeveloperAccessToken();
-		const endpoint = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${packageName}/subscriptions/${subscriptionId}/purchases/tokens/${purchaseToken}`;
-		
-		const response = await fetch(endpoint, {
-			headers: {
-				Authorization: `Bearer ${accessToken}`,
-			},
-		});
-
-		if (!response.ok) {
-			logger.warn(`Play API verification failed: ${response.status}`, {
-				packageName,
-				subscriptionId,
-				purchaseToken,
-			});
-			return null;
-		}
-
-		const data = await response.json();
-		logger.info("Play subscription verified", {
-			packageName,
-			subscriptionId,
-			expiryTime: data.expiryTimeMillis,
-			autoRenewing: data.autoRenewing,
-		});
-		return data;
-	} catch (e) {
-		logger.error("Play API verification error", e, {
-			packageName,
-			subscriptionId,
-		});
-		return null;
-	}
-}
-
 function getPlanDetails(subscriptionId) {
 	const normalizedSubscriptionId = (subscriptionId || "").toLowerCase();
 	const isAnnual = normalizedSubscriptionId.includes("annual");
@@ -149,55 +73,6 @@ function toIsoOrNull(value) {
 	const date = toJsDate(value);
 	if (!date || Number.isNaN(date.getTime())) return null;
 	return date.toISOString();
-}
-
-async function getEntitlementByPurchaseToken(purchaseToken) {
-	try {
-		const entitlementsSnap = await db
-			.collectionGroup("entitlements")
-			.where("purchaseToken", "==", purchaseToken)
-			.limit(1)
-			.get();
-
-		if (entitlementsSnap.empty) {
-			return null;
-		}
-
-		const entDoc = entitlementsSnap.docs[0];
-		const companyDoc = entDoc.ref.parent.parent;
-		const companyId = companyDoc ? companyDoc.id : null;
-
-		return {
-			entRef: entDoc.ref,
-			entData: entDoc.data(),
-			companyId,
-		};
-	} catch (error) {
-		logger.warn("Collection group entitlement lookup failed; scanning companies fallback", {
-			purchaseToken,
-			error: error.message || String(error),
-		});
-
-		const companiesSnap = await db.collection("companies").get();
-		for (const companyDoc of companiesSnap.docs) {
-			const entitlementsSnap = await companyDoc.ref
-				.collection("entitlements")
-				.where("purchaseToken", "==", purchaseToken)
-				.limit(1)
-				.get();
-
-			if (!entitlementsSnap.empty) {
-				const entDoc = entitlementsSnap.docs[0];
-				return {
-					entRef: entDoc.ref,
-					entData: entDoc.data(),
-					companyId: companyDoc.id,
-				};
-			}
-		}
-
-		return null;
-	}
 }
 
 async function getEntitlementByIdentity({uid, companyId, moduleId}) {
@@ -275,12 +150,14 @@ async function renewSubscriptionWithCredits({
 			status: "expired",
 			autoRenewing: false,
 			renewalDate: expiryDate,
+			source: "credits",
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
 
 		await db.collection("companies").doc(resolvedCompanyId).collection("entitlements").doc(entitlementId).set({
 			status: "expired",
 			autoRenewing: false,
+			source: "credits",
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 		}, {merge: true});
 
@@ -323,12 +200,14 @@ async function renewSubscriptionWithCredits({
 	await entRef.set({
 		status: "active",
 		renewalDate: newExpiryDate,
+		source: "credits",
 		lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 	}, {merge: true});
 
 	await db.collection("companies").doc(resolvedCompanyId).collection("entitlements").doc(entitlementId).set({
 		status: "active",
 		renewalDate: newExpiryDate,
+		source: "credits",
 		lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
 	}, {merge: true});
 
@@ -343,131 +222,21 @@ async function renewSubscriptionWithCredits({
 	};
 }
 
-exports.googlePlayRtdn = onMessagePublished({ topic: rtdnTopic }, async (event) => {
-		let payload = null;
-		try {
-			const message = event.data.message;
-			if (message.json) {
-				payload = message.json;
-			} else if (message.data) {
-				const decoded = Buffer.from(message.data, "base64").toString("utf8");
-				payload = JSON.parse(decoded);
-			}
-		} catch (e) {
-			logger.error("Failed to parse RTDN payload", e);
-		}
-
-		if (!payload) return;
-
-		const sub = payload.subscriptionNotification;
-		if (!sub || !sub.purchaseToken) return;
-
-		const packageName = payload.packageName;
-		const purchaseToken = sub.purchaseToken;
-		const subscriptionId = sub.subscriptionId;
-		const notificationType = sub.notificationType;
-		const status = normalizeStatus(notificationType);
-
-		// Verify with Play Developer API
-		const verifiedData = await verifyPlaySubscription(packageName, subscriptionId, purchaseToken);
-		if (!verifiedData) {
-			logger.warn("Skipping update for unverified subscription", { purchaseToken });
-			return;
-		}
-
-		const entitlement = await getEntitlementByPurchaseToken(purchaseToken);
-		if (!entitlement) {
-			logger.warn("No entitlement found for purchaseToken", purchaseToken);
-			return;
-		}
-
-		const {entRef, entData: subData, companyId: companyIdFromEnt} = entitlement;
-		const uid = subData.uid;
-		const moduleId = subData.moduleId;
-		const companyId = subData.companyId || companyIdFromEnt;
-
-		const expiryTime = verifiedData.expiryTimeMillis ? new Date(parseInt(verifiedData.expiryTimeMillis)) : null;
-
-		await entRef.set(
-			{
-				status,
-				autoRenewing: verifiedData.autoRenewing,
-				renewalDate: expiryTime,
-				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-				source: "google",
-			},
-			{ merge: true }
-		);
-
-		if (!uid || !moduleId || !companyId) {
-			logger.warn("Missing uid/moduleId/companyId for entitlement update", {
-				uid,
-				moduleId,
-				companyId,
-			});
-			return;
-		}
-
-		const entitlementId = `${uid}_${moduleId}`;
-		const entitlementRef = db
-			.collection("companies")
-			.doc(companyId)
-			.collection("entitlements")
-			.doc(entitlementId);
-
-		await entitlementRef.set(
-			{
-				uid,
-				moduleId,
-				moduleName: subData.moduleName || moduleId,
-				status,
-				payerType: subData.payerType || "self",
-				payerUid: subData.payerUid || uid,
-				renewalDate: expiryTime,
-				autoRenewing: verifiedData.autoRenewing,
-				lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-				source: "google",
-			},
-			{ merge: true }
-		);
-	});
-
-// Handle initial subscription purchase from Play Store
+// Handle initial module subscription purchase using internal credits
 exports.recordPlaySubscription = onRequest(async (req, res) => {
 	try {
-		const {uid, packageName, subscriptionId, purchaseToken, companyId, moduleId, moduleName, payerType, payerUid} = req.body;
+		const {uid, subscriptionId, companyId, moduleId, moduleName, payerType, payerUid} = req.body;
 
-		if (!uid || !packageName || !subscriptionId || !purchaseToken || !companyId || !moduleId) {
+		if (!uid || !subscriptionId || !companyId || !moduleId) {
 			return res.status(400).send("Missing required fields");
 		}
-
-		// Verify with Play Developer API
-		let verifiedData;
-		if (purchaseToken.startsWith("test_token_")) {
-			// Allow test tokens for development/demo purposes
-			const isAnnual = subscriptionId && subscriptionId.includes("annual");
-			const isDaily = subscriptionId && subscriptionId.includes("daily");
-			const durationDays = isAnnual ? 365 : (isDaily ? 1 : 30);
-			
-			verifiedData = {
-				expiryTimeMillis: (Date.now() + durationDays * 24 * 60 * 60 * 1000).toString(),
-				autoRenewing: true,
-			};
-			logger.info("Using mock verification for test token", {uid, purchaseToken, isAnnual});
-		} else {
-			verifiedData = await verifyPlaySubscription(packageName, subscriptionId, purchaseToken);
-		}
-
-		if (!verifiedData) {
-			return res.status(401).send("Subscription verification failed");
-		}
-
-		const expiryTime = verifiedData.expiryTimeMillis ? new Date(parseInt(verifiedData.expiryTimeMillis)) : null;
 
 		// Determine plan type and credits needed
 		const isAnnual = subscriptionId && subscriptionId.toLowerCase().includes("annual");
 		const isDaily = subscriptionId && subscriptionId.toLowerCase().includes("daily");
+		const durationDays = isAnnual ? 365 : (isDaily ? 1 : 30);
 		const creditsNeeded = isAnnual ? 999 : (isDaily ? 49 : 99); // annual=999, daily=49, monthly=99
+		const expiryTime = new Date(Date.now() + durationDays * 24 * 60 * 60 * 1000);
 		
 		logger.info("Calculating credits for subscription", {subscriptionId, isAnnual, isDaily, creditsNeeded});
 
@@ -535,22 +304,20 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 			payerType: payerType || "self",
 			payerUid: payerUid || uid,
 			renewalDate: expiryTime,
-			autoRenewing: verifiedData.autoRenewing,
+			autoRenewing: true,
 			subscriptionId,
-			packageName,
-			purchaseToken,
 			creditsCharged: creditsNeeded,
 			createdAt: admin.firestore.FieldValue.serverTimestamp(),
 			lastVerifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-			source: "google",
+			source: "credits",
 		});
 
-		logger.info("Subscription recorded", {uid, moduleId, packageName, creditsCharged: creditsNeeded});
+		logger.info("Subscription recorded", {uid, moduleId, creditsCharged: creditsNeeded});
 		res.status(200).json({
 			success: true,
 			entitlementId,
 			expiryTime,
-			autoRenewing: verifiedData.autoRenewing,
+			autoRenewing: true,
 			creditsCharged: creditsNeeded,
 			creditsRemaining: newBalance,
 		});
@@ -895,9 +662,8 @@ exports.getEntitlementStatus = onRequest(async (req, res) => {
 			renewalDate: expiryTime ? expiryTime.toISOString() : null,
 			autoRenewing: currentEntData.autoRenewing,
 			payerType: currentEntData.payerType,
-			source: currentEntData.source,
+			source: currentEntData.source || "credits",
 			subscriptionId: currentEntData.subscriptionId,
-			purchaseToken: currentEntData.purchaseToken,
 			lastVerifiedAt: toJsDate(currentEntData.lastVerifiedAt) ? toJsDate(currentEntData.lastVerifiedAt).toISOString() : null,
 		});
 	} catch (e) {

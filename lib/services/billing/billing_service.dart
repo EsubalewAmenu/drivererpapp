@@ -8,9 +8,8 @@ class SubscriptionStatus {
   final DateTime? renewalDate;
   final bool? autoRenewing;
   final String? payerType; // 'self' or 'gift'
-  final String? source; // 'google' or 'apple'
+  final String? source; // 'credits' for internal module subscriptions
   final String? subscriptionId; // 'subscription.monthly' or 'subscription.annual'
-  final String? purchaseToken;
   final DateTime? lastVerifiedAt;
 
   SubscriptionStatus({
@@ -21,7 +20,6 @@ class SubscriptionStatus {
     this.payerType,
     this.source,
     this.subscriptionId,
-    this.purchaseToken,
     this.lastVerifiedAt,
   });
 
@@ -34,7 +32,6 @@ class SubscriptionStatus {
       payerType: json['payerType'],
       source: json['source'],
       subscriptionId: json['subscriptionId'],
-      purchaseToken: json['purchaseToken'],
       lastVerifiedAt: _parseDate(json['lastVerifiedAt']),
     );
   }
@@ -281,13 +278,10 @@ class BillingService {
     }
   }
 
-  /// Record a new subscription purchase
-  /// This is called after a successful purchase from the Play Store
+  /// Record a new module subscription using internal credits
   static Future<Map<String, dynamic>> recordPlaySubscription({
     required String uid,
-    required String packageName,
     required String subscriptionId,
-    required String purchaseToken,
     required String companyId,
     required String moduleId,
     required String moduleName,
@@ -312,9 +306,7 @@ class BillingService {
         },
         body: jsonEncode({
           'uid': uid,
-          'packageName': packageName,
           'subscriptionId': subscriptionId,
-          'purchaseToken': purchaseToken,
           'companyId': companyId,
           'moduleId': moduleId,
           'moduleName': moduleName,
