@@ -9,6 +9,7 @@ import '../providers/schema_provider.dart';
 import '../providers/workspace_provider.dart';
 import '../services/billing/billing_service.dart';
 import '../utils/icon_lookup.dart';
+import '../utils/subscription_key.dart';
 import 'dashboard_screen.dart';
 import 'module_subscription_screen.dart';
 
@@ -75,10 +76,10 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
     final userEmail = authService.currentUser?.email;
     final companyId = workspaceProvider.currentCompany?.id;
     final moduleName = widget.moduleInfo['name']!;
-    final assetKey = (widget.moduleInfo['id'] ?? widget.moduleInfo['name'])!
-        .toString()
-        .toLowerCase()
-        .trim();
+    final subscriptionKey = buildSubscriptionKey(
+      moduleName: moduleName,
+      moduleId: widget.moduleInfo['id'],
+    );
 
     if (userEmail == null || userEmail.isEmpty || companyId == null || companyId.isEmpty) {
       if (mounted) {
@@ -92,7 +93,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
     try {
       final pricing = await BillingService.getModulePricing(
         moduleName: moduleName,
-        moduleId: assetKey,
+        moduleId: subscriptionKey,
       );
       final isFree = pricing['isFree'] == true;
 
@@ -100,7 +101,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
         final status = await BillingService.getEntitlementStatus(
           uid: userEmail,
           companyId: companyId,
-          moduleId: assetKey,
+          moduleId: subscriptionKey,
         );
 
         if (!(status.hasAccess && status.status == 'active')) {
@@ -118,7 +119,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               builder: (_) => ModuleSubscriptionScreen(
                 email: userEmail,
                 spreadsheetId: userAccessFileId ?? '',
-                moduleId: assetKey,
+                moduleId: subscriptionKey,
                 moduleName: moduleName,
               ),
             ),

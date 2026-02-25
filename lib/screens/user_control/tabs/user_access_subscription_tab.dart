@@ -5,6 +5,7 @@ import '../../../services/billing/billing_service.dart';
 import '../../../services/billing/credits_service.dart';
 import '../../../providers/workspace_provider.dart';
 import '../../../services/auth_service.dart';
+import '../../../utils/subscription_key.dart';
 
 class UserAccessSubscriptionTab extends StatefulWidget {
   final String email;
@@ -46,6 +47,11 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
     _loadPricing();
   }
 
+  String get _subscriptionKey => buildSubscriptionKey(
+        moduleName: widget.moduleName,
+        moduleId: widget.moduleId,
+      );
+
   void _loadSubscriptionStatus() {
     final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
     final companyId = workspaceProvider.currentCompany?.id;
@@ -56,7 +62,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
       _statusFuture = BillingService.getEntitlementStatus(
         uid: widget.email,
         companyId: companyId,
-        moduleId: widget.moduleId,
+        moduleId: _subscriptionKey,
       );
     }
   }
@@ -64,7 +70,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
   void _loadPricing() {
     _pricingFuture = BillingService.getModulePricing(
       moduleName: widget.moduleName,
-      moduleId: widget.moduleId,
+      moduleId: _subscriptionKey,
     );
   }
 
@@ -112,7 +118,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
         uid: widget.email,
         subscriptionId: 'subscription$planSuffix', // e.g., subscription.monthly
         companyId: companyId,
-        moduleId: widget.moduleId,
+        moduleId: _subscriptionKey,
         moduleName: widget.moduleName,
         payerType: isGift ? 'gift' : 'self',
         payerUid: currentEmail,
@@ -196,7 +202,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
       await BillingService.disableAutoRenew(
         uid: widget.email,
         companyId: companyId,
-        moduleId: widget.moduleId,
+        moduleId: _subscriptionKey,
       );
 
       if (!mounted) return;
@@ -264,7 +270,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
       await BillingService.enableAutoRenew(
         uid: widget.email,
         companyId: companyId,
-        moduleId: widget.moduleId,
+        moduleId: _subscriptionKey,
       );
 
       if (!mounted) return;
@@ -332,7 +338,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
       await BillingService.manualRenewSubscription(
         uid: widget.email,
         companyId: companyId,
-        moduleId: widget.moduleId,
+        moduleId: _subscriptionKey,
         moduleName: widget.moduleName,
       );
 
