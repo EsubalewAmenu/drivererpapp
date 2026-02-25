@@ -388,6 +388,7 @@ exports.googlePlayRtdn = onMessagePublished({ topic: rtdnTopic }, async (event) 
 			{
 				uid,
 				moduleId,
+				moduleName: subData.moduleName || moduleId,
 				status,
 				payerType: subData.payerType || "self",
 				payerUid: subData.payerUid || uid,
@@ -529,6 +530,7 @@ exports.recordPlaySubscription = onRequest(async (req, res) => {
 		await db.collection("companies").doc(companyId).collection("entitlements").doc(entitlementId).set({
 			uid,
 			moduleId,
+			moduleName: effectiveModuleName,
 			status: "active",
 			payerType: payerType || "self",
 			payerUid: payerUid || uid,
@@ -1014,7 +1016,7 @@ exports.getEntitlementStatus = onRequest(async (req, res) => {
 					fallbackUid: uid,
 					fallbackCompanyId: companyId,
 					fallbackModuleId: moduleId,
-					fallbackModuleName: moduleId,
+					fallbackModuleName: currentEntData.moduleName || moduleId,
 				});
 
 				logger.info("Status-check auto-renew attempt", {
