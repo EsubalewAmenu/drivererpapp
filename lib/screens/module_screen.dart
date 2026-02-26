@@ -316,6 +316,41 @@ class _ModuleScreenState extends State<ModuleScreen> {
                 rowId,
                 'deactivated',
               );
+
+              try {
+                final cacheKeysToRemove = <String>{
+                  rowId,
+                  subscriptionKey,
+                  _normalizeKey(rowName),
+                };
+
+                for (final enabledKey in enabledKeys) {
+                  final normalizedEnabledKey = _normalizeKey(enabledKey);
+                  if (enabledKey == rowId ||
+                      enabledKey == subscriptionKey ||
+                      normalizedEnabledKey == _normalizeKey(rowName)) {
+                    cacheKeysToRemove.add(enabledKey);
+                  }
+                }
+
+                final moduleByRowName = schemaProvider.findModuleByIdOrName(rowName);
+                if (moduleByRowName != null && moduleByRowName.id.isNotEmpty) {
+                  cacheKeysToRemove.add(moduleByRowName.id);
+                }
+
+                final moduleByRowId = schemaProvider.getFromMemory(rowId);
+                if (moduleByRowId != null && moduleByRowId.id.isNotEmpty) {
+                  cacheKeysToRemove.add(moduleByRowId.id);
+                }
+
+                for (final cacheKey in cacheKeysToRemove) {
+                  if (cacheKey.isEmpty) continue;
+                  await schemaProvider.service.removeCachedConfig(cacheKey);
+                  schemaProvider.updateMemoryCache(cacheKey, null);
+                }
+              } catch (e) {
+                debugPrint('Failed local cache removal while deactivating module: $e');
+              }
               deactivated.add(rowId);
               if (statusIdx != -1 && r.length > statusIdx) {
                 r[statusIdx] = 'deactivated';
@@ -698,11 +733,21 @@ class _ModuleScreenState extends State<ModuleScreen> {
             final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
             final all = resp.values ?? [];
             if (all.isNotEmpty) {
+              final header = List<String>.from(all.first.map((e) => e.toString().toLowerCase()));
+              final statusIdx = header.indexOf('status');
               final rows = all.length > 1 ? all.sublist(1) : [];
               for (var row in rows) {
                 final r = List<dynamic>.from(row as List);
                 final rowId = r.isNotEmpty ? (r[0]?.toString() ?? '') : '';
                 final rowName = r.length > 1 ? (r[1]?.toString() ?? '') : '';
+                final rowStatus = (statusIdx != -1 && r.length > statusIdx ? (r[statusIdx] ?? '') : '')
+                    .toString()
+                    .toLowerCase();
+
+                if (rowStatus == 'deactivated') {
+                  continue;
+                }
+
                 if (rowId.isNotEmpty) {
                   final normalizedRowId = _normalizeKey(rowId);
                   installedIds.add(normalizedRowId);
