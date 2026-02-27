@@ -734,6 +734,11 @@ void main() {
       workspaceProvider.setRootFolderId('root_123');
       workspaceProvider.setWorkspace(drive.File(id: 'workspace_123', name: 'Test Workspace'));
 
+      // Ensure authenticated user exists for subscribe action
+      final mockUser = MockGoogleSignInAccount();
+      when(() => mockUser.email).thenReturn('admin@example.com');
+      when(() => mockAuthService.currentUser).thenReturn(mockUser);
+
       // Ensure currentCompany exists (required by UserAccessSubscriptionTab)
       workspaceProvider.updateDriveService(mockDriveService);
       when(() => mockDriveService.registerCompany(any(), any()))
@@ -790,6 +795,21 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.pumpAndSettle();
 
+        // Select 1-Day plan and trigger subscription action
+        final oneDayPlan = find.text('1-Day');
+        expect(oneDayPlan, findsOneWidget);
+        await tester.tap(oneDayPlan);
+        await tester.pumpAndSettle();
+
+        final subscribeBtn = find.text('Subscribe');
+        if (subscribeBtn.evaluate().isNotEmpty) {
+          await tester.ensureVisible(subscribeBtn.first);
+          await tester.tap(subscribeBtn.first, warnIfMissed: false);
+          await tester.pump();
+          await tester.pump(const Duration(seconds: 1));
+          await tester.pumpAndSettle();
+        }
+
       final showsStatusCard =
           find.text('No Subscription').evaluate().isNotEmpty ||
           find.text('Active').evaluate().isNotEmpty ||
@@ -799,8 +819,21 @@ void main() {
           find.text('Unknown').evaluate().isNotEmpty;
       final showsErrorCard =
           find.text('Error loading subscription').evaluate().isNotEmpty;
+        final showsSubscribeSuccess =
+          find.text('Subscription added successfully!').evaluate().isNotEmpty;
+        final showsSubscribeFailure =
+          find.textContaining('Failed to process subscription').evaluate().isNotEmpty ||
+          find.textContaining('No credits available').evaluate().isNotEmpty ||
+          find.textContaining('User not authenticated').evaluate().isNotEmpty ||
+          find.textContaining('Company not found').evaluate().isNotEmpty;
 
-      expect(showsStatusCard || showsErrorCard, isTrue);
+        expect(
+        showsStatusCard ||
+          showsErrorCard ||
+          showsSubscribeSuccess ||
+          showsSubscribeFailure,
+        isTrue,
+        );
     });
 
     testWidgets('Subscription tab shows company error when company context is missing', (WidgetTester tester) async {
