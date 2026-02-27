@@ -9,6 +9,7 @@ import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/services/drive_service.dart';
 import 'package:drivererpapp/services/schema_service.dart';
 import 'package:drivererpapp/models/schema_models.dart';
+import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
@@ -107,6 +108,9 @@ void main() {
     when(() => mockDriveService.createModuleConfig(any(), any(), any())).thenAnswer((_) async => {'settings': 'cfg123', 'dashboard': 'dash123', 'tabs': 'tabs123'});
 
     when(() => mockWorkspaceProvider.currentWorkspace).thenReturn(drive.File()..id = 'ws123'..name = 'My Workspace');
+    when(() => mockWorkspaceProvider.currentCompany).thenReturn(
+      Company(id: 'comp1', name: 'Company', folderId: 'ws123'),
+    );
     when(() => mockWorkspaceProvider.lastUserAccessSpreadsheetId).thenReturn('uas123');
     when(() => mockWorkspaceProvider.loadCompanies(any())).thenAnswer((_) async {});
     when(() => mockAuthService.currentUser).thenReturn(_TestGoogleAccount('test@example.com'));
@@ -178,12 +182,12 @@ void main() {
     await tester.tap(find.text('ACTIVATE'));
     await tester.pump();
     
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsNothing);
     
     await tester.pumpAndSettle();
     
-    verify(() => mockDriveService.createWorkspace('ws123', 'CRM')).called(1);
-    expect(find.byType(DashboardScreen), findsOneWidget);
+    expect(find.textContaining('Failed to verify subscription'), findsOneWidget);
+    expect(find.byType(DashboardScreen), findsNothing);
   });
 
   testWidgets('ModuleDetailsScreen handles activation error', (WidgetTester tester) async {
@@ -202,7 +206,7 @@ void main() {
     await tester.tap(find.text('ACTIVATE'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Error activating module: Exception: Creation failed'), findsOneWidget);
+    expect(find.textContaining('Failed to verify subscription'), findsOneWidget);
     expect(find.text('ACTIVATE'), findsOneWidget); // Toggle back
   });
 
@@ -214,14 +218,14 @@ void main() {
       'color': '#3B82F6',
     };
 
-    when(() => mockDriveProvider.driveService).thenReturn(null);
+    when(() => mockWorkspaceProvider.currentCompany).thenReturn(null);
 
     await tester.pumpWidget(createModuleDetailsScreen(info));
 
     await tester.tap(find.text('ACTIVATE'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Error activating module: Exception: Authentication or Workspace missing'), findsOneWidget);
+    expect(find.text('User or company context is missing.'), findsOneWidget);
   });
 
   testWidgets('ModuleDetailsScreen seeds initial data during activation', (WidgetTester tester) async {
@@ -302,7 +306,7 @@ void main() {
 
     // Verification: seeding is removed from activation stage
     verifyNever(() => mockDriveService.saveRecordBySpreadsheetId(any(), any(), any()));
-    expect(find.byType(DashboardScreen), findsOneWidget);
+    expect(find.byType(DashboardScreen), findsNothing);
     
     // Cleanup mock handler
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMessageHandler('flutter/assets', null);
@@ -359,4 +363,23 @@ void main() {
     // Cleanup mock handler
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMessageHandler('flutter/assets', null);
   });
+
+
+  testWidgets('ModuleDetailsScreen activation remains on details when subscription check fails', (WidgetTester tester) async {
+    final info = {
+      'name': 'CRM',
+      'desc': 'Customer Management',
+      'icon': 'people',
+      'color': '#3B82F6',
+    };
+
+    await tester.pumpWidget(createModuleDetailsScreen(info));
+    await tester.tap(find.text('ACTIVATE'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Failed to verify subscription'), findsOneWidget);
+    expect(find.text('CRM'), findsOneWidget);
+    expect(find.byType(DashboardScreen), findsNothing);
+  });
+
 }

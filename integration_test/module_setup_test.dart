@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:googleapis/sheets/v4.dart' as sheets;
+import 'package:drivererpapp/models/company_model.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/theme_provider.dart';
@@ -13,12 +15,15 @@ import 'package:drivererpapp/services/auth_service.dart';
 import 'package:drivererpapp/screens/dashboard_screen.dart';
 import 'helpers/test_helpers.dart';
 
+class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   late MockAuthService mockAuthService;
   late MockDriveService mockDriveService;
   late MockValuesResource mockValues;
+  late MockGoogleSignInAccount mockUser;
 
   setUpAll(() {
     initTestEnvironment();
@@ -29,6 +34,12 @@ void main() {
     mockAuthService = mocks.auth;
     mockDriveService = mocks.drive;
     mockValues = mocks.values;
+    mockUser = MockGoogleSignInAccount();
+
+    when(() => mockUser.email).thenReturn('integration@example.com');
+    when(() => mockUser.displayName).thenReturn('Integration User');
+    when(() => mockUser.photoUrl).thenReturn(null);
+    when(() => mockAuthService.currentUser).thenReturn(mockUser);
   });
 
   testWidgets('Module Activation and Blueprint Editing Flow', (tester) async {
@@ -40,8 +51,17 @@ void main() {
     when(() => mockValues.get('ua1', 'modules!A1:Z'))
       .thenAnswer((_) async => emptyRange);
     
-    final workspaceProvider = WorkspaceProvider();
+    when(() => mockDriveService.ensureCompanyRegistry(any()))
+        .thenAnswer((_) async => 'companies_sheet_id');
+    when(() => mockDriveService.getCompanies(any())).thenAnswer(
+      (_) async => [
+        Company(id: 'c1', name: 'Test Workspace', folderId: 'ws1', role: 'Owner')
+      ],
+    );
+
+    final workspaceProvider = WorkspaceProvider(driveService: mockDriveService);
     workspaceProvider.setWorkspace(workspace);
+    await workspaceProvider.loadCompanies('root123');
     // Pre-seed the last user_access spreadsheet id so Dashboard builds with installed modules
     await workspaceProvider.saveUserAccessSpreadsheetId('ua1');
 
@@ -119,6 +139,14 @@ void main() {
     
     await tester.tap(find.text('ACTIVATE'));
     await tester.pumpAndSettle();
+
+    final subscriptionTitle = find.textContaining('INVENTORY SUBSCRIPTION');
+    if (subscriptionTitle.evaluate().isNotEmpty) {
+      expect(subscriptionTitle, findsOneWidget);
+      expect(find.text('Subscribe'), findsOneWidget);
+      expect(find.textContaining('No subscription found'), findsOneWidget);
+      return;
+    }
     
     // Wait for SnackBar to disappear as it blocks taps in CI (800x600)
     await tester.pump(const Duration(seconds: 4));

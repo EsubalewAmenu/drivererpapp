@@ -6,6 +6,8 @@ import '../models/schema_models.dart';
 import '../providers/drive_provider.dart';
 import '../providers/schema_provider.dart';
 import '../services/schema_service.dart';
+import '../services/auth_service.dart';
+import '../services/billing/billing_service.dart';
 import 'schema_editor_screen.dart';
 import 'module/module_dashboard.dart';
 import 'module/module_tab_screen.dart';
@@ -13,6 +15,7 @@ import 'common/history_dialog.dart';
 import 'module_details_screen.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import '../utils/icon_lookup.dart';
+import '../utils/subscription_key.dart';
 
 class ModuleScreen extends StatefulWidget {
   final ModuleSchema module;
@@ -218,10 +221,16 @@ class _ModuleScreenState extends State<ModuleScreen> {
       final driveProvider = Provider.of<DriveProvider>(context, listen: false);
       final driveService = driveProvider.driveService;
       final schemaProvider = Provider.of<SchemaProvider>(context, listen: false);
+      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final companyId = workspaceProvider.currentCompany?.id;
+      final userEmail = authService.currentUser?.email;
+      final freeBySubscriptionKey = <String, bool>{};
 
           List<List<dynamic>> uaRows = [];
           int moduleTypeIdx = -1;
           int moduleFilesIdx = -1;
+          int statusIdx = -1;
           String? uaId;
       // Build a set of deactivated module ids from the per-user user_access spreadsheet (if available)
       final deactivated = <String>{};
@@ -239,7 +248,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
               uaRows = rows.map((r) => List<dynamic>.from(r as List)).toList();
                   moduleTypeIdx = header.indexOf('module_type');
                   moduleFilesIdx = header.indexOf('module_files');
-              final statusIdx = header.indexOf('status');
+              statusIdx = header.indexOf('status');
               if (statusIdx != -1) {
                 for (var r in uaRows) {
                   final id = r.isNotEmpty ? (r[0]?.toString() ?? '') : '';
@@ -251,8 +260,108 @@ class _ModuleScreenState extends State<ModuleScreen> {
           } catch (_) {}
         }
       } catch (_) {}
-      // active modules are determined from the per-user user_access spreadsheet
-      // (do not fall back to Drive folder listing).
+
+      if (uaRows.isNotEmpty &&
+          uaId != null &&
+          uaId.isNotEmpty &&
+          driveService != null &&
+          companyId != null &&
+          companyId.isNotEmpty &&
+          userEmail != null &&
+          userEmail.isNotEmpty) {
+        for (final r in uaRows) {
+          try {
+            final rowId = r.isNotEmpty ? (r[0]?.toString() ?? '').trim() : '';
+            final rowName = r.length > 1 ? (r[1]?.toString() ?? '').trim() : '';
+            final rowStatus = (statusIdx != -1 && r.length > statusIdx
+                    ? (r[statusIdx] ?? '')
+                    : '')
+                .toString()
+                .toLowerCase();
+
+            if (rowId.isEmpty || rowName.isEmpty || rowStatus == 'deactivated') {
+              continue;
+            }
+
+            final subscriptionKey = buildSubscriptionKey(
+              moduleName: rowName,
+              moduleId: rowId,
+            );
+
+            final cachedFree = freeBySubscriptionKey[subscriptionKey];
+            bool isFree;
+            if (cachedFree != null) {
+              isFree = cachedFree;
+            } else {
+              final pricing = await BillingService.getModulePricing(
+                moduleName: rowName,
+                moduleId: subscriptionKey,
+              );
+              isFree = pricing['isFree'] == true;
+              freeBySubscriptionKey[subscriptionKey] = isFree;
+            }
+
+            if (isFree) continue;
+
+            final subscription = await BillingService.getEntitlementStatus(
+              uid: userEmail,
+              companyId: companyId,
+              moduleId: subscriptionKey,
+            );
+            final active = subscription.hasAccess && subscription.status == 'active';
+
+            if (!active) {
+              await (driveService as dynamic).setUserAccessModuleStatus(
+                uaId,
+                rowId,
+                'deactivated',
+              );
+
+              try {
+                final cacheKeysToRemove = <String>{
+                  rowId,
+                  subscriptionKey,
+                  _normalizeKey(rowName),
+                };
+
+                for (final enabledKey in enabledKeys) {
+                  final normalizedEnabledKey = _normalizeKey(enabledKey);
+                  if (enabledKey == rowId ||
+                      enabledKey == subscriptionKey ||
+                      normalizedEnabledKey == _normalizeKey(rowName)) {
+                    cacheKeysToRemove.add(enabledKey);
+                  }
+                }
+
+                final moduleByRowName = schemaProvider.findModuleByIdOrName(rowName);
+                if (moduleByRowName != null && moduleByRowName.id.isNotEmpty) {
+                  cacheKeysToRemove.add(moduleByRowName.id);
+                }
+
+                final moduleByRowId = schemaProvider.getFromMemory(rowId);
+                if (moduleByRowId != null && moduleByRowId.id.isNotEmpty) {
+                  cacheKeysToRemove.add(moduleByRowId.id);
+                }
+
+                for (final cacheKey in cacheKeysToRemove) {
+                  if (cacheKey.isEmpty) continue;
+                  await schemaProvider.service.removeCachedConfig(cacheKey);
+                  schemaProvider.updateMemoryCache(cacheKey, null);
+                }
+              } catch (e) {
+                debugPrint('Failed local cache removal while deactivating module: $e');
+              }
+              deactivated.add(rowId);
+              if (statusIdx != -1 && r.length > statusIdx) {
+                r[statusIdx] = 'deactivated';
+              }
+            }
+          } catch (e) {
+            debugPrint('Failed subscription sync while loading modules: $e');
+          }
+        }
+      }
+
 
       for (var rawKey in enabledKeys) {
         try {
@@ -315,7 +424,7 @@ class _ModuleScreenState extends State<ModuleScreen> {
           } catch (_) {}
 
           // If this module is deactivated for the current user, treat as not activated
-          if (deactivated.contains(modId)) activated = false;
+          if (deactivated.contains(modId) || (rowId != null && deactivated.contains(rowId))) activated = false;
 
           // For activated modules, prefer the Drive folder ID as the primary 'id'
           // so memory/cache lookups resolve the provisioned schema correctly.
@@ -325,8 +434,6 @@ class _ModuleScreenState extends State<ModuleScreen> {
           try {
             Map<String, dynamic>? config = await schemaProvider.service.getCachedConfig(effectiveId);
             
-            // REMOVED: Asset fallback deleted per request. Only cache and Drive should be used.
-            // if (config == null && !activated) { ... }
 
             if (config != null) {
               final settingsRaw = config['settings'] as Map<String, dynamic>?;
@@ -626,11 +733,21 @@ class _ModuleScreenState extends State<ModuleScreen> {
             final resp = await driveService.sheetsApi.spreadsheets.values.get(uaId, 'modules!A1:Z');
             final all = resp.values ?? [];
             if (all.isNotEmpty) {
+              final header = List<String>.from(all.first.map((e) => e.toString().toLowerCase()));
+              final statusIdx = header.indexOf('status');
               final rows = all.length > 1 ? all.sublist(1) : [];
               for (var row in rows) {
                 final r = List<dynamic>.from(row as List);
                 final rowId = r.isNotEmpty ? (r[0]?.toString() ?? '') : '';
                 final rowName = r.length > 1 ? (r[1]?.toString() ?? '') : '';
+                final rowStatus = (statusIdx != -1 && r.length > statusIdx ? (r[statusIdx] ?? '') : '')
+                    .toString()
+                    .toLowerCase();
+
+                if (rowStatus == 'deactivated') {
+                  continue;
+                }
+
                 if (rowId.isNotEmpty) {
                   final normalizedRowId = _normalizeKey(rowId);
                   installedIds.add(normalizedRowId);

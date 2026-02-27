@@ -10,6 +10,8 @@ import 'package:drivererpapp/providers/schema_provider.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/services/schema_service.dart';
 import 'package:drivererpapp/services/drive_service.dart';
+import 'package:drivererpapp/services/auth_service.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/sheets/v4.dart' as sheets;
 
 class MockDriveProvider extends Mock implements DriveProvider {}
@@ -17,6 +19,15 @@ class MockSchemaProvider extends Mock implements SchemaProvider {}
 class MockSchemaService extends Mock implements SchemaService {}
 class MockDriveService extends Mock implements DriveService {}
 class MockWorkspaceProvider extends Mock implements WorkspaceProvider {}
+class MockAuthService extends Mock implements AuthService {}
+
+class _TestGoogleAccount extends Fake implements GoogleSignInAccount {
+  final String _email;
+  _TestGoogleAccount(this._email);
+
+  @override
+  String get email => _email;
+}
 
 class MockSheetsApi extends Mock implements sheets.SheetsApi {}
 class MockSpreadsheetsResource extends Mock implements sheets.SpreadsheetsResource {}
@@ -36,6 +47,7 @@ void main() {
   late MockSchemaService mockSchemaService;
   late MockDriveService mockDriveService;
   late MockWorkspaceProvider mockWorkspaceProvider;
+    late MockAuthService mockAuthService;
   late MockSheetsApi mockSheets;
   late MockSpreadsheetsResource mockResources;
   late MockValuesResource mockValues;
@@ -46,6 +58,7 @@ void main() {
     mockSchemaService = MockSchemaService();
     mockDriveService = MockDriveService();
     mockWorkspaceProvider = MockWorkspaceProvider();
+      mockAuthService = MockAuthService();
     mockSheets = MockSheetsApi();
     mockResources = MockSpreadsheetsResource();
     mockValues = MockValuesResource();
@@ -94,6 +107,7 @@ void main() {
     when(() => mockDriveService.readTabsById(any())).thenAnswer((_) async => []);
     
     when(() => mockWorkspaceProvider.lastUserAccessSpreadsheetId).thenReturn('ua_id');
+      when(() => mockAuthService.currentUser).thenReturn(_TestGoogleAccount('test.com'));
     
     when(() => mockDriveService.sheetsApi).thenAnswer((_) => mockSheets);
     when(() => mockSheets.spreadsheets).thenAnswer((_) => mockResources);
@@ -116,6 +130,7 @@ void main() {
         ChangeNotifierProvider<DriveProvider>.value(value: mockDriveProvider),
         ChangeNotifierProvider<SchemaProvider>.value(value: mockSchemaProvider),
         ChangeNotifierProvider<WorkspaceProvider>.value(value: mockWorkspaceProvider),
+          Provider<AuthService>.value(value: mockAuthService),
       ],
       child: MaterialApp(
         home: ModuleScreen(module: module, settingsSheetId: settingsId),

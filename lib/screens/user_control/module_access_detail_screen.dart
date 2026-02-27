@@ -4,6 +4,7 @@ import 'tabs/user_access_permissions_tab.dart';
 import 'tabs/user_access_structure_tab.dart';
 import 'tabs/user_access_dashboard_tab.dart';
 import 'tabs/user_access_settings_tab.dart';
+import 'tabs/user_access_subscription_tab.dart';
 
 class ModuleAccessDetailScreen extends StatefulWidget {
   final String email;
@@ -31,7 +32,7 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> wit
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
   }
 
   @override
@@ -68,6 +69,7 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> wit
           labelStyle: AppTheme.inter(fontWeight: FontWeight.w600, fontSize: 13),
           unselectedLabelStyle: AppTheme.inter(fontWeight: FontWeight.w500, fontSize: 13),
           tabs: const [
+            Tab(text: 'SUBSCRIPTION'),
             Tab(text: 'PERMISSIONS'),
             Tab(text: 'STRUCTURE'),
             Tab(text: 'DASHBOARD'),
@@ -78,6 +80,13 @@ class _ModuleAccessDetailScreenState extends State<ModuleAccessDetailScreen> wit
       body: TabBarView(
         controller: _tabController,
         children: [
+          UserAccessSubscriptionTab(
+            email: widget.email,
+            spreadsheetId: widget.spreadsheetId,
+            moduleId: widget.moduleId,
+            moduleName: widget.moduleName,
+            rowIndex: widget.rowIndex,
+          ),
           UserAccessPermissionsTab(
             email: widget.email,
             spreadsheetId: widget.spreadsheetId,

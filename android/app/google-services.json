@@ -20,6 +20,10 @@
             "package_name": "com.datascience.apps.drivererp",
             "certificate_hash": "4fa1a92dc61234f04d6de50da28c97eb2c5281fa"
           }
+        },
+        {
+          "client_id": "810073225620-v8cdeltgh512iabi5igd8adum1lqo3ki.apps.googleusercontent.com",
+          "client_type": 3
         }
       ],
       "api_key": [
@@ -29,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "810073225620-v8cdeltgh512iabi5igd8adum1lqo3ki.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

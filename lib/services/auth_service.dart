@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:extension_google_sign_in_as_googleapis_auth/extension_google_sign_in_as_googleapis_auth.dart';
 import 'package:googleapis_auth/googleapis_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService extends ChangeNotifier {
   final GoogleSignIn _googleSignIn;
@@ -30,6 +31,12 @@ class AuthService extends ChangeNotifier {
     try {
       final account = await _googleSignIn.signIn();
       if (account != null) {
+        final googleAuth = await account.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        await FirebaseAuth.instance.signInWithCredential(credential);
         _currentUser = account;
         if (clientFactory != null) {
           _authClient = await clientFactory!(_googleSignIn);
@@ -48,6 +55,7 @@ class AuthService extends ChangeNotifier {
 
   Future<void> signOut() async {
     await _googleSignIn.disconnect();
+    await FirebaseAuth.instance.signOut();
     _currentUser = null;
     _authClient = null;
     notifyListeners();
@@ -57,6 +65,12 @@ class AuthService extends ChangeNotifier {
     try {
       final account = await _googleSignIn.signInSilently();
       if (account != null) {
+        final googleAuth = await account.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        await FirebaseAuth.instance.signInWithCredential(credential);
         _currentUser = account;
         if (clientFactory != null) {
           _authClient = await clientFactory!(_googleSignIn);

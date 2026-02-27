@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'services/auth_service.dart';
 import 'providers/workspace_provider.dart';
 import 'providers/drive_provider.dart';
@@ -11,6 +12,7 @@ import 'screens/landing_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   // Pre-initialize SharedPreferences for instant cache access
   await SharedPreferences.getInstance();
   runApp(const MainApp());
