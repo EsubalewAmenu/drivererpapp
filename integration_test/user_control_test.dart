@@ -753,13 +753,13 @@ void main() {
       when(() => mockValues.get('sheet_123', 'modules!A1:H1000'))
           .thenAnswer((_) async => sheets.ValueRange(values: [
             ['module_id', 'module_name', 'dashboard', 'settings', 'tabs', 'files', 'type', 'status'],
-            ['crm', 'CRM Module', 'true', 'true', 'tabs_crm', 'files_crm', 'erp', 'activated'],
+            ['deals', 'Deals Module', 'true', 'true', 'tabs_deals', 'files_deals', 'erp', 'activated'],
           ]));
 
       // Mock row read used by detail tabs
       when(() => mockValues.get('sheet_123', 'modules!A2:H2'))
           .thenAnswer((_) async => sheets.ValueRange(values: [
-            ['crm_folder', 'CRM Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
+            ['deals_folder', 'deals Module', 'dash_id', 'set_id', 'tabs_id', 'files_id', 'erp', 'activated'],
           ]));
 
       // Mock permissions reads used by detail screen
