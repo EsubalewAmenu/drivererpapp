@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "810073225620-vibetjsv0o75aj4bfetftc1b9p6b9r97.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.datascience.apps.drivererp",
+            "certificate_hash": "71315abe1e3598fcfa05e7adeef61ac5733bdd42"
+          }
+        },
+        {
           "client_id": "810073225620-v8cdeltgh512iabi5igd8adum1lqo3ki.apps.googleusercontent.com",
           "client_type": 3
         }
