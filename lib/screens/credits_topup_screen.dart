@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
 import 'dart:io';
+import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../theme/app_theme.dart';
 import '../../services/billing/credits_service.dart';
 import '../../providers/workspace_provider.dart';
@@ -13,7 +16,20 @@ class CreditsTopupScreen extends StatefulWidget {
 }
 
 class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
+  static const Map<int, String> _topupProductIds = {
+    100: 'credits_100',
+    500: 'credits_500',
+    1000: 'credits_1000',
+    5000: 'credits_5000',
+    10000: 'credits_10000',
+  };
+
   late Future<WorkspaceCredits> _creditsFuture;
+  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
+  StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  final Set<String> _processedPurchaseTokens = <String>{};
+  List<ProductDetails> _availableProducts = const [];
+
   int _selectedTopupAmount = 100; // Default 100 credits
   bool _isProcessing = false;
   String? _errorMessage;
@@ -26,6 +42,13 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
   void initState() {
     super.initState();
     _loadCredits();
+    _initStorePurchaseFlow();
+  }
+
+  @override
+  void dispose() {
+    _purchaseSubscription?.cancel();
+    super.dispose();
   }
 
   void _loadCredits() {
@@ -37,7 +60,172 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
     }
   }
 
+  Future<void> _initStorePurchaseFlow() async {
+    if (!(Platform.isAndroid || Platform.isIOS)) return;
+
+    final available = await _inAppPurchase.isAvailable();
+    if (!available) {
+      if (!mounted) return;
+      setState(() {
+        _errorMessage = 'Store is not available on this device.';
+      });
+      return;
+    }
+
+    _purchaseSubscription = _inAppPurchase.purchaseStream.listen(
+      _onPurchaseUpdated,
+      onDone: () => _purchaseSubscription?.cancel(),
+      onError: (Object error) {
+        if (!mounted) return;
+        setState(() {
+          _isProcessing = false;
+          _errorMessage = error.toString();
+        });
+      },
+    );
+
+    final response = await _inAppPurchase.queryProductDetails(
+      _topupProductIds.values.toSet(),
+    );
+
+    if (!mounted) return;
+
+    if (response.error != null) {
+      setState(() {
+        _errorMessage = response.error!.message;
+      });
+      return;
+    }
+
+    if (response.productDetails.isEmpty) {
+      setState(() {
+        _errorMessage =
+            'No top-up products found in store. Check Play Console product IDs.';
+      });
+      return;
+    }
+
+    setState(() {
+      _availableProducts = response.productDetails;
+    });
+  }
+
+  void _onPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) {
+    for (final purchaseDetails in purchaseDetailsList) {
+      if (!_topupProductIds.values.contains(purchaseDetails.productID)) {
+        continue;
+      }
+
+      if (purchaseDetails.status == PurchaseStatus.pending) {
+        if (!mounted) return;
+        setState(() {
+          _isProcessing = true;
+        });
+      } else if (purchaseDetails.status == PurchaseStatus.error) {
+        if (!mounted) return;
+        setState(() {
+          _isProcessing = false;
+          _errorMessage = purchaseDetails.error?.message ?? 'Purchase failed';
+        });
+      } else if (purchaseDetails.status == PurchaseStatus.purchased ||
+          purchaseDetails.status == PurchaseStatus.restored) {
+        _handleSuccessfulPurchase(purchaseDetails);
+      } else {
+        if (!mounted) return;
+        setState(() {
+          _isProcessing = false;
+        });
+      }
+
+      if (purchaseDetails.pendingCompletePurchase) {
+        _inAppPurchase.completePurchase(purchaseDetails);
+      }
+    }
+  }
+
+  Future<void> _handleSuccessfulPurchase(PurchaseDetails purchaseDetails) async {
+    final purchaseToken =
+        purchaseDetails.verificationData.serverVerificationData.isNotEmpty
+            ? purchaseDetails.verificationData.serverVerificationData
+            : (purchaseDetails.purchaseID ?? '');
+
+    if (purchaseToken.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _errorMessage = 'Purchase token missing from store response.';
+      });
+      return;
+    }
+
+    if (_processedPurchaseTokens.contains(purchaseToken)) {
+      return;
+    }
+
+    _processedPurchaseTokens.add(purchaseToken);
+
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    final companyId = workspaceProvider.currentCompany?.id;
+    final creditsAmount = _topupProductIds.entries
+        .firstWhere(
+          (entry) => entry.value == purchaseDetails.productID,
+          orElse: () => const MapEntry(0, ''),
+        )
+        .key;
+
+    if (companyId == null || creditsAmount <= 0) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _errorMessage = 'Unable to map purchased product to credits.';
+      });
+      return;
+    }
+
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+
+      final updatedCredits = await CreditsService.topupCredits(
+        companyId: companyId,
+        credits: creditsAmount,
+        platform: Platform.isAndroid ? 'google_play' : 'apple',
+        purchaseId: purchaseToken,
+        productId: purchaseDetails.productID,
+        packageName: packageInfo.packageName,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _creditsFuture = Future.value(updatedCredits);
+        _successMessage = 'Successfully purchased $creditsAmount credits!';
+        _errorMessage = null;
+        _isProcessing = false;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Credits purchased successfully!'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isProcessing = false;
+        _errorMessage = e.toString();
+      });
+    }
+  }
+
   Future<void> _topupCredits() async {
+    if (!(Platform.isAndroid || Platform.isIOS)) {
+      setState(() {
+        _errorMessage = 'In-app purchase is only available on Android/iOS.';
+      });
+      return;
+    }
+
     final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
     final companyId = workspaceProvider.currentCompany?.id;
 
@@ -55,42 +243,45 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
     });
 
     try {
-      // Detect platform
-      final platform = Platform.isAndroid ? 'google_play' : Platform.isIOS ? 'apple' : 'stripe';
-      
-      // Generate a test purchase ID (timestamp-based)
-      final purchaseId = 'test_${DateTime.now().millisecondsSinceEpoch}';
+      final productId = _topupProductIds[_selectedTopupAmount];
+      if (productId == null) {
+        throw Exception('No product mapping found for $_selectedTopupAmount credits.');
+      }
 
-      final updatedCredits = await CreditsService.topupCredits(
-        companyId: companyId,
-        credits: _selectedTopupAmount,
-        platform: platform,
-        purchaseId: purchaseId,
+      final matchingProduct = _availableProducts
+          .where((product) => product.id == productId)
+          .toList();
+
+      if (matchingProduct.isEmpty) {
+        throw Exception(
+          'Product "$productId" is not available from store. '
+          'Make sure it exists and is active in Play Console.',
+        );
+      }
+
+      final purchaseParam = PurchaseParam(productDetails: matchingProduct.first);
+
+      final purchaseStarted = await _inAppPurchase.buyConsumable(
+        purchaseParam: purchaseParam,
+        autoConsume: true,
       );
+
+      if (!purchaseStarted) {
+        throw Exception('Failed to start store purchase flow.');
+      }
 
       if (!mounted) return;
-
-      setState(() {
-        _creditsFuture = Future.value(updatedCredits);
-        _successMessage = 'Successfully purchased $_selectedTopupAmount credits!';
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Credits purchased successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _errorMessage = e.toString();
       });
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isProcessing = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
   }
 
@@ -514,7 +705,7 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
                       ),
                     ),
                     Text(
-                      '${CreditsService.creditsToUsd(amount)}',
+                      CreditsService.creditsToUsd(amount),
                       style: AppTheme.inter(
                         fontSize: 12,
                         color: isSelected
@@ -633,7 +824,7 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle, color: Colors.green, size: 20),
+                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -872,7 +1063,7 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
                         ),
                       ),
                       Text(
-                        '${CreditsService.creditsToUsd(transaction.credits.abs())}',
+                        CreditsService.creditsToUsd(transaction.credits.abs()),
                         style: AppTheme.inter(
                           fontSize: 11,
                           color: theme.textTheme.bodySmall?.color?.withValues(alpha: 0.7),
@@ -883,7 +1074,7 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
                 ],
               ),
             );
-          }).toList(),
+          }),
         ],
       ),
     );
