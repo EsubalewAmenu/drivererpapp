@@ -130,6 +130,8 @@ class CreditsService {
     required int credits,
     String? platform, // 'google_play', 'apple', 'stripe', etc.
     String? purchaseId, // Transaction ID from payment platform
+    String? productId,
+    String? packageName,
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -149,6 +151,12 @@ class CreditsService {
       }
       if (purchaseId != null) {
         body['purchaseId'] = purchaseId;
+      }
+      if (productId != null) {
+        body['productId'] = productId;
+      }
+      if (packageName != null) {
+        body['packageName'] = packageName;
       }
 
       final response = await http.post(

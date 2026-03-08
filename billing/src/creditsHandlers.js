@@ -1,6 +1,54 @@
 const {getUserCreditsRef} = require("./userCreditsStore");
+const {google} = require("googleapis");
+const crypto = require("crypto");
+
+const TOPUP_PRODUCT_CREDITS = {
+	credits_100: 100,
+	credits_500: 500,
+	credits_1000: 1000,
+	credits_5000: 5000,
+	credits_10000: 10000,
+};
+
+function purchaseFingerprint(platform, purchaseId) {
+	return crypto
+		.createHash("sha256")
+		.update(`${platform || "unknown"}:${purchaseId || ""}`)
+		.digest("hex");
+}
 
 function createCreditsHandlers({admin, db, logger, onRequest, onSchedule}) {
+	async function verifyGooglePlayPurchase({purchaseToken, productId, packageName}) {
+		const auth = new google.auth.GoogleAuth({
+			scopes: ["https://www.googleapis.com/auth/androidpublisher"],
+		});
+
+		const authClient = await auth.getClient();
+		const androidpublisher = google.androidpublisher({
+			version: "v3",
+			auth: authClient,
+		});
+
+		const response = await androidpublisher.purchases.products.get({
+			packageName,
+			productId,
+			token: purchaseToken,
+		});
+
+		const purchaseState = response?.data?.purchaseState;
+		const consumptionState = response?.data?.consumptionState;
+
+		if (purchaseState !== 0) {
+			throw new Error(`Google Play purchaseState=${purchaseState} (expected 0)`);
+		}
+
+		return {
+			purchaseState,
+			consumptionState,
+			orderId: response?.data?.orderId || null,
+		};
+	}
+
 	async function getUserKeyFromAuth(req) {
 		const authHeader = req.headers.authorization || "";
 		if (!authHeader.startsWith("Bearer ")) return null;
@@ -65,15 +113,76 @@ function createCreditsHandlers({admin, db, logger, onRequest, onSchedule}) {
 	});
 
 	const topupWorkspaceCredits = onRequest(async (req, res) => {
+		// Deployment marker: force refresh after Android Publisher API enablement.
 		try {
-			const {companyId, credits, platform, purchaseId} = req.body;
+			const {companyId, credits, platform, purchaseId, productId, packageName} = req.body;
 			const userKey = await getUserKeyFromAuth(req);
-			logger.info("Topup request received", {companyId, credits, platform, purchaseId});
+			logger.info("Topup request received", {companyId, credits, platform, productId});
 
 			if (!companyId || !userKey || !credits || credits <= 0) {
 				logger.warn("Invalid parameters", {companyId, credits});
 				return res.status(400).send("Missing or invalid parameters");
 			}
+
+			if (!platform || !purchaseId || !productId) {
+				return res.status(400).json({
+					error: "Missing purchase verification fields",
+					message: "platform, purchaseId, and productId are required",
+				});
+			}
+
+			if (purchaseId.startsWith("test_")) {
+				return res.status(400).json({
+					error: "Test purchase IDs are not allowed in production",
+				});
+			}
+
+			const expectedCredits = TOPUP_PRODUCT_CREDITS[productId];
+			if (!expectedCredits) {
+				return res.status(400).json({
+					error: "Unknown productId",
+					message: `Unrecognized product: ${productId}`,
+				});
+			}
+
+			if (Number(credits) !== expectedCredits) {
+				return res.status(400).json({
+					error: "Credits mismatch",
+					message: `Product ${productId} must credit ${expectedCredits}`,
+				});
+			}
+
+			if (platform !== "google_play") {
+				return res.status(400).json({
+					error: "Unsupported platform",
+					message: "Only google_play topup is enabled for production",
+				});
+			}
+
+			const resolvedPackageName =
+				process.env.ANDROID_PACKAGE_NAME || packageName;
+			if (!resolvedPackageName) {
+				return res.status(500).json({
+					error: "Missing package name configuration",
+					message: "Set ANDROID_PACKAGE_NAME env var on Cloud Functions",
+				});
+			}
+
+			const purchaseHash = purchaseFingerprint(platform, purchaseId);
+			const purchaseLogRef = db.collection("purchase_verifications").doc(purchaseHash);
+			const purchaseLogSnap = await purchaseLogRef.get();
+			if (purchaseLogSnap.exists) {
+				return res.status(409).json({
+					error: "Duplicate purchase",
+					message: "This purchase token was already used",
+				});
+			}
+
+			const verification = await verifyGooglePlayPurchase({
+				purchaseToken: purchaseId,
+				productId,
+				packageName: resolvedPackageName,
+			});
 
 			const billingRef = getUserCreditsRef(db, companyId, userKey);
 			const billingSnap = await billingRef.get();
@@ -88,6 +197,7 @@ function createCreditsHandlers({admin, db, logger, onRequest, onSchedule}) {
 				credits,
 				date: new Date().toISOString(),
 				type: "topup",
+				productId,
 			};
 
 			if (platform) newTopup.platform = platform;
@@ -107,6 +217,18 @@ function createCreditsHandlers({admin, db, logger, onRequest, onSchedule}) {
 				userKey,
 				lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 			}, {merge: true});
+
+			await purchaseLogRef.set({
+				platform,
+				purchaseId,
+				productId,
+				packageName: resolvedPackageName,
+				companyId,
+				userKey,
+				credits,
+				verification,
+				verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+			});
 
 			logger.info("Credits topup recorded", {companyId, credits, newBalance});
 
