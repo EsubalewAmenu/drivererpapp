@@ -330,8 +330,11 @@ class _LandingScreenState extends State<LandingScreen> {
       if (context.mounted) {
         rootNavigator.pop();
         if (e.code != AuthorizationErrorCode.canceled) {
+          final message = e.code == AuthorizationErrorCode.unknown
+              ? 'Apple sign-in is not fully configured yet. Enable "Sign In with Apple" capability for Runner in Xcode and ensure the device/simulator is signed in to iCloud.'
+              : 'Apple sign in failed (${e.code.name}): ${e.message}';
           scaffoldMessenger.showSnackBar(
-            SnackBar(content: Text('Apple sign in failed (${e.code.name}): ${e.message}')),
+            SnackBar(content: Text(message)),
           );
         }
       }
