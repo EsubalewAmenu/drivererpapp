@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:drivererpapp/widgets/app_drawer.dart';
 import 'package:drivererpapp/providers/workspace_provider.dart';
 import 'package:drivererpapp/providers/drive_provider.dart';
@@ -32,6 +33,8 @@ void main() {
   late MockThemeProvider mockThemeProvider;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues({});
+
     mockWorkspaceProvider = MockWorkspaceProvider();
     mockAuthService = MockAuthService();
     mockDriveProvider = MockDriveProvider();
@@ -101,7 +104,7 @@ void main() {
     await tester.tap(find.text('Log Out'));
     await tester.pump(); 
     await tester.pump(const Duration(milliseconds: 100));
-    await tester.pumpAndSettle(); 
+    await tester.pump(const Duration(milliseconds: 400));
 
     verify(() => mockAuthService.signOut()).called(1);
     expect(find.byType(LandingScreen), findsOneWidget);
