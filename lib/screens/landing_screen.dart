@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../services/auth_service.dart';
+import '../services/apple_session_service.dart';
 import '../providers/workspace_provider.dart';
 import '../providers/drive_provider.dart';
 import '../theme/app_theme.dart';
+import 'connect_google_drive_screen.dart';
 import 'system_scanning_screen.dart';
 import 'dashboard_screen.dart';
 
@@ -28,6 +32,10 @@ class _LandingScreenState extends State<LandingScreen> {
 
   Future<void> _checkSilentSignIn() async {
     final authService = Provider.of<AuthService>(context, listen: false);
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+    final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
+    final navigator = Navigator.of(context);
+
     await authService.signInSilently();
     
     if (authService.isAuthenticated && mounted) {
@@ -35,19 +43,16 @@ class _LandingScreenState extends State<LandingScreen> {
       final lastWorkspaceId = await WorkspaceProvider.getLastWorkspaceId();
       if (lastWorkspaceId != null) {
         try {
-          final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-          
           // Ensure client is synced if proxy update hasn't propagated yet (edge case)
           if (driveProvider.driveService == null && authService.authClient != null) {
              driveProvider.updateClient(authService.authClient);
           }
 
           if (driveProvider.driveService != null) {
-            final success = await Provider.of<WorkspaceProvider>(context, listen: false)
-                .restorePreviousSession();
+            final success = await workspaceProvider.restorePreviousSession();
             
             if (success && mounted) {
-              Navigator.of(context).pushReplacement(
+              navigator.pushReplacement(
                 MaterialPageRoute(builder: (_) => const DashboardScreen()),
               );
               return;
@@ -59,11 +64,19 @@ class _LandingScreenState extends State<LandingScreen> {
       }
 
       if (mounted) {
-        Navigator.of(context).pushReplacement(
+        navigator.pushReplacement(
           MaterialPageRoute(builder: (_) => const SystemScanningScreen()),
         );
         return;
       }
+    }
+
+    final hasAppleSession = await AppleSessionService.isAppleSignedIn();
+    if (hasAppleSession && mounted) {
+      navigator.pushReplacement(
+        MaterialPageRoute(builder: (_) => const ConnectGoogleDriveScreen()),
+      );
+      return;
     }
 
     // If not authenticated or checks failed, show the login UI
@@ -189,6 +202,12 @@ class _LandingScreenState extends State<LandingScreen> {
                     elevation: 0,
                   ),
                 ),
+              if (!_isLoading && !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) ...[
+                const SizedBox(height: 12),
+                SignInWithAppleButton(
+                  onPressed: () => _handleAppleSignIn(context),
+                ),
+              ],
               const SizedBox(height: 16),
               Text(
                 'By continuing, you agree to our Terms & Privacy Policy',
@@ -267,6 +286,60 @@ class _LandingScreenState extends State<LandingScreen> {
         rootNavigator.pop(); // Close loading dialog
         scaffoldMessenger.showSnackBar(
           SnackBar(content: Text('Sign in failed: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleAppleSignIn(BuildContext context) async {
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final localNavigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    try {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final userIdentifier = credential.userIdentifier;
+      if (userIdentifier == null || userIdentifier.isEmpty) {
+        throw Exception('Apple user identifier is missing.');
+      }
+
+      await AppleSessionService.saveAppleSession(
+        userId: userIdentifier,
+        email: credential.email,
+      );
+
+      if (context.mounted) {
+        rootNavigator.pop();
+        localNavigator.pushReplacement(
+          MaterialPageRoute(builder: (_) => const ConnectGoogleDriveScreen()),
+        );
+      }
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (context.mounted) {
+        rootNavigator.pop();
+        if (e.code != AuthorizationErrorCode.canceled) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('Apple sign in failed (${e.code.name}): ${e.message}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        rootNavigator.pop();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('Apple sign in failed: $e')),
         );
       }
     }
