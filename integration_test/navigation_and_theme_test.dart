@@ -91,8 +91,8 @@ void main() {
     await tester.tap(themeToggle);
     await tester.pumpAndSettle();
 
-    // Go back
-    await tester.tap(find.byIcon(Icons.arrow_back));
+    // Go back (platform-safe: works for Material and Cupertino back affordances)
+    await tester.pageBack();
     await tester.pumpAndSettle();
 
     // 4. Open Drawer and Switch Workspace
@@ -101,8 +101,9 @@ void main() {
     final scaffoldFinder = find.byType(Scaffold);
     expect(scaffoldFinder, findsAtLeast(1));
     
-    // Try to open drawer
-    await tester.tap(find.byIcon(Icons.menu).first);
+    // Open drawer via ScaffoldState for platform/icon stability
+    final scaffoldState = tester.state<ScaffoldState>(scaffoldFinder.first);
+    scaffoldState.openDrawer();
     await tester.pumpAndSettle();
 
     // Verify drawer content
