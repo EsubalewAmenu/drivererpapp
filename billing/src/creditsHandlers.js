@@ -10,6 +10,9 @@ const TOPUP_PRODUCT_CREDITS = {
 	credits_10000: 10000,
 };
 
+const APPLE_VERIFY_RECEIPT_PRODUCTION_URL = "https://buy.itunes.apple.com/verifyReceipt";
+const APPLE_VERIFY_RECEIPT_SANDBOX_URL = "https://sandbox.itunes.apple.com/verifyReceipt";
+
 function purchaseFingerprint(platform, purchaseId) {
 	return crypto
 		.createHash("sha256")
@@ -46,6 +49,95 @@ function createCreditsHandlers({admin, db, logger, onRequest, onSchedule}) {
 			purchaseState,
 			consumptionState,
 			orderId: response?.data?.orderId || null,
+		};
+	}
+
+	async function verifyApplePurchase({receiptData, productId}) {
+		const requestPayload = {
+			"receipt-data": receiptData,
+			"exclude-old-transactions": true,
+		};
+
+		const sharedSecret =
+			process.env.APPLE_SHARED_SECRET ||
+			process.env.APPLE_APP_SHARED_SECRET ||
+			null;
+
+		if (sharedSecret) {
+			requestPayload.password = sharedSecret;
+		}
+
+		const verifyReceipt = async (url) => {
+			const response = await fetch(url, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify(requestPayload),
+			});
+
+			if (!response.ok) {
+				throw new Error(`Apple verifyReceipt HTTP ${response.status}`);
+			}
+
+			return response.json();
+		};
+
+		let verifyResponse = await verifyReceipt(APPLE_VERIFY_RECEIPT_PRODUCTION_URL);
+
+		if (verifyResponse.status === 21007) {
+			verifyResponse = await verifyReceipt(APPLE_VERIFY_RECEIPT_SANDBOX_URL);
+		}
+
+		if (verifyResponse.status !== 0) {
+			throw new Error(`Apple verifyReceipt status=${verifyResponse.status}`);
+		}
+
+		const expectedBundleId = process.env.APPLE_BUNDLE_ID || null;
+		const responseBundleId = verifyResponse?.receipt?.bundle_id || null;
+
+		if (expectedBundleId && responseBundleId && expectedBundleId !== responseBundleId) {
+			throw new Error("Apple receipt bundle_id does not match APPLE_BUNDLE_ID");
+		}
+
+		const receiptTransactions = Array.isArray(verifyResponse?.receipt?.in_app)
+			? verifyResponse.receipt.in_app
+			: [];
+		const latestReceiptTransactions = Array.isArray(verifyResponse?.latest_receipt_info)
+			? verifyResponse.latest_receipt_info
+			: [];
+
+		const allTransactions = receiptTransactions.concat(latestReceiptTransactions);
+		const matchingTransactions = allTransactions.filter(
+			(transaction) => transaction?.product_id === productId,
+		);
+
+		if (!matchingTransactions.length) {
+			throw new Error(`Apple receipt does not contain productId=${productId}`);
+		}
+
+		const verifiedTransaction = matchingTransactions.reduce((latest, current) => {
+			const latestDate = Number(latest.purchase_date_ms || 0);
+			const currentDate = Number(current.purchase_date_ms || 0);
+			return currentDate > latestDate ? current : latest;
+		});
+
+		const transactionId =
+			verifiedTransaction.transaction_id ||
+			verifiedTransaction.original_transaction_id ||
+			null;
+
+		if (!transactionId) {
+			throw new Error("Apple receipt missing transaction_id");
+		}
+
+		return {
+			status: verifyResponse.status,
+			environment: verifyResponse.environment || null,
+			bundleId: responseBundleId,
+			transactionId,
+			originalTransactionId: verifiedTransaction.original_transaction_id || null,
+			purchaseDateMs: verifiedTransaction.purchase_date_ms || null,
 		};
 	}
 
@@ -152,23 +244,41 @@ function createCreditsHandlers({admin, db, logger, onRequest, onSchedule}) {
 				});
 			}
 
-			if (platform !== "google_play") {
+			if (platform !== "google_play" && platform !== "apple") {
 				return res.status(400).json({
 					error: "Unsupported platform",
-					message: "Only google_play topup is enabled for production",
+					message: "Supported topup platforms are google_play and apple",
 				});
 			}
 
-			const resolvedPackageName =
-				process.env.ANDROID_PACKAGE_NAME || packageName;
-			if (!resolvedPackageName) {
-				return res.status(500).json({
-					error: "Missing package name configuration",
-					message: "Set ANDROID_PACKAGE_NAME env var on Cloud Functions",
+			let normalizedPurchaseId = purchaseId;
+			let resolvedPackageName = null;
+			let verification;
+
+			if (platform === "google_play") {
+				resolvedPackageName = process.env.ANDROID_PACKAGE_NAME || packageName;
+				if (!resolvedPackageName) {
+					return res.status(500).json({
+						error: "Missing package name configuration",
+						message: "Set ANDROID_PACKAGE_NAME env var on Cloud Functions",
+					});
+				}
+
+				verification = await verifyGooglePlayPurchase({
+					purchaseToken: purchaseId,
+					productId,
+					packageName: resolvedPackageName,
 				});
+			} else {
+				verification = await verifyApplePurchase({
+					receiptData: purchaseId,
+					productId,
+				});
+
+				normalizedPurchaseId = verification.transactionId;
 			}
 
-			const purchaseHash = purchaseFingerprint(platform, purchaseId);
+			const purchaseHash = purchaseFingerprint(platform, normalizedPurchaseId);
 			const purchaseLogRef = db.collection("purchase_verifications").doc(purchaseHash);
 			const purchaseLogSnap = await purchaseLogRef.get();
 			if (purchaseLogSnap.exists) {
@@ -177,12 +287,6 @@ function createCreditsHandlers({admin, db, logger, onRequest, onSchedule}) {
 					message: "This purchase token was already used",
 				});
 			}
-
-			const verification = await verifyGooglePlayPurchase({
-				purchaseToken: purchaseId,
-				productId,
-				packageName: resolvedPackageName,
-			});
 
 			const billingRef = getUserCreditsRef(db, companyId, userKey);
 			const billingSnap = await billingRef.get();
@@ -201,7 +305,7 @@ function createCreditsHandlers({admin, db, logger, onRequest, onSchedule}) {
 			};
 
 			if (platform) newTopup.platform = platform;
-			if (purchaseId) newTopup.purchaseId = purchaseId;
+			if (normalizedPurchaseId) newTopup.purchaseId = normalizedPurchaseId;
 
 			let transactionHistory = billingSnap.exists && billingSnap.data().transactionHistory
 				? Array.isArray(billingSnap.data().transactionHistory)
@@ -218,17 +322,22 @@ function createCreditsHandlers({admin, db, logger, onRequest, onSchedule}) {
 				lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
 			}, {merge: true});
 
-			await purchaseLogRef.set({
+			const purchaseLogData = {
 				platform,
-				purchaseId,
+				purchaseId: normalizedPurchaseId,
 				productId,
-				packageName: resolvedPackageName,
 				companyId,
 				userKey,
 				credits,
 				verification,
 				verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-			});
+			};
+
+			if (resolvedPackageName) {
+				purchaseLogData.packageName = resolvedPackageName;
+			}
+
+			await purchaseLogRef.set(purchaseLogData);
 
 			logger.info("Credits topup recorded", {companyId, credits, newBalance});
 
