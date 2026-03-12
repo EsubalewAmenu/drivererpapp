@@ -15,7 +15,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.datascience.apps.drivererp"
+    namespace = "com.datascience.driveerp"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -42,7 +42,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.datascience.apps.drivererp"
+        applicationId = "com.datascience.driveerp"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

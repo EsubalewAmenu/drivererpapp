@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:810073225620:android:d96ae338ecbae2e28fb781",
         "android_client_info": {
-          "package_name": "com.datascience.apps.drivererp"
+          "package_name": "com.datascience.driveerp"
         }
       },
       "oauth_client": [
@@ -17,7 +17,7 @@
           "client_id": "810073225620-cuk6jmg083o0hj47oqo5m62e9l7jd801.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.datascience.apps.drivererp",
+            "package_name": "com.datascience.driveerp",
             "certificate_hash": "4fa1a92dc61234f04d6de50da28c97eb2c5281fa"
           }
         },
@@ -25,7 +25,7 @@
           "client_id": "810073225620-vibetjsv0o75aj4bfetftc1b9p6b9r97.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.datascience.apps.drivererp",
+            "package_name": "com.datascience.driveerp",
             "certificate_hash": "71315abe1e3598fcfa05e7adeef61ac5733bdd42"
           }
         },
