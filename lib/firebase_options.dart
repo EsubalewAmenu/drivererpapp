@@ -60,6 +60,6 @@ class DefaultFirebaseOptions {
     storageBucket: 'driveerp-1d5d5.firebasestorage.app',
     androidClientId: '810073225620-cuk6jmg083o0hj47oqo5m62e9l7jd801.apps.googleusercontent.com',
     iosClientId: '810073225620-28flcuta49lvm41bpk7img816snuumf8.apps.googleusercontent.com',
-    iosBundleId: 'com.datascience.apps.drivererpapp',
+    iosBundleId: 'com.datascience.driveerp',
   );
 }

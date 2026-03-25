@@ -16,13 +16,24 @@ class CreditsTopupScreen extends StatefulWidget {
 }
 
 class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
-  static const Map<int, String> _topupProductIds = {
+  static const Map<int, String> _androidTopupProductIds = {
     100: 'credits_100',
     500: 'credits_500',
     1000: 'credits_1000',
     5000: 'credits_5000',
     10000: 'credits_10000',
   };
+
+  static const Map<int, String> _iosTopupProductIds = {
+    100: 'credits_100',
+    500: 'credits_500',
+    1000: 'credits_1000',
+    5000: 'credits_5000',
+    10000: 'credits_10000',
+  };
+
+  Map<int, String> get _platformTopupProductIds =>
+      Platform.isIOS ? _iosTopupProductIds : _androidTopupProductIds;
 
   late Future<WorkspaceCredits> _creditsFuture;
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
@@ -84,23 +95,39 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
       },
     );
 
-    final response = await _inAppPurchase.queryProductDetails(
-      _topupProductIds.values.toSet(),
+    ProductDetailsResponse response = await _queryProductDetailsWithRetry(
+      _platformTopupProductIds.values.toSet(),
     );
 
     if (!mounted) return;
 
     if (response.error != null) {
       setState(() {
-        _errorMessage = response.error!.message;
+        _errorMessage = Platform.isIOS
+            ? 'Unable to connect to Apple Store right now. Please make sure your iPhone is signed in with an Apple ID and try again.'
+            : response.error!.message;
       });
       return;
     }
 
+    if (response.productDetails.isEmpty && Platform.isAndroid) {
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      response = await _inAppPurchase.queryProductDetails(
+        _platformTopupProductIds.values.toSet(),
+      );
+
+      if (!mounted) return;
+    }
+
     if (response.productDetails.isEmpty) {
+      final missingIds = response.notFoundIDs.isNotEmpty
+          ? response.notFoundIDs.join(', ')
+          : _platformTopupProductIds.values.join(', ');
+
       setState(() {
-        _errorMessage =
-            'No top-up products found in store. Check Play Console product IDs.';
+        _errorMessage = Platform.isIOS
+            ? 'No Apple top-up products found. Verify product IDs in App Store Connect.'
+            : 'No top-up products found in Google Play. Missing IDs: $missingIds. Install this build from Google Play internal testing with the tester account and make sure those products are Active in Play Console.';
       });
       return;
     }
@@ -110,9 +137,29 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
     });
   }
 
+  Future<ProductDetailsResponse> _queryProductDetailsWithRetry(
+    Set<String> productIds,
+  ) async {
+    ProductDetailsResponse response =
+        await _inAppPurchase.queryProductDetails(productIds);
+
+    final shouldRetry = Platform.isIOS &&
+        response.error != null &&
+        response.error!.message.contains(
+          'StoreKit: Failed to get response from platform.',
+        );
+
+    if (shouldRetry) {
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      response = await _inAppPurchase.queryProductDetails(productIds);
+    }
+
+    return response;
+  }
+
   void _onPurchaseUpdated(List<PurchaseDetails> purchaseDetailsList) {
     for (final purchaseDetails in purchaseDetailsList) {
-      if (!_topupProductIds.values.contains(purchaseDetails.productID)) {
+      if (!_platformTopupProductIds.values.contains(purchaseDetails.productID)) {
         continue;
       }
 
@@ -166,7 +213,7 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
 
     final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
     final companyId = workspaceProvider.currentCompany?.id;
-    final creditsAmount = _topupProductIds.entries
+    final creditsAmount = _platformTopupProductIds.entries
         .firstWhere(
           (entry) => entry.value == purchaseDetails.productID,
           orElse: () => const MapEntry(0, ''),
@@ -243,7 +290,7 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
     });
 
     try {
-      final productId = _topupProductIds[_selectedTopupAmount];
+      final productId = _platformTopupProductIds[_selectedTopupAmount];
       if (productId == null) {
         throw Exception('No product mapping found for $_selectedTopupAmount credits.');
       }
@@ -261,10 +308,14 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
 
       final purchaseParam = PurchaseParam(productDetails: matchingProduct.first);
 
-      final purchaseStarted = await _inAppPurchase.buyConsumable(
-        purchaseParam: purchaseParam,
-        autoConsume: true,
-      );
+      final purchaseStarted = Platform.isAndroid
+          ? await _inAppPurchase.buyConsumable(
+              purchaseParam: purchaseParam,
+              autoConsume: true,
+            )
+          : await _inAppPurchase.buyNonConsumable(
+              purchaseParam: purchaseParam,
+            );
 
       if (!purchaseStarted) {
         throw Exception('Failed to start store purchase flow.');
@@ -771,7 +822,9 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
             label: Text(
               _isProcessing
                   ? 'Processing...'
-                  : 'Purchase $_selectedTopupAmount credits',
+                  : Platform.isIOS
+                      ? 'Purchase $_selectedTopupAmount credits with Apple'
+                      : 'Purchase $_selectedTopupAmount credits',
               style: AppTheme.inter(fontWeight: FontWeight.w600),
             ),
             style: ElevatedButton.styleFrom(
