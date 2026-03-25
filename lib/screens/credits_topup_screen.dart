@@ -110,11 +110,24 @@ class _CreditsTopupScreenState extends State<CreditsTopupScreen> {
       return;
     }
 
+    if (response.productDetails.isEmpty && Platform.isAndroid) {
+      await Future<void>.delayed(const Duration(milliseconds: 700));
+      response = await _inAppPurchase.queryProductDetails(
+        _platformTopupProductIds.values.toSet(),
+      );
+
+      if (!mounted) return;
+    }
+
     if (response.productDetails.isEmpty) {
+      final missingIds = response.notFoundIDs.isNotEmpty
+          ? response.notFoundIDs.join(', ')
+          : _platformTopupProductIds.values.join(', ');
+
       setState(() {
         _errorMessage = Platform.isIOS
             ? 'No Apple top-up products found. Verify product IDs in App Store Connect.'
-            : 'No top-up products found in store. Check Play Console product IDs.';
+            : 'No top-up products found in Google Play. Missing IDs: $missingIds. Install this build from Google Play internal testing with the tester account and make sure those products are Active in Play Console.';
       });
       return;
     }
