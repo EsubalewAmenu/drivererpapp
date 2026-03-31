@@ -13,6 +13,10 @@
   "Payroll": "payroll.json",
   "Expense Claims": "expense_claims.json",
 
-  "finance": "finance.json"
+  "finance": "finance.json",
+  "Invoicing": "invoicing.json",
+  "Expenses / Bills": "bills.json",
+  "Fixed Assets": "fixed_assets.json",
+  "Budgets (Free)": "budgets.json"
 
 }

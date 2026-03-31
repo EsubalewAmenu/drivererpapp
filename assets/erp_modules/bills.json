@@ -1,0 +1,88 @@
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "bills" },
+    "icon": { "label": "Icon", "type": "icon", "value": "account_balance" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#6366F1" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Bills", "help": "Main module title" },
+
+    "extensions": ["invoicing", "bills", "assets", "budgeting"]
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Expense Breakdown",
+        "formula": "=CHART(Finance:bills:bills!C:C)",
+        "format": "text",
+        "type": "pie"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "bills",
+      "label": "Expenses / Bills",
+      "depends_on": "settings.enable_bills",
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
+      "list_template": {
+        "template": "standard",
+        "title_key": "bill_number",
+        "subtitle_key": "supplier_ref",
+        "trailing_key": "status",
+        "detail_keys": ["amount", "bill_date", "category"]
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "bill_number",
+        "subtitle_key": "status",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Received", "key": "received", "rules": [ { "field": "status", "operator": "==", "value": "Received" } ] },
+        { "label": "Approved", "key": "approved", "rules": [ { "field": "status", "operator": "==", "value": "Approved" } ] },
+        { "label": "Paid", "key": "paid", "rules": [ { "field": "status", "operator": "==", "value": "Paid" } ] }
+      ],
+      "initial_data": [
+        {
+          "record_id": 1,
+          "bill_number": "DS-INV-9920",
+          "supplier_ref": 1,
+          "category": 603,
+          "amount": 200.00,
+          "status": "Approved",
+          "receipt_image": ""
+        },
+        {
+          "record_id": 2,
+          "bill_number": "RENT-MAR-24",
+          "supplier_ref": 1,
+          "category": 601,
+          "amount": 1500.00,
+          "status": "Paid",
+          "receipt_image": ""
+        }
+      ],
+      "columns": [
+        { "key": "bill_number", "label": "Supplier Ref #", "type": "text" },
+        {
+          "key": "supplier_ref",
+          "label": "Supplier",
+          "type": "relation",
+          "options": "crm.contacts"
+        },
+        {
+          "key": "category",
+          "label": "Expense Account",
+          "type": "relation",
+          "options": "chart_of_accounts",
+          "filter": { "key": "type", "value": "Expense" }
+        },
+        { "key": "amount", "label": "Amount", "type": "currency" },
+        { "key": "bill_date", "label": "Bill Date", "type": "date" },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Received", "Approved", "Paid"] },
+        { "key": "receipt_image", "label": "Receipt Photo", "type": "image" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "fixed_assets" },
+    "icon": { "label": "Icon", "type": "icon", "value": "account_balance" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#6366F1" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Fixed Assets", "help": "Main module title" }
+
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Expense Breakdown",
+        "formula": "=CHART(Finance:bills:bills!C:C)",
+        "format": "text",
+        "type": "pie"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "assets",
+      "label": "Fixed Assets",
+      "depends_on": "settings.enable_assets",
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
+      "list_template": {
+        "template": "standard",
+        "title_key": "name",
+        "subtitle_key": "purchase_date",
+        "trailing_key": "current_value",
+        "detail_keys": ["cost", "useful_life"]
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "name",
+        "subtitle_key": "purchase_date",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "5 Years", "key": "five_years", "rules": [ { "field": "useful_life", "operator": "==", "value": 5 } ] },
+        { "label": "10 Years", "key": "ten_years", "rules": [ { "field": "useful_life", "operator": "==", "value": 10 } ] }
+      ],
+      "initial_data": [
+        {
+          "record_id": 1,
+          "name": "Delivery Scooter",
+          "purchase_date": "2023-01-15",
+          "cost": 3000,
+          "useful_life": 5,
+          "current_value": ""
+        },
+        {
+          "record_id": 2,
+          "name": "Showroom Display Furniture",
+          "purchase_date": "2023-06-01",
+          "cost": 5000,
+          "useful_life": 10,
+          "current_value": ""
+        }
+      ],
+      "columns": [
+        { "key": "name", "label": "Asset Name", "type": "text", "required": true },
+        { "key": "purchase_date", "label": "Purchase Date", "type": "date" },
+        { "key": "cost", "label": "Original Cost", "type": "currency" },
+        { "key": "useful_life", "label": "Useful Life (Years)", "type": "number", "default": 5 },
+        {
+          "key": "current_value",
+          "label": "Book Value (Est)",
+          "type": "formula",
+          "formula": "=MAX(0, cost - ((cost / useful_life) * ((TODAY() - purchase_date) / 365)))"
+        }
+      ]
+    }
+  ]
+}
