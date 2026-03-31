@@ -1,0 +1,80 @@
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "payroll" },
+    "icon": { "label": "Icon", "type": "icon", "value": "badge" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#8B5CF6" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Payroll", "help": "Main module title" }
+
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Monthly Payroll",
+        "formula": "=SUM(HR:employees:employees!F:F)",
+        "type": "kpi",
+        "format": "currency",
+        "note": "Visible to Admin only via role logic in UI"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "payroll",
+      "label": "Payroll Runs",
+      "depends_on": "settings.enable_payroll",
+      "allowed_roles": ["admin"],
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
+      "list_template": {
+        "template": "standard",
+        "title_key": "employee_ref",
+        "subtitle_key": "month",
+        "trailing_key": "status",
+        "detail_keys": ["basic_pay", "bonuses", "deductions", "net_pay"]
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "employee_ref",
+        "subtitle_key": "month",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Draft", "key": "draft", "rules": [ { "field": "status", "operator": "==", "value": "Draft" } ] },
+        { "label": "Processed", "key": "processed", "rules": [ { "field": "status", "operator": "==", "value": "Processed" } ] },
+        { "label": "Paid", "key": "paid", "rules": [ { "field": "status", "operator": "==", "value": "Paid" } ] }
+      ],
+      "initial_data": [
+        {
+          "record_id": 201,
+          "month": "2024-02-28",
+          "employee_ref": 1,
+          "basic_pay": 85000,
+          "bonuses": 5000,
+          "deductions": 2000,
+          "net_pay": 88000,
+          "status": "Paid"
+        },
+        {
+          "record_id": 202,
+          "month": "2024-02-28",
+          "employee_ref": 3,
+          "basic_pay": 45000,
+          "bonuses": 1200,
+          "deductions": 1000,
+          "net_pay": 45200,
+          "status": "Paid"
+        }
+      ],
+      "columns": [
+        { "key": "month", "label": "Month", "type": "date", "format": "MM-yyyy" },
+        { "key": "employee_ref", "label": "Employee", "type": "relation", "options": "employees" },
+        { "key": "basic_pay", "label": "Basic", "type": "lookup", "lookup_source": "employees", "lookup_key": "salary", "match_key": "employee_ref" },
+        { "key": "bonuses", "label": "Bonuses", "type": "currency" },
+        { "key": "deductions", "label": "Deductions", "type": "currency" },
+        { "key": "net_pay", "label": "Net Payable", "type": "formula", "formula": "=basic_pay + bonuses - deductions" },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Draft", "Processed", "Paid"] }
+      ]
+    }
+  ]
+}

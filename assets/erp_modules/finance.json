@@ -4,21 +4,22 @@
     "icon": { "label": "Icon", "type": "icon", "value": "account_balance" },
     "primaryColor": { "label": "Primary Color", "type": "color", "value": "#6366F1" },
     "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Finance" },
+    "name": { "label": "Name", "type": "text", "value": "Finance", "help": "Main module title" },
 
-    "extensions": ["invoicing", "bills", "assets", "budgeting"]
-
+    "extensions": ["Invoicing", "Expenses / Bills", "Fixed Assets (Free)", "Budgets (Free)"]
   },
   "dashboard": {
     "cards": [
       {
         "label": "Net Profit",
         "formula": "=SUMIF(Finance:invoices:invoices!E:E, \"Paid\", Finance:invoices:invoices!F:F) - SUMIF(Finance:bills:bills!E:E, \"Paid\", Finance:bills:bills!F:F)",
+        "type": "kpi",
         "format": "currency"
       },
       {
         "label": "Overdue Invoices",
         "formula": "=COUNTIFS(Finance:invoices:invoices!E:E, \"Unpaid\", Finance:invoices:invoices!C:C, \"<\"&TODAY())",
+        "type": "kpi",
         "format": "number",
         "color": "#F44336"
       },
@@ -34,10 +35,26 @@
     {
       "id": "chart_of_accounts",
       "label": "Accounts",
-      "columns": [
-        { "key": "code", "label": "Code", "type": "text", "required": true },
-        { "key": "name", "label": "Account Name", "type": "text", "required": true },
-        { "key": "type", "label": "Type", "type": "select", "options": ["Revenue", "Expense", "Asset", "Liability", "Equity"] }
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
+      "list_template": {
+        "template": "standard",
+        "title_key": "name",
+        "subtitle_key": "code",
+        "trailing_key": "type",
+        "detail_keys": ["code", "type"]
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "name",
+        "subtitle_key": "type",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Assets", "key": "assets", "rules": [ { "field": "type", "operator": "==", "value": "Asset" } ] },
+        { "label": "Liabilities", "key": "liabilities", "rules": [ { "field": "type", "operator": "==", "value": "Liability" } ] },
+        { "label": "Revenue", "key": "revenue", "rules": [ { "field": "type", "operator": "==", "value": "Revenue" } ] },
+        { "label": "Expenses", "key": "expenses", "rules": [ { "field": "type", "operator": "==", "value": "Expense" } ] }
       ],
       "initial_data": [
         { "record_id": 101, "code": "1000", "name": "Cash on Hand", "type": "Asset" },
@@ -52,175 +69,11 @@
         { "record_id": 601, "code": "6100", "name": "Rent Expense", "type": "Expense" },
         { "record_id": 602, "code": "6200", "name": "Office Supplies", "type": "Expense" },
         { "record_id": 603, "code": "6300", "name": "Software Subscriptions", "type": "Expense" }
-      ]
-    },
-    {
-      "id": "invoices",
-      "label": "Sales Invoices",
-      "depends_on": "settings.enable_invoicing",
-      "list_template": {
-        "template": "standard",
-        "title_key": "customer_ref",
-        "subtitle_key": "inv_number",
-        "trailing_key": "total_amount"
-      },
-      "columns": [
-        { "key": "inv_number", "label": "Invoice #", "type": "text", "required": true },
-        { 
-          "key": "customer_ref", 
-          "label": "Customer", 
-          "type": "relation", 
-          "options": "crm.contacts",
-          "display_field": "name"
-        },
-        { "key": "date_issued", "label": "Date", "type": "date" },
-        { "key": "due_date", "label": "Due Date", "type": "date" },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Draft", "Unpaid", "Paid", "Void"] },
-        { "key": "total_amount", "label": "Total", "type": "currency" },
-        { 
-           "key": "items", 
-           "label": "Line Items", 
-           "type": "table",
-           "columns": [
-             { "key": "description", "label": "Description", "type": "text" },
-             { "key": "qty", "label": "Qty", "type": "number" },
-             { "key": "rate", "label": "Unit Price", "type": "currency" }
-           ]
-        }
       ],
-      "initial_data": [
-        {
-          "record_id": 1,
-          "inv_number": "INV-2024-001",
-          "customer_ref": 2,
-          "date_issued": "2024-03-10",
-          "due_date": "2024-03-20",
-          "status": "Unpaid",
-          "total_amount": 1500,
-          "items": [
-            { "description": "Consulting Service - Setup", "qty": 10, "rate": 100 },
-            { "description": "Software Installation", "qty": 1, "rate": 500 }
-          ]
-        },
-        {
-          "record_id": 2,
-          "inv_number": "INV-2024-002",
-          "customer_ref": 2,
-          "date_issued": "2024-03-12",
-          "due_date": "2024-03-12",
-          "status": "Paid",
-          "total_amount": 49.99,
-          "items": [
-            { "description": "Laptop Stand (Cash Sale)", "qty": 1, "rate": 49.99 }
-          ]
-        }
-      ]
-    },
-    {
-      "id": "bills",
-      "label": "Expenses / Bills",
-      "depends_on": "settings.enable_bills",
       "columns": [
-        { "key": "bill_number", "label": "Supplier Ref #", "type": "text" },
-        { 
-          "key": "supplier_ref", 
-          "label": "Supplier", 
-          "type": "relation", 
-          "options": "crm.contacts"
-        },
-        { 
-          "key": "category", 
-          "label": "Expense Account", 
-          "type": "relation", 
-          "options": "chart_of_accounts",
-          "filter": { "key": "type", "value": "Expense" }
-        },
-        { "key": "amount", "label": "Amount", "type": "currency" },
-        { "key": "bill_date", "label": "Bill Date", "type": "date" },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Received", "Approved", "Paid"] },
-        { "key": "receipt_image", "label": "Receipt Photo", "type": "image" }
-      ],
-      "initial_data": [
-        {
-          "record_id": 1,
-          "bill_number": "DS-INV-9920",
-          "supplier_ref": 1,
-          "category": 603,
-          "amount": 200.00,
-          "status": "Approved",
-          "receipt_image": ""
-        },
-        {
-          "record_id": 2,
-          "bill_number": "RENT-MAR-24",
-          "supplier_ref": 1,
-          "category": 601,
-          "amount": 1500.00,
-          "status": "Paid",
-          "receipt_image": ""
-        }
-      ]
-    },
-    {
-      "id": "assets",
-      "label": "Fixed Assets",
-      "depends_on": "settings.enable_assets",
-      "columns": [
-        { "key": "name", "label": "Asset Name", "type": "text", "required": true },
-        { "key": "purchase_date", "label": "Purchase Date", "type": "date" },
-        { "key": "cost", "label": "Original Cost", "type": "currency" },
-        { "key": "useful_life", "label": "Useful Life (Years)", "type": "number", "default": 5 },
-        { 
-          "key": "current_value", 
-          "label": "Book Value (Est)", 
-          "type": "formula",
-          "formula": "=MAX(0, cost - ((cost / useful_life) * ((TODAY() - purchase_date) / 365)))"
-        }
-      ],
-      "initial_data": [
-        {
-          "record_id": 1,
-          "name": "Delivery Scooter",
-          "purchase_date": "2023-01-15",
-          "cost": 3000,
-          "useful_life": 5,
-          "current_value": ""
-        },
-        {
-          "record_id": 2,
-          "name": "Showroom Display Furniture",
-          "purchase_date": "2023-06-01",
-          "cost": 5000,
-          "useful_life": 10,
-          "current_value": ""
-        }
-      ]
-    },
-    {
-      "id": "budgets",
-      "label": "Budgets",
-      "depends_on": "settings.enable_budgeting",
-      "columns": [
-         { "key": "year", "label": "Fiscal Year", "type": "text" },
-         { "key": "category", "label": "Category", "type": "relation", "options": "chart_of_accounts" },
-         { "key": "budget_limit", "label": "Approved Budget", "type": "currency" },
-         { "key": "notes", "label": "Notes", "type": "long_text" }
-      ],
-      "initial_data": [
-        {
-          "record_id": 1,
-          "year": "2024",
-          "category": 601,
-          "budget_limit": 18000,
-          "notes": "Annual Office Rent Contract"
-        },
-        {
-          "record_id": 2,
-          "year": "2024",
-          "category": 602,
-          "budget_limit": 2000,
-          "notes": "Stationery and coffee supplies"
-        }
+        { "key": "code", "label": "Code", "type": "text", "required": true },
+        { "key": "name", "label": "Account Name", "type": "text", "required": true },
+        { "key": "type", "label": "Type", "type": "select", "options": ["Revenue", "Expense", "Asset", "Liability", "Equity"] }
       ]
     }
   ]

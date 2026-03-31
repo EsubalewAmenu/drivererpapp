@@ -4,46 +4,30 @@
     "icon": { "label": "Icon", "type": "icon", "value": "badge" },
     "primaryColor": { "label": "Primary Color", "type": "color", "value": "#8B5CF6" },
     "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "HR" },
-    
-    "enable_leave": {
-      "label": "Enable Leave Management?",
-      "type": "boolean",
-      "value": true
-    },
-    "enable_recruitment": {
-      "label": "Enable Recruitment (ATS)?",
-      "type": "boolean",
-      "value": false
-    },
-    "enable_payroll": {
-      "label": "Enable Payroll?",
-      "type": "boolean",
-      "value": true,
-      "note": "Requires Finance module for payouts"
-    },
-    "enable_expenses": {
-      "label": "Enable Expense Claims?",
-      "type": "boolean",
-      "value": true
-    }
+    "name": { "label": "Name", "type": "text", "value": "HR", "help": "Main module title" },
+
+    "extensions": ["Leave Requests", "Recruitments", "Payroll", "Expense Claims"]
+
   },
   "dashboard": {
     "cards": [
       {
         "label": "Total Headcount",
         "formula": "=COUNTIFS(HR:employees:employees!E:E, \"Active\")",
+        "type": "kpi",
         "format": "number"
       },
       {
         "label": "On Leave Today",
         "formula": "=COUNTIFS(HR:leaves:leaves!D:D, \"<\"&TODAY(), HR:leaves:leaves!E:E, \">\"&TODAY(), HR:leaves:leaves!F:F, \"Approved\")",
+        "type": "kpi",
         "format": "number",
         "color": "#FF9800"
       },
       {
         "label": "Monthly Payroll",
-        "formula": "=SUM(HR:employees:employees!F:F)", 
+        "formula": "=SUM(HR:employees:employees!F:F)",
+        "type": "kpi",
         "format": "currency",
         "note": "Visible to Admin only via role logic in UI"
       }
@@ -52,17 +36,28 @@
   "tabs": [
     {
       "id": "employees",
-      "label": "Directory",
-      "columns": [
-        { "key": "photo", "label": "Photo", "type": "image" },
-        { "key": "full_name", "label": "Full Name", "type": "text", "required": true },
-        { "key": "role", "label": "Job Title", "type": "text" },
-        { "key": "department", "label": "Department", "type": "select", "options": ["Sales", "Tech", "Ops", "HR"] },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Active", "Probation", "Terminated"] },
-        { "key": "email", "label": "Work Email", "type": "email" },
-        { "key": "phone", "label": "Phone", "type": "phone" },
-        { "key": "salary", "label": "Base Salary", "type": "currency", "allowed_roles": ["admin"] },
-        { "key": "contract", "label": "Contract PDF", "type": "file", "allowed_roles": ["admin"] }
+      "label": "Employees",
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
+      "list_template": {
+        "template": "standard",
+        "title_key": "full_name",
+        "subtitle_key": "role",
+        "trailing_key": "status",
+        "detail_keys": ["department", "email", "phone"]
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "full_name",
+        "subtitle_key": "role",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Active", "key": "active", "rules": [ { "field": "status", "operator": "==", "value": "Active" } ] },
+        { "label": "Probation", "key": "probation", "rules": [ { "field": "status", "operator": "==", "value": "Probation" } ] },
+        { "label": "Sales", "key": "sales", "rules": [ { "field": "department", "operator": "==", "value": "Sales" } ] },
+        { "label": "Tech", "key": "tech", "rules": [ { "field": "department", "operator": "==", "value": "Tech" } ] },
+        { "label": "Ops", "key": "ops", "rules": [ { "field": "department", "operator": "==", "value": "Ops" } ] }
       ],
       "initial_data": [
         {
@@ -98,163 +93,17 @@
           "salary": 45000,
           "photo": ""
         }
-      ]
-    },
-    {
-      "id": "leaves",
-      "label": "Leave Requests",
-      "depends_on": "settings.enable_leave",
-      "list_template": {
-        "template": "standard",
-        "title_key": "employee_ref",
-        "subtitle_key": "type",
-        "trailing_key": "status"
-      },
-      "columns": [
-        { "key": "employee_ref", "label": "Employee", "type": "relation", "options": "employees", "display_field": "full_name" },
-        { "key": "type", "label": "Type", "type": "select", "options": ["Annual", "Sick", "Unpaid"] },
-        { "key": "start_date", "label": "Start", "type": "date", "required": true },
-        { "key": "end_date", "label": "End", "type": "date", "required": true },
-        { "key": "days_count", "label": "Total Days", "type": "formula", "formula": "=end_date - start_date + 1" },
-        { "key": "reason", "label": "Reason", "type": "text" },
-        { "key": "status", "label": "Approval", "type": "select", "options": ["Pending", "Approved", "Rejected"], "default": "Pending" }
       ],
-      "initial_data": [
-        {
-          "record_id": 101,
-          "employee_ref": 2,
-          "type": "Sick",
-          "start_date": "2024-03-01",
-          "end_date": "2024-03-02",
-          "days_count": 2,
-          "reason": "Flu",
-          "status": "Approved"
-        },
-        {
-          "record_id": 102,
-          "employee_ref": 3,
-          "type": "Annual",
-          "start_date": "2024-04-10",
-          "end_date": "2024-04-15",
-          "days_count": 6,
-          "reason": "Family Vacation",
-          "status": "Pending"
-        }
-      ]
-    },
-    {
-      "id": "candidates",
-      "label": "Recruitment",
-      "depends_on": "settings.enable_recruitment",
-      "list_template": {
-        "template": "kanban",
-        "group_by": "stage",
-        "title_key": "candidate_name",
-        "subtitle_key": "position"
-      },
       "columns": [
-        { "key": "candidate_name", "label": "Name", "type": "text", "required": true },
-        { "key": "position", "label": "Role Applied For", "type": "text" },
-        { "key": "stage", "label": "Pipeline Stage", "type": "select", "options": ["Applied", "Screening", "Interview", "Offer", "Hired"] },
-        { "key": "resume", "label": "Resume", "type": "file" },
-        { "key": "rating", "label": "Score (1-5)", "type": "number" }
-      ],
-      "initial_data": [
-        {
-          "record_id": 1,
-          "candidate_name": "Michael Ross",
-          "position": "Senior Technician",
-          "stage": "Interview",
-          "rating": 4
-        },
-        {
-          "record_id": 2,
-          "candidate_name": "Jessica Lee",
-          "position": "Sales Associate",
-          "stage": "Applied",
-          "rating": 0
-        }
-      ]
-    },
-    {
-      "id": "payroll",
-      "label": "Payroll Runs",
-      "depends_on": "settings.enable_payroll",
-      "allowed_roles": ["admin"],
-      "columns": [
-        { "key": "month", "label": "Month", "type": "date", "format": "MM-yyyy" },
-        { "key": "employee_ref", "label": "Employee", "type": "relation", "options": "employees" },
-        { "key": "basic_pay", "label": "Basic", "type": "lookup", "lookup_source": "employees", "lookup_key": "salary", "match_key": "employee_ref" },
-        { "key": "bonuses", "label": "Bonuses", "type": "currency" },
-        { "key": "deductions", "label": "Deductions", "type": "currency" },
-        { "key": "net_pay", "label": "Net Payable", "type": "formula", "formula": "=basic_pay + bonuses - deductions" },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Draft", "Processed", "Paid"] }
-      ],
-      "initial_data": [
-        {
-          "record_id": 201,
-          "month": "2024-02-28",
-          "employee_ref": 1,
-          "basic_pay": 85000,
-          "bonuses": 5000,
-          "deductions": 2000,
-          "net_pay": 88000,
-          "status": "Paid"
-        },
-        {
-          "record_id": 202,
-          "month": "2024-02-28",
-          "employee_ref": 3,
-          "basic_pay": 45000,
-          "bonuses": 1200,
-          "deductions": 1000,
-          "net_pay": 45200,
-          "status": "Paid"
-        }
-      ]
-    },
-    {
-      "id": "expenses",
-      "label": "Expense Claims",
-      "depends_on": "settings.enable_expenses",
-      "columns": [
-        { "key": "employee_ref", "label": "Claimant", "type": "relation", "options": "employees", "default": "user.email" },
-        { "key": "date", "label": "Date", "type": "date" },
-        { "key": "category", "label": "Category", "type": "select", "options": ["Travel", "Meals", "Office Supplies"] },
-        { "key": "amount", "label": "Amount", "type": "currency", "required": true },
-        { "key": "receipt", "label": "Receipt", "type": "image", "required": true },
-        { 
-          "key": "payout_account", 
-          "label": "Paid From", 
-          "type": "relation", 
-          "options": "finance.chart_of_accounts",
-          "filter": { "key": "type", "value": "Asset" },
-          "depends_on": "status",
-          "depends_value": "Paid"
-        },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Submitted", "Approved", "Paid"] }
-      ],
-      "initial_data": [
-        {
-          "record_id": 301,
-          "employee_ref": 1,
-          "date": "2024-03-05",
-          "category": "Office Supplies",
-          "amount": 45.50,
-          "receipt": "",
-          "status": "Approved",
-          "payout_account": 101
-        },
-        {
-          "record_id": 302,
-          "employee_ref": 2,
-          "date": "2024-03-10",
-          "category": "Travel",
-          "amount": 120.00,
-          "receipt": "",
-          "status": "Submitted",
-          "payout_account": ""
-        }
+        { "key": "photo", "label": "Photo", "type": "image" },
+        { "key": "full_name", "label": "Full Name", "type": "text", "required": true },
+        { "key": "role", "label": "Job Title", "type": "text" },
+        { "key": "department", "label": "Department", "type": "select", "options": ["Sales", "Tech", "Ops", "HR"] },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Active", "Probation", "Terminated"] },
+        { "key": "email", "label": "Work Email", "type": "email" },
+        { "key": "phone", "label": "Phone", "type": "phone" },
+        { "key": "salary", "label": "Base Salary", "type": "currency", "allowed_roles": ["admin"] },
+        { "key": "contract", "label": "Contract PDF", "type": "file", "allowed_roles": ["admin"] }
       ]
     }
   ]

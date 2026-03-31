@@ -1,0 +1,66 @@
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "budgets" },
+    "icon": { "label": "Icon", "type": "icon", "value": "account_balance" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#6366F1" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Budgets", "help": "Main module title" }
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Expense Breakdown",
+        "formula": "=CHART(Finance:bills:bills!C:C)",
+        "format": "text",
+        "type": "pie"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "budgets",
+      "label": "Budgets",
+      "depends_on": "settings.enable_budgeting",
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
+      "list_template": {
+        "template": "standard",
+        "title_key": "year",
+        "subtitle_key": "category",
+        "trailing_key": "budget_limit",
+        "detail_keys": ["notes"]
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "year",
+        "subtitle_key": "category",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "2024", "key": "fy_2024", "rules": [ { "field": "year", "operator": "==", "value": "2024" } ] }
+      ],
+      "initial_data": [
+        {
+          "record_id": 1,
+          "year": "2024",
+          "category": 601,
+          "budget_limit": 18000,
+          "notes": "Annual Office Rent Contract"
+        },
+        {
+          "record_id": 2,
+          "year": "2024",
+          "category": 602,
+          "budget_limit": 2000,
+          "notes": "Stationery and coffee supplies"
+        }
+      ],
+      "columns": [
+        { "key": "year", "label": "Fiscal Year", "type": "text" },
+        { "key": "category", "label": "Category", "type": "relation", "options": "chart_of_accounts" },
+        { "key": "budget_limit", "label": "Approved Budget", "type": "currency" },
+        { "key": "notes", "label": "Notes", "type": "long_text" }
+      ]
+    }
+  ]
+}
