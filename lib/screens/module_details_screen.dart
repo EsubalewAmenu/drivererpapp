@@ -62,11 +62,9 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
       }
     } catch (e) {
       debugPrint('Error loading module config in details: $e');
-      if (mounted && widget.moduleInfo['name'] == 'HR') {
         setState(() {
           _errorMessage = "Error Loading Module";
         });
-      }
     }
   }
 
@@ -618,12 +616,6 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
           {'title': 'Employee Records', 'subtitle': 'Manage personal and professional details.'},
           {'title': 'Leave Management', 'subtitle': 'Track vacation and sick days easily.'},
           {'title': 'Payroll Integration', 'subtitle': 'Simplify salary processing.'},
-        ];
-      case 'Sales':
-        return [
-          {'title': 'Order Management', 'subtitle': 'Create and track orders efficiently.'},
-          {'title': 'Invoice Generation', 'subtitle': 'Send professional invoices in seconds.'},
-          {'title': 'Sales Analytics', 'subtitle': 'Visualize your sales performance.'},
         ];
       default:
         return [

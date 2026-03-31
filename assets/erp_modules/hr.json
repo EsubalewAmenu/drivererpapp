@@ -4,46 +4,30 @@
     "icon": { "label": "Icon", "type": "icon", "value": "badge" },
     "primaryColor": { "label": "Primary Color", "type": "color", "value": "#8B5CF6" },
     "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "HR" },
-    
-    "enable_leave": {
-      "label": "Enable Leave Management?",
-      "type": "boolean",
-      "value": true
-    },
-    "enable_recruitment": {
-      "label": "Enable Recruitment (ATS)?",
-      "type": "boolean",
-      "value": false
-    },
-    "enable_payroll": {
-      "label": "Enable Payroll?",
-      "type": "boolean",
-      "value": true,
-      "note": "Requires Finance module for payouts"
-    },
-    "enable_expenses": {
-      "label": "Enable Expense Claims?",
-      "type": "boolean",
-      "value": true
-    }
+    "name": { "label": "Name", "type": "text", "value": "HR", "help": "Main module title" },
+
+    "extensions": ["Leave Requests", "Recruitments", "Payroll", "Expense Claims"]
+
   },
   "dashboard": {
     "cards": [
       {
         "label": "Total Headcount",
         "formula": "=COUNTIFS(HR:employees:employees!E:E, \"Active\")",
+        "type": "kpi",
         "format": "number"
       },
       {
         "label": "On Leave Today",
         "formula": "=COUNTIFS(HR:leaves:leaves!D:D, \"<\"&TODAY(), HR:leaves:leaves!E:E, \">\"&TODAY(), HR:leaves:leaves!F:F, \"Approved\")",
+        "type": "kpi",
         "format": "number",
         "color": "#FF9800"
       },
       {
         "label": "Monthly Payroll",
-        "formula": "=SUM(HR:employees:employees!F:F)", 
+        "formula": "=SUM(HR:employees:employees!F:F)",
+        "type": "kpi",
         "format": "currency",
         "note": "Visible to Admin only via role logic in UI"
       }
@@ -52,17 +36,28 @@
   "tabs": [
     {
       "id": "employees",
-      "label": "Directory",
-      "columns": [
-        { "key": "photo", "label": "Photo", "type": "image" },
-        { "key": "full_name", "label": "Full Name", "type": "text", "required": true },
-        { "key": "role", "label": "Job Title", "type": "text" },
-        { "key": "department", "label": "Department", "type": "select", "options": ["Sales", "Tech", "Ops", "HR"] },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Active", "Probation", "Terminated"] },
-        { "key": "email", "label": "Work Email", "type": "email" },
-        { "key": "phone", "label": "Phone", "type": "phone" },
-        { "key": "salary", "label": "Base Salary", "type": "currency", "allowed_roles": ["admin"] },
-        { "key": "contract", "label": "Contract PDF", "type": "file", "allowed_roles": ["admin"] }
+      "label": "Employees",
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
+      "list_template": {
+        "template": "standard",
+        "title_key": "full_name",
+        "subtitle_key": "role",
+        "trailing_key": "status",
+        "detail_keys": ["department", "email", "phone"]
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "full_name",
+        "subtitle_key": "role",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Active", "key": "active", "rules": [ { "field": "status", "operator": "==", "value": "Active" } ] },
+        { "label": "Probation", "key": "probation", "rules": [ { "field": "status", "operator": "==", "value": "Probation" } ] },
+        { "label": "Sales", "key": "sales", "rules": [ { "field": "department", "operator": "==", "value": "Sales" } ] },
+        { "label": "Tech", "key": "tech", "rules": [ { "field": "department", "operator": "==", "value": "Tech" } ] },
+        { "label": "Ops", "key": "ops", "rules": [ { "field": "department", "operator": "==", "value": "Ops" } ] }
       ],
       "initial_data": [
         {
@@ -98,26 +93,43 @@
           "salary": 45000,
           "photo": ""
         }
+      ],
+      "columns": [
+        { "key": "photo", "label": "Photo", "type": "image" },
+        { "key": "full_name", "label": "Full Name", "type": "text", "required": true },
+        { "key": "role", "label": "Job Title", "type": "text" },
+        { "key": "department", "label": "Department", "type": "select", "options": ["Sales", "Tech", "Ops", "HR"] },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Active", "Probation", "Terminated"] },
+        { "key": "email", "label": "Work Email", "type": "email" },
+        { "key": "phone", "label": "Phone", "type": "phone" },
+        { "key": "salary", "label": "Base Salary", "type": "currency", "allowed_roles": ["admin"] },
+        { "key": "contract", "label": "Contract PDF", "type": "file", "allowed_roles": ["admin"] }
       ]
     },
     {
       "id": "leaves",
       "label": "Leave Requests",
       "depends_on": "settings.enable_leave",
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
       "list_template": {
         "template": "standard",
         "title_key": "employee_ref",
         "subtitle_key": "type",
-        "trailing_key": "status"
+        "trailing_key": "status",
+        "detail_keys": ["start_date", "end_date", "days_count"]
       },
-      "columns": [
-        { "key": "employee_ref", "label": "Employee", "type": "relation", "options": "employees", "display_field": "full_name" },
-        { "key": "type", "label": "Type", "type": "select", "options": ["Annual", "Sick", "Unpaid"] },
-        { "key": "start_date", "label": "Start", "type": "date", "required": true },
-        { "key": "end_date", "label": "End", "type": "date", "required": true },
-        { "key": "days_count", "label": "Total Days", "type": "formula", "formula": "=end_date - start_date + 1" },
-        { "key": "reason", "label": "Reason", "type": "text" },
-        { "key": "status", "label": "Approval", "type": "select", "options": ["Pending", "Approved", "Rejected"], "default": "Pending" }
+      "detail_template": {
+        "template": "standard",
+        "title_key": "employee_ref",
+        "subtitle_key": "type",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Pending", "key": "pending", "rules": [ { "field": "status", "operator": "==", "value": "Pending" } ] },
+        { "label": "Approved", "key": "approved", "rules": [ { "field": "status", "operator": "==", "value": "Approved" } ] },
+        { "label": "Sick", "key": "sick", "rules": [ { "field": "type", "operator": "==", "value": "Sick" } ] },
+        { "label": "Annual", "key": "annual", "rules": [ { "field": "type", "operator": "==", "value": "Annual" } ] }
       ],
       "initial_data": [
         {
@@ -140,24 +152,40 @@
           "reason": "Family Vacation",
           "status": "Pending"
         }
+      ],
+      "columns": [
+        { "key": "employee_ref", "label": "Employee", "type": "relation", "options": "employees", "display_field": "full_name" },
+        { "key": "type", "label": "Type", "type": "select", "options": ["Annual", "Sick", "Unpaid"] },
+        { "key": "start_date", "label": "Start", "type": "date", "required": true },
+        { "key": "end_date", "label": "End", "type": "date", "required": true },
+        { "key": "days_count", "label": "Total Days", "type": "formula", "formula": "=end_date - start_date + 1" },
+        { "key": "reason", "label": "Reason", "type": "text" },
+        { "key": "status", "label": "Approval", "type": "select", "options": ["Pending", "Approved", "Rejected"], "default": "Pending" }
       ]
     },
     {
-      "id": "candidates",
+      "id": "recruitments",
       "label": "Recruitment",
       "depends_on": "settings.enable_recruitment",
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
       "list_template": {
         "template": "kanban",
         "group_by": "stage",
         "title_key": "candidate_name",
-        "subtitle_key": "position"
+        "subtitle_key": "position",
+        "trailing_key": "rating"
       },
-      "columns": [
-        { "key": "candidate_name", "label": "Name", "type": "text", "required": true },
-        { "key": "position", "label": "Role Applied For", "type": "text" },
-        { "key": "stage", "label": "Pipeline Stage", "type": "select", "options": ["Applied", "Screening", "Interview", "Offer", "Hired"] },
-        { "key": "resume", "label": "Resume", "type": "file" },
-        { "key": "rating", "label": "Score (1-5)", "type": "number" }
+      "detail_template": {
+        "template": "standard",
+        "title_key": "candidate_name",
+        "subtitle_key": "position",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Applied", "key": "applied", "rules": [ { "field": "stage", "operator": "==", "value": "Applied" } ] },
+        { "label": "Interview", "key": "interview", "rules": [ { "field": "stage", "operator": "==", "value": "Interview" } ] },
+        { "label": "Hired", "key": "hired", "rules": [ { "field": "stage", "operator": "==", "value": "Hired" } ] }
       ],
       "initial_data": [
         {
@@ -174,6 +202,13 @@
           "stage": "Applied",
           "rating": 0
         }
+      ],
+      "columns": [
+        { "key": "candidate_name", "label": "Name", "type": "text", "required": true },
+        { "key": "position", "label": "Role Applied For", "type": "text" },
+        { "key": "stage", "label": "Pipeline Stage", "type": "select", "options": ["Applied", "Screening", "Interview", "Offer", "Hired"] },
+        { "key": "resume", "label": "Resume", "type": "file" },
+        { "key": "rating", "label": "Score (1-5)", "type": "number" }
       ]
     },
     {
@@ -181,14 +216,25 @@
       "label": "Payroll Runs",
       "depends_on": "settings.enable_payroll",
       "allowed_roles": ["admin"],
-      "columns": [
-        { "key": "month", "label": "Month", "type": "date", "format": "MM-yyyy" },
-        { "key": "employee_ref", "label": "Employee", "type": "relation", "options": "employees" },
-        { "key": "basic_pay", "label": "Basic", "type": "lookup", "lookup_source": "employees", "lookup_key": "salary", "match_key": "employee_ref" },
-        { "key": "bonuses", "label": "Bonuses", "type": "currency" },
-        { "key": "deductions", "label": "Deductions", "type": "currency" },
-        { "key": "net_pay", "label": "Net Payable", "type": "formula", "formula": "=basic_pay + bonuses - deductions" },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Draft", "Processed", "Paid"] }
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
+      "list_template": {
+        "template": "standard",
+        "title_key": "employee_ref",
+        "subtitle_key": "month",
+        "trailing_key": "status",
+        "detail_keys": ["basic_pay", "bonuses", "deductions", "net_pay"]
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "employee_ref",
+        "subtitle_key": "month",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Draft", "key": "draft", "rules": [ { "field": "status", "operator": "==", "value": "Draft" } ] },
+        { "label": "Processed", "key": "processed", "rules": [ { "field": "status", "operator": "==", "value": "Processed" } ] },
+        { "label": "Paid", "key": "paid", "rules": [ { "field": "status", "operator": "==", "value": "Paid" } ] }
       ],
       "initial_data": [
         {
@@ -211,28 +257,40 @@
           "net_pay": 45200,
           "status": "Paid"
         }
+      ],
+      "columns": [
+        { "key": "month", "label": "Month", "type": "date", "format": "MM-yyyy" },
+        { "key": "employee_ref", "label": "Employee", "type": "relation", "options": "employees" },
+        { "key": "basic_pay", "label": "Basic", "type": "lookup", "lookup_source": "employees", "lookup_key": "salary", "match_key": "employee_ref" },
+        { "key": "bonuses", "label": "Bonuses", "type": "currency" },
+        { "key": "deductions", "label": "Deductions", "type": "currency" },
+        { "key": "net_pay", "label": "Net Payable", "type": "formula", "formula": "=basic_pay + bonuses - deductions" },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Draft", "Processed", "Paid"] }
       ]
     },
     {
-      "id": "expenses",
+      "id": "expense_claims",
       "label": "Expense Claims",
       "depends_on": "settings.enable_expenses",
-      "columns": [
-        { "key": "employee_ref", "label": "Claimant", "type": "relation", "options": "employees", "default": "user.email" },
-        { "key": "date", "label": "Date", "type": "date" },
-        { "key": "category", "label": "Category", "type": "select", "options": ["Travel", "Meals", "Office Supplies"] },
-        { "key": "amount", "label": "Amount", "type": "currency", "required": true },
-        { "key": "receipt", "label": "Receipt", "type": "image", "required": true },
-        { 
-          "key": "payout_account", 
-          "label": "Paid From", 
-          "type": "relation", 
-          "options": "finance.chart_of_accounts",
-          "filter": { "key": "type", "value": "Asset" },
-          "depends_on": "status",
-          "depends_value": "Paid"
-        },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Submitted", "Approved", "Paid"] }
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
+      "list_template": {
+        "template": "standard",
+        "title_key": "employee_ref",
+        "subtitle_key": "category",
+        "trailing_key": "status",
+        "detail_keys": ["date", "amount", "payout_account"]
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "employee_ref",
+        "subtitle_key": "category",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Submitted", "key": "submitted", "rules": [ { "field": "status", "operator": "==", "value": "Submitted" } ] },
+        { "label": "Approved", "key": "approved", "rules": [ { "field": "status", "operator": "==", "value": "Approved" } ] },
+        { "label": "Paid", "key": "paid", "rules": [ { "field": "status", "operator": "==", "value": "Paid" } ] }
       ],
       "initial_data": [
         {
@@ -255,6 +313,23 @@
           "status": "Submitted",
           "payout_account": ""
         }
+      ],
+      "columns": [
+        { "key": "employee_ref", "label": "Claimant", "type": "relation", "options": "employees", "default": "user.email" },
+        { "key": "date", "label": "Date", "type": "date" },
+        { "key": "category", "label": "Category", "type": "select", "options": ["Travel", "Meals", "Office Supplies"] },
+        { "key": "amount", "label": "Amount", "type": "currency", "required": true },
+        { "key": "receipt", "label": "Receipt", "type": "image", "required": true },
+        {
+          "key": "payout_account",
+          "label": "Paid From",
+          "type": "relation",
+          "options": "finance.chart_of_accounts",
+          "filter": { "key": "type", "value": "Asset" },
+          "depends_on": "status",
+          "depends_value": "Paid"
+        },
+        { "key": "status", "label": "Status", "type": "select", "options": ["Submitted", "Approved", "Paid"] }
       ]
     }
   ]
