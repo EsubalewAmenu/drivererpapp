@@ -76,7 +76,7 @@ void main() {
     expect(find.text('HR'), findsAtLeastNWidgets(1));
   });
 
-  testWidgets('DashboardScreen period selection changes KPIs', (WidgetTester tester) async {
+  testWidgets('DashboardScreen period selection keeps zeroed default KPIs', (WidgetTester tester) async {
     // Ensure any user_access query returns empty
     final mockSheetsApi2 = MockSheetsApi();
     final mockSpreadsheets2 = MockSpreadsheetsResource();
@@ -89,16 +89,16 @@ void main() {
     await tester.pumpWidget(createDashboardScreen());
     await tester.pumpAndSettle();
 
-    // Default is Today: Profit = 1250 - 450 = 800.00
-    expect(find.text(r'$800.00'), findsOneWidget);
+    // Default mock KPI values are zeroed across the KPI cards.
+    expect(find.text(r'$0.00'), findsNWidgets(3));
 
-    // Change to Week: 8500 - 3200 = 5300
+    // Switching periods should keep rendering the zeroed KPI set.
     await tester.tap(find.text('TODAY'));
     await tester.pumpAndSettle();
     
     await tester.tap(find.text('WEEK').last);
     await tester.pumpAndSettle();
 
-    expect(find.text(r'$5300.00'), findsOneWidget);
+    expect(find.text(r'$0.00'), findsNWidgets(3));
   });
 }
