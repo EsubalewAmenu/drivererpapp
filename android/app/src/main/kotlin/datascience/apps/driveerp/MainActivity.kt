@@ -1,4 +1,4 @@
-package com.datascience.driveerp
+package datascience.apps.driveerp
 
 import io.flutter.embedding.android.FlutterActivity
 

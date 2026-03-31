@@ -7,34 +7,34 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:810073225620:android:fdac3c38d50d644c8fb781",
+        "mobilesdk_app_id": "1:810073225620:android:02588a31768f186b8fb781",
         "android_client_info": {
-          "package_name": "com.datascience.driveerp"
+          "package_name": "datascience.apps.driveerp"
         }
       },
       "oauth_client": [
         {
-          "client_id": "810073225620-eu089u0fl90tmgbcqkrp48cd9rn9oi71.apps.googleusercontent.com",
+          "client_id": "810073225620-a34hst7f688ib2qojebto1db914tr6e0.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
-            "package_name": "com.datascience.driveerp",
-            "certificate_hash": "34b5a1f991746632269e092ed2371c268b2c9ff7"
-          }
-        },
-        {
-          "client_id": "810073225620-h24bvmb8i25o1r6mco3hj6t73ctei6a6.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.datascience.driveerp",
-            "certificate_hash": "eac4e74c04484f292e05ff76a960258b3315abd6"
-          }
-        },
-        {
-          "client_id": "810073225620-l4m98eofc6dir529ineeiu88vkf141sj.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "com.datascience.driveerp",
+            "package_name": "datascience.apps.driveerp",
             "certificate_hash": "4fa1a92dc61234f04d6de50da28c97eb2c5281fa"
+          }
+        },
+        {
+          "client_id": "810073225620-cl4kemkpugffpg0fkv81v0uvsfe199u4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "datascience.apps.driveerp",
+            "certificate_hash": "ccee98650c335ea96f3a1acf117c9927f0542d2e"
+          }
+        },
+        {
+          "client_id": "810073225620-hc1erdna6obaumgs6uq7odbsh5f1s4bk.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "datascience.apps.driveerp",
+            "certificate_hash": "34b5a1f991746632269e092ed2371c268b2c9ff7"
           }
         },
         {
@@ -58,7 +58,7 @@
               "client_id": "810073225620-1el8pdnr6m83vpbh251pt6fublu30msj.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.datascience.driveerp"
+                "bundle_id": "datascience.apps.driveerp"
               }
             }
           ]
