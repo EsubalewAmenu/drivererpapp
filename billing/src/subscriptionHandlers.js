@@ -489,7 +489,7 @@ function createSubscriptionHandlers({admin, db, logger, onRequest}) {
 			const normalize = (value) => value.toString().toLowerCase().trim();
 			const normalizedName = moduleName ? normalize(moduleName) : "";
 			const normalizedId = moduleId ? normalize(moduleId) : "";
-			const freeModules = ["crm", "inventory", "hr"];
+			const freeModules = ["crm", "inventory", "hr", "finance"];
 			const isFree = freeModules.includes(normalizedId) || freeModules.includes(normalizedName);
 
 			res.status(200).json({
