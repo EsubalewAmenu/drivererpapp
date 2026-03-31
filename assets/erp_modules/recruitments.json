@@ -1,0 +1,70 @@
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "recruitments" },
+    "icon": { "label": "Icon", "type": "icon", "value": "badge" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#8B5CF6" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Recruitments", "help": "Main module title" }
+
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "Total Headcount",
+        "formula": "=COUNTIFS(HR:employees:employees!E:E, \"Active\")",
+        "type": "kpi",
+        "format": "number"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "recruitments",
+      "label": "Recruitment",
+      "depends_on": "settings.enable_recruitment",
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
+      "list_template": {
+        "template": "kanban",
+        "group_by": "stage",
+        "title_key": "candidate_name",
+        "subtitle_key": "position",
+        "trailing_key": "rating"
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "candidate_name",
+        "subtitle_key": "position",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Applied", "key": "applied", "rules": [ { "field": "stage", "operator": "==", "value": "Applied" } ] },
+        { "label": "Interview", "key": "interview", "rules": [ { "field": "stage", "operator": "==", "value": "Interview" } ] },
+        { "label": "Hired", "key": "hired", "rules": [ { "field": "stage", "operator": "==", "value": "Hired" } ] }
+      ],
+      "initial_data": [
+        {
+          "record_id": 1,
+          "candidate_name": "Michael Ross",
+          "position": "Senior Technician",
+          "stage": "Interview",
+          "rating": 4
+        },
+        {
+          "record_id": 2,
+          "candidate_name": "Jessica Lee",
+          "position": "Sales Associate",
+          "stage": "Applied",
+          "rating": 0
+        }
+      ],
+      "columns": [
+        { "key": "candidate_name", "label": "Name", "type": "text", "required": true },
+        { "key": "position", "label": "Role Applied For", "type": "text" },
+        { "key": "stage", "label": "Pipeline Stage", "type": "select", "options": ["Applied", "Screening", "Interview", "Offer", "Hired"] },
+        { "key": "resume", "label": "Resume", "type": "file" },
+        { "key": "rating", "label": "Score (1-5)", "type": "number" }
+      ]
+    }
+  ]
+}

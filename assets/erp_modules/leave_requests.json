@@ -1,0 +1,80 @@
+{
+  "settings": {
+    "id": { "label": "Module ID", "type": "text", "value": "leave_requests" },
+    "icon": { "label": "Icon", "type": "icon", "value": "badge" },
+    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#8B5CF6" },
+    "version": { "label": "Version", "type": "text", "value": "1.0" },
+    "name": { "label": "Name", "type": "text", "value": "Leave Requests", "help": "Main module title" }
+
+  },
+  "dashboard": {
+    "cards": [
+      {
+        "label": "On Leave Today",
+        "formula": "=COUNTIFS(HR:leaves:leaves!D:D, \"<\"&TODAY(), HR:leaves:leaves!E:E, \">\"&TODAY(), HR:leaves:leaves!F:F, \"Approved\")",
+        "type": "kpi",
+        "format": "number",
+        "color": "#FF9800"
+      }
+    ]
+  },
+  "tabs": [
+    {
+      "id": "leaves",
+      "label": "Leave Requests",
+      "depends_on": "settings.enable_leave",
+      "enable_custom_filters": true,
+      "load_sub_table_data_automatically": false,
+      "list_template": {
+        "template": "standard",
+        "title_key": "employee_ref",
+        "subtitle_key": "type",
+        "trailing_key": "status",
+        "detail_keys": ["start_date", "end_date", "days_count"]
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "employee_ref",
+        "subtitle_key": "type",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        { "label": "Pending", "key": "pending", "rules": [ { "field": "status", "operator": "==", "value": "Pending" } ] },
+        { "label": "Approved", "key": "approved", "rules": [ { "field": "status", "operator": "==", "value": "Approved" } ] },
+        { "label": "Sick", "key": "sick", "rules": [ { "field": "type", "operator": "==", "value": "Sick" } ] },
+        { "label": "Annual", "key": "annual", "rules": [ { "field": "type", "operator": "==", "value": "Annual" } ] }
+      ],
+      "initial_data": [
+        {
+          "record_id": 101,
+          "employee_ref": 2,
+          "type": "Sick",
+          "start_date": "2024-03-01",
+          "end_date": "2024-03-02",
+          "days_count": 2,
+          "reason": "Flu",
+          "status": "Approved"
+        },
+        {
+          "record_id": 102,
+          "employee_ref": 3,
+          "type": "Annual",
+          "start_date": "2024-04-10",
+          "end_date": "2024-04-15",
+          "days_count": 6,
+          "reason": "Family Vacation",
+          "status": "Pending"
+        }
+      ],
+      "columns": [
+        { "key": "employee_ref", "label": "Employee", "type": "relation", "options": "employees", "display_field": "full_name" },
+        { "key": "type", "label": "Type", "type": "select", "options": ["Annual", "Sick", "Unpaid"] },
+        { "key": "start_date", "label": "Start", "type": "date", "required": true },
+        { "key": "end_date", "label": "End", "type": "date", "required": true },
+        { "key": "days_count", "label": "Total Days", "type": "formula", "formula": "=end_date - start_date + 1" },
+        { "key": "reason", "label": "Reason", "type": "text" },
+        { "key": "status", "label": "Approval", "type": "select", "options": ["Pending", "Approved", "Rejected"], "default": "Pending" }
+      ]
+    }
+  ]
+}
