@@ -19,7 +19,7 @@
   },
   "tabs": [
     {
-      "id": "assets",
+      "id": "fixed_assets",
       "label": "Fixed Assets",
       "depends_on": "settings.enable_assets",
       "enable_custom_filters": true,

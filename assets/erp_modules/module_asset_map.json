@@ -16,7 +16,7 @@
   "finance": "finance.json",
   "Invoicing": "invoicing.json",
   "Expenses / Bills": "bills.json",
-  "Fixed Assets": "fixed_assets.json",
+  "Fixed Assets (Free)": "fixed_assets.json",
   "Budgets (Free)": "budgets.json"
 
 }

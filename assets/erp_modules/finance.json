@@ -6,7 +6,7 @@
     "version": { "label": "Version", "type": "text", "value": "1.0" },
     "name": { "label": "Name", "type": "text", "value": "Finance", "help": "Main module title" },
 
-    "extensions": ["Invoicing", "Expenses / Bills", "Fixed Assets", "Budgets (Free)"]
+    "extensions": ["Invoicing", "Expenses / Bills", "Fixed Assets (Free)", "Budgets (Free)"]
   },
   "dashboard": {
     "cards": [
