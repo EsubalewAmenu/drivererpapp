@@ -43,9 +43,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   
   // Mock KPI Data
   final Map<String, Map<String, double>> _kpiData = {
-    'Today': {'sales': 1250.00, 'expenses': 450.00},
-    'Week': {'sales': 8500.00, 'expenses': 3200.00},
-    'Month': {'sales': 35000.00, 'expenses': 42000.00}, // Loss example
+    'Today': {'sales': 0.00, 'expenses': 0.00},
+    'Week': {'sales': 0.00, 'expenses': 0.00},
+    'Month': {'sales': 0.00, 'expenses': 0.00},
   };
 
   @override
