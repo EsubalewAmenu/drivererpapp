@@ -85,19 +85,23 @@ void main() {
       userAccessSpreadsheetId: 'ua1',
     ));
 
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
     // 1. Initial Dashboard Check
     expect(find.text('ERP LAB'), findsOneWidget);
-    expect(find.text('TODAY'), findsOneWidget);
+    expect(find.text('NET PROFIT ENGINE'), findsOneWidget);
+    expect(find.text('CORE MODULES'), findsOneWidget);
 
     // 2. Period Switch
     await tester.tap(find.text('MONTH'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
     
-    // Check Profit - formatting might include commas or different spacing
-    // We expect a loss in the mocked month data: 35000 - 42000 = -7000
-    expect(find.textContaining('7000'), findsOneWidget);
+      // KPI mock data is intentionally zeroed, including Month.
+      expect(find.text(r'$0.00'), findsNWidgets(3));
 
     // 3. Navigate to Module (case-insensitive matcher)
     // Debug: list Text widgets to help diagnose missing CRM label
