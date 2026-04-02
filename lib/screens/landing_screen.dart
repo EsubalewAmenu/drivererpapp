@@ -21,6 +21,28 @@ class LandingScreen extends StatefulWidget {
 class _LandingScreenState extends State<LandingScreen> {
   bool _isLoading = true;
 
+  String _toUserFriendlyAuthError(Object error, {required String fallbackPrefix}) {
+    final raw = error.toString();
+    final lower = raw.toLowerCase();
+
+    if (lower.contains('socketexception') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('no address associated with hostname') ||
+        lower.contains('network is unreachable') ||
+        lower.contains('clientexception') ||
+        lower.contains('platformexception(network_error') ||
+        lower.contains('platformexception(netowrk_error') ||
+        lower.contains('apiexception:7')) {
+      return 'No internet connection. Please check your network and try again.';
+    }
+
+    if (lower.contains('timeout')) {
+      return 'Request timed out. Please try again in a moment.';
+    }
+
+    return '$fallbackPrefix: $error';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -285,7 +307,7 @@ class _LandingScreenState extends State<LandingScreen> {
       if (context.mounted) {
         rootNavigator.pop(); // Close loading dialog
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('Sign in failed: $e')),
+          SnackBar(content: Text(_toUserFriendlyAuthError(e, fallbackPrefix: 'Sign in failed'))),
         );
       }
     }
@@ -342,7 +364,7 @@ class _LandingScreenState extends State<LandingScreen> {
       if (context.mounted) {
         rootNavigator.pop();
         scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('Apple sign in failed: $e')),
+          SnackBar(content: Text(_toUserFriendlyAuthError(e, fallbackPrefix: 'Apple sign in failed'))),
         );
       }
     }
