@@ -66,6 +66,25 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
     }
   }
 
+  String _toUserFriendlyPurchaseError(Object error) {
+    final raw = error.toString();
+    final lower = raw.toLowerCase();
+
+    if (lower.contains('socketexception') ||
+        lower.contains('failed host lookup') ||
+        lower.contains('no address associated with hostname') ||
+        lower.contains('network is unreachable') ||
+        lower.contains('clientexception')) {
+      return 'No internet connection. Please check your network and try again.';
+    }
+
+    if (lower.contains('timeout')) {
+      return 'Request timed out. Please try again in a moment.';
+    }
+
+    return raw;
+  }
+
   Future<void> _openTopupPage() async {
     await Navigator.push(
       context,
@@ -208,7 +227,7 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
             creditsNeeded: creditsNeeded,
           );
         } else {
-          _errorMessage = e.toString();
+          _errorMessage = _toUserFriendlyPurchaseError(e);
         }
       });
     } finally {
