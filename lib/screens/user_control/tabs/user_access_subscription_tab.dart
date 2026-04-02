@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../theme/app_theme.dart';
@@ -5,6 +7,7 @@ import '../../../services/billing/billing_service.dart';
 import '../../../services/billing/credits_service.dart';
 import '../../../providers/workspace_provider.dart';
 import '../../../services/auth_service.dart';
+import '../../credits_topup_screen.dart';
 import '../../../utils/subscription_key.dart';
 
 class UserAccessSubscriptionTab extends StatefulWidget {
@@ -35,10 +38,45 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
   String _selectedPlan = 'monthly'; // 'daily', 'monthly', or 'annual'
   bool _isProcessing = false;
   String? _errorMessage;
+  int? _insufficientCurrentBalance;
+  int? _insufficientCreditsNeeded;
   bool _isUpdatingAutoRenew = false;
   String? _autoRenewError;
   bool _isManualRenewing = false;
   String? _manualRenewError;
+
+  void _setInsufficientCreditsError({required int currentBalance, required int creditsNeeded}) {
+    _errorMessage =
+        'Insufficient credits. You have $currentBalance credits, but this plan requires $creditsNeeded credits.';
+    _insufficientCurrentBalance = currentBalance;
+    _insufficientCreditsNeeded = creditsNeeded;
+  }
+
+  Map<String, dynamic>? _extractErrorPayload(Object error) {
+    final raw = error.toString();
+    final start = raw.indexOf('{');
+    final end = raw.lastIndexOf('}');
+    if (start == -1 || end <= start) return null;
+
+    try {
+      final parsed = raw.substring(start, end + 1);
+      return Map<String, dynamic>.from(jsonDecode(parsed) as Map);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _openTopupPage() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const CreditsTopupScreen()),
+    );
+    if (!mounted) return;
+    _refreshStatus();
+    setState(() {
+      _loadPricing();
+    });
+  }
 
   @override
   void initState() {
@@ -78,6 +116,8 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
     setState(() {
       _isProcessing = true;
       _errorMessage = null;
+      _insufficientCurrentBalance = null;
+      _insufficientCreditsNeeded = null;
     });
 
     try {
@@ -135,13 +175,41 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
           ),
         );
       } else {
+        final errorText = (response['error'] ?? '').toString().toLowerCase();
+        final currentBalance = (response['currentBalance'] as num?)?.toInt();
+        final creditsNeeded = (response['creditsNeeded'] as num?)?.toInt();
+        if (errorText.contains('insufficient credits') &&
+            currentBalance != null &&
+            creditsNeeded != null) {
+          setState(() {
+            _setInsufficientCreditsError(
+              currentBalance: currentBalance,
+              creditsNeeded: creditsNeeded,
+            );
+          });
+          return;
+        }
         throw Exception('Failed to process subscription');
       }
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
-        _errorMessage = e.toString();
+        final payload = _extractErrorPayload(e);
+        final errorText = (payload?['error'] ?? '').toString().toLowerCase();
+        final currentBalance = (payload?['currentBalance'] as num?)?.toInt();
+        final creditsNeeded = (payload?['creditsNeeded'] as num?)?.toInt();
+
+        if (errorText.contains('insufficient credits') &&
+            currentBalance != null &&
+            creditsNeeded != null) {
+          _setInsufficientCreditsError(
+            currentBalance: currentBalance,
+            creditsNeeded: creditsNeeded,
+          );
+        } else {
+          _errorMessage = e.toString();
+        }
       });
     } finally {
       if (!mounted) return;
@@ -922,6 +990,18 @@ class _UserAccessSubscriptionTabState extends State<UserAccessSubscriptionTab> {
                         ),
                       ),
                     ),
+                    if (_insufficientCurrentBalance != null &&
+                        _insufficientCreditsNeeded != null) ...[
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _isProcessing ? null : _openTopupPage,
+                          icon: const Icon(Icons.credit_card_rounded, size: 18),
+                          label: const Text('Top up credits'),
+                        ),
+                      ),
+                    ],
                   ],
                   if (_isProcessing) ...[
                     const SizedBox(height: 16),
