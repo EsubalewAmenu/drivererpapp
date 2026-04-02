@@ -77,7 +77,7 @@
           "key": "customer_ref",
           "label": "Customer",
           "type": "relation",
-          "options": "crm.contacts",
+          "options": "contacts",
           "display_field": "name"
         },
         { "key": "date_issued", "label": "Date", "type": "date" },

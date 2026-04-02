@@ -63,7 +63,7 @@
               "label": "Item", 
               "type": "relation", 
               "options": "variants", 
-              "display_field": "full_name" 
+              "display_field": "name" 
             },
             { "key": "qty", "label": "Qty", "type": "number" },
             { "key": "cost", "label": "Unit Cost", "type": "currency" },

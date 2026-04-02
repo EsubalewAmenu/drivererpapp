@@ -69,7 +69,8 @@
           "key": "supplier_ref",
           "label": "Supplier",
           "type": "relation",
-          "options": "crm.contacts"
+          "options": "contacts",
+          "display_field": "name"
         },
         {
           "key": "category",
