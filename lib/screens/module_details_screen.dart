@@ -69,6 +69,16 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
   }
 
   Future<void> _activateModule() async {
+    // Guard against rapid repeat taps while activation is in progress.
+    if (_isActivating) return;
+    if (mounted) {
+      setState(() {
+        _isActivating = true;
+        _statusMessage = "Verifying module access...";
+        _progress = 0.05;
+      });
+    }
+
     final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
     final authService = Provider.of<AuthService>(context, listen: false);
     final userEmail = authService.currentUser?.email;
@@ -85,6 +95,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
           const SnackBar(content: Text('User or company context is missing.')),
         );
       }
+      if (mounted) setState(() => _isActivating = false);
       return;
     }
 
@@ -122,6 +133,7 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
               ),
             ),
           );
+          if (mounted) setState(() => _isActivating = false);
           return;
         }
       }
@@ -130,15 +142,17 @@ class _ModuleDetailsScreenState extends State<ModuleDetailsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to verify subscription: $e')),
         );
+        setState(() => _isActivating = false);
       }
       return;
     }
 
-    setState(() {
-      _isActivating = true;
-      _statusMessage = "Ensuring workspace connections...";
-      _progress = 0.1;
-    });
+    if (mounted) {
+      setState(() {
+        _statusMessage = "Ensuring workspace connections...";
+        _progress = 0.1;
+      });
+    }
 
     try {
       final driveProvider = Provider.of<DriveProvider>(context, listen: false);
