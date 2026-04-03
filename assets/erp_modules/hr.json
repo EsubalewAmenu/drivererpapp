@@ -41,14 +41,14 @@
       "load_sub_table_data_automatically": false,
       "list_template": {
         "template": "standard",
-        "title_key": "full_name",
+        "title_key": "name",
         "subtitle_key": "role",
         "trailing_key": "status",
         "detail_keys": ["department", "email", "phone"]
       },
       "detail_template": {
         "template": "standard",
-        "title_key": "full_name",
+        "title_key": "name",
         "subtitle_key": "role",
         "show_all_fields": true
       },
@@ -62,7 +62,7 @@
       "initial_data": [
         {
           "record_id": 1,
-          "full_name": "Sarah Miller",
+          "name": "Sarah Miller",
           "role": "General Manager",
           "department": "Ops",
           "status": "Active",
@@ -73,7 +73,7 @@
         },
         {
           "record_id": 2,
-          "full_name": "David Chen",
+          "name": "David Chen",
           "role": "Lead Technician",
           "department": "Tech",
           "status": "Active",
@@ -84,7 +84,7 @@
         },
         {
           "record_id": 3,
-          "full_name": "Emily Johnson",
+          "name": "Emily Johnson",
           "role": "Sales Associate",
           "department": "Sales",
           "status": "Probation",
@@ -96,7 +96,7 @@
       ],
       "columns": [
         { "key": "photo", "label": "Photo", "type": "image" },
-        { "key": "full_name", "label": "Full Name", "type": "text", "required": true },
+        { "key": "name", "label": "Full Name", "type": "text", "required": true },
         { "key": "role", "label": "Job Title", "type": "text" },
         { "key": "department", "label": "Department", "type": "select", "options": ["Sales", "Tech", "Ops", "HR"] },
         { "key": "status", "label": "Status", "type": "select", "options": ["Active", "Probation", "Terminated"] },

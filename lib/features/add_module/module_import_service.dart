@@ -70,17 +70,34 @@ class ModuleImportService {
 
     onProgress?.call('Preparing tab config...', 0.65);
     final sheetInfo = await driveService.sheetsApi.spreadsheets.get(spreadsheetId);
-    final sheetTitle = sheetInfo.sheets?.first.properties?.title ?? 'Sheet1';
+    final sheetTitles = (sheetInfo.sheets ?? const <dynamic>[])
+        .map((s) => s.properties?.title?.trim() ?? '')
+        .where((title) => title.isNotEmpty)
+        .toList();
 
-    final headers = await _readHeaderRow(spreadsheetId, sheetTitle);
-    final columns = _buildColumns(headers);
+    final uniqueSheetTitles = <String>[];
+    final seen = <String>{};
+    for (final title in sheetTitles) {
+      if (seen.add(title)) uniqueSheetTitles.add(title);
+    }
 
-    final tabConfig = TabConfig(
-      id: sheetTitle,
-      label: sheetTitle,
-      columns: columns,
-      fileId: spreadsheetId,
-    );
+    if (uniqueSheetTitles.isEmpty) {
+      uniqueSheetTitles.add('Sheet1');
+    }
+
+    final tabConfigs = <TabConfig>[];
+    for (final sheetTitle in uniqueSheetTitles) {
+      final headers = await _readHeaderRow(spreadsheetId, sheetTitle);
+      final columns = _buildColumns(headers);
+      tabConfigs.add(
+        TabConfig(
+          id: sheetTitle,
+          label: sheetTitle,
+          columns: columns,
+          fileId: spreadsheetId,
+        ),
+      );
+    }
 
     final settings = <String, dynamic>{
       'name': SettingItem(label: 'Name', type: 'text', value: moduleName).toJson(),
@@ -92,7 +109,7 @@ class ModuleImportService {
     final config = {
       'settings': settings,
       'dashboard': {'cards': []},
-      'tabs': [tabConfig.toJson()],
+      'tabs': tabConfigs.map((t) => t.toJson()).toList(),
     };
     onProgress?.call('Creating config spreadsheets...', 0.8);
     final configIds = await driveService.createModuleConfig(configFolderId, userEmail, config);
