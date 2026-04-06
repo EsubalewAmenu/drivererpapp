@@ -85,4 +85,38 @@ class AuthService extends ChangeNotifier {
       }
     }
   }
+
+  Future<bool> refreshSession() async {
+    try {
+      // Force token refresh; otherwise GoogleSignIn may just return cached currentUser.
+      final account = await _googleSignIn.signInSilently(
+        suppressErrors: false,
+        reAuthenticate: true,
+      );
+      if (account == null) {
+        return false;
+      }
+
+      final googleAuth = await account.authentication;
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      await FirebaseAuth.instance.signInWithCredential(credential);
+
+      _currentUser = account;
+      if (clientFactory != null) {
+        _authClient = await clientFactory!(_googleSignIn);
+      } else {
+        _authClient = await _googleSignIn.authenticatedClient();
+      }
+      notifyListeners();
+      return _authClient != null;
+    } catch (error) {
+      if (kDebugMode) {
+        print('Refresh Session Error: $error');
+      }
+      return false;
+    }
+  }
 }
