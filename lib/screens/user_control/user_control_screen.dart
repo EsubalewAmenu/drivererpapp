@@ -22,6 +22,15 @@ class _UserControlScreenState extends State<UserControlScreen> {
   WorkspaceProvider? _workspaceProvider;
   DriveProvider? _driveProvider;
 
+  bool _isAuthTokenError(Object error) {
+    final message = error.toString().toLowerCase();
+    return message.contains('invalid_token') ||
+        message.contains('access was denied') ||
+        message.contains('www-authenticate') ||
+        message.contains('401') ||
+        message.contains('unauthenticated');
+  }
+
   @override
   void initState() {
     super.initState();
@@ -54,62 +63,79 @@ class _UserControlScreenState extends State<UserControlScreen> {
   }
 
   Future<void> _loadUsers() async {
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final driveContext = _getDriveContext();
-      final driveService = driveContext.driveService;
-      final rootFolderId = driveContext.rootFolderId;
-      final currentWorkspaceId = driveContext.currentWorkspaceId;
-      
-      // Get current user email
-      final authService = Provider.of<AuthService>(context, listen: false);
-      final currentUserEmail = authService.currentUser?.email?.trim().toLowerCase();
+      Future<List<Map<String, String>>> fetchUsers() async {
+        final driveContext = _getDriveContext();
+        final driveService = driveContext.driveService;
+        final rootFolderId = driveContext.rootFolderId;
+        final currentWorkspaceId = driveContext.currentWorkspaceId;
 
-      // Get companies registry ID directly
-      final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
+        // Get companies registry ID directly
+        final companiesRegistryId = await driveService.ensureCompanyRegistry(rootFolderId);
 
-      // Read all rows from user_access sheet in companies registry
-      final response = await driveService.sheetsApi.spreadsheets.values.get(
-        companiesRegistryId,
-        'user_access!A:C', // company_folder_id, email, spreadsheet_id
-      );
+        // Read all rows from user_access sheet in companies registry
+        final response = await driveService.sheetsApi.spreadsheets.values.get(
+          companiesRegistryId,
+          'user_access!A:C', // company_folder_id, email, spreadsheet_id
+        );
 
-      final values = response.values ?? [];
-      if (values.isEmpty) {
-        setState(() {
-          _users = [];
-          _isLoading = false;
-        });
-        return;
+        final values = response.values ?? [];
+        if (values.isEmpty) {
+          return [];
+        }
+
+        // Skip header row and filter by company_folder_id
+        final userRows = values.skip(1).where((row) {
+          if (row.isEmpty) return false;
+          final companyFolderId = row[0].toString();
+          // Filter by workspace
+          return companyFolderId == currentWorkspaceId;
+        }).toList();
+
+        // Map to user list
+        return userRows.map((row) {
+          return {
+            'email': row.length > 1 ? row[1].toString() : '',
+            'spreadsheetId': row.length > 2 ? row[2].toString() : '',
+          };
+        }).toList();
       }
 
-      // Skip header row and filter by company_folder_id
-      final userRows = values.skip(1).where((row) {
-        if (row.isEmpty) return false;
-        final companyFolderId = row[0].toString();
-        final email = row.length > 1 ? row[1].toString().trim().toLowerCase() : '';
-        // Filter by workspace and exclude current user
-        return companyFolderId == currentWorkspaceId;
-          // && (currentUserEmail == null || email != currentUserEmail);
-      }).toList();
+      try {
+        final users = await fetchUsers();
+        if (!mounted) return;
+        setState(() {
+          _users = users;
+          _isLoading = false;
+        });
+      } catch (e) {
+        if (!_isAuthTokenError(e)) rethrow;
 
-      // Map to user list
-      final users = userRows.map((row) {
-        return {
-          'email': row.length > 1 ? row[1].toString() : '',
-          'spreadsheetId': row.length > 2 ? row[2].toString() : '',
-        };
-      }).toList();
+        final refreshed = await authService.refreshSession();
+        if (!refreshed) {
+          throw Exception('Session expired. Please sign in again.');
+        }
 
-      setState(() {
-        _users = users;
-        _isLoading = false;
-      });
+        // Ensure drive service uses newly refreshed auth client before retrying.
+        driveProvider.updateClient(authService.authClient);
+
+        final users = await fetchUsers();
+        if (!mounted) return;
+        setState(() {
+          _users = users;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _errorMessage = e.toString();
         _isLoading = false;
@@ -310,7 +336,7 @@ class _UserControlScreenState extends State<UserControlScreen> {
 
   void _showAddUserDialog(ThemeData theme) {
     final authService = Provider.of<AuthService>(context, listen: false);
-    final currentUserEmail = authService.currentUser?.email?.trim().toLowerCase();
+    final currentUserEmail = authService.currentUser?.email.trim().toLowerCase();
     
     showDialog(
       context: context,
