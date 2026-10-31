@@ -1,57 +1,108 @@
-
 {
+  "id": "crm",
+  "name": "CRM",
+  "icon": "people",
+  "primaryColor": "#4CAF50",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "crm" },
-    "icon": { "label": "Icon", "type": "icon", "value": "people" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "CRM", "help": "Main module title" },
-  
-    "extensions": ["Deals", "Support Tickets"]
-
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "crm"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "people"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#4CAF50"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "CRM",
+      "help": "Main module title"
+    },
+    "extensions": {
+      "label": "Extensions",
+      "type": "list",
+      "value": [
+        "Deals",
+        "Support Tickets"
+      ]
+    }
   },
   "dashboard": {
     "cards": [
       {
         "label": "Total Contacts",
-        "formula": "=COUNTA(CRM:contacts:contacts!A:A)",
         "type": "kpi",
-        "format": "number"
+        "query": {
+          "collection": "contacts",
+          "operation": "count"
+        }
       },
       {
-        "label": "Contacts by Status",
-        "formula": "=QUERY(CRM:contacts:contacts, \"SELECT F, count(A) GROUP BY F\")",
-        "type": "pie"
+        "label": "Contacts by Stage",
+        "type": "pie",
+        "query": {
+          "collection": "contacts",
+          "operation": "count",
+          "group_by": "status"
+        }
       },
       {
         "label": "Sources Breakdown",
-        "formula": "=QUERY(CRM:contacts:contacts, \"SELECT K, count(A) GROUP BY K\")",
-        "type": "bar"
+        "type": "bar",
+        "query": {
+          "collection": "contacts",
+          "operation": "count",
+          "group_by": "source"
+        }
       },
       {
         "label": "Monthly Growth",
-        "formula": "=QUERY(CRM:contacts:contacts, \"SELECT A, count(A) GROUP BY A\")",
-        "type": "line"
+        "type": "line",
+        "query": {
+          "collection": "contacts",
+          "operation": "count",
+          "group_by": "created_month"
+        }
       },
       {
-        "label": "Recent Additions",
-        "formula": "=QUERY(CRM:contacts:contacts, \"SELECT B, F, K ORDER BY B DESC LIMIT 5\")",
-        "type": "list"
+        "label": "Recent Contacts",
+        "type": "list",
+        "query": {
+          "collection": "contacts",
+          "operation": "recent",
+          "limit": 5
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "contacts",
       "label": "Directory",
       "enable_custom_filters": true,
-      "load_sub_table_data_automatically": false,
+      "load_related_data": false,
       "list_template": {
         "template": "standard",
         "title_key": "name",
         "subtitle_key": "company_name",
         "trailing_key": "type",
-        "detail_keys": ["email", "phone"]
+        "detail_keys": [
+          "email",
+          "phone"
+        ]
       },
       "detail_template": {
         "template": "standard",
@@ -60,11 +111,61 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "Individuals", "key": "individuals", "rules": [ { "field": "type", "operator": "==", "value": "Individual" } ] },
-        { "label": "Companies", "key": "companies", "rules": [ { "field": "type", "operator": "==", "value": "Company" } ] },
-        { "label": "Customers", "key": "customer", "rules": [ { "field": "status", "operator": "==", "value": "Customer" } ] },
-        { "label": "Lead", "key": "lead", "rules": [ { "field": "status", "operator": "==", "value": "Lead" } ] },
-        { "label": "Suppliers", "key": "supplier", "rules": [ { "field": "status", "operator": "==", "value": "Supplier" } ] }
+        {
+          "label": "Individuals",
+          "key": "individuals",
+          "rules": [
+            {
+              "field": "type",
+              "operator": "==",
+              "value": "Individual"
+            }
+          ]
+        },
+        {
+          "label": "Companies",
+          "key": "companies",
+          "rules": [
+            {
+              "field": "type",
+              "operator": "==",
+              "value": "Company"
+            }
+          ]
+        },
+        {
+          "label": "Customers",
+          "key": "customer",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Customer"
+            }
+          ]
+        },
+        {
+          "label": "Lead",
+          "key": "lead",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Lead"
+            }
+          ]
+        },
+        {
+          "label": "Suppliers",
+          "key": "supplier",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Supplier"
+            }
+          ]
+        }
       ],
       "initial_data": [
         {
@@ -74,9 +175,30 @@
           "company": "",
           "primary_category": "Software Development and services",
           "status": "Supplier",
-          "phone_nos": [ { "phone": "+971551266787" }, { "phone": "+251985287648" } ],
-          "emails": [ { "email": "datascienceplc@gmail.com" }, { "email": "info@datascienceplc.com" } ],
-          "socials": [ { "link": "https://linkedin.com/company/datascienceplc" }, { "link": "https://facebook.com/datascienceplc" } ],
+          "phone_nos": [
+            {
+              "phone": "+971551266787"
+            },
+            {
+              "phone": "+251985287648"
+            }
+          ],
+          "emails": [
+            {
+              "email": "datascienceplc@gmail.com"
+            },
+            {
+              "email": "info@datascienceplc.com"
+            }
+          ],
+          "socials": [
+            {
+              "link": "https://linkedin.com/company/datascienceplc"
+            },
+            {
+              "link": "https://facebook.com/datascienceplc"
+            }
+          ],
           "website": "https://datascienceplc.com",
           "source": "Online Search",
           "address": "Dubai, UAE",
@@ -92,48 +214,133 @@
           "status": "Supplier",
           "source": "Personal Referral",
           "address": "Al Rigga, Dubai, UAE",
-          "phone_nos": [ { "phone": "+251923481783" } ],
-          "emails": [ { "email": "esubalew.a2009@gmail.com" } ],
+          "phone_nos": [
+            {
+              "phone": "+251923481783"
+            }
+          ],
+          "emails": [
+            {
+              "email": "esubalew.a2009@gmail.com"
+            }
+          ],
           "notes": "Software and mobile apps developer",
           "record_id": 2
         }
       ],
-      "columns": [
-        { "key": "type", "label": "Type", "type": "select", "options": ["Individual", "Company"], "default": "Individual" },
-        { "key": "name", "label": "Name", "type": "text", "required": true },
-        { "key": "tin", "label": "TIN", "type": "text"},
-        { "key": "company", "label": "Company", "type": "relation", "depends_on": "type", "depends_value": "Individual", "options": "contacts" },
-        { "key": "primary_category", "label": "Primary Category", "type": "text", "depends_on": "type", "depends_value": "Company" },
-        { "key": "status", "label": "Stage", "type": "select", "options": ["Lead", "Customer", "Supplier"] },
-        { 
-          "key": "phone_nos", 
-          "label": "Phone Number(s)", 
-          "type": "table",
-          "columns": [
-            { "key": "phone", "label": "Phone", "type": "phone", "required": true }
+      "fields": [
+        {
+          "key": "type",
+          "label": "Type",
+          "type": "select",
+          "options": [
+            "Individual",
+            "Company"
+          ],
+          "default": "Individual"
+        },
+        {
+          "key": "name",
+          "label": "Name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "tin",
+          "label": "TIN",
+          "type": "text"
+        },
+        {
+          "key": "company",
+          "label": "Company",
+          "type": "relation",
+          "depends_on": "type",
+          "depends_value": "Individual",
+          "options": "contacts"
+        },
+        {
+          "key": "primary_category",
+          "label": "Primary Category",
+          "type": "text",
+          "depends_on": "type",
+          "depends_value": "Company"
+        },
+        {
+          "key": "status",
+          "label": "Stage",
+          "type": "select",
+          "options": [
+            "Lead",
+            "Customer",
+            "Supplier"
           ]
         },
-        { 
-          "key": "emails", 
-          "label": "Email Address(es)", 
+        {
+          "key": "phone_nos",
+          "label": "Phone Number(s)",
           "type": "table",
-          "columns": [
-            { "key": "email", "label": "Email", "type": "email", "required": true }
+          "fields": [
+            {
+              "key": "phone",
+              "label": "Phone",
+              "type": "phone",
+              "required": true
+            }
           ]
         },
-        { 
-          "key": "socials", 
-          "label": "Social Media", 
+        {
+          "key": "emails",
+          "label": "Email Address(es)",
           "type": "table",
-          "columns": [
-            { "key": "link", "label": "Link", "type": "text", "required": true }
+          "fields": [
+            {
+              "key": "email",
+              "label": "Email",
+              "type": "email",
+              "required": true
+            }
           ]
         },
-        { "key": "website", "label": "Website", "type": "text", "depends_on": "type", "depends_value": "Company" },
-        { "key": "source", "label": "Source", "type": "text" },
-        { "key": "address", "label": "Address", "type": "text" },
-        { "key": "photo", "label": "Photo", "type": "image" },
-        { "key": "notes", "label": "Note", "type": "text" }
+        {
+          "key": "socials",
+          "label": "Social Media",
+          "type": "table",
+          "fields": [
+            {
+              "key": "link",
+              "label": "Link",
+              "type": "text",
+              "required": true
+            }
+          ]
+        },
+        {
+          "key": "website",
+          "label": "Website",
+          "type": "text",
+          "depends_on": "type",
+          "depends_value": "Company"
+        },
+        {
+          "key": "source",
+          "label": "Source",
+          "type": "text"
+        },
+        {
+          "key": "address",
+          "label": "Address",
+          "type": "text"
+        },
+        {
+          "key": "photo",
+          "label": "Photo",
+          "type": "image"
+        },
+        {
+          "key": "notes",
+          "label": "Note",
+          "type": "text"
+        }
       ]
     }
   ]

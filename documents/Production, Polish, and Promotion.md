@@ -27,7 +27,7 @@ Based on your "Quick Start," you are targeting macOS, but Flutter allows you to 
 | **macOS** | DMG / Zip file (Direct) | Quick distribution to early adopters without App Store review times. |
 | **Android** | Play Store (Internal Track) | Testing with a closed group of SMB partners. |
 | **iOS** | TestFlight | getting feedback on the mobile UX specifically for field teams. |
-| **Web** | Firebase Hosting | *Consideration:* Since it's Flutter, a web build could serve as the "Demo Workspace" mentioned in your brief without requiring installation. |
+| **Web** | Web hosting alongside the WordPress API | *Consideration:* Since it's Flutter, a web build could serve as the "Demo Workspace" mentioned in your brief without requiring installation. |
 
 ### Phase 3: Executing the Marketing Brief
 
@@ -35,7 +35,7 @@ You have a solid marketing plan. Here is how to execute the assets you listed us
 
 **1. The "90s Explainer Video"**
 
-* **Script Concept:** Start with a chaotic spreadsheet. Zoom in on a user struggling. *Flash* to DriverERPApp.
+* **Script Concept:** Start with a chaotic manual records. Zoom in on a user struggling. *Flash* to DriverERPApp.
 * **Showcase Flow:**
 1. **Edit:** Click "Edit Schema" -> Add a "Signature" field.
 2. **Form:** Immediately show the form update on a mobile emulator.

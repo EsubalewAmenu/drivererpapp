@@ -1,48 +1,74 @@
 {
+  "id": "finance",
+  "name": "Finance",
+  "icon": "account_balance",
+  "primaryColor": "#6366F1",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "finance" },
-    "icon": { "label": "Icon", "type": "icon", "value": "account_balance" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#6366F1" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Finance", "help": "Main module title" },
-
-    "extensions": ["Invoicing", "Expenses / Bills", "Fixed Assets (Free)", "Budgets (Free)"]
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "finance"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "account_balance"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#6366F1"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Finance",
+      "help": "Main module title"
+    },
+    "extensions": {
+      "label": "Extensions",
+      "type": "list",
+      "value": [
+        "Invoicing",
+        "Expenses / Bills",
+        "Fixed Assets (Free)",
+        "Budgets (Free)"
+      ]
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Net Profit",
-        "formula": "=SUMIF(Finance:invoices:invoices!E:E, \"Paid\", Finance:invoices:invoices!F:F) - SUMIF(Finance:bills:bills!E:E, \"Paid\", Finance:bills:bills!F:F)",
+        "label": "Accounts Records",
         "type": "kpi",
-        "format": "currency"
-      },
-      {
-        "label": "Overdue Invoices",
-        "formula": "=COUNTIFS(Finance:invoices:invoices!E:E, \"Unpaid\", Finance:invoices:invoices!C:C, \"<\"&TODAY())",
-        "type": "kpi",
-        "format": "number",
-        "color": "#F44336"
-      },
-      {
-        "label": "Expense Breakdown",
-        "formula": "=CHART(Finance:bills:bills!C:C)",
-        "format": "text",
-        "type": "pie"
+        "query": {
+          "collection": "chart_of_accounts",
+          "operation": "count"
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "chart_of_accounts",
       "label": "Accounts",
       "enable_custom_filters": true,
-      "load_sub_table_data_automatically": false,
+      "load_related_data": false,
       "list_template": {
         "template": "standard",
         "title_key": "name",
         "subtitle_key": "code",
         "trailing_key": "type",
-        "detail_keys": ["code", "type"]
+        "detail_keys": [
+          "code",
+          "type"
+        ]
       },
       "detail_template": {
         "template": "standard",
@@ -51,29 +77,150 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "Assets", "key": "assets", "rules": [ { "field": "type", "operator": "==", "value": "Asset" } ] },
-        { "label": "Liabilities", "key": "liabilities", "rules": [ { "field": "type", "operator": "==", "value": "Liability" } ] },
-        { "label": "Revenue", "key": "revenue", "rules": [ { "field": "type", "operator": "==", "value": "Revenue" } ] },
-        { "label": "Expenses", "key": "expenses", "rules": [ { "field": "type", "operator": "==", "value": "Expense" } ] }
+        {
+          "label": "Assets",
+          "key": "assets",
+          "rules": [
+            {
+              "field": "type",
+              "operator": "==",
+              "value": "Asset"
+            }
+          ]
+        },
+        {
+          "label": "Liabilities",
+          "key": "liabilities",
+          "rules": [
+            {
+              "field": "type",
+              "operator": "==",
+              "value": "Liability"
+            }
+          ]
+        },
+        {
+          "label": "Revenue",
+          "key": "revenue",
+          "rules": [
+            {
+              "field": "type",
+              "operator": "==",
+              "value": "Revenue"
+            }
+          ]
+        },
+        {
+          "label": "Expenses",
+          "key": "expenses",
+          "rules": [
+            {
+              "field": "type",
+              "operator": "==",
+              "value": "Expense"
+            }
+          ]
+        }
       ],
       "initial_data": [
-        { "record_id": 101, "code": "1000", "name": "Cash on Hand", "type": "Asset" },
-        { "record_id": 102, "code": "1200", "name": "Accounts Receivable", "type": "Asset" },
-        { "record_id": 103, "code": "1500", "name": "Inventory Asset", "type": "Asset" },
-        { "record_id": 104, "code": "1600", "name": "Fixed Assets (Equipment)", "type": "Asset" },
-        { "record_id": 201, "code": "2000", "name": "Accounts Payable", "type": "Liability" },
-        { "record_id": 301, "code": "3000", "name": "Owner Equity", "type": "Equity" },
-        { "record_id": 401, "code": "4000", "name": "Sales Revenue", "type": "Revenue" },
-        { "record_id": 402, "code": "4100", "name": "Service Revenue", "type": "Revenue" },
-        { "record_id": 501, "code": "5000", "name": "Cost of Goods Sold (COGS)", "type": "Expense" },
-        { "record_id": 601, "code": "6100", "name": "Rent Expense", "type": "Expense" },
-        { "record_id": 602, "code": "6200", "name": "Office Supplies", "type": "Expense" },
-        { "record_id": 603, "code": "6300", "name": "Software Subscriptions", "type": "Expense" }
+        {
+          "record_id": 101,
+          "code": "1000",
+          "name": "Cash on Hand",
+          "type": "Asset"
+        },
+        {
+          "record_id": 102,
+          "code": "1200",
+          "name": "Accounts Receivable",
+          "type": "Asset"
+        },
+        {
+          "record_id": 103,
+          "code": "1500",
+          "name": "Inventory Asset",
+          "type": "Asset"
+        },
+        {
+          "record_id": 104,
+          "code": "1600",
+          "name": "Fixed Assets (Equipment)",
+          "type": "Asset"
+        },
+        {
+          "record_id": 201,
+          "code": "2000",
+          "name": "Accounts Payable",
+          "type": "Liability"
+        },
+        {
+          "record_id": 301,
+          "code": "3000",
+          "name": "Owner Equity",
+          "type": "Equity"
+        },
+        {
+          "record_id": 401,
+          "code": "4000",
+          "name": "Sales Revenue",
+          "type": "Revenue"
+        },
+        {
+          "record_id": 402,
+          "code": "4100",
+          "name": "Service Revenue",
+          "type": "Revenue"
+        },
+        {
+          "record_id": 501,
+          "code": "5000",
+          "name": "Cost of Goods Sold (COGS)",
+          "type": "Expense"
+        },
+        {
+          "record_id": 601,
+          "code": "6100",
+          "name": "Rent Expense",
+          "type": "Expense"
+        },
+        {
+          "record_id": 602,
+          "code": "6200",
+          "name": "Office Supplies",
+          "type": "Expense"
+        },
+        {
+          "record_id": 603,
+          "code": "6300",
+          "name": "Software Subscriptions",
+          "type": "Expense"
+        }
       ],
-      "columns": [
-        { "key": "code", "label": "Code", "type": "text", "required": true },
-        { "key": "name", "label": "Account Name", "type": "text", "required": true },
-        { "key": "type", "label": "Type", "type": "select", "options": ["Revenue", "Expense", "Asset", "Liability", "Equity"] }
+      "fields": [
+        {
+          "key": "code",
+          "label": "Code",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "name",
+          "label": "Account Name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "type",
+          "label": "Type",
+          "type": "select",
+          "options": [
+            "Revenue",
+            "Expense",
+            "Asset",
+            "Liability",
+            "Equity"
+          ]
+        }
       ]
     }
   ]

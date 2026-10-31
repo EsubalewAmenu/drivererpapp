@@ -4,7 +4,7 @@ import 'package:drivererpapp/theme/app_theme.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  
+
   setUp(() {
     AppTheme.useGoogleFonts = false;
   });

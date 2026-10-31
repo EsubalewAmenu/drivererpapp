@@ -1,17 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../models/schema_models.dart';
-import '../../../providers/drive_provider.dart';
-import '../../../theme/app_theme.dart';
-import '../conditional_utils.dart';
+import '../../../providers/erp_controller.dart';
 
 class DynamicDropdownField extends StatefulWidget {
-  final ColumnConfig column;
+  final FieldDefinition column;
   final String? value;
-  final Function(String?) onChanged;
+  final ValueChanged<String?> onChanged;
   final Map<String, dynamic> data;
   final ModuleSchema? module;
-
   const DynamicDropdownField({
     super.key,
     required this.column,
@@ -20,313 +17,112 @@ class DynamicDropdownField extends StatefulWidget {
     required this.data,
     this.module,
   });
-
   @override
   State<DynamicDropdownField> createState() => _DynamicDropdownFieldState();
 }
 
 class _DynamicDropdownFieldState extends State<DynamicDropdownField> {
-  List<String> _options = [];
-  bool _isLoading = false;
-  bool _isVisible = true;
-  String _label = '';
-
+  List<String> options = [];
+  bool loading = false;
+  String? error;
   @override
   void initState() {
     super.initState();
-    _label = widget.column.label;
-    _loadOptions();
+    _load();
   }
 
   @override
-  void didUpdateWidget(DynamicDropdownField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // Reload options if dependencies change
-    if (widget.column.options is String && 
-        (widget.column.options as String).contains('.')) {
-       final parts = (widget.column.options as String).split('.');
-       if (parts.length == 2 && parts[0] != 'settings') {
-         final dependencyKey = parts[0];
-         if (widget.data[dependencyKey] != oldWidget.data[dependencyKey]) {
-           _loadOptions();
-         }
-       }
+  void didUpdateWidget(DynamicDropdownField old) {
+    super.didUpdateWidget(old);
+    if (old.column != widget.column ||
+        old.data.toString() != widget.data.toString()) {
+      _load();
     }
   }
 
-  Future<void> _loadOptions() async {
-    if (widget.column.options is List) {
-      setState(() {
-        _options = (widget.column.options as List).map((e) => e.toString()).toList();
-      });
+  Future<void> _load() async {
+    final config = widget.column.options;
+    if (config is List) {
+      setState(() => options = config.map((v) => v.toString()).toList());
       return;
     }
-
-    if (widget.column.options is String) {
-      final optionString = widget.column.options as String;
-      
-      // Handle settings dependency
-      if (optionString.startsWith('settings.')) {
-        // This is handled by the renderer passing settings, but here we might need to access it differently
-        // For now, assuming settings are static or passed down. 
-        // Actually, the renderer filters visibility based on settings.
-        // If the options themselves come from settings (like a list in settings), we need access to settings.
-        // But we don't have settings here. 
-        // Let's assume for now simple list or dynamic lookup.
-        return; 
+    if (config is! String) return;
+    if (config.startsWith('settings.')) {
+      final value = widget.module?.settings[config.substring(9)]?.value;
+      if (value is List) {
+        setState(() => options = value.map((v) => v.toString()).toList());
       }
-
-      // Handle dynamic lookup: "field.property"
-      if (optionString.contains('.')) {
-        final parts = optionString.split('.');
-        if (parts.length == 2) {
-          final targetFieldKey = parts[0];
-          final targetProperty = parts[1];
-          
-          final targetValue = widget.data[targetFieldKey];
-
-          if (targetValue == null || targetValue.toString().isEmpty) {
-            setState(() => _options = []);
-            return;
-          }
-
-          // We need to find which Tab the targetFieldKey refers to.
-          // We can't easily know the schema of the target field here without searching the whole module.
-          if (widget.module == null) {
-             return;
-          }
-
-          // Find the column config for targetFieldKey in the current context?
-          // We don't have the full list of columns here, only this column.
-          // But we can search the module tabs to find where this field might be defined?
-          // No, we need to know the configuration of 'targetFieldKey' to know its 'options' (which is the Tab ID).
-          
-          // Heuristic: Search all tabs in the module for a column with key == targetFieldKey
-          String? relatedTabId;
-          
-          for (var tab in widget.module!.tabs) {
-            // Search in tab columns
-            final col = _findColumn(tab.columns, targetFieldKey);
-            if (col != null && col.type == 'relation') {
-              relatedTabId = col.options as String?;
-              break;
-            }
-            // Also search in table columns
-            for (var c in tab.columns) {
-              if (c.type == 'table' && c.columns != null) {
-                 final subCol = _findColumn(c.columns!, targetFieldKey);
-                 if (subCol != null && subCol.type == 'relation') {
-                   relatedTabId = subCol.options as String?;
-                   break;
-                 }
-              }
-            }
-            if (relatedTabId != null) break;
-          }
-
-          if (relatedTabId != null) {
-            setState(() => _isLoading = true);
-            try {
-              final driveService = Provider.of<DriveProvider>(context, listen: false).driveService;
-              if (driveService != null) {
-                final tab = widget.module!.tabs.firstWhere((t) => t.id == relatedTabId, orElse: () => widget.module!.tabs.first);
-                final fileId = tab.fileId;
-                List<Map<String, dynamic>> records = [];
-                if (fileId != null && fileId.isNotEmpty) {
-                   records = await driveService.fetchRecordsBySpreadsheetId(fileId, tab.id, fetchSubTables: false);
-                }
-                
-                // Find the record where the first value (or name) matches targetValue
-                final record = records.firstWhere(
-                  (r) {
-                    final val = targetValue.toString().toLowerCase().trim();
-                    final first = r.values.first.toString().toLowerCase().trim();
-                    final name = r['name']?.toString().toLowerCase().trim();
-                    final itemName = r['item_name']?.toString().toLowerCase().trim();
-                    
-                    return first == val || name == val || itemName == val;
-                  },
-                  orElse: () => {},
-                );
-
-                // Check for generic dependency logic based on target column schema
-                final relatedTab = widget.module!.tabs.firstWhere(
-                  (t) => t.id == relatedTabId, 
-                  orElse: () => widget.module!.tabs.first
-                );
-                final targetColumn = _findColumn(relatedTab.columns, targetProperty);
-
-                if (targetColumn != null && targetColumn.dependsOn != null) {
-                   final dependencyKey = targetColumn.dependsOn!;
-                   if (record.containsKey(dependencyKey)) {
-                     final depValue = record[dependencyKey];
-                     // If the target column specifies an expected value, evaluate it
-                     if (targetColumn.dependsValue != null) {
-                       final ok = evaluateDependency(depValue, targetColumn.dependsValue, targetColumn.dependsOperator);
-                       if (!ok) {
-                         setState(() {
-                           _options = [];
-                           _isVisible = false;
-                         });
-                         return;
-                       }
-                     } else {
-                       bool isActive = true;
-                       if (depValue is bool) {
-                         isActive = depValue;
-                       } else if (depValue is String) {
-                         isActive = depValue.toLowerCase() == 'true';
-                       } else if (depValue == null) {
-                         isActive = false;
-                       }
-                       if (!isActive) {
-                         setState(() {
-                           _options = [];
-                           _isVisible = false;
-                         });
-                         return;
-                       }
-                     }
-                   }
-                }
-                
-                // Update label if dynamicLabel is configured
-                if (widget.column.dynamicLabel != null && widget.column.dynamicLabel!.contains('.')) {
-                   final parts = widget.column.dynamicLabel!.split('.');
-                   if (parts.length == 2) {
-                     final labelProperty = parts[1];
-                     
-                     // Case-insensitive key lookup
-                     final key = record.keys.firstWhere(
-                       (k) => k.toLowerCase() == labelProperty.toLowerCase(),
-                       orElse: () => '',
-                     );
-
-                     if (key.isNotEmpty) {
-                        final val = record[key];
-                        if (val != null && val.toString().isNotEmpty) {
-                          setState(() => _label = val.toString());
-                        } else {
-                          setState(() => _label = widget.column.label);
-                        }
-                     } else {
-                       setState(() => _label = widget.column.label);
-                     }
-                   }
-                } else {
-                   setState(() => _label = widget.column.label);
-                }
-                
-                setState(() => _isVisible = true);
-
-                if (record.isNotEmpty && record.containsKey(targetProperty)) {
-                  final propValue = record[targetProperty];
-                  if (propValue is String) {
-                    // Try to parse if it looks like a list
-                    if (propValue.startsWith('[') && propValue.endsWith(']')) {
-                       // It's a stringified list, we might need to parse it.
-                       // For now, let's assume it's a simple comma separated or we need a JSON parser.
-                       // But fetchRecords returns Map<String, dynamic>. 
-                       // If the sheet stored it as JSON string, we need to decode.
-                       // But fetchRecords in DriveService currently just returns values.
-                       // If it was stored as JSON string in the sheet, it comes back as string.
-                       // Let's try to strip brackets and split.
-                       final clean = propValue.substring(1, propValue.length - 1);
-                       setState(() {
-                         _options = clean.split(',').map((e) => e.trim().replaceAll('"', '')).toList();
-                       });
-                    } else {
-                       setState(() => _options = [propValue]);
-                    }
-                  } else if (propValue is List) {
-                    setState(() {
-                      _options = propValue.map((e) => e.toString()).toList();
-                    });
-                  }
-                } else {
-                  setState(() => _options = []);
-                }
-              }
-            } catch (e) {
-              debugPrint('Error loading dynamic options: $e');
-            } finally {
-              if (mounted) setState(() => _isLoading = false);
-            }
+      return;
+    }
+    final parts = config.split('.');
+    if (parts.length != 2 || widget.module == null) return;
+    FieldDefinition? relation;
+    for (final c in widget.module!.collections) {
+      for (final f in c.fields) {
+        if (f.key == parts[0] && f.type == 'relation') relation = f;
+        for (final nested in f.fields ?? <FieldDefinition>[]) {
+          if (nested.key == parts[0] && nested.type == 'relation') {
+            relation = nested;
           }
         }
       }
     }
-  }
-
-  ColumnConfig? _findColumn(List<ColumnConfig> columns, String key) {
-    for (var col in columns) {
-      if (col.key == key) return col;
-      if (col.columns != null) {
-        final found = _findColumn(col.columns!, key);
-        if (found != null) return found;
+    final selected = widget.data[parts[0]];
+    if (relation == null || selected == null) return;
+    setState(() => loading = true);
+    try {
+      final erp = context.read<ErpController>();
+      final collection = relation.options.toString();
+      final module = erp.moduleForCollection(
+        collection,
+        preferred: widget.module,
+      );
+      if (module == null) return;
+      final record = await erp.api.record(
+        module.id,
+        collection.split('.').last,
+        selected.toString(),
+      );
+      final value = record[parts[1]];
+      if (mounted) {
+        setState(
+          () => options = value is List
+              ? value.map((v) => v.toString()).toList()
+              : value == null
+              ? []
+              : [value.toString()],
+        );
       }
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString());
+    } finally {
+      if (mounted) setState(() => loading = false);
     }
-    return null;
   }
 
   @override
-  Widget build(BuildContext context) {
-    if (!_isVisible) return const SizedBox.shrink();
-
-    final theme = Theme.of(context);
-    final textColor = theme.textTheme.bodyMedium?.color ?? AppTheme.textColor;
-    final fillColor = theme.cardTheme.color ?? theme.cardColor;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          _label.toUpperCase(),
-          style: AppTheme.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: theme.textTheme.bodySmall?.color,
-            letterSpacing: 1.0,
+  Widget build(BuildContext context) => DropdownButtonFormField<String>(
+    isExpanded: true,
+    initialValue: options.contains(widget.value) ? widget.value : null,
+    decoration: InputDecoration(
+      labelText: widget.column.label,
+      errorText: error,
+      suffixIcon: loading
+          ? const Padding(
+              padding: EdgeInsets.all(12),
+              child: CircularProgressIndicator(),
+            )
+          : null,
+      border: const OutlineInputBorder(),
+    ),
+    items: options
+        .map(
+          (v) => DropdownMenuItem(
+            value: v,
+            child: Text(v, overflow: TextOverflow.ellipsis),
           ),
-        ),
-        const SizedBox(height: 8),
-        _isLoading 
-          ? const LinearProgressIndicator()
-          : DropdownButtonFormField<String>(
-          value: _options.contains(widget.value) ? widget.value : null,
-          dropdownColor: fillColor,
-          onChanged: widget.column.readonly == true ? null : widget.onChanged,
-          style: TextStyle(color: widget.column.readonly == true ? textColor.withValues(alpha: 0.6) : textColor),
-          hint: Text(
-            'Select ${widget.column.label}',
-            style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
-          ),
-          decoration: InputDecoration(
-            filled: true,
-            fillColor: widget.column.readonly == true ? theme.dividerColor.withValues(alpha: 0.05) : fillColor,
-            helperText: widget.column.help,
-            helperMaxLines: 2,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          items: _options.map<DropdownMenuItem<String>>((opt) {
-            return DropdownMenuItem(
-              value: opt,
-              child: Text(opt),
-            );
-          }).toList(),
-          validator: (value) {
-            if (widget.column.isRequired == true) {
-              if (value == null || value.isEmpty) {
-                return 'This field is required';
-              }
-            }
-            return null;
-          },
-        ),
-      ],
-    );
-  }
+        )
+        .toList(),
+    onChanged: widget.column.readonly == true ? null : widget.onChanged,
+  );
 }

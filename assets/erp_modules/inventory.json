@@ -1,127 +1,276 @@
 {
+  "id": "inventory",
+  "name": "Inventory",
+  "icon": "inventory_2_rounded",
+  "primaryColor": "#2196F3",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "inventory" },
-    "icon": { "label": "Icon", "type": "icon", "value": "inventory_2_rounded" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#2196F3" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Inventory" },
-
-    "extensions": ["Stock Ledger", "Purchase Orders"]
-
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "inventory"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "inventory_2_rounded"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#2196F3"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Inventory"
+    },
+    "extensions": {
+      "label": "Extensions",
+      "type": "list",
+      "value": [
+        "Stock Ledger",
+        "Purchase Orders"
+      ]
+    }
   },
-  "dashboard": {"cards": [
+  "dashboard": {
+    "cards": [
       {
-        "label": "Total Stock Value",
-        "formula": "=SUMPRODUCT(Inventory:variants:variants!F:F, Inventory:variants:variants!G:G)", 
-        "format": "currency"
+        "label": "Product Families Records",
+        "type": "kpi",
+        "query": {
+          "collection": "products",
+          "operation": "count"
+        }
       },
       {
-        "label": "Low Stock Alerts",
-        "formula": "=COUNTIF(Inventory:variants:variants!H:H, \"<10\")",
+        "label": "Items / SKUs Records",
+        "type": "kpi",
+        "query": {
+          "collection": "variants",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Selling Price",
+        "type": "kpi",
+        "format": "currency",
+        "query": {
+          "collection": "variants",
+          "operation": "sum",
+          "field": "price"
+        }
+      },
+      {
+        "label": "Total Stock",
+        "type": "kpi",
         "format": "number",
-        "color": "#F44336"
+        "query": {
+          "collection": "variants",
+          "operation": "sum",
+          "field": "qty_on_hand"
+        }
       }
     ]
   },
-  "tabs": [
-      {
-        "id": "products",
-        "label": "Product Families",
-        "enable_custom_filters": true,
-        "list_template": {
-          "template": "standard",
-          "title_key": "name",
-          "subtitle_key": "category",
-          "trailing_key": "brand"
-        },
-        "detail_template": {
-          "template": "standard",
-          "title_key": "name",
-          "subtitle_key": "category",
-          "show_all_fields": true
-        },
-        "quick_filters": [
-          { "label": "With Variants", "key": "has_variants", "rules": [ { "field": "has_variants", "operator": "==", "value": true } ] },
-          { "label": "Without Variants", "key": "no_variants", "rules": [ { "field": "has_variants", "operator": "==", "value": false } ] }
-        ],
-        "columns": [
-          { "key": "name", "label": "Product Name", "type": "text", "required": true },
-          { "key": "category", "label": "Category", "type": "select", "options": ["Computers", "Accessories"] },
-          { "key": "brand", "label": "Brand", "type": "text" },
-          { "key": "has_variants", "label": "Has Variants?", "type": "boolean", "default": false }
-        ],
-        "initial_data": [
-          {
-            "record_id": 1,
-            "name": "MacBook Pro M3",
-            "category": "Computers",
-            "brand": "Apple",
-            "has_variants": true
-          },
-          {
-            "record_id": 2,
-            "name": "Aluminum Laptop Stand",
-            "category": "Accessories",
-            "brand": "Rain Design",
-            "has_variants": false
-          }
-        ]
+  "collections": [
+    {
+      "id": "products",
+      "label": "Product Families",
+      "enable_custom_filters": true,
+      "list_template": {
+        "template": "standard",
+        "title_key": "name",
+        "subtitle_key": "category",
+        "trailing_key": "brand"
       },
-      {
-        "id": "variants",
-        "label": "Items / SKUs",
-        "list_template": {
-          "template": "standard",
-          "title_key": "full_name",
-          "subtitle_key": "sku",
-          "trailing_key": "qty_on_hand"
+      "detail_template": {
+        "template": "standard",
+        "title_key": "name",
+        "subtitle_key": "category",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        {
+          "label": "With Variants",
+          "key": "has_variants",
+          "rules": [
+            {
+              "field": "has_variants",
+              "operator": "==",
+              "value": true
+            }
+          ]
         },
-        "columns": [
-          { "key": "parent_product", "label": "Product Family", "type": "relation", "options": "products", "display_field": "name", "required": true },
-          { "key": "size", "label": "Size", "type": "select", "options": ["14-inch", "16-inch"], "depends_on": "parent_product.has_variants", "depends_value": true },
-          { "key": "color", "label": "Color", "type": "select", "options": ["Space Gray", "Silver"], "depends_on": "parent_product.has_variants", "depends_value": true },
-          { 
-            "key": "full_name", 
-            "label": "Item Name", 
-            "type": "formula", 
-            "formula": "=IF(parent_product.has_variants, parent_product.name & \" - \" & color & \"/\" & size, parent_product.name)" 
-          },
-          { "key": "sku", "label": "SKU", "type": "scanner", "required": true },
-          { "key": "price", "label": "Selling Price", "type": "currency" },
-          { "key": "qty_on_hand", "label": "Stock", "type": "number", "readonly": true }
-        ],
-        "initial_data": [
-          {
-            "record_id": 101,
-            "parent_product": 1, 
-            "size": "14-inch",
-            "color": "Space Gray",
-            "full_name": "MacBook Pro M3 - Space Gray/14-inch",
-            "sku": "MBP-14-SG",
-            "price": 1599,
-            "qty_on_hand": 10
-          },
-          {
-            "record_id": 102,
-            "parent_product": 1,
-            "size": "16-inch",
-            "color": "Silver",
-            "full_name": "MacBook Pro M3 - Silver/16-inch",
-            "sku": "MBP-16-SL",
-            "price": 2499,
-            "qty_on_hand": 5
-          },
-          {
-            "record_id": 103,
-            "parent_product": 2,
-            "size": "", 
-            "color": "", 
-            "full_name": "Aluminum Laptop Stand", 
-            "sku": "ACC-STD-001",
-            "price": 49.99,
-            "qty_on_hand": 50
+        {
+          "label": "Without Variants",
+          "key": "no_variants",
+          "rules": [
+            {
+              "field": "has_variants",
+              "operator": "==",
+              "value": false
+            }
+          ]
+        }
+      ],
+      "fields": [
+        {
+          "key": "name",
+          "label": "Product Name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "category",
+          "label": "Category",
+          "type": "select",
+          "options": [
+            "Computers",
+            "Accessories"
+          ]
+        },
+        {
+          "key": "brand",
+          "label": "Brand",
+          "type": "text"
+        },
+        {
+          "key": "has_variants",
+          "label": "Has Variants?",
+          "type": "boolean",
+          "default": false
+        }
+      ],
+      "initial_data": [
+        {
+          "record_id": 1,
+          "name": "MacBook Pro M3",
+          "category": "Computers",
+          "brand": "Apple",
+          "has_variants": true
+        },
+        {
+          "record_id": 2,
+          "name": "Aluminum Laptop Stand",
+          "category": "Accessories",
+          "brand": "Rain Design",
+          "has_variants": false
+        }
+      ]
+    },
+    {
+      "id": "variants",
+      "label": "Items / SKUs",
+      "list_template": {
+        "template": "standard",
+        "title_key": "full_name",
+        "subtitle_key": "sku",
+        "trailing_key": "qty_on_hand"
+      },
+      "fields": [
+        {
+          "key": "parent_product",
+          "label": "Product Family",
+          "type": "relation",
+          "options": "products",
+          "display_field": "name",
+          "required": true
+        },
+        {
+          "key": "size",
+          "label": "Size",
+          "type": "select",
+          "options": [
+            "14-inch",
+            "16-inch"
+          ],
+          "depends_on": "parent_product.has_variants",
+          "depends_value": true
+        },
+        {
+          "key": "color",
+          "label": "Color",
+          "type": "select",
+          "options": [
+            "Space Gray",
+            "Silver"
+          ],
+          "depends_on": "parent_product.has_variants",
+          "depends_value": true
+        },
+        {
+          "key": "full_name",
+          "label": "Item Name",
+          "type": "calculated",
+          "calculation": {
+            "operation": "variant_name",
+            "relation": "parent_product",
+            "collection": "products",
+            "label": "name",
+            "variants": "has_variants",
+            "fields": [
+              "color",
+              "size"
+            ]
           }
-        ]
-      }
-    ]
+        },
+        {
+          "key": "sku",
+          "label": "SKU",
+          "type": "scanner",
+          "required": true
+        },
+        {
+          "key": "price",
+          "label": "Selling Price",
+          "type": "currency"
+        },
+        {
+          "key": "qty_on_hand",
+          "label": "Stock",
+          "type": "number",
+          "readonly": true
+        }
+      ],
+      "initial_data": [
+        {
+          "record_id": 101,
+          "parent_product": 1,
+          "size": "14-inch",
+          "color": "Space Gray",
+          "full_name": "MacBook Pro M3 - Space Gray/14-inch",
+          "sku": "MBP-14-SG",
+          "price": 1599,
+          "qty_on_hand": 10
+        },
+        {
+          "record_id": 102,
+          "parent_product": 1,
+          "size": "16-inch",
+          "color": "Silver",
+          "full_name": "MacBook Pro M3 - Silver/16-inch",
+          "sku": "MBP-16-SL",
+          "price": 2499,
+          "qty_on_hand": 5
+        },
+        {
+          "record_id": 103,
+          "parent_product": 2,
+          "size": "",
+          "color": "",
+          "full_name": "Aluminum Laptop Stand",
+          "sku": "ACC-STD-001",
+          "price": 49.99,
+          "qty_on_hand": 50
+        }
+      ]
+    }
+  ]
 }

@@ -5,23 +5,29 @@ import 'package:drivererpapp/models/schema_models.dart';
 
 void main() {
   testWidgets('DynamicBooleanField toggles value', (WidgetTester tester) async {
-    final column = ColumnConfig(key: 'active', label: 'Is Active', type: 'boolean');
+    final column = FieldDefinition(
+      key: 'active',
+      label: 'Is Active',
+      type: 'boolean',
+    );
     bool? newValue;
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: DynamicBooleanField(
-          column: column,
-          value: false,
-          primaryColor: Colors.blue,
-          onChanged: (val) => newValue = val,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DynamicBooleanField(
+            column: column,
+            value: false,
+            primaryColor: Colors.blue,
+            onChanged: (val) => newValue = val,
+          ),
         ),
       ),
-    ));
+    );
 
     expect(find.text('Is Active'), findsOneWidget);
     final switchFinder = find.byType(Switch);
-    
+
     await tester.tap(switchFinder);
     await tester.pump();
 

@@ -1,3 +1,4 @@
+import 'package:drivererpapp/services/backend/backend_session.dart';
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
@@ -6,20 +7,26 @@ class ImageFieldView extends StatelessWidget {
   final String rawValue;
   final Color primaryColor;
 
-  const ImageFieldView({super.key, required this.label, required this.rawValue, required this.primaryColor});
+  const ImageFieldView({
+    super.key,
+    required this.label,
+    required this.rawValue,
+    required this.primaryColor,
+  });
 
   String _resolveImageUrl(String? rawValue) {
     if (rawValue == null || rawValue.isEmpty) return '';
     if (rawValue.startsWith('http') || rawValue.contains('data:image')) {
       return rawValue;
     }
-    return 'https://drive.google.com/uc?export=view&id=$rawValue';
+    return BackendSession.mediaUrl(rawValue);
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final borderColor = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
+    final borderColor =
+        theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
 
     final url = _resolveImageUrl(rawValue);
 
@@ -48,18 +55,30 @@ class ImageFieldView extends StatelessWidget {
           child: url.isNotEmpty
               ? Image.network(
                   url,
+                  headers: BackendSession.mediaHeaders(url),
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) => Center(
-                    child: Icon(Icons.broken_image_rounded, color: borderColor, size: 48),
+                    child: Icon(
+                      Icons.broken_image_rounded,
+                      color: borderColor,
+                      size: 48,
+                    ),
                   ),
                 )
               : Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.image_not_supported_rounded, color: borderColor, size: 48),
+                      Icon(
+                        Icons.image_not_supported_rounded,
+                        color: borderColor,
+                        size: 48,
+                      ),
                       const SizedBox(height: 8),
-                      Text('No Image Available', style: TextStyle(color: borderColor)),
+                      Text(
+                        'No Image Available',
+                        style: TextStyle(color: borderColor),
+                      ),
                     ],
                   ),
                 ),

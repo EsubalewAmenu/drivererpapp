@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import '../widgets/calculation_editor.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
 class EditColumnDialog extends StatefulWidget {
-  final ColumnConfig column;
-  final TabConfig? tab;
-  final List<ColumnConfig>? siblingColumns;
+  final FieldDefinition column;
+  final CollectionSchema? tab;
+  final List<FieldDefinition>? siblingColumns;
   final Map<String, dynamic>? rawSettings;
 
   const EditColumnDialog({
@@ -14,7 +15,10 @@ class EditColumnDialog extends StatefulWidget {
     this.tab,
     this.siblingColumns,
     this.rawSettings,
-  }) : assert(tab != null || siblingColumns != null, 'Either tab or siblingColumns must be provided');
+  }) : assert(
+         tab != null || siblingColumns != null,
+         'Either tab or siblingColumns must be provided',
+       );
 
   @override
   State<EditColumnDialog> createState() => _EditColumnDialogState();
@@ -25,11 +29,12 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
   late TextEditingController _keyController;
   late TextEditingController _helpController;
   late String _currentType;
+  Map<String, dynamic> _calculation = {};
   String? _currentDependsOn;
   late bool _isHidden;
   late bool _isRequired;
   String _currencySymbol = '\$';
-  
+
   bool _isDynamicOptions = false;
   List<String> _staticOptions = [];
   String _dynamicOptionPath = '';
@@ -41,6 +46,9 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
     _keyController = TextEditingController(text: widget.column.key);
     _helpController = TextEditingController(text: widget.column.help);
     _currentType = widget.column.type;
+    _calculation =
+        widget.column.calculation ??
+        {'operation': 'multiply', 'fields': <String>[]};
     _currentDependsOn = widget.column.dependsOn;
     _isHidden = widget.column.hidden ?? false;
     _isRequired = widget.column.isRequired ?? false;
@@ -77,9 +85,9 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
         .map((e) => 'settings.${e.key}')
         .toList();
   }
-  
-  List<ColumnConfig> _getSiblingColumns() {
-    return widget.siblingColumns ?? widget.tab?.columns ?? [];
+
+  List<FieldDefinition> _getSiblingColumns() {
+    return widget.siblingColumns ?? widget.tab?.fields ?? [];
   }
 
   void _showAddOptionDialog(BuildContext context, Function(String) onAdd) {
@@ -88,12 +96,12 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Add Option'),
-        content: TextField(
-          autofocus: true,
-          onChanged: (v) => val = v,
-        ),
+        content: TextField(autofocus: true, onChanged: (v) => val = v),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Add')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Add'),
+          ),
         ],
       ),
     ).then((_) {
@@ -105,8 +113,12 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
-      title: Text('Edit Column', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
+      backgroundColor:
+          theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+      title: Text(
+        'Edit field',
+        style: AppTheme.inter(color: theme.textTheme.titleLarge?.color),
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -115,7 +127,7 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
             TextField(
               controller: _labelController,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-              decoration: const InputDecoration(labelText: 'Column Name'),
+              decoration: const InputDecoration(labelText: 'Field name'),
             ),
             const SizedBox(height: 16),
             TextField(
@@ -131,8 +143,8 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               controller: _keyController,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(
-                labelText: 'Column Key',
-                helperText: 'Unique ID used in spreadsheet and formulas.',
+                labelText: 'Field key',
+                helperText: 'Unique field key used in database queries.',
               ),
             ),
             const SizedBox(height: 16),
@@ -140,27 +152,60 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               initialValue: _currentType,
               dropdownColor: theme.cardTheme.color,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-              items: {
-                'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table', 'email', 'phone',
-                _currentType
-              }
-                  .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
-                  .toList(),
+              items:
+                  {
+                        'text',
+                        'number',
+                        'date',
+                        'select',
+                        'boolean',
+                        'image',
+                        'scanner',
+                        'currency',
+                        'calculated',
+                        'relation',
+                        'table',
+                        'email',
+                        'phone',
+                        'file',
+                        'integer',
+                        'long_text',
+                        'url',
+                        _currentType,
+                      }
+                      .map(
+                        (t) => DropdownMenuItem(
+                          value: t,
+                          child: Text(t.toUpperCase()),
+                        ),
+                      )
+                      .toList(),
               onChanged: (val) {
                 setState(() => _currentType = val!);
               },
               decoration: const InputDecoration(labelText: 'Data Type'),
             ),
+            if (_currentType == 'calculated')
+              CalculationEditor(
+                value: _calculation,
+                onChanged: (v) => setState(() => _calculation = v),
+              ),
             const SizedBox(height: 16),
             SwitchListTile(
-              title: Text('Is Required', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
+              title: Text(
+                'Is Required',
+                style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+              ),
               value: _isRequired,
               onChanged: (val) => setState(() => _isRequired = val),
               activeThumbColor: theme.primaryColor,
               contentPadding: EdgeInsets.zero,
             ),
             SwitchListTile(
-              title: Text('Hidden (Don\'t show on form)', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
+              title: Text(
+                'Hidden (Don\'t show on form)',
+                style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+              ),
               value: _isHidden,
               onChanged: (val) => setState(() => _isHidden = val),
               activeThumbColor: theme.primaryColor,
@@ -171,42 +216,93 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               initialValue: _currentDependsOn,
               dropdownColor: theme.cardTheme.color,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-              decoration: const InputDecoration(labelText: 'Depends On (Optional)'),
+              decoration: const InputDecoration(
+                labelText: 'Depends On (Optional)',
+              ),
               items: [
                 const DropdownMenuItem(value: null, child: Text('None')),
                 ..._getSiblingColumns()
                     .where((c) => c.key != widget.column.key)
-                    .map((c) => DropdownMenuItem(value: c.key, child: Text(c.label))),
+                    .map(
+                      (c) =>
+                          DropdownMenuItem(value: c.key, child: Text(c.label)),
+                    ),
                 if (_getAvailableBooleanSettings().isNotEmpty) ...[
-                   const DropdownMenuItem(value: '__divider__', enabled: false, child: Divider()),
-                   const DropdownMenuItem(value: '__header__', enabled: false, child: Text('Settings', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                   ..._getAvailableBooleanSettings().map((s) => DropdownMenuItem(value: s, child: Text(s))),
+                  const DropdownMenuItem(
+                    value: '__divider__',
+                    enabled: false,
+                    child: Divider(),
+                  ),
+                  const DropdownMenuItem(
+                    value: '__header__',
+                    enabled: false,
+                    child: Text(
+                      'Settings',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  ..._getAvailableBooleanSettings().map(
+                    (s) => DropdownMenuItem(value: s, child: Text(s)),
+                  ),
                 ],
-                if (_currentDependsOn != null && 
-                    !_getSiblingColumns().any((c) => c.key == _currentDependsOn) &&
+                if (_currentDependsOn != null &&
+                    !_getSiblingColumns().any(
+                      (c) => c.key == _currentDependsOn,
+                    ) &&
                     !_getAvailableBooleanSettings().contains(_currentDependsOn))
-                  DropdownMenuItem(value: _currentDependsOn, child: Text('$_currentDependsOn (Missing)')),
+                  DropdownMenuItem(
+                    value: _currentDependsOn,
+                    child: Text('$_currentDependsOn (Missing)'),
+                  ),
               ],
               onChanged: (val) => setState(() => _currentDependsOn = val),
             ),
-            
+
             if (_currentType == 'table') ...[
               const SizedBox(height: 24),
-              Text('Table Structure', style: AppTheme.inter(fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color)),
+              Text(
+                'Table Structure',
+                style: AppTheme.inter(
+                  fontWeight: FontWeight.bold,
+                  color: theme.textTheme.bodyLarge?.color,
+                ),
+              ),
               const SizedBox(height: 8),
-              if ((widget.column.columns ?? []).isEmpty)
-                  Text('No columns defined. Save this dialog and use the "Add Sub-Column" button in the list view to add columns.', style: TextStyle(color: theme.textTheme.bodyMedium?.color, fontSize: 13))
+              if ((widget.column.fields ?? []).isEmpty)
+                Text(
+                  'No fields defined. Save this dialog and use the "Add Sub-Column" button in the list view to add fields.',
+                  style: TextStyle(
+                    color: theme.textTheme.bodyMedium?.color,
+                    fontSize: 13,
+                  ),
+                )
               else
-                 Wrap(
-                    spacing: 8,
-                    children: (widget.column.columns!).map((c) => Chip(
-                      label: Text(c.label),
-                      backgroundColor: theme.scaffoldBackgroundColor,
-                      labelStyle: TextStyle(color: theme.textTheme.bodyLarge?.color),
-                    )).toList(),
-                 ),
-               const SizedBox(height: 8),
-                Text('NOTE: Use the arrow in the main list to expand this table and edit its columns.', style: TextStyle(color: theme.textTheme.bodyMedium?.color, fontSize: 11, fontStyle: FontStyle.italic)),
+                Wrap(
+                  spacing: 8,
+                  children: (widget.column.fields!)
+                      .map(
+                        (c) => Chip(
+                          label: Text(c.label),
+                          backgroundColor: theme.scaffoldBackgroundColor,
+                          labelStyle: TextStyle(
+                            color: theme.textTheme.bodyLarge?.color,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              const SizedBox(height: 8),
+              Text(
+                'NOTE: Use the arrow in the main list to expand this table and edit its fields.',
+                style: TextStyle(
+                  color: theme.textTheme.bodyMedium?.color,
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
             ],
 
             if (_currentType == 'currency') ...[
@@ -231,38 +327,43 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
 
             if (_currentType == 'select') ...[
               const SizedBox(height: 24),
-              Text('Options Source', style: AppTheme.inter(fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color)),
-              Row(
-                children: [
-                  Expanded(child: RadioListTile<bool>(
-                    title: Text('Static', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
-                    value: false,
-                    groupValue: _isDynamicOptions,
-                    onChanged: (v) => setState(() => _isDynamicOptions = v!),
-                    activeColor: theme.primaryColor,
-                    contentPadding: EdgeInsets.zero,
-                  )),
-                  Expanded(child: RadioListTile<bool>(
-                    title: Text('Dynamic', style: TextStyle(color: theme.textTheme.bodyLarge?.color)),
-                    value: true,
-                    groupValue: _isDynamicOptions,
-                    onChanged: (v) => setState(() => _isDynamicOptions = v!),
-                    activeColor: theme.primaryColor,
-                    contentPadding: EdgeInsets.zero,
-                  )),
-                ],
+              Text(
+                'Options Source',
+                style: AppTheme.inter(
+                  fontWeight: FontWeight.bold,
+                  color: theme.textTheme.bodyLarge?.color,
+                ),
               ),
-              
+              SegmentedButton<bool>(
+                segments: const [
+                  ButtonSegment(value: false, label: Text('Static')),
+                  ButtonSegment(value: true, label: Text('Dynamic')),
+                ],
+                selected: {_isDynamicOptions},
+                onSelectionChanged: (value) =>
+                    setState(() => _isDynamicOptions = value.first),
+              ),
+
               if (_isDynamicOptions)
                 DropdownButtonFormField<String>(
-                  initialValue: _getAvailableListSettings().contains(_dynamicOptionPath.replaceFirst('settings.', '')) 
-                      ? _dynamicOptionPath.replaceFirst('settings.', '') 
+                  initialValue:
+                      _getAvailableListSettings().contains(
+                        _dynamicOptionPath.replaceFirst('settings.', ''),
+                      )
+                      ? _dynamicOptionPath.replaceFirst('settings.', '')
                       : null,
                   dropdownColor: theme.cardTheme.color,
                   style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-                  items: _getAvailableListSettings().map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
-                  onChanged: (val) => setState(() => _dynamicOptionPath = val != null ? 'settings.$val' : ''),
-                  decoration: const InputDecoration(labelText: 'Select Setting List'),
+                  items: _getAvailableListSettings()
+                      .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                      .toList(),
+                  onChanged: (val) => setState(
+                    () =>
+                        _dynamicOptionPath = val != null ? 'settings.$val' : '',
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Select Setting List',
+                  ),
                 )
               else
                 Column(
@@ -271,12 +372,17 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
                     Wrap(
                       spacing: 8,
                       children: [
-                        ..._staticOptions.map((opt) => Chip(
-                          label: Text(opt),
-                          backgroundColor: theme.scaffoldBackgroundColor,
-                          labelStyle: TextStyle(color: theme.textTheme.bodyLarge?.color),
-                          onDeleted: () => setState(() => _staticOptions.remove(opt)),
-                        )),
+                        ..._staticOptions.map(
+                          (opt) => Chip(
+                            label: Text(opt),
+                            backgroundColor: theme.scaffoldBackgroundColor,
+                            labelStyle: TextStyle(
+                              color: theme.textTheme.bodyLarge?.color,
+                            ),
+                            onDeleted: () =>
+                                setState(() => _staticOptions.remove(opt)),
+                          ),
+                        ),
                         ActionChip(
                           label: const Icon(Icons.add, size: 16),
                           onPressed: () {
@@ -288,16 +394,19 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
                       ],
                     ),
                   ],
-                )
-            ]
+                ),
+            ],
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         TextButton(
           onPressed: () {
-            final newCol = ColumnConfig(
+            final newCol = FieldDefinition(
               key: _keyController.text,
               label: _labelController.text,
               help: _helpController.text.isEmpty ? null : _helpController.text,
@@ -305,16 +414,24 @@ class _EditColumnDialogState extends State<EditColumnDialog> {
               dependsOn: _currentDependsOn,
               hidden: _isHidden,
               isRequired: _isRequired,
-              currencySymbol: _currentType == 'currency' ? _currencySymbol : null,
-              options: _currentType == 'select' 
-                  ? (_isDynamicOptions ? _dynamicOptionPath : _staticOptions)
+              currencySymbol: _currentType == 'currency'
+                  ? _currencySymbol
                   : null,
-              columns: widget.column.columns,
+              calculation: _currentType == 'calculated' ? _calculation : null,
+              displayField: widget.column.displayField,
+              readonly: widget.column.readonly,
+              defaultValue: widget.column.defaultValue,
+              dependsValue: widget.column.dependsValue,
+              dependsOperator: widget.column.dependsOperator,
+              options: _currentType == 'select'
+                  ? (_isDynamicOptions ? _dynamicOptionPath : _staticOptions)
+                  : widget.column.options,
+              fields: widget.column.fields,
             );
-            
+
             Navigator.pop(context, newCol);
-          }, 
-          child: const Text('Save')
+          },
+          child: const Text('Save'),
         ),
       ],
     );

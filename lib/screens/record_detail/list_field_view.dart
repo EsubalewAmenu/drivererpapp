@@ -7,7 +7,12 @@ class ListFieldView extends StatelessWidget {
   final dynamic value;
   final Color primaryColor;
 
-  const ListFieldView({super.key, required this.label, required this.value, required this.primaryColor});
+  const ListFieldView({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.primaryColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -57,22 +62,29 @@ class ListFieldView extends StatelessWidget {
             spacing: 8,
             runSpacing: 8,
             children: items
-                .map((item) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+                .map(
+                  (item) => Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: primaryColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: primaryColor.withValues(alpha: 0.3),
                       ),
-                      child: Text(
-                        item,
-                        style: AppTheme.inter(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: primaryColor,
-                        ),
+                    ),
+                    child: Text(
+                      item,
+                      style: AppTheme.inter(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: primaryColor,
                       ),
-                    ))
+                    ),
+                  ),
+                )
                 .toList(),
           ),
         ),

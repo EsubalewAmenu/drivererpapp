@@ -4,20 +4,28 @@ import 'package:drivererpapp/screens/dynamic_form/fields/date_field.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 
 void main() {
-  testWidgets('DynamicDateField shows picker and selects date', (WidgetTester tester) async {
-    final column = ColumnConfig(key: 'date', label: 'Order Date', type: 'date');
+  testWidgets('DynamicDateField shows picker and selects date', (
+    WidgetTester tester,
+  ) async {
+    final column = FieldDefinition(
+      key: 'date',
+      label: 'Order Date',
+      type: 'date',
+    );
     String? newValue;
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: DynamicDateField(
-          column: column,
-          value: null,
-          primaryColor: Colors.blue,
-          onChanged: (val) => newValue = val,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DynamicDateField(
+            column: column,
+            value: null,
+            primaryColor: Colors.blue,
+            onChanged: (val) => newValue = val,
+          ),
         ),
       ),
-    ));
+    );
 
     expect(find.text('ORDER DATE'), findsOneWidget);
     expect(find.text('Select Date'), findsOneWidget);
@@ -33,23 +41,32 @@ void main() {
     expect(newValue, matches(RegExp(r'\d{4}-\d{2}-\d{2}')));
   });
 
-  testWidgets('DynamicDateField displays error when required and empty', (WidgetTester tester) async {
-    final column = ColumnConfig(key: 'date', label: 'Order Date', type: 'date', isRequired: true);
+  testWidgets('DynamicDateField displays error when required and empty', (
+    WidgetTester tester,
+  ) async {
+    final column = FieldDefinition(
+      key: 'date',
+      label: 'Order Date',
+      type: 'date',
+      isRequired: true,
+    );
     final formKey = GlobalKey<FormState>();
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: Form(
-          key: formKey,
-          child: DynamicDateField(
-            column: column,
-            value: null,
-            primaryColor: Colors.blue,
-            onChanged: (val) {},
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Form(
+            key: formKey,
+            child: DynamicDateField(
+              column: column,
+              value: null,
+              primaryColor: Colors.blue,
+              onChanged: (val) {},
+            ),
           ),
         ),
       ),
-    ));
+    );
 
     formKey.currentState!.validate();
     await tester.pump();

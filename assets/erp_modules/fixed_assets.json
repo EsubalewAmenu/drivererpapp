@@ -1,35 +1,85 @@
 {
+  "id": "fixed_assets",
+  "name": "Fixed Assets",
+  "icon": "account_balance",
+  "primaryColor": "#6366F1",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "fixed_assets" },
-    "icon": { "label": "Icon", "type": "icon", "value": "account_balance" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#6366F1" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Fixed Assets", "help": "Main module title" }
-
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "fixed_assets"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "account_balance"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#6366F1"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Fixed Assets",
+      "help": "Main module title"
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Expense Breakdown",
-        "formula": "=CHART(Finance:bills:bills!C:C)",
-        "format": "text",
-        "type": "pie"
+        "label": "Fixed Assets Records",
+        "type": "kpi",
+        "query": {
+          "collection": "fixed_assets",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Original Cost",
+        "type": "kpi",
+        "format": "currency",
+        "query": {
+          "collection": "fixed_assets",
+          "operation": "sum",
+          "field": "cost"
+        }
+      },
+      {
+        "label": "Total Useful Life (Years)",
+        "type": "kpi",
+        "format": "number",
+        "query": {
+          "collection": "fixed_assets",
+          "operation": "sum",
+          "field": "useful_life"
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "fixed_assets",
       "label": "Fixed Assets",
       "depends_on": "settings.enable_assets",
       "enable_custom_filters": true,
-      "load_sub_table_data_automatically": false,
+      "load_related_data": false,
       "list_template": {
         "template": "standard",
         "title_key": "name",
         "subtitle_key": "purchase_date",
         "trailing_key": "current_value",
-        "detail_keys": ["cost", "useful_life"]
+        "detail_keys": [
+          "cost",
+          "useful_life"
+        ]
       },
       "detail_template": {
         "template": "standard",
@@ -38,8 +88,28 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "5 Years", "key": "five_years", "rules": [ { "field": "useful_life", "operator": "==", "value": 5 } ] },
-        { "label": "10 Years", "key": "ten_years", "rules": [ { "field": "useful_life", "operator": "==", "value": 10 } ] }
+        {
+          "label": "5 Years",
+          "key": "five_years",
+          "rules": [
+            {
+              "field": "useful_life",
+              "operator": "==",
+              "value": 5
+            }
+          ]
+        },
+        {
+          "label": "10 Years",
+          "key": "ten_years",
+          "rules": [
+            {
+              "field": "useful_life",
+              "operator": "==",
+              "value": 10
+            }
+          ]
+        }
       ],
       "initial_data": [
         {
@@ -59,16 +129,39 @@
           "current_value": ""
         }
       ],
-      "columns": [
-        { "key": "name", "label": "Asset Name", "type": "text", "required": true },
-        { "key": "purchase_date", "label": "Purchase Date", "type": "date" },
-        { "key": "cost", "label": "Original Cost", "type": "currency" },
-        { "key": "useful_life", "label": "Useful Life (Years)", "type": "number", "default": 5 },
+      "fields": [
+        {
+          "key": "name",
+          "label": "Asset Name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "purchase_date",
+          "label": "Purchase Date",
+          "type": "date"
+        },
+        {
+          "key": "cost",
+          "label": "Original Cost",
+          "type": "currency"
+        },
+        {
+          "key": "useful_life",
+          "label": "Useful Life (Years)",
+          "type": "number",
+          "default": 5
+        },
         {
           "key": "current_value",
           "label": "Book Value (Est)",
-          "type": "formula",
-          "formula": "=MAX(0, cost - ((cost / useful_life) * ((TODAY() - purchase_date) / 365)))"
+          "type": "calculated",
+          "calculation": {
+            "operation": "book_value",
+            "cost": "cost",
+            "life": "useful_life",
+            "date": "purchase_date"
+          }
         }
       ]
     }

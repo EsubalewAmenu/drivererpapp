@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../widgets/calculation_editor.dart';
 import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
@@ -14,6 +15,10 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
   final _keyController = TextEditingController();
   bool _isKeyManuallyEdited = false;
   String _currentType = 'text';
+  Map<String, dynamic> _calculation = {
+    'operation': 'multiply',
+    'fields': <String>[],
+  };
   bool _isRequired = false;
 
   @override
@@ -44,8 +49,12 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
-      title: Text('Add Column', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
+      backgroundColor:
+          theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+      title: Text(
+        'Add field',
+        style: AppTheme.inter(color: theme.textTheme.titleLarge?.color),
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -55,7 +64,7 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
               controller: _labelController,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(
-                labelText: 'Column Name',
+                labelText: 'Field name',
                 hintText: 'e.g. Unit Price',
               ),
               autofocus: true,
@@ -65,9 +74,10 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
               controller: _keyController,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: const InputDecoration(
-                labelText: 'Column Key (Database/Spreadsheet)',
+                labelText: 'Field key',
                 hintText: 'e.g. unit_price',
-                helperText: 'Used as the column header in your spreadsheet.',
+                helperText:
+                    'Unique field name stored and indexed in the database.',
               ),
               onChanged: (val) {
                 if (val.isNotEmpty) {
@@ -80,16 +90,43 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
               initialValue: _currentType,
               dropdownColor: theme.cardTheme.color,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-              items: {
-                'text', 'number', 'date', 'select', 'boolean', 'image', 'scanner', 'currency', 'formula', 'relation', 'table', 'email', 'phone'
-              }
-                  .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
-                  .toList(),
+              items:
+                  {
+                        'text',
+                        'number',
+                        'date',
+                        'select',
+                        'boolean',
+                        'image',
+                        'scanner',
+                        'currency',
+                        'calculated',
+                        'relation',
+                        'table',
+                        'email',
+                        'phone',
+                        'file',
+                        'integer',
+                        'long_text',
+                        'url',
+                      }
+                      .map(
+                        (t) => DropdownMenuItem(
+                          value: t,
+                          child: Text(t.toUpperCase()),
+                        ),
+                      )
+                      .toList(),
               onChanged: (val) {
                 setState(() => _currentType = val!);
               },
               decoration: const InputDecoration(labelText: 'Data Type'),
             ),
+            if (_currentType == 'calculated')
+              CalculationEditor(
+                value: _calculation,
+                onChanged: (v) => setState(() => _calculation = v),
+              ),
             const SizedBox(height: 16),
             SwitchListTile(
               title: const Text('Is Required'),
@@ -104,21 +141,27 @@ class _AddColumnDialogState extends State<AddColumnDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         TextButton(
           onPressed: () {
-            if (_labelController.text.isEmpty || _keyController.text.isEmpty) return;
-            
-            final newCol = ColumnConfig(
+            if (_labelController.text.isEmpty || _keyController.text.isEmpty) {
+              return;
+            }
+
+            final newCol = FieldDefinition(
               key: _keyController.text.trim(),
               label: _labelController.text.trim(),
               type: _currentType,
+              calculation: _currentType == 'calculated' ? _calculation : null,
               isRequired: _isRequired,
             );
-            
+
             Navigator.pop(context, newCol);
-          }, 
-          child: const Text('Add')
+          },
+          child: const Text('Add'),
         ),
       ],
     );

@@ -1,18 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:drivererpapp/theme/app_theme.dart';
 import '../../../models/schema_models.dart';
-import '../../../providers/drive_provider.dart';
-import '../../../features/add_module/spreadsheet_picker_dialog.dart';
 import 'column_list_item.dart';
 import 'table_column_editor_item.dart';
 import '../dialogs/add_column_dialog.dart';
 import '../dialogs/edit_column_dialog.dart';
 
 class TabEditorCard extends StatelessWidget {
-  final TabConfig tab;
+  final CollectionSchema tab;
   final Map<String, dynamic>? rawSettings;
-  final Function(TabConfig) onTabChanged;
+  final Function(CollectionSchema) onTabChanged;
   final VoidCallback onDelete;
   final VoidCallback onEdit;
 
@@ -36,7 +33,13 @@ class TabEditorCard extends StatelessWidget {
         title: Row(
           children: [
             Expanded(
-              child: Text(tab.label, style: AppTheme.inter(fontWeight: FontWeight.w700, color: theme.textTheme.titleMedium?.color)),
+              child: Text(
+                tab.label,
+                style: AppTheme.inter(
+                  fontWeight: FontWeight.w700,
+                  color: theme.textTheme.titleMedium?.color,
+                ),
+              ),
             ),
             IconButton(
               icon: const Icon(Icons.edit_rounded, size: 20),
@@ -53,26 +56,9 @@ class TabEditorCard extends StatelessWidget {
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('${tab.columns.length} Columns', style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color)),
-            const SizedBox(height: 4),
-            tab.fileId != null && tab.fileId!.isNotEmpty
-              ? Text('File ID: ${tab.fileId}', 
-                style: AppTheme.inter(fontSize: 12, color: Colors.green, fontWeight: FontWeight.w600))
-              : Text('No linked file yet. It will be created when you access the tab, or you can select an existing spreadsheet from Drive.', 
-                style: AppTheme.inter(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 8),
-            TextButton.icon(
-              onPressed: () => _showChooseSpreadsheetDialog(context),
-              icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-              label: Text(
-                tab.fileId != null && tab.fileId!.isNotEmpty ? 'Change Spreadsheet' : 'Choose Spreadsheet',
-                style: AppTheme.inter(fontWeight: FontWeight.w600),
-              ),
-              style: TextButton.styleFrom(
-                foregroundColor: theme.primaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                visualDensity: VisualDensity.compact,
-              ),
+            Text(
+              '${tab.fields.length} Fields',
+              style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
             ),
           ],
         ),
@@ -83,7 +69,7 @@ class TabEditorCard extends StatelessWidget {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
-                ...tab.columns.map((col) {
+                ...tab.fields.map((col) {
                   if (col.type.toLowerCase() == 'table') {
                     return TableColumnEditorItem(
                       key: ValueKey(col.key),
@@ -102,7 +88,7 @@ class TabEditorCard extends StatelessWidget {
                   );
                 }),
                 const SizedBox(height: 16),
-                _buildAddButton(context, 'Add Column', () {
+                _buildAddButton(context, 'Add Field', () {
                   _showAddColumnDialog(context);
                 }, isSmall: true),
               ],
@@ -113,7 +99,12 @@ class TabEditorCard extends StatelessWidget {
     );
   }
 
-  Widget _buildAddButton(BuildContext context, String label, VoidCallback onTap, {bool isSmall = false}) {
+  Widget _buildAddButton(
+    BuildContext context,
+    String label,
+    VoidCallback onTap, {
+    bool isSmall = false,
+  }) {
     final theme = Theme.of(context);
     final color = theme.textTheme.bodyMedium?.color ?? Colors.grey;
 
@@ -123,7 +114,10 @@ class TabEditorCard extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.symmetric(vertical: isSmall ? 12 : 16),
         decoration: BoxDecoration(
-          border: Border.all(color: color.withValues(alpha: 0.3), style: BorderStyle.solid),
+          border: Border.all(
+            color: color.withValues(alpha: 0.3),
+            style: BorderStyle.solid,
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Center(
@@ -132,7 +126,13 @@ class TabEditorCard extends StatelessWidget {
             children: [
               Icon(Icons.add, color: color, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: AppTheme.inter(color: color, fontWeight: FontWeight.w600)),
+              Text(
+                label,
+                style: AppTheme.inter(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
@@ -141,26 +141,26 @@ class TabEditorCard extends StatelessWidget {
   }
 
   Future<void> _showAddColumnDialog(BuildContext context) async {
-    final newCol = await showDialog<ColumnConfig>(
+    final newCol = await showDialog<FieldDefinition>(
       context: context,
       builder: (context) => const AddColumnDialog(),
     );
 
     if (newCol != null) {
-      final newColumns = List<ColumnConfig>.from(tab.columns)..add(newCol);
-      final newTab = tab.copyWith(columns: newColumns);
+      final newColumns = List<FieldDefinition>.from(tab.fields)..add(newCol);
+      final newTab = tab.copyWith(fields: newColumns);
       onTabChanged(newTab);
     }
   }
 
-  Future<void> _showEditColumnDialog(BuildContext context, ColumnConfig col) async {
-    final updatedCol = await showDialog<ColumnConfig>(
+  Future<void> _showEditColumnDialog(
+    BuildContext context,
+    FieldDefinition col,
+  ) async {
+    final updatedCol = await showDialog<FieldDefinition>(
       context: context,
-      builder: (context) => EditColumnDialog(
-        column: col,
-        tab: tab,
-        rawSettings: rawSettings,
-      ),
+      builder: (context) =>
+          EditColumnDialog(column: col, tab: tab, rawSettings: rawSettings),
     );
 
     if (updatedCol != null) {
@@ -168,30 +168,41 @@ class TabEditorCard extends StatelessWidget {
     }
   }
 
-  void _updateColumn(ColumnConfig oldColumn, ColumnConfig newColumn) {
-      final newColumns = List<ColumnConfig>.from(tab.columns);
-      final index = newColumns.indexOf(oldColumn);
-      if (index != -1) {
-        newColumns[index] = newColumn;
-        final newTab = tab.copyWith(columns: newColumns);
-        onTabChanged(newTab);
-      }
+  void _updateColumn(FieldDefinition oldColumn, FieldDefinition newColumn) {
+    final newColumns = List<FieldDefinition>.from(tab.fields);
+    final index = newColumns.indexOf(oldColumn);
+    if (index != -1) {
+      newColumns[index] = newColumn;
+      final newTab = tab.copyWith(fields: newColumns);
+      onTabChanged(newTab);
+    }
   }
 
-  void _confirmDeleteColumn(BuildContext context, ColumnConfig col) {
+  void _confirmDeleteColumn(BuildContext context, FieldDefinition col) {
     final theme = Theme.of(context);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
-        title: Text('Delete Column', style: TextStyle(color: theme.textTheme.titleLarge?.color)),
-        content: Text('Are you sure you want to delete "${col.label}"? This cannot be undone.', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+        backgroundColor:
+            theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+        title: Text(
+          'Delete Column',
+          style: TextStyle(color: theme.textTheme.titleLarge?.color),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${col.label}"? This cannot be undone.',
+          style: TextStyle(color: theme.textTheme.bodyMedium?.color),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
-              final newColumns = List<ColumnConfig>.from(tab.columns)..remove(col);
-              final newTab = tab.copyWith(columns: newColumns);
+              final newColumns = List<FieldDefinition>.from(tab.fields)
+                ..remove(col);
+              final newTab = tab.copyWith(fields: newColumns);
               onTabChanged(newTab);
               Navigator.pop(context);
             },
@@ -201,26 +212,4 @@ class TabEditorCard extends StatelessWidget {
       ),
     );
   }
-
-  Future<void> _showChooseSpreadsheetDialog(BuildContext context) async {
-    final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-    final driveService = driveProvider.driveService;
-    if (driveService == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Drive is not connected. Please sign in.')),
-        );
-      }
-      return;
-    }
-    final selectedId = await SpreadsheetPickerDialog.show(
-      context,
-      driveApi: driveService.driveApi,
-    );
-
-    if (selectedId != null && selectedId.isNotEmpty) {
-      onTabChanged(tab.copyWith(fileId: selectedId));
-    }
-  }
-
 }

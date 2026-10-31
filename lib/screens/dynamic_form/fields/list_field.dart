@@ -3,7 +3,7 @@ import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
 class DynamicListField extends StatefulWidget {
-  final ColumnConfig column;
+  final FieldDefinition column;
   final List<String> value;
   final Color primaryColor;
   final Function(List<String>) onChanged;
@@ -49,16 +49,22 @@ class _DynamicListFieldState extends State<DynamicListField> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              ...widget.value.map((e) => Chip(
-                label: Text(e),
-                backgroundColor: widget.primaryColor.withValues(alpha: 0.1),
-                labelStyle: TextStyle(color: widget.primaryColor),
-                deleteIcon: Icon(Icons.close, size: 16, color: widget.primaryColor),
-                onDeleted: () {
-                  final newList = List<String>.from(widget.value)..remove(e);
-                  widget.onChanged(newList);
-                },
-              )),
+              ...widget.value.map(
+                (e) => Chip(
+                  label: Text(e),
+                  backgroundColor: widget.primaryColor.withValues(alpha: 0.1),
+                  labelStyle: TextStyle(color: widget.primaryColor),
+                  deleteIcon: Icon(
+                    Icons.close,
+                    size: 16,
+                    color: widget.primaryColor,
+                  ),
+                  onDeleted: () {
+                    final newList = List<String>.from(widget.value)..remove(e);
+                    widget.onChanged(newList);
+                  },
+                ),
+              ),
               ActionChip(
                 label: const Text('Add'),
                 avatar: const Icon(Icons.add, size: 16),
@@ -84,7 +90,8 @@ class _DynamicListFieldState extends State<DynamicListField> {
                         TextButton(
                           onPressed: () {
                             if (newVal.isNotEmpty) {
-                              final newList = List<String>.from(widget.value)..add(newVal);
+                              final newList = List<String>.from(widget.value)
+                                ..add(newVal);
                               widget.onChanged(newList);
                               Navigator.pop(context);
                             }

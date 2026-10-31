@@ -1,26 +1,100 @@
 {
+  "id": "marketing",
+  "name": "Marketing",
+  "icon": "campaign",
+  "primaryColor": "#EC4899",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "marketing" },
-    "icon": { "label": "Icon", "type": "icon", "value": "campaign" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#EC4899" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Marketing" }
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "marketing"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "campaign"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#EC4899"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Marketing"
+    }
   },
   "dashboard": {
     "cards": [
-      { "label": "Active Campaigns", "formula": "=COUNTIF(Marketing:campaigns:campaigns!E:E, \"Active\")", "format": "number" }
+      {
+        "label": "Campaigns Records",
+        "type": "kpi",
+        "query": {
+          "collection": "campaigns",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Budget",
+        "type": "kpi",
+        "format": "currency",
+        "query": {
+          "collection": "campaigns",
+          "operation": "sum",
+          "field": "budget"
+        }
+      },
+      {
+        "label": "Total Leads Generated",
+        "type": "kpi",
+        "format": "number",
+        "query": {
+          "collection": "campaigns",
+          "operation": "sum",
+          "field": "leads"
+        }
+      }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "campaigns",
       "label": "Campaigns",
-      "columns": [
-        { "key": "name", "label": "Campaign Name", "type": "text" },
-        { "key": "budget", "label": "Budget", "type": "currency" },
-        { "key": "leads", "label": "Leads Generated", "type": "number" },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Active", "Paused", "Completed"] }
-      ]
+      "fields": [
+        {
+          "key": "name",
+          "label": "Campaign Name",
+          "type": "text"
+        },
+        {
+          "key": "budget",
+          "label": "Budget",
+          "type": "currency"
+        },
+        {
+          "key": "leads",
+          "label": "Leads Generated",
+          "type": "number"
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "options": [
+            "Active",
+            "Paused",
+            "Completed"
+          ]
+        }
+      ],
+      "initial_data": []
     }
   ]
 }

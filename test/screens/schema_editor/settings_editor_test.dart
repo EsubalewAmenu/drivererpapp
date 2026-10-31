@@ -24,33 +24,39 @@ void main() {
   }
 
   group('SettingsEditor', () {
-    testWidgets('renders empty state when no settings provided', (WidgetTester tester) async {
+    testWidgets('renders empty state when no settings provided', (
+      WidgetTester tester,
+    ) async {
       await tester.pumpWidget(createSettingsEditor());
 
       expect(find.text('No settings defined.'), findsOneWidget);
     });
 
-    testWidgets('renders text setting and updates value', (WidgetTester tester) async {
+    testWidgets('renders text setting and updates value', (
+      WidgetTester tester,
+    ) async {
       final rawSettings = {
-        'appName': {'type': 'text', 'label': 'Application Name'}
+        'appName': {'type': 'text', 'label': 'Application Name'},
       };
       final settingsValues = {'appName': 'DriveERP'};
-      
+
       String? changedKey;
       dynamic changedValue;
 
-      await tester.pumpWidget(createSettingsEditor(
-        rawSettings: rawSettings,
-        settingsValues: settingsValues,
-        onSettingChanged: (key, value) {
-          changedKey = key;
-          changedValue = value;
-        },
-      ));
+      await tester.pumpWidget(
+        createSettingsEditor(
+          rawSettings: rawSettings,
+          settingsValues: settingsValues,
+          onSettingChanged: (key, value) {
+            changedKey = key;
+            changedValue = value;
+          },
+        ),
+      );
 
       expect(find.text('Application Name'), findsOneWidget);
       expect(find.text('Key: appName | Type: text'), findsOneWidget);
-      
+
       final textField = find.widgetWithText(TextFormField, 'DriveERP');
       expect(textField, findsOneWidget);
 
@@ -59,23 +65,27 @@ void main() {
       expect(changedValue, 'New Name');
     });
 
-    testWidgets('renders boolean setting and updates value', (WidgetTester tester) async {
+    testWidgets('renders boolean setting and updates value', (
+      WidgetTester tester,
+    ) async {
       final rawSettings = {
-        'darkMode': {'type': 'boolean', 'label': 'Dark Mode'}
+        'darkMode': {'type': 'boolean', 'label': 'Dark Mode'},
       };
       final settingsValues = {'darkMode': false};
-      
+
       String? changedKey;
       dynamic changedValue;
 
-      await tester.pumpWidget(createSettingsEditor(
-        rawSettings: rawSettings,
-        settingsValues: settingsValues,
-        onSettingChanged: (key, value) {
-          changedKey = key;
-          changedValue = value;
-        },
-      ));
+      await tester.pumpWidget(
+        createSettingsEditor(
+          rawSettings: rawSettings,
+          settingsValues: settingsValues,
+          onSettingChanged: (key, value) {
+            changedKey = key;
+            changedValue = value;
+          },
+        ),
+      );
 
       expect(find.text('Dark Mode'), findsOneWidget);
       final switchTile = find.byType(SwitchListTile);
@@ -87,23 +97,29 @@ void main() {
       expect(changedValue, true);
     });
 
-    testWidgets('renders list setting and allows adding/removing items', (WidgetTester tester) async {
+    testWidgets('renders list setting and allows adding/removing items', (
+      WidgetTester tester,
+    ) async {
       final rawSettings = {
-        'tags': {'type': 'list', 'label': 'Tags'}
+        'tags': {'type': 'list', 'label': 'Tags'},
       };
-      final settingsValues = {'tags': ['urgent', 'review']};
-      
+      final settingsValues = {
+        'tags': ['urgent', 'review'],
+      };
+
       String? changedKey;
       dynamic changedValue;
 
-      await tester.pumpWidget(createSettingsEditor(
-        rawSettings: rawSettings,
-        settingsValues: settingsValues,
-        onSettingChanged: (key, value) {
-          changedKey = key;
-          changedValue = value;
-        },
-      ));
+      await tester.pumpWidget(
+        createSettingsEditor(
+          rawSettings: rawSettings,
+          settingsValues: settingsValues,
+          onSettingChanged: (key, value) {
+            changedKey = key;
+            changedValue = value;
+          },
+        ),
+      );
 
       expect(find.text('Tags'), findsOneWidget);
       expect(find.text('urgent'), findsOneWidget);
@@ -112,9 +128,12 @@ void main() {
       // Test Removing
       // Find the delete icon within the chip labeled 'urgent'
       final chipFinder = find.widgetWithText(Chip, 'urgent');
-      final deleteIconFinder = find.descendant(of: chipFinder, matching: find.byIcon(Icons.cancel));
+      final deleteIconFinder = find.descendant(
+        of: chipFinder,
+        matching: find.byIcon(Icons.cancel),
+      );
       await tester.tap(deleteIconFinder);
-      
+
       expect(changedKey, 'tags');
       expect(changedValue, ['review']);
 
@@ -122,7 +141,12 @@ void main() {
       // Tap the + icon in the ActionChip (part of the list)
       // Usually there are multiple add icons (one for the list item, one for adding new setting at bottom)
       // The ActionChip is inside the Wrap.
-      await tester.tap(find.descendant(of: find.byType(Wrap), matching: find.byIcon(Icons.add)));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(Wrap),
+          matching: find.byIcon(Icons.add),
+        ),
+      );
       await tester.pumpAndSettle(); // Show dialog
 
       expect(find.text('Add to tags'), findsOneWidget);
@@ -131,21 +155,33 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(changedKey, 'tags');
-      expect(changedValue, ['urgent', 'review', 'done']); // logic appended to original input list clone
+      expect(changedValue, [
+        'urgent',
+        'review',
+        'done',
+      ]); // logic appended to original input list clone
     });
 
-    testWidgets('renders disabled state when dependency not met', (WidgetTester tester) async {
+    testWidgets('renders disabled state when dependency not met', (
+      WidgetTester tester,
+    ) async {
       final rawSettings = {
         'enableFeature': {'type': 'boolean', 'label': 'Enable Feature'},
-        'advancedOption': {'type': 'text', 'label': 'Advanced', 'dependsOn': 'enableFeature'}
+        'advancedOption': {
+          'type': 'text',
+          'label': 'Advanced',
+          'dependsOn': 'enableFeature',
+        },
       };
       // Dependency is false
       final settingsValues = {'enableFeature': false};
 
-      await tester.pumpWidget(createSettingsEditor(
-        rawSettings: rawSettings,
-        settingsValues: settingsValues,
-      ));
+      await tester.pumpWidget(
+        createSettingsEditor(
+          rawSettings: rawSettings,
+          settingsValues: settingsValues,
+        ),
+      );
 
       expect(find.text('Advanced'), findsOneWidget);
       expect(find.text('Disabled (Dependency not met)'), findsOneWidget);
@@ -154,17 +190,19 @@ void main() {
 
     testWidgets('deletes setting when confirmed', (WidgetTester tester) async {
       final rawSettings = {
-        'testKey': {'type': 'text'}
+        'testKey': {'type': 'text'},
       };
-      
+
       Map<String, dynamic>? newSchema;
 
-      await tester.pumpWidget(createSettingsEditor(
-        rawSettings: rawSettings,
-        onSchemaChanged: (schema) {
-          newSchema = schema;
-        },
-      ));
+      await tester.pumpWidget(
+        createSettingsEditor(
+          rawSettings: rawSettings,
+          onSchemaChanged: (schema) {
+            newSchema = schema;
+          },
+        ),
+      );
 
       await tester.tap(find.byIcon(Icons.delete_outline_rounded));
       await tester.pumpAndSettle();
@@ -179,11 +217,13 @@ void main() {
     testWidgets('adds new setting via dialog', (WidgetTester tester) async {
       Map<String, dynamic>? newSchema;
 
-      await tester.pumpWidget(createSettingsEditor(
-        onSchemaChanged: (schema) {
-          newSchema = schema;
-        },
-      ));
+      await tester.pumpWidget(
+        createSettingsEditor(
+          onSchemaChanged: (schema) {
+            newSchema = schema;
+          },
+        ),
+      );
 
       await tester.tap(find.text('Add New Setting'));
       await tester.pumpAndSettle();
@@ -191,20 +231,45 @@ void main() {
       expect(find.text('Add Setting'), findsOneWidget); // Dialog Title
 
       // Fill dialog
-      await tester.enterText(find.widgetWithText(TextField, 'Setting Key (ID)'), 'new_key'); // Matches labelText
-      await tester.enterText(find.widgetWithText(TextField, 'Label'), 'New Label');
-      await tester.enterText(find.widgetWithText(TextField, 'Help Text'), 'New Help');
-      await tester.tap(find.text('Save')); // Button is usually 'Save' or 'Add'? 
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Setting Key (ID)'),
+        'new_key',
+      ); // Matches labelText
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Label'),
+        'New Label',
+      );
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Help Text'),
+        'New Help',
+      );
+      await tester.tap(find.text('Save')); // Button is usually 'Save' or 'Add'?
 
-      expect(newSchema, containsPair('new_key', predicate((value) {
-        return value is Map && value['label'] == 'New Label' && value['help'] == 'New Help';
-      })));
+      expect(
+        newSchema,
+        containsPair(
+          'new_key',
+          predicate((value) {
+            return value is Map &&
+                value['label'] == 'New Label' &&
+                value['help'] == 'New Help';
+          }),
+        ),
+      );
     });
 
     testWidgets('renders help text when provided', (WidgetTester tester) async {
       final rawSettings = {
-        'helpSetting': {'type': 'text', 'label': 'Help Me', 'help': 'This is a hint'},
-        'boolSetting': {'type': 'boolean', 'label': 'Toggle Me', 'help': 'Click toggle'}
+        'helpSetting': {
+          'type': 'text',
+          'label': 'Help Me',
+          'help': 'This is a hint',
+        },
+        'boolSetting': {
+          'type': 'boolean',
+          'label': 'Toggle Me',
+          'help': 'Click toggle',
+        },
       };
       await tester.pumpWidget(createSettingsEditor(rawSettings: rawSettings));
 
@@ -219,7 +284,7 @@ void main() {
 
     testWidgets('renders unknown type warning', (WidgetTester tester) async {
       final rawSettings = {
-        'ghost': {'type': 'phantom', 'label': 'Ghost Setting'}
+        'ghost': {'type': 'phantom', 'label': 'Ghost Setting'},
       };
       await tester.pumpWidget(createSettingsEditor(rawSettings: rawSettings));
 

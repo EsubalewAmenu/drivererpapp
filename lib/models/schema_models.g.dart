@@ -11,15 +11,18 @@ ModuleSchema _$ModuleSchemaFromJson(Map<String, dynamic> json) => ModuleSchema(
   name: json['name'] as String,
   icon: json['icon'] as String,
   primaryColor: json['primaryColor'] as String,
-  version: json['version'] as String,
+  version: (json['version'] as num).toInt(),
+  companyId: json['company_id'] as String?,
+  templateKey: json['template_key'] as String?,
+  accessLevel: json['access_level'] as String? ?? 'manage',
   settings: (json['settings'] as Map<String, dynamic>).map(
     (k, e) => MapEntry(k, SettingItem.fromJson(e as Map<String, dynamic>)),
   ),
   dashboard: DashboardConfig.fromJson(
     json['dashboard'] as Map<String, dynamic>,
   ),
-  tabs: (json['tabs'] as List<dynamic>)
-      .map((e) => TabConfig.fromJson(e as Map<String, dynamic>))
+  collections: (json['collections'] as List<dynamic>)
+      .map((e) => CollectionSchema.fromJson(e as Map<String, dynamic>))
       .toList(),
 );
 
@@ -30,9 +33,12 @@ Map<String, dynamic> _$ModuleSchemaToJson(ModuleSchema instance) =>
       'icon': instance.icon,
       'primaryColor': instance.primaryColor,
       'version': instance.version,
+      'company_id': instance.companyId,
+      'template_key': instance.templateKey,
+      'access_level': instance.accessLevel,
       'settings': instance.settings.map((k, e) => MapEntry(k, e.toJson())),
       'dashboard': instance.dashboard.toJson(),
-      'tabs': instance.tabs.map((e) => e.toJson()).toList(),
+      'collections': instance.collections.map((e) => e.toJson()).toList(),
     };
 
 SettingItem _$SettingItemFromJson(Map<String, dynamic> json) => SettingItem(
@@ -46,21 +52,17 @@ SettingItem _$SettingItemFromJson(Map<String, dynamic> json) => SettingItem(
   options: json['options'] as List<dynamic>?,
 );
 
-Map<String, dynamic> _$SettingItemToJson(SettingItem instance) {
-  final val = <String, dynamic>{
-    'label': instance.label,
-    'type': instance.type,
-    'value': instance.value,
-    'dependsOn': instance.dependsOn,
-    'depends_value': instance.dependsValue,
-    'depends_operator': instance.dependsOperator,
-    'default': instance.defaultValue,
-    'options': instance.options,
-  };
-
-  val.removeWhere((_, v) => v == null);
-  return val;
-}
+Map<String, dynamic> _$SettingItemToJson(SettingItem instance) =>
+    <String, dynamic>{
+      'label': instance.label,
+      'type': instance.type,
+      'value': instance.value,
+      'dependsOn': instance.dependsOn,
+      'depends_value': instance.dependsValue,
+      'depends_operator': instance.dependsOperator,
+      'default': instance.defaultValue,
+      'options': instance.options,
+    };
 
 DashboardConfig _$DashboardConfigFromJson(Map<String, dynamic> json) =>
     DashboardConfig(
@@ -75,7 +77,7 @@ Map<String, dynamic> _$DashboardConfigToJson(DashboardConfig instance) =>
 DashboardCard _$DashboardCardFromJson(Map<String, dynamic> json) =>
     DashboardCard(
       label: json['label'] as String,
-      formula: json['formula'] as String,
+      query: json['query'] as Map<String, dynamic>,
       format: json['format'] as String?,
       type: json['type'] as String? ?? 'kpi',
       config: json['config'] as Map<String, dynamic>?,
@@ -84,52 +86,51 @@ DashboardCard _$DashboardCardFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$DashboardCardToJson(DashboardCard instance) =>
     <String, dynamic>{
       'label': instance.label,
-      'formula': instance.formula,
+      'query': instance.query,
       'format': instance.format,
       'type': instance.type,
       'config': instance.config,
     };
 
-TabConfig _$TabConfigFromJson(Map<String, dynamic> json) => TabConfig(
-  id: json['id'] as String,
-  label: json['label'] as String,
-  columns: (json['columns'] as List<dynamic>)
-      .map((e) => ColumnConfig.fromJson(e as Map<String, dynamic>))
-      .toList(),
-  quickFilters: (json['quick_filters'] as List<dynamic>?)
-      ?.map((e) => QuickFilter.fromJson(e as Map<String, dynamic>))
-      .toList(),
-  enableCustomFilters: json['enable_custom_filters'] as bool? ?? true,
-  listTemplate: json['list_template'] == null
-      ? null
-      : ListTemplateConfig.fromJson(
-          json['list_template'] as Map<String, dynamic>,
-        ),
-  detailTemplate: json['detail_template'] == null
-      ? null
-      : DetailTemplateConfig.fromJson(
-          json['detail_template'] as Map<String, dynamic>,
-        ),
-  loadSubTableDataAutomatically:
-      json['load_sub_table_data_automatically'] as bool? ?? true,
-  initialData: (json['initial_data'] as List<dynamic>?)
-      ?.map((e) => e as Map<String, dynamic>)
-      .toList(),
-  fileId: json['fileId'] as String?,
-);
+CollectionSchema _$CollectionSchemaFromJson(Map<String, dynamic> json) =>
+    CollectionSchema(
+      id: json['id'] as String,
+      label: json['label'] as String,
+      fields: (json['fields'] as List<dynamic>)
+          .map((e) => FieldDefinition.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      quickFilters: (json['quick_filters'] as List<dynamic>?)
+          ?.map((e) => QuickFilter.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      enableCustomFilters: json['enable_custom_filters'] as bool? ?? true,
+      listTemplate: json['list_template'] == null
+          ? null
+          : ListTemplateConfig.fromJson(
+              json['list_template'] as Map<String, dynamic>,
+            ),
+      detailTemplate: json['detail_template'] == null
+          ? null
+          : DetailTemplateConfig.fromJson(
+              json['detail_template'] as Map<String, dynamic>,
+            ),
+      loadRelatedData: json['load_related_data'] as bool? ?? true,
+      initialData: (json['initial_data'] as List<dynamic>?)
+          ?.map((e) => e as Map<String, dynamic>)
+          .toList(),
+    );
 
-Map<String, dynamic> _$TabConfigToJson(TabConfig instance) => <String, dynamic>{
-  'id': instance.id,
-  'label': instance.label,
-  'columns': instance.columns.map((e) => e.toJson()).toList(),
-  'quick_filters': instance.quickFilters?.map((e) => e.toJson()).toList(),
-  'enable_custom_filters': instance.enableCustomFilters,
-  'list_template': instance.listTemplate?.toJson(),
-  'detail_template': instance.detailTemplate?.toJson(),
-  'load_sub_table_data_automatically': instance.loadSubTableDataAutomatically,
-  'initial_data': instance.initialData,
-  'fileId': instance.fileId,
-};
+Map<String, dynamic> _$CollectionSchemaToJson(CollectionSchema instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'label': instance.label,
+      'fields': instance.fields.map((e) => e.toJson()).toList(),
+      'quick_filters': instance.quickFilters?.map((e) => e.toJson()).toList(),
+      'enable_custom_filters': instance.enableCustomFilters,
+      'list_template': instance.listTemplate?.toJson(),
+      'detail_template': instance.detailTemplate?.toJson(),
+      'load_related_data': instance.loadRelatedData,
+      'initial_data': instance.initialData,
+    };
 
 ListTemplateConfig _$ListTemplateConfigFromJson(Map<String, dynamic> json) =>
     ListTemplateConfig(
@@ -245,47 +246,23 @@ Map<String, dynamic> _$FilterRuleToJson(FilterRule instance) =>
       'value': instance.value,
     };
 
-ColumnConfig _$ColumnConfigFromJson(Map<String, dynamic> json) => ColumnConfig(
-  key: json['key'] as String,
-  label: json['label'] as String,
-  help: json['help'] as String?,
-  type: json['type'] as String,
-  options: json['options'],
-  formula: json['formula'] as String?,
-  dependsOn: json['depends_on'] as String?,
-  defaultValue: json['default'],
-  columns: (json['columns'] as List<dynamic>?)
-      ?.map((e) => ColumnConfig.fromJson(e as Map<String, dynamic>))
-      .toList(),
-  hidden: json['hidden'] as bool?,
-  dynamicLabel: json['dynamic_label'] as String?,
-  isRequired: json['required'] as bool?,
-  currencySymbol: json['currency_symbol'] as String?,
-  dependsValue: json['depends_value'],
-  dependsOperator: json['depends_operator'] as String?,
-  readonly: json['readonly'] as bool?,
-);
-
-Map<String, dynamic> _$ColumnConfigToJson(ColumnConfig instance) {
-  final val = <String, dynamic>{
-    'key': instance.key,
-    'label': instance.label,
-    'help': instance.help,
-    'type': instance.type,
-    'options': instance.options,
-    'formula': instance.formula,
-    'depends_on': instance.dependsOn,
-    'default': instance.defaultValue,
-    'columns': instance.columns?.map((e) => e.toJson()).toList(),
-    'hidden': instance.hidden,
-    'dynamic_label': instance.dynamicLabel,
-    'required': instance.isRequired,
-    'currency_symbol': instance.currencySymbol,
-    'depends_value': instance.dependsValue,
-    'depends_operator': instance.dependsOperator,
-    'readonly': instance.readonly,
-  };
-
-  val.removeWhere((_, v) => v == null);
-  return val;
-}
+Map<String, dynamic> _$FieldDefinitionToJson(FieldDefinition instance) =>
+    <String, dynamic>{
+      'key': instance.key,
+      'label': instance.label,
+      'help': instance.help,
+      'display_field': instance.displayField,
+      'type': instance.type,
+      'options': instance.options,
+      'calculation': instance.calculation,
+      'depends_on': instance.dependsOn,
+      'default': instance.defaultValue,
+      'fields': instance.fields?.map((e) => e.toJson()).toList(),
+      'hidden': instance.hidden,
+      'dynamic_label': instance.dynamicLabel,
+      'required': instance.isRequired,
+      'currency_symbol': instance.currencySymbol,
+      'depends_value': instance.dependsValue,
+      'depends_operator': instance.dependsOperator,
+      'readonly': instance.readonly,
+    };

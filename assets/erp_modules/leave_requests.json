@@ -1,36 +1,66 @@
 {
+  "id": "leave_requests",
+  "name": "Leave Requests",
+  "icon": "badge",
+  "primaryColor": "#8B5CF6",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "leave_requests" },
-    "icon": { "label": "Icon", "type": "icon", "value": "badge" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#8B5CF6" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Leave Requests", "help": "Main module title" }
-
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "leave_requests"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "badge"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#8B5CF6"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Leave Requests",
+      "help": "Main module title"
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "On Leave Today",
-        "formula": "=COUNTIFS(HR:leaves:leaves!D:D, \"<\"&TODAY(), HR:leaves:leaves!E:E, \">\"&TODAY(), HR:leaves:leaves!F:F, \"Approved\")",
+        "label": "Leave Requests Records",
         "type": "kpi",
-        "format": "number",
-        "color": "#FF9800"
+        "query": {
+          "collection": "leaves",
+          "operation": "count"
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "leaves",
       "label": "Leave Requests",
       "depends_on": "settings.enable_leave",
       "enable_custom_filters": true,
-      "load_sub_table_data_automatically": false,
+      "load_related_data": false,
       "list_template": {
         "template": "standard",
         "title_key": "employee_ref",
         "subtitle_key": "type",
         "trailing_key": "status",
-        "detail_keys": ["start_date", "end_date", "days_count"]
+        "detail_keys": [
+          "start_date",
+          "end_date",
+          "days_count"
+        ]
       },
       "detail_template": {
         "template": "standard",
@@ -39,10 +69,50 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "Pending", "key": "pending", "rules": [ { "field": "status", "operator": "==", "value": "Pending" } ] },
-        { "label": "Approved", "key": "approved", "rules": [ { "field": "status", "operator": "==", "value": "Approved" } ] },
-        { "label": "Sick", "key": "sick", "rules": [ { "field": "type", "operator": "==", "value": "Sick" } ] },
-        { "label": "Annual", "key": "annual", "rules": [ { "field": "type", "operator": "==", "value": "Annual" } ] }
+        {
+          "label": "Pending",
+          "key": "pending",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Pending"
+            }
+          ]
+        },
+        {
+          "label": "Approved",
+          "key": "approved",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Approved"
+            }
+          ]
+        },
+        {
+          "label": "Sick",
+          "key": "sick",
+          "rules": [
+            {
+              "field": "type",
+              "operator": "==",
+              "value": "Sick"
+            }
+          ]
+        },
+        {
+          "label": "Annual",
+          "key": "annual",
+          "rules": [
+            {
+              "field": "type",
+              "operator": "==",
+              "value": "Annual"
+            }
+          ]
+        }
       ],
       "initial_data": [
         {
@@ -66,14 +136,63 @@
           "status": "Pending"
         }
       ],
-      "columns": [
-        { "key": "employee_ref", "label": "Employee", "type": "relation", "options": "employees", "display_field": "full_name" },
-        { "key": "type", "label": "Type", "type": "select", "options": ["Annual", "Sick", "Unpaid"] },
-        { "key": "start_date", "label": "Start", "type": "date", "required": true },
-        { "key": "end_date", "label": "End", "type": "date", "required": true },
-        { "key": "days_count", "label": "Total Days", "type": "formula", "formula": "=end_date - start_date + 1" },
-        { "key": "reason", "label": "Reason", "type": "text" },
-        { "key": "status", "label": "Approval", "type": "select", "options": ["Pending", "Approved", "Rejected"], "default": "Pending" }
+      "fields": [
+        {
+          "key": "employee_ref",
+          "label": "Employee",
+          "type": "relation",
+          "options": "employees",
+          "display_field": "full_name"
+        },
+        {
+          "key": "type",
+          "label": "Type",
+          "type": "select",
+          "options": [
+            "Annual",
+            "Sick",
+            "Unpaid"
+          ]
+        },
+        {
+          "key": "start_date",
+          "label": "Start",
+          "type": "date",
+          "required": true
+        },
+        {
+          "key": "end_date",
+          "label": "End",
+          "type": "date",
+          "required": true
+        },
+        {
+          "key": "days_count",
+          "label": "Total Days",
+          "type": "calculated",
+          "calculation": {
+            "operation": "days_between",
+            "start": "start_date",
+            "end": "end_date",
+            "inclusive": true
+          }
+        },
+        {
+          "key": "reason",
+          "label": "Reason",
+          "type": "text"
+        },
+        {
+          "key": "status",
+          "label": "Approval",
+          "type": "select",
+          "options": [
+            "Pending",
+            "Approved",
+            "Rejected"
+          ],
+          "default": "Pending"
+        }
       ]
     }
   ]

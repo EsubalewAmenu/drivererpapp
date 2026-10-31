@@ -1,70 +1,32 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'services/auth_service.dart';
-import 'providers/workspace_provider.dart';
-import 'providers/drive_provider.dart';
 import 'providers/theme_provider.dart';
-import 'providers/schema_provider.dart';
+import 'services/auth_service.dart';
+import 'screens/erp_app.dart';
 import 'theme/app_theme.dart';
-import 'screens/landing_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  // Pre-initialize SharedPreferences for instant cache access
-  await SharedPreferences.getInstance();
   runApp(const MainApp());
 }
 
 class MainApp extends StatelessWidget {
   const MainApp({super.key});
-
   @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => AuthService()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProxyProvider<AuthService, DriveProvider>(
-          create: (_) => DriveProvider(),
-          update: (_, auth, drive) {
-            final d = drive ?? DriveProvider();
-            d.updateClient(auth.authClient);
-            return d;
-          },
-        ),
-        ChangeNotifierProxyProvider<DriveProvider, WorkspaceProvider>(
-          create: (_) => WorkspaceProvider(),
-          update: (_, drive, workspace) {
-            final w = workspace ?? WorkspaceProvider();
-            w.updateDriveService(drive.driveService);
-            return w;
-          },
-        ),
-        ChangeNotifierProxyProvider2<AuthService, DriveProvider, SchemaProvider>(
-          create: (_) => SchemaProvider(),
-          update: (_, auth, drive, schema) {
-            return SchemaProvider(
-              driveService: drive.driveService, 
-              userEmail: auth.currentUser?.email
-            );
-          },
-        ),
-      ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, child) {
-          return MaterialApp(
-            title: 'DriveERP',
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: themeProvider.themeMode,
-            home: const LandingScreen(),
-            debugShowCheckedModeBanner: false,
-          );
-        },
+  Widget build(BuildContext context) => MultiProvider(
+    providers: [
+      ChangeNotifierProvider(create: (_) => AuthService()),
+      ChangeNotifierProvider(create: (_) => ThemeProvider()),
+    ],
+    child: Consumer<ThemeProvider>(
+      builder: (context, theme, _) => MaterialApp(
+        title: 'DriveERP',
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: theme.themeMode,
+        debugShowCheckedModeBanner: false,
+        home: const ErpApp(),
       ),
-    );
-  }
+    ),
+  );
 }

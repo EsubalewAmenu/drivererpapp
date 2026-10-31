@@ -1,35 +1,76 @@
 {
+  "id": "expense_claims",
+  "name": "Expense Claims",
+  "icon": "badge",
+  "primaryColor": "#8B5CF6",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "expense_claims" },
-    "icon": { "label": "Icon", "type": "icon", "value": "badge" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#8B5CF6" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Expense Claims", "help": "Main module title" }
-
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "expense_claims"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "badge"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#8B5CF6"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Expense Claims",
+      "help": "Main module title"
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Total Headcount",
-        "formula": "=COUNTIFS(HR:employees:employees!E:E, \"Active\")",
+        "label": "Expense Claims Records",
         "type": "kpi",
-        "format": "number"
+        "query": {
+          "collection": "expense_claims",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Amount",
+        "type": "kpi",
+        "format": "currency",
+        "query": {
+          "collection": "expense_claims",
+          "operation": "sum",
+          "field": "amount"
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "expense_claims",
       "label": "Expense Claims",
       "depends_on": "settings.enable_expenses",
       "enable_custom_filters": true,
-      "load_sub_table_data_automatically": false,
+      "load_related_data": false,
       "list_template": {
         "template": "standard",
         "title_key": "employee_ref",
         "subtitle_key": "category",
         "trailing_key": "status",
-        "detail_keys": ["date", "amount", "payout_account"]
+        "detail_keys": [
+          "date",
+          "amount",
+          "payout_account"
+        ]
       },
       "detail_template": {
         "template": "standard",
@@ -38,9 +79,39 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "Submitted", "key": "submitted", "rules": [ { "field": "status", "operator": "==", "value": "Submitted" } ] },
-        { "label": "Approved", "key": "approved", "rules": [ { "field": "status", "operator": "==", "value": "Approved" } ] },
-        { "label": "Paid", "key": "paid", "rules": [ { "field": "status", "operator": "==", "value": "Paid" } ] }
+        {
+          "label": "Submitted",
+          "key": "submitted",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Submitted"
+            }
+          ]
+        },
+        {
+          "label": "Approved",
+          "key": "approved",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Approved"
+            }
+          ]
+        },
+        {
+          "label": "Paid",
+          "key": "paid",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Paid"
+            }
+          ]
+        }
       ],
       "initial_data": [
         {
@@ -48,7 +119,7 @@
           "employee_ref": 1,
           "date": "2024-03-05",
           "category": "Office Supplies",
-          "amount": 45.50,
+          "amount": 45.5,
           "receipt": "",
           "status": "Approved",
           "payout_account": 101
@@ -58,28 +129,69 @@
           "employee_ref": 2,
           "date": "2024-03-10",
           "category": "Travel",
-          "amount": 120.00,
+          "amount": 120.0,
           "receipt": "",
           "status": "Submitted",
           "payout_account": ""
         }
       ],
-      "columns": [
-        { "key": "employee_ref", "label": "Claimant", "type": "relation", "options": "employees", "default": "user.email" },
-        { "key": "date", "label": "Date", "type": "date" },
-        { "key": "category", "label": "Category", "type": "select", "options": ["Travel", "Meals", "Office Supplies"] },
-        { "key": "amount", "label": "Amount", "type": "currency", "required": true },
-        { "key": "receipt", "label": "Receipt", "type": "image", "required": true },
+      "fields": [
+        {
+          "key": "employee_ref",
+          "label": "Claimant",
+          "type": "relation",
+          "options": "employees",
+          "default": "user.email"
+        },
+        {
+          "key": "date",
+          "label": "Date",
+          "type": "date"
+        },
+        {
+          "key": "category",
+          "label": "Category",
+          "type": "select",
+          "options": [
+            "Travel",
+            "Meals",
+            "Office Supplies"
+          ]
+        },
+        {
+          "key": "amount",
+          "label": "Amount",
+          "type": "currency",
+          "required": true
+        },
+        {
+          "key": "receipt",
+          "label": "Receipt",
+          "type": "image",
+          "required": true
+        },
         {
           "key": "payout_account",
           "label": "Paid From",
           "type": "relation",
           "options": "finance.chart_of_accounts",
-          "filter": { "key": "type", "value": "Asset" },
+          "filter": {
+            "key": "type",
+            "value": "Asset"
+          },
           "depends_on": "status",
           "depends_value": "Paid"
         },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Submitted", "Approved", "Paid"] }
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "options": [
+            "Submitted",
+            "Approved",
+            "Paid"
+          ]
+        }
       ]
     }
   ]

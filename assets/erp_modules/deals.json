@@ -1,31 +1,73 @@
-
 {
+  "id": "deals",
+  "name": "Deals",
+  "icon": "shopping_cart",
+  "primaryColor": "#4CAF50",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "deals" },
-    "icon": { "label": "Icon", "type": "icon", "value": "shopping_cart" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Deals" },
-  
-    "depends_on": ["crm"]
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "deals"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "shopping_cart"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#4CAF50"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Deals"
+    },
+    "depends_on": {
+      "label": "Depends On",
+      "type": "list",
+      "value": [
+        "crm"
+      ]
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Pipeline Value",
-        "formula": "=SUM(Deals:deals:deals!D:D)", 
-        "format": "currency"
+        "label": "Sales Pipeline Records",
+        "type": "kpi",
+        "query": {
+          "collection": "deals",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Amount",
+        "type": "kpi",
+        "format": "currency",
+        "query": {
+          "collection": "deals",
+          "operation": "sum",
+          "field": "amount"
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "deals",
       "label": "Sales Pipeline",
       "enable_custom_filters": true,
-      "load_sub_table_data_automatically": false,
+      "load_related_data": false,
       "list_template": {
-        "template": "kanban", 
+        "template": "kanban",
         "group_by": "stage",
         "title_key": "deal_name",
         "subtitle_key": "amount",
@@ -41,7 +83,7 @@
         {
           "deal_name": "Staff financing deal",
           "related_contact": 2,
-          "stage": "New",
+          "stage": "Pending",
           "amount": 120000,
           "close_date": "2026-01-30",
           "owner": "esubalewbusiness@gmail.com",
@@ -49,40 +91,102 @@
         }
       ],
       "quick_filters": [
-        { "label": "My Deals", "key": "my_deals", "rules": [ { "field": "owner", "operator": "==", "value": "user.email" } ] },
-        { "label": "New", "key": "new_stage", "rules": [ { "field": "stage", "operator": "==", "value": "New" } ] }
+        {
+          "label": "My Deals",
+          "key": "my_deals",
+          "rules": [
+            {
+              "field": "owner",
+              "operator": "==",
+              "value": "user.email"
+            }
+          ]
+        },
+        {
+          "label": "Pending",
+          "key": "new_stage",
+          "rules": [
+            {
+              "field": "stage",
+              "operator": "==",
+              "value": "Pending"
+            }
+          ]
+        }
       ],
-      "columns": [
-        { "key": "deal_name", "label": "Deal Name", "type": "text", "required": true },
-        { "key": "amount", "label": "Amount", "type": "currency" },
-        { 
-          "key": "related_contact", 
-          "label": "Customer", 
-          "type": "relation", 
-          "options": "contacts", 
-          "display_field": "name" 
+      "fields": [
+        {
+          "key": "deal_name",
+          "label": "Deal Name",
+          "type": "text",
+          "required": true
         },
-        { 
-          "key": "letter_status", 
-          "label": "Letter Status", 
-          "type": "select", 
-          "options": ["Not Started", "Out for Delivery", "Delivered"] 
+        {
+          "key": "amount",
+          "label": "Amount",
+          "type": "currency"
         },
-        { 
-          "key": "call_status", 
-          "label": "Call Status", 
-          "type": "select", 
-          "options": ["Pending", "No Answer", "Gatekeeper", "Spoke to GM"] 
+        {
+          "key": "related_contact",
+          "label": "Customer",
+          "type": "relation",
+          "options": "contacts",
+          "display_field": "name"
         },
-        { 
+        {
+          "key": "letter_status",
+          "label": "Letter Status",
+          "type": "select",
+          "options": [
+            "Not Started",
+            "Out for Delivery",
+            "Delivered"
+          ]
+        },
+        {
+          "key": "call_status",
+          "label": "Call Status",
+          "type": "select",
+          "options": [
+            "Pending",
+            "No Answer",
+            "Gatekeeper",
+            "Spoke to GM"
+          ]
+        },
+        {
           "key": "stage",
-          "label": "Outcome", 
-          "type": "select", 
-          "options": ["Pending", "Not Interested", "Send Email", "Call Back", "Meeting Set", "Proposal Sent", "Negotiation", "Closed Won", "Closed Lost"] 
+          "label": "Outcome",
+          "type": "select",
+          "options": [
+            "Pending",
+            "Not Interested",
+            "Send Email",
+            "Call Back",
+            "Meeting Set",
+            "Proposal Sent",
+            "Negotiation",
+            "Closed Won",
+            "Closed Lost"
+          ]
         },
-        { "key": "next_follow_up", "label": "Next Follow Up", "type": "date" },
-        { "key": "close_date", "label": "Expected Close", "type": "date" },
-        { "key": "owner", "label": "Owner", "type": "email", "default": "user.email", "readonly": true }
+        {
+          "key": "next_follow_up",
+          "label": "Next Follow Up",
+          "type": "date"
+        },
+        {
+          "key": "close_date",
+          "label": "Expected Close",
+          "type": "date"
+        },
+        {
+          "key": "owner",
+          "label": "Owner",
+          "type": "email",
+          "default": "user.email",
+          "readonly": true
+        }
       ]
     }
   ]

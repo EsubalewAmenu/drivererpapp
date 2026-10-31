@@ -4,7 +4,7 @@ import '../../../theme/app_theme.dart';
 import '../dynamic_form_renderer.dart';
 
 class DynamicTableField extends StatefulWidget {
-  final ColumnConfig column;
+  final FieldDefinition column;
   final List<Map<String, dynamic>> value;
   final Color primaryColor;
   final Function(List<Map<String, dynamic>>) onChanged;
@@ -29,7 +29,7 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
   void _editRow(int index) async {
     final rowData = widget.value[index];
     // We need to open a dialog or a new screen to edit this row.
-    // Since the row itself is defined by `widget.column.columns`, we can reuse DynamicFormScreen logic
+    // Since the row itself is defined by `widget.column.fields`, we can reuse DynamicFormScreen logic
     // or a simplified version of it.
     // For now, let's assume we push a new DynamicFormScreen but in "dialog" mode or similar.
     // However, DynamicFormScreen expects a full SchemaSection or similar structure.
@@ -40,7 +40,7 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
       builder: (context) => Dialog(
         insetPadding: const EdgeInsets.all(16),
         child: _RowEditor(
-          columns: widget.column.columns ?? [],
+          fields: widget.column.fields ?? [],
           initialData: rowData,
           primaryColor: widget.primaryColor,
           title: 'Edit ${widget.column.label}',
@@ -63,7 +63,7 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
       builder: (context) => Dialog(
         insetPadding: const EdgeInsets.all(16),
         child: _RowEditor(
-          columns: widget.column.columns ?? const [],
+          fields: widget.column.fields ?? const [],
           initialData: const {},
           primaryColor: widget.primaryColor,
           title: 'Add New ${widget.column.label}',
@@ -74,7 +74,8 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
     );
 
     if (result != null) {
-      final newList = List<Map<String, dynamic>>.from(widget.value)..add(result);
+      final newList = List<Map<String, dynamic>>.from(widget.value)
+        ..add(result);
       widget.onChanged(newList);
     }
   }
@@ -82,7 +83,8 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final borderColor = theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
+    final borderColor =
+        theme.textTheme.bodyMedium?.color ?? AppTheme.secondaryTextColor;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -104,7 +106,10 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
               icon: Icon(Icons.add, size: 16, color: widget.primaryColor),
               label: Text(
                 'Add',
-                style: TextStyle(color: widget.primaryColor, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  color: widget.primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ],
@@ -122,9 +127,13 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
             child: Center(
               child: Column(
                 children: [
-                   Icon(Icons.list_alt_rounded, color: borderColor.withValues(alpha: 0.5), size: 32),
-                   const SizedBox(height: 8),
-                   Text(
+                  Icon(
+                    Icons.list_alt_rounded,
+                    color: borderColor.withValues(alpha: 0.5),
+                    size: 32,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
                     'No ${widget.column.label.toLowerCase()} added yet',
                     style: TextStyle(color: borderColor.withValues(alpha: 0.7)),
                   ),
@@ -146,19 +155,30 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
               separatorBuilder: (context, index) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final item = widget.value[index];
-                final subCols = widget.column.columns ?? [];
-                
+                final subCols = widget.column.fields ?? [];
+
                 // Refined heuristic to find meaningful labels
-                final titleKeys = ['phone', 'email', 'name', 'title', 'label', 'value'];
+                final titleKeys = [
+                  'phone',
+                  'email',
+                  'name',
+                  'title',
+                  'label',
+                  'value',
+                ];
                 final subtitleKeys = ['type', 'category', 'status', 'tag'];
-                
+
                 String? foundTitle;
                 String? foundSubtitle;
 
                 // 1. Try preferred title keys
                 for (var key in titleKeys) {
-                  final col = subCols.where((c) => c.key.toLowerCase().contains(key)).firstOrNull;
-                  if (col != null && item[col.key] != null && item[col.key].toString().trim().isNotEmpty) {
+                  final col = subCols
+                      .where((c) => c.key.toLowerCase().contains(key))
+                      .firstOrNull;
+                  if (col != null &&
+                      item[col.key] != null &&
+                      item[col.key].toString().trim().isNotEmpty) {
                     foundTitle = item[col.key].toString();
                     break;
                   }
@@ -166,8 +186,12 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
 
                 // 2. Try preferred subtitle keys (ensure it's different from title)
                 for (var key in subtitleKeys) {
-                  final col = subCols.where((c) => c.key.toLowerCase().contains(key)).firstOrNull;
-                  if (col != null && item[col.key] != null && item[col.key].toString().trim().isNotEmpty) {
+                  final col = subCols
+                      .where((c) => c.key.toLowerCase().contains(key))
+                      .firstOrNull;
+                  if (col != null &&
+                      item[col.key] != null &&
+                      item[col.key].toString().trim().isNotEmpty) {
                     final val = item[col.key].toString();
                     if (val != foundTitle) {
                       foundSubtitle = val;
@@ -179,20 +203,39 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
                 // 3. Fallback title: first non-hidden field with data
                 if (foundTitle == null) {
                   for (var col in subCols) {
-                    if (col.hidden != true && item[col.key] != null && item[col.key].toString().trim().isNotEmpty) {
+                    if (col.hidden != true &&
+                        item[col.key] != null &&
+                        item[col.key].toString().trim().isNotEmpty) {
                       foundTitle = item[col.key].toString();
                       break;
                     }
                   }
                 }
 
-                final title = foundTitle ?? '${widget.column.label} ${index + 1}';
+                final title =
+                    foundTitle ?? '${widget.column.label} ${index + 1}';
                 final subtitle = foundSubtitle ?? '';
 
                 return ListTile(
-                  title: Text(title, style: TextStyle(fontWeight: FontWeight.w600, color: theme.textTheme.bodyLarge?.color)),
-                  subtitle: subtitle.isNotEmpty ? Text(subtitle, style: TextStyle(color: theme.textTheme.bodyMedium?.color)) : null,
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  title: Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: theme.textTheme.bodyLarge?.color,
+                    ),
+                  ),
+                  subtitle: subtitle.isNotEmpty
+                      ? Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: theme.textTheme.bodyMedium?.color,
+                          ),
+                        )
+                      : null,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -202,9 +245,15 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
                         onPressed: () => _editRow(index),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete, size: 20, color: Colors.red),
+                        icon: const Icon(
+                          Icons.delete,
+                          size: 20,
+                          color: Colors.red,
+                        ),
                         onPressed: () {
-                          final newList = List<Map<String, dynamic>>.from(widget.value)..removeAt(index);
+                          final newList = List<Map<String, dynamic>>.from(
+                            widget.value,
+                          )..removeAt(index);
                           widget.onChanged(newList);
                         },
                       ),
@@ -226,7 +275,7 @@ class _DynamicTableFieldState extends State<DynamicTableField> {
 // Ideally, DynamicFormScreen should be reusable.
 
 class _RowEditor extends StatefulWidget {
-  final List<ColumnConfig> columns;
+  final List<FieldDefinition> fields;
   final Map<String, dynamic> initialData;
   final Color primaryColor;
   final String title;
@@ -234,7 +283,7 @@ class _RowEditor extends StatefulWidget {
   final Map<String, SettingItem> settings;
 
   const _RowEditor({
-    required this.columns,
+    required this.fields,
     required this.initialData,
     required this.primaryColor,
     required this.title,
@@ -259,11 +308,17 @@ class _RowEditorState extends State<_RowEditor> {
   }
 
   void _initializeControllers() {
-    for (var col in widget.columns) {
+    for (var col in widget.fields) {
       // Use the same controller initialization logic as DynamicFormScreen
-      if (col.type != 'image' && col.type != 'date' && col.type != 'list' && col.type != 'boolean' && col.type != 'table') {
+      if (col.type != 'image' &&
+          col.type != 'date' &&
+          col.type != 'list' &&
+          col.type != 'boolean' &&
+          col.type != 'table') {
         final initialValue = _formData[col.key];
-        final ctrl = TextEditingController(text: initialValue?.toString() ?? '');
+        final ctrl = TextEditingController(
+          text: initialValue?.toString() ?? '',
+        );
         // Ensure the form data is updated when the controller changes
         ctrl.addListener(() {
           _formData[col.key] = ctrl.text;
@@ -298,10 +353,13 @@ class _RowEditorState extends State<_RowEditor> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(widget.title, style: TextStyle(
-                    fontSize: 18, 
-                    fontWeight: FontWeight.bold,
-                    color: theme.textTheme.titleLarge?.color,
+                  Expanded(child: Text(
+                    widget.title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: theme.textTheme.titleLarge?.color,
+                    ),
                   )),
                   IconButton(
                     icon: const Icon(Icons.close),
@@ -316,7 +374,7 @@ class _RowEditorState extends State<_RowEditor> {
                 child: Form(
                   key: _formKey,
                   child: DynamicFormRenderer(
-                    columns: widget.columns,
+                    fields: widget.fields,
                     data: _formData,
                     primaryColor: widget.primaryColor,
                     controllers: _controllers,

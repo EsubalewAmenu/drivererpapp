@@ -1,32 +1,109 @@
 {
+  "id": "expenses",
+  "name": "Expenses",
+  "icon": "receipt_long",
+  "primaryColor": "#EF4444",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "expenses" },
-    "icon": { "label": "Icon", "type": "icon", "value": "receipt_long" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#EF4444" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Expenses" }
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "expenses"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "receipt_long"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#EF4444"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Expenses"
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Total Spend",
-        "formula": "=SUM(Expenses:expense_entries:expense_entries!E:E)",
-        "format": "currency"
+        "label": "Expense Entries Records",
+        "type": "kpi",
+        "query": {
+          "collection": "expense_entries",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Amount",
+        "type": "kpi",
+        "format": "currency",
+        "query": {
+          "collection": "expense_entries",
+          "operation": "sum",
+          "field": "amount"
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "expense_entries",
       "label": "Expense Entries",
-      "columns": [
-        { "key": "date", "label": "Date", "type": "date", "required": true },
-        { "key": "category", "label": "Category", "type": "select", "options": ["Rent", "Utilities", "Payroll", "Marketing", "Travel", "Other"] },
-        { "key": "vendor", "label": "Vendor", "type": "text" },
-        { "key": "amount", "label": "Amount", "type": "currency", "required": true },
-        { "key": "receipt", "label": "Receipt Image", "type": "image" },
-        { "key": "payment_status", "label": "Status", "type": "select", "options": ["Paid", "Unpaid"] }
-      ]
+      "fields": [
+        {
+          "key": "date",
+          "label": "Date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "key": "category",
+          "label": "Category",
+          "type": "select",
+          "options": [
+            "Rent",
+            "Utilities",
+            "Payroll",
+            "Marketing",
+            "Travel",
+            "Other"
+          ]
+        },
+        {
+          "key": "vendor",
+          "label": "Vendor",
+          "type": "text"
+        },
+        {
+          "key": "amount",
+          "label": "Amount",
+          "type": "currency",
+          "required": true
+        },
+        {
+          "key": "receipt",
+          "label": "Receipt Image",
+          "type": "image"
+        },
+        {
+          "key": "payment_status",
+          "label": "Status",
+          "type": "select",
+          "options": [
+            "Paid",
+            "Unpaid"
+          ]
+        }
+      ],
+      "initial_data": []
     }
   ]
 }

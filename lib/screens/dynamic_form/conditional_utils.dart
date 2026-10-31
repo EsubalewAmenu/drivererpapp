@@ -26,7 +26,8 @@ bool evaluateDependency(dynamic actual, dynamic expected, String? operator) {
     case '!=':
       return actualStr != expectedStr;
     case 'contains':
-      return actualStr != null && actualStr.toLowerCase().contains(expectedStr.toLowerCase());
+      return actualStr != null &&
+          actualStr.toLowerCase().contains(expectedStr.toLowerCase());
     case 'in':
       return expectedStr.split(',').map((s) => s.trim()).contains(actualStr);
     case 'not_in':

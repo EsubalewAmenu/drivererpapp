@@ -1,36 +1,76 @@
 {
+  "id": "invoicing",
+  "name": "Invoicing",
+  "icon": "account_balance",
+  "primaryColor": "#6366F1",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "invoicing" },
-    "icon": { "label": "Icon", "type": "icon", "value": "account_balance" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#6366F1" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Invoicing", "help": "Main module title" }
-
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "invoicing"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "account_balance"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#6366F1"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Invoicing",
+      "help": "Main module title"
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Overdue Invoices",
-        "formula": "=COUNTIFS(Finance:invoices:invoices!E:E, \"Unpaid\", Finance:invoices:invoices!C:C, \"<\"&TODAY())",
+        "label": "Sales Invoices Records",
         "type": "kpi",
-        "format": "number",
-        "color": "#F44336"
+        "query": {
+          "collection": "invoices",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Total",
+        "type": "kpi",
+        "format": "currency",
+        "query": {
+          "collection": "invoices",
+          "operation": "sum",
+          "field": "total_amount"
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "invoices",
       "label": "Sales Invoices",
       "depends_on": "settings.enable_invoicing",
       "enable_custom_filters": true,
-      "load_sub_table_data_automatically": false,
+      "load_related_data": false,
       "list_template": {
         "template": "standard",
         "title_key": "customer_ref",
         "subtitle_key": "inv_number",
         "trailing_key": "total_amount",
-        "detail_keys": ["date_issued", "due_date", "status"]
+        "detail_keys": [
+          "date_issued",
+          "due_date",
+          "status"
+        ]
       },
       "detail_template": {
         "template": "standard",
@@ -39,10 +79,50 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "Draft", "key": "draft", "rules": [ { "field": "status", "operator": "==", "value": "Draft" } ] },
-        { "label": "Unpaid", "key": "unpaid", "rules": [ { "field": "status", "operator": "==", "value": "Unpaid" } ] },
-        { "label": "Paid", "key": "paid", "rules": [ { "field": "status", "operator": "==", "value": "Paid" } ] },
-        { "label": "Void", "key": "void", "rules": [ { "field": "status", "operator": "==", "value": "Void" } ] }
+        {
+          "label": "Draft",
+          "key": "draft",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Draft"
+            }
+          ]
+        },
+        {
+          "label": "Unpaid",
+          "key": "unpaid",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Unpaid"
+            }
+          ]
+        },
+        {
+          "label": "Paid",
+          "key": "paid",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Paid"
+            }
+          ]
+        },
+        {
+          "label": "Void",
+          "key": "void",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Void"
+            }
+          ]
+        }
       ],
       "initial_data": [
         {
@@ -54,8 +134,16 @@
           "status": "Unpaid",
           "total_amount": 1500,
           "items": [
-            { "description": "Consulting Service - Setup", "qty": 10, "rate": 100 },
-            { "description": "Software Installation", "qty": 1, "rate": 500 }
+            {
+              "description": "Consulting Service - Setup",
+              "qty": 10,
+              "rate": 100
+            },
+            {
+              "description": "Software Installation",
+              "qty": 1,
+              "rate": 500
+            }
           ]
         },
         {
@@ -67,12 +155,21 @@
           "status": "Paid",
           "total_amount": 49.99,
           "items": [
-            { "description": "Laptop Stand (Cash Sale)", "qty": 1, "rate": 49.99 }
+            {
+              "description": "Laptop Stand (Cash Sale)",
+              "qty": 1,
+              "rate": 49.99
+            }
           ]
         }
       ],
-      "columns": [
-        { "key": "inv_number", "label": "Invoice #", "type": "text", "required": true },
+      "fields": [
+        {
+          "key": "inv_number",
+          "label": "Invoice #",
+          "type": "text",
+          "required": true
+        },
         {
           "key": "customer_ref",
           "label": "Customer",
@@ -80,18 +177,52 @@
           "options": "contacts",
           "display_field": "name"
         },
-        { "key": "date_issued", "label": "Date", "type": "date" },
-        { "key": "due_date", "label": "Due Date", "type": "date" },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Draft", "Unpaid", "Paid", "Void"] },
-        { "key": "total_amount", "label": "Total", "type": "currency" },
+        {
+          "key": "date_issued",
+          "label": "Date",
+          "type": "date"
+        },
+        {
+          "key": "due_date",
+          "label": "Due Date",
+          "type": "date"
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "options": [
+            "Draft",
+            "Unpaid",
+            "Paid",
+            "Void"
+          ]
+        },
+        {
+          "key": "total_amount",
+          "label": "Total",
+          "type": "currency"
+        },
         {
           "key": "items",
           "label": "Line Items",
           "type": "table",
-          "columns": [
-            { "key": "description", "label": "Description", "type": "text" },
-            { "key": "qty", "label": "Qty", "type": "number" },
-            { "key": "rate", "label": "Unit Price", "type": "currency" }
+          "fields": [
+            {
+              "key": "description",
+              "label": "Description",
+              "type": "text"
+            },
+            {
+              "key": "qty",
+              "label": "Qty",
+              "type": "number"
+            },
+            {
+              "key": "rate",
+              "label": "Unit Price",
+              "type": "currency"
+            }
           ]
         }
       ]

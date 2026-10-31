@@ -1,25 +1,90 @@
 {
+  "id": "analytics",
+  "name": "Analytics",
+  "icon": "analytics",
+  "primaryColor": "#06B6D4",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "analytics" },
-    "icon": { "label": "Icon", "type": "icon", "value": "analytics" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#06B6D4" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Analytics" }
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "analytics"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "analytics"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#06B6D4"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Analytics"
+    }
   },
   "dashboard": {
     "cards": [
-      { "label": "System Efficiency", "formula": "=rand()*100", "format": "percentage" }
+      {
+        "label": "Metrics Records",
+        "type": "kpi",
+        "query": {
+          "collection": "metrics",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Current Value",
+        "type": "kpi",
+        "format": "number",
+        "query": {
+          "collection": "metrics",
+          "operation": "sum",
+          "field": "value"
+        }
+      },
+      {
+        "label": "Total Target Value",
+        "type": "kpi",
+        "format": "number",
+        "query": {
+          "collection": "metrics",
+          "operation": "sum",
+          "field": "target"
+        }
+      }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "metrics",
       "label": "Metrics",
-      "columns": [
-        { "key": "metric", "label": "Key Performance Indicator", "type": "text" },
-        { "key": "value", "label": "Current Value", "type": "number" },
-        { "key": "target", "label": "Target Value", "type": "number" }
-      ]
+      "fields": [
+        {
+          "key": "metric",
+          "label": "Key Performance Indicator",
+          "type": "text"
+        },
+        {
+          "key": "value",
+          "label": "Current Value",
+          "type": "number"
+        },
+        {
+          "key": "target",
+          "label": "Target Value",
+          "type": "number"
+        }
+      ],
+      "initial_data": []
     }
   ]
 }

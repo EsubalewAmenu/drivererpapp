@@ -6,13 +6,13 @@ import 'dialogs/add_tab_dialog.dart';
 import 'dialogs/edit_tab_dialog.dart';
 
 class StructureEditor extends StatefulWidget {
-  final List<TabConfig> tabs;
+  final List<CollectionSchema> collections;
   final Map<String, dynamic>? rawSettings;
-  final Function(List<TabConfig>) onTabsChanged;
+  final Function(List<CollectionSchema>) onTabsChanged;
 
   const StructureEditor({
     super.key,
-    required this.tabs,
+    required this.collections,
     required this.rawSettings,
     required this.onTabsChanged,
   });
@@ -26,48 +26,49 @@ class _StructureEditorState extends State<StructureEditor> {
   Widget build(BuildContext context) {
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
-      itemCount: widget.tabs.length + 1,
+      itemCount: widget.collections.length + 1,
       itemBuilder: (context, index) {
-        if (index == widget.tabs.length) {
-          return _buildAddButton('Add New Tab', () {
+        if (index == widget.collections.length) {
+          return _buildAddButton('Add collection', () {
             _showAddTabDialog();
           });
         }
         return TabEditorCard(
-          tab: widget.tabs[index],
+          tab: widget.collections[index],
           rawSettings: widget.rawSettings,
           onTabChanged: (updatedTab) {
-            final newTabs = List<TabConfig>.from(widget.tabs);
+            final newTabs = List<CollectionSchema>.from(widget.collections);
             newTabs[index] = updatedTab;
             widget.onTabsChanged(newTabs);
           },
-          onEdit: () => _showEditTabDialog(widget.tabs[index]),
-          onDelete: () => _confirmDeleteTab(widget.tabs[index]),
+          onEdit: () => _showEditTabDialog(widget.collections[index]),
+          onDelete: () => _confirmDeleteTab(widget.collections[index]),
         );
       },
     );
   }
 
   Future<void> _showAddTabDialog() async {
-    final newTab = await showDialog<TabConfig>(
+    final newTab = await showDialog<CollectionSchema>(
       context: context,
       builder: (context) => const AddTabDialog(),
     );
 
     if (newTab != null) {
-      final newTabs = List<TabConfig>.from(widget.tabs)..add(newTab);
+      final newTabs = List<CollectionSchema>.from(widget.collections)
+        ..add(newTab);
       widget.onTabsChanged(newTabs);
     }
   }
 
-  Future<void> _showEditTabDialog(TabConfig tab) async {
-    final updatedTab = await showDialog<TabConfig>(
+  Future<void> _showEditTabDialog(CollectionSchema tab) async {
+    final updatedTab = await showDialog<CollectionSchema>(
       context: context,
       builder: (context) => EditTabDialog(tab: tab),
     );
 
     if (updatedTab != null) {
-      final newTabs = List<TabConfig>.from(widget.tabs);
+      final newTabs = List<CollectionSchema>.from(widget.collections);
       final index = newTabs.indexOf(tab);
       if (index != -1) {
         newTabs[index] = updatedTab;
@@ -76,21 +77,30 @@ class _StructureEditorState extends State<StructureEditor> {
     }
   }
 
-  void _confirmDeleteTab(TabConfig tab) {
+  void _confirmDeleteTab(CollectionSchema tab) {
     showDialog(
       context: context,
       builder: (context) {
         final theme = Theme.of(context);
         return AlertDialog(
           backgroundColor: theme.cardTheme.color ?? theme.cardColor,
-          title: Text('Delete Tab', style: TextStyle(color: theme.textTheme.titleLarge?.color)),
-          content: Text('Are you sure you want to delete "${tab.label}"? This cannot be undone.', 
-            style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+          title: Text(
+            'Delete collection',
+            style: TextStyle(color: theme.textTheme.titleLarge?.color),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${tab.label}"? This cannot be undone.',
+            style: TextStyle(color: theme.textTheme.bodyMedium?.color),
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
             TextButton(
               onPressed: () {
-                final newTabs = List<TabConfig>.from(widget.tabs)..remove(tab);
+                final newTabs = List<CollectionSchema>.from(widget.collections)
+                  ..remove(tab);
                 widget.onTabsChanged(newTabs);
                 Navigator.pop(context);
               },
@@ -102,7 +112,11 @@ class _StructureEditorState extends State<StructureEditor> {
     );
   }
 
-  Widget _buildAddButton(String label, VoidCallback onTap, {bool isSmall = false}) {
+  Widget _buildAddButton(
+    String label,
+    VoidCallback onTap, {
+    bool isSmall = false,
+  }) {
     final theme = Theme.of(context);
     final color = theme.textTheme.bodyMedium?.color ?? Colors.grey;
 
@@ -113,8 +127,8 @@ class _StructureEditorState extends State<StructureEditor> {
         padding: EdgeInsets.symmetric(vertical: isSmall ? 12 : 16),
         decoration: BoxDecoration(
           border: Border.all(
-            color: color.withValues(alpha: 0.3), 
-            style: BorderStyle.solid
+            color: color.withValues(alpha: 0.3),
+            style: BorderStyle.solid,
           ),
           borderRadius: BorderRadius.circular(12),
         ),
@@ -124,7 +138,13 @@ class _StructureEditorState extends State<StructureEditor> {
             children: [
               Icon(Icons.add, color: color, size: isSmall ? 16 : 24),
               const SizedBox(width: 8),
-              Text(label, style: AppTheme.inter(color: color, fontWeight: FontWeight.w600)),
+              Text(
+                label,
+                style: AppTheme.inter(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),

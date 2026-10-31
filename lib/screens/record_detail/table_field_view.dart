@@ -3,7 +3,7 @@ import '../../models/schema_models.dart';
 import '../../theme/app_theme.dart';
 
 class TableFieldView extends StatelessWidget {
-  final ColumnConfig col;
+  final FieldDefinition col;
   final List<Map<String, dynamic>> items;
   final bool isLoading;
   final bool isAttempted;
@@ -23,7 +23,7 @@ class TableFieldView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final tableCols = col.columns ?? [];
+    final tableCols = col.fields ?? [];
 
     if (items.isEmpty) {
       return Column(
@@ -47,34 +47,52 @@ class TableFieldView extends StatelessWidget {
               decoration: BoxDecoration(
                 color: theme.cardTheme.color,
                 borderRadius: BorderRadius.circular(12),
-                border: (!isAttempted && !isLoading) 
-                    ? Border.all(color: theme.primaryColor.withValues(alpha: 0.3)) 
+                border: (!isAttempted && !isLoading)
+                    ? Border.all(
+                        color: theme.primaryColor.withValues(alpha: 0.3),
+                      )
                     : null,
               ),
               child: isLoading
-                  ? Center(child: SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: theme.primaryColor)))
-                  : isAttempted
-                    ? Text(
-                      (errorMessage != null && errorMessage!.isNotEmpty)
-                        ? errorMessage!
-                        : 'No items',
-                      style: AppTheme.inter(fontSize: 14, color: theme.textTheme.bodyLarge?.color),
-                    )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.download, size: 16, color: theme.primaryColor),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Tap to load ${col.label.toLowerCase()}',
-                              style: AppTheme.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: theme.primaryColor,
-                              ),
-                            ),
-                          ],
+                  ? Center(
+                      child: SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: theme.primaryColor,
                         ),
+                      ),
+                    )
+                  : isAttempted
+                  ? Text(
+                      (errorMessage != null && errorMessage!.isNotEmpty)
+                          ? errorMessage!
+                          : 'No items',
+                      style: AppTheme.inter(
+                        fontSize: 14,
+                        color: theme.textTheme.bodyLarge?.color,
+                      ),
+                    )
+                  : Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.download,
+                          size: 16,
+                          color: theme.primaryColor,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Tap to load ${col.label.toLowerCase()}',
+                          style: AppTheme.inter(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: theme.primaryColor,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
           ),
         ],
@@ -119,13 +137,17 @@ class TableFieldView extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.cardTheme.color,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: theme.dividerColor.withValues(alpha: 0.1)),
+            border: Border.all(
+              color: theme.dividerColor.withValues(alpha: 0.1),
+            ),
           ),
           clipBehavior: Clip.antiAlias,
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: DataTable(
-              headingRowColor: WidgetStateProperty.all(theme.primaryColor.withValues(alpha: 0.05)),
+              headingRowColor: WidgetStateProperty.all(
+                theme.primaryColor.withValues(alpha: 0.05),
+              ),
               columnSpacing: 24,
               horizontalMargin: 16,
               columns: tableCols
@@ -149,8 +171,18 @@ class TableFieldView extends StatelessWidget {
                           .map(
                             (c) => DataCell(
                               Text(
-                                item[c.key]?.toString() ?? item.values.firstWhere((_) => true, orElse: () => '-')?.toString() ?? '-',
-                                style: AppTheme.inter(fontSize: 14, color: theme.textTheme.bodyLarge?.color),
+                                item[c.key]?.toString() ??
+                                    item.values
+                                        .firstWhere(
+                                          (_) => true,
+                                          orElse: () => '-',
+                                        )
+                                        ?.toString() ??
+                                    '-',
+                                style: AppTheme.inter(
+                                  fontSize: 14,
+                                  color: theme.textTheme.bodyLarge?.color,
+                                ),
                               ),
                             ),
                           )

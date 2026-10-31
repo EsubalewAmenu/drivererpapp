@@ -1,50 +1,85 @@
 {
+  "id": "hr",
+  "name": "HR",
+  "icon": "badge",
+  "primaryColor": "#8B5CF6",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "hr" },
-    "icon": { "label": "Icon", "type": "icon", "value": "badge" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#8B5CF6" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "HR", "help": "Main module title" },
-
-    "extensions": ["Leave Requests", "Recruitments", "Payroll", "Expense Claims"]
-
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "hr"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "badge"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#8B5CF6"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "HR",
+      "help": "Main module title"
+    },
+    "extensions": {
+      "label": "Extensions",
+      "type": "list",
+      "value": [
+        "Leave Requests",
+        "Recruitments",
+        "Payroll",
+        "Expense Claims"
+      ]
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Total Headcount",
-        "formula": "=COUNTIFS(HR:employees:employees!E:E, \"Active\")",
+        "label": "Employees Records",
         "type": "kpi",
-        "format": "number"
+        "query": {
+          "collection": "employees",
+          "operation": "count"
+        }
       },
       {
-        "label": "On Leave Today",
-        "formula": "=COUNTIFS(HR:leaves:leaves!D:D, \"<\"&TODAY(), HR:leaves:leaves!E:E, \">\"&TODAY(), HR:leaves:leaves!F:F, \"Approved\")",
-        "type": "kpi",
-        "format": "number",
-        "color": "#FF9800"
-      },
-      {
-        "label": "Monthly Payroll",
-        "formula": "=SUM(HR:employees:employees!F:F)",
+        "label": "Total Base Salary",
         "type": "kpi",
         "format": "currency",
-        "note": "Visible to Admin only via role logic in UI"
+        "query": {
+          "collection": "employees",
+          "operation": "sum",
+          "field": "salary"
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "employees",
       "label": "Employees",
       "enable_custom_filters": true,
-      "load_sub_table_data_automatically": false,
+      "load_related_data": false,
       "list_template": {
         "template": "standard",
         "title_key": "name",
         "subtitle_key": "role",
         "trailing_key": "status",
-        "detail_keys": ["department", "email", "phone"]
+        "detail_keys": [
+          "department",
+          "email",
+          "phone"
+        ]
       },
       "detail_template": {
         "template": "standard",
@@ -53,11 +88,61 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "Active", "key": "active", "rules": [ { "field": "status", "operator": "==", "value": "Active" } ] },
-        { "label": "Probation", "key": "probation", "rules": [ { "field": "status", "operator": "==", "value": "Probation" } ] },
-        { "label": "Sales", "key": "sales", "rules": [ { "field": "department", "operator": "==", "value": "Sales" } ] },
-        { "label": "Tech", "key": "tech", "rules": [ { "field": "department", "operator": "==", "value": "Tech" } ] },
-        { "label": "Ops", "key": "ops", "rules": [ { "field": "department", "operator": "==", "value": "Ops" } ] }
+        {
+          "label": "Active",
+          "key": "active",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Active"
+            }
+          ]
+        },
+        {
+          "label": "Probation",
+          "key": "probation",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Probation"
+            }
+          ]
+        },
+        {
+          "label": "Sales",
+          "key": "sales",
+          "rules": [
+            {
+              "field": "department",
+              "operator": "==",
+              "value": "Sales"
+            }
+          ]
+        },
+        {
+          "label": "Tech",
+          "key": "tech",
+          "rules": [
+            {
+              "field": "department",
+              "operator": "==",
+              "value": "Tech"
+            }
+          ]
+        },
+        {
+          "label": "Ops",
+          "key": "ops",
+          "rules": [
+            {
+              "field": "department",
+              "operator": "==",
+              "value": "Ops"
+            }
+          ]
+        }
       ],
       "initial_data": [
         {
@@ -94,16 +179,70 @@
           "photo": ""
         }
       ],
-      "columns": [
-        { "key": "photo", "label": "Photo", "type": "image" },
-        { "key": "name", "label": "Full Name", "type": "text", "required": true },
-        { "key": "role", "label": "Job Title", "type": "text" },
-        { "key": "department", "label": "Department", "type": "select", "options": ["Sales", "Tech", "Ops", "HR"] },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Active", "Probation", "Terminated"] },
-        { "key": "email", "label": "Work Email", "type": "email" },
-        { "key": "phone", "label": "Phone", "type": "phone" },
-        { "key": "salary", "label": "Base Salary", "type": "currency", "allowed_roles": ["admin"] },
-        { "key": "contract", "label": "Contract PDF", "type": "file", "allowed_roles": ["admin"] }
+      "fields": [
+        {
+          "key": "photo",
+          "label": "Photo",
+          "type": "image"
+        },
+        {
+          "key": "name",
+          "label": "Full Name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "role",
+          "label": "Job Title",
+          "type": "text"
+        },
+        {
+          "key": "department",
+          "label": "Department",
+          "type": "select",
+          "options": [
+            "Sales",
+            "Tech",
+            "Ops",
+            "HR"
+          ]
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "options": [
+            "Active",
+            "Probation",
+            "Terminated"
+          ]
+        },
+        {
+          "key": "email",
+          "label": "Work Email",
+          "type": "email"
+        },
+        {
+          "key": "phone",
+          "label": "Phone",
+          "type": "phone"
+        },
+        {
+          "key": "salary",
+          "label": "Base Salary",
+          "type": "currency",
+          "allowed_roles": [
+            "admin"
+          ]
+        },
+        {
+          "key": "contract",
+          "label": "Contract PDF",
+          "type": "file",
+          "allowed_roles": [
+            "admin"
+          ]
+        }
       ]
     }
   ]

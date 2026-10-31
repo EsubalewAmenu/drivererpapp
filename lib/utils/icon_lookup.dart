@@ -20,4 +20,3 @@ IconData iconFromName(String? name) {
   if (name == null) return Icons.widgets_rounded;
   return iconMap[name] ?? Icons.widgets_rounded;
 }
-

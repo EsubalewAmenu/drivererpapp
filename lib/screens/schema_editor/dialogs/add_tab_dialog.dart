@@ -22,12 +22,16 @@ class _AddTabDialogState extends State<AddTabDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return AlertDialog(
-      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
-      title: Text('Add New Tab', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
+      backgroundColor:
+          theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+      title: Text(
+        'Add collection',
+        style: AppTheme.inter(color: theme.textTheme.titleLarge?.color),
+      ),
       content: TextField(
         controller: _labelController,
         style: TextStyle(color: theme.textTheme.bodyLarge?.color),
-        decoration: const InputDecoration(labelText: 'Tab Name'),
+        decoration: const InputDecoration(labelText: 'Collection name'),
         autofocus: true,
       ),
       actions: [
@@ -38,17 +42,17 @@ class _AddTabDialogState extends State<AddTabDialog> {
         TextButton(
           onPressed: () {
             if (_labelController.text.isEmpty) return;
-            
+
             final id = _labelController.text.toLowerCase().replaceAll(' ', '_');
-            final newTab = TabConfig(
+            final newTab = CollectionSchema(
               id: id,
               label: _labelController.text,
-              columns: [],
+              fields: [],
             );
-            
+
             Navigator.pop(context, newTab);
-          }, 
-          child: const Text('Add')
+          },
+          child: const Text('Add'),
         ),
       ],
     );

@@ -44,11 +44,11 @@ class _SettingsEditorState extends State<SettingsEditor> {
               ),
             ),
           ),
-        
+
         ...settings.entries.map((entry) {
           final key = entry.key;
           final item = entry.value as Map<String, dynamic>;
-          
+
           return _buildSettingRow(context, key, item);
         }),
 
@@ -66,9 +66,17 @@ class _SettingsEditorState extends State<SettingsEditor> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade400,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                child: Text('DEACTIVATE', style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.white)),
+                child: Text(
+                  'DEACTIVATE',
+                  style: AppTheme.inter(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
           const SizedBox(height: 12),
@@ -80,9 +88,17 @@ class _SettingsEditorState extends State<SettingsEditor> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.red.shade900,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
-                child: Text('TERMINATE', style: AppTheme.inter(fontWeight: FontWeight.w700, color: Colors.white)),
+                child: Text(
+                  'TERMINATE',
+                  style: AppTheme.inter(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             ),
         ],
@@ -90,7 +106,11 @@ class _SettingsEditorState extends State<SettingsEditor> {
     );
   }
 
-  Widget _buildSettingRow(BuildContext context, String key, Map<String, dynamic> item) {
+  Widget _buildSettingRow(
+    BuildContext context,
+    String key,
+    Map<String, dynamic> item,
+  ) {
     final theme = Theme.of(context);
     return Card(
       color: theme.cardTheme.color ?? theme.cardColor,
@@ -109,24 +129,36 @@ class _SettingsEditorState extends State<SettingsEditor> {
                     children: [
                       Text(
                         item['label'] ?? key,
-                        style: AppTheme.inter(fontWeight: FontWeight.w600, color: theme.textTheme.titleMedium?.color),
+                        style: AppTheme.inter(
+                          fontWeight: FontWeight.w600,
+                          color: theme.textTheme.titleMedium?.color,
+                        ),
                       ),
                       Text(
                         'Key: $key | Type: ${item['type']}',
-                        style: AppTheme.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color),
+                        style: AppTheme.sourceCodePro(
+                          fontSize: 10,
+                          color: theme.textTheme.bodyMedium?.color,
+                        ),
                       ),
                       if (item['help'] != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
                             item['help'].toString(),
-                            style: AppTheme.inter(fontSize: 11, color: theme.disabledColor),
+                            style: AppTheme.inter(
+                              fontSize: 11,
+                              color: theme.disabledColor,
+                            ),
                           ),
                         ),
                       if (item['dependsOn'] != null)
                         Text(
                           'Depends on: ${item['dependsOn']}',
-                          style: AppTheme.inter(fontSize: 10, color: Colors.orange),
+                          style: AppTheme.inter(
+                            fontSize: 10,
+                            color: Colors.orange,
+                          ),
                         ),
                     ],
                   ),
@@ -151,27 +183,39 @@ class _SettingsEditorState extends State<SettingsEditor> {
     );
   }
 
-  Widget _buildValueInput(BuildContext context, String key, Map<String, dynamic> item) {
+  Widget _buildValueInput(
+    BuildContext context,
+    String key,
+    Map<String, dynamic> item,
+  ) {
     final theme = Theme.of(context);
     final type = item['type'] as String? ?? 'text';
-    final textColor = theme.textTheme.bodyMedium?.color ?? theme.textTheme.bodyLarge?.color ?? Colors.black;
+    final textColor =
+        theme.textTheme.bodyMedium?.color ??
+        theme.textTheme.bodyLarge?.color ??
+        Colors.black;
     final hintColor = theme.disabledColor;
-    
+
     if (item['dependsOn'] != null) {
-       final dependencyValue = widget.settingsValues[item['dependsOn']];
-       if (dependencyValue != true) {
-         return Text(
-           'Disabled (Dependency not met)', 
-           style: TextStyle(color: hintColor, fontStyle: FontStyle.italic)
-         );
-       }
+      final dependencyValue = widget.settingsValues[item['dependsOn']];
+      if (dependencyValue != true) {
+        return Text(
+          'Disabled (Dependency not met)',
+          style: TextStyle(color: hintColor, fontStyle: FontStyle.italic),
+        );
+      }
     }
 
     switch (type) {
       case 'boolean':
         return SwitchListTile(
           title: Text('Value', style: TextStyle(color: textColor)),
-          subtitle: item['help'] != null ? Text(item['help'].toString(), style: TextStyle(fontSize: 11, color: hintColor)) : null,
+          subtitle: item['help'] != null
+              ? Text(
+                  item['help'].toString(),
+                  style: TextStyle(fontSize: 11, color: hintColor),
+                )
+              : null,
           value: widget.settingsValues[key] == true,
           onChanged: (val) => widget.onSettingChanged(key, val),
           activeThumbColor: theme.primaryColor,
@@ -214,20 +258,23 @@ class _SettingsEditorState extends State<SettingsEditor> {
           },
         );
       case 'list':
-        List<String> currentList = (widget.settingsValues[key] as List?)?.cast<String>() ?? [];
+        List<String> currentList =
+            (widget.settingsValues[key] as List?)?.cast<String>() ?? [];
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Wrap(
               spacing: 8,
               children: [
-                ...currentList.map((e) => Chip(
-                  label: Text(e),
-                  onDeleted: () {
-                    final newList = List<String>.from(currentList)..remove(e);
-                    widget.onSettingChanged(key, newList);
-                  },
-                )),
+                ...currentList.map(
+                  (e) => Chip(
+                    label: Text(e),
+                    onDeleted: () {
+                      final newList = List<String>.from(currentList)..remove(e);
+                      widget.onSettingChanged(key, newList);
+                    },
+                  ),
+                ),
                 ActionChip(
                   label: const Icon(Icons.add, size: 16),
                   onPressed: () => _showAddListItemDialog(key, currentList),
@@ -237,7 +284,10 @@ class _SettingsEditorState extends State<SettingsEditor> {
             if (item['help'] != null)
               Padding(
                 padding: const EdgeInsets.only(top: 4),
-                child: Text(item['help'].toString(), style: TextStyle(fontSize: 10, color: hintColor)),
+                child: Text(
+                  item['help'].toString(),
+                  style: TextStyle(fontSize: 10, color: hintColor),
+                ),
               ),
           ],
         );
@@ -252,7 +302,10 @@ class _SettingsEditorState extends State<SettingsEditor> {
             helperText: item['help']?.toString(),
             helperStyle: TextStyle(fontSize: 10, color: hintColor),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-            prefixIcon: Icon(iconFromName(widget.settingsValues[key]?.toString()), color: theme.primaryColor),
+            prefixIcon: Icon(
+              iconFromName(widget.settingsValues[key]?.toString()),
+              color: theme.primaryColor,
+            ),
           ),
           onChanged: (val) {
             widget.onSettingChanged(key, val);
@@ -264,15 +317,15 @@ class _SettingsEditorState extends State<SettingsEditor> {
         Color previewColor = Colors.transparent;
         try {
           if (colorStr.startsWith('#')) {
-             final hex = colorStr.replaceFirst('#', '');
-             if (hex.length == 6) {
-               previewColor = Color(int.parse('0xFF$hex'));
-             } else if (hex.length == 8) {
-               previewColor = Color(int.parse('0x$hex'));
-             }
+            final hex = colorStr.replaceFirst('#', '');
+            if (hex.length == 6) {
+              previewColor = Color(int.parse('0xFF$hex'));
+            } else if (hex.length == 8) {
+              previewColor = Color(int.parse('0x$hex'));
+            }
           }
         } catch (_) {}
-        
+
         return TextFormField(
           initialValue: colorStr,
           style: AppTheme.inter(color: textColor),
@@ -302,21 +355,27 @@ class _SettingsEditorState extends State<SettingsEditor> {
           },
         );
       default:
-        return Text('Unsupported type: $type', style: const TextStyle(color: Colors.red));
+        return Text(
+          'Unsupported type: $type',
+          style: const TextStyle(color: Colors.red),
+        );
     }
   }
 
   Widget _buildAddButton(BuildContext context) {
     final theme = Theme.of(context);
     final color = theme.textTheme.bodyMedium?.color ?? Colors.grey;
-    
+
     return InkWell(
       onTap: _showAddSettingDialog,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          border: Border.all(color: color.withValues(alpha: 0.3), style: BorderStyle.solid),
+          border: Border.all(
+            color: color.withValues(alpha: 0.3),
+            style: BorderStyle.solid,
+          ),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Center(
@@ -325,7 +384,13 @@ class _SettingsEditorState extends State<SettingsEditor> {
             children: [
               Icon(Icons.add, color: color, size: 24),
               const SizedBox(width: 8),
-              Text('Add New Setting', style: AppTheme.inter(color: color, fontWeight: FontWeight.w600)),
+              Text(
+                'Add New Setting',
+                style: AppTheme.inter(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
             ],
           ),
         ),
@@ -344,15 +409,18 @@ class _SettingsEditorState extends State<SettingsEditor> {
     if (result != null) {
       final key = result['key'];
       final data = result['data'];
-      
+
       final newSchema = Map<String, dynamic>.from(widget.rawSettings ?? {});
       newSchema[key] = data;
-      
+
       widget.onSchemaChanged(newSchema);
     }
   }
 
-  Future<void> _showEditSettingDialog(String oldKey, Map<String, dynamic> item) async {
+  Future<void> _showEditSettingDialog(
+    String oldKey,
+    Map<String, dynamic> item,
+  ) async {
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => EditSettingDialog(
@@ -365,16 +433,16 @@ class _SettingsEditorState extends State<SettingsEditor> {
     if (result != null) {
       final newKey = result['key'];
       final data = result['data'];
-      
+
       final newSchema = Map<String, dynamic>.from(widget.rawSettings ?? {});
-      
+
       if (newKey != oldKey) {
         newSchema.remove(oldKey);
         // Note: Value migration for renamed keys would need to happen in parent
       }
-      
+
       newSchema[newKey] = data;
-      
+
       widget.onSchemaChanged(newSchema);
     }
   }
@@ -384,14 +452,26 @@ class _SettingsEditorState extends State<SettingsEditor> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
-        title: Text('Delete Setting', style: TextStyle(color: theme.textTheme.titleLarge?.color)),
-        content: Text('Are you sure you want to delete "$key"?', style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+        backgroundColor:
+            theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+        title: Text(
+          'Delete Setting',
+          style: TextStyle(color: theme.textTheme.titleLarge?.color),
+        ),
+        content: Text(
+          'Are you sure you want to delete "$key"?',
+          style: TextStyle(color: theme.textTheme.bodyMedium?.color),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
-              final newSchema = Map<String, dynamic>.from(widget.rawSettings ?? {});
+              final newSchema = Map<String, dynamic>.from(
+                widget.rawSettings ?? {},
+              );
               newSchema.remove(key);
               widget.onSchemaChanged(newSchema);
               Navigator.pop(context);
@@ -409,12 +489,12 @@ class _SettingsEditorState extends State<SettingsEditor> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Add to $key'),
-        content: TextField(
-          autofocus: true,
-          onChanged: (val) => newValue = val,
-        ),
+        content: TextField(autofocus: true, onChanged: (val) => newValue = val),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () {
               if (newValue.isNotEmpty) {

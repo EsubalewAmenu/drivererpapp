@@ -3,7 +3,7 @@ import 'package:drivererpapp/theme/app_theme.dart';
 import '../../../models/schema_models.dart';
 
 class ColumnListItem extends StatelessWidget {
-  final ColumnConfig column;
+  final FieldDefinition column;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -22,16 +22,22 @@ class ColumnListItem extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 12.0),
       child: Row(
         children: [
-          Icon(_getIconForType(column.type), size: 16, color: theme.textTheme.bodyMedium?.color ?? Colors.grey),
+          Icon(
+            _getIconForType(column.type),
+            size: 16,
+            color: theme.textTheme.bodyMedium?.color ?? Colors.grey,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  column.label, 
+                  column.label,
                   style: AppTheme.inter(
-                    color: isHidden ? (theme.textTheme.bodyMedium?.color ?? Colors.grey) : (theme.textTheme.bodyLarge?.color),
+                    color: isHidden
+                        ? (theme.textTheme.bodyMedium?.color ?? Colors.grey)
+                        : (theme.textTheme.bodyLarge?.color),
                     decoration: isHidden ? TextDecoration.lineThrough : null,
                     fontWeight: FontWeight.w600,
                   ),
@@ -40,7 +46,8 @@ class ColumnListItem extends StatelessWidget {
                   column.key,
                   style: AppTheme.sourceCodePro(
                     fontSize: 10,
-                    color: (theme.textTheme.bodyMedium?.color ?? Colors.grey).withValues(alpha: 0.6),
+                    color: (theme.textTheme.bodyMedium?.color ?? Colors.grey)
+                        .withValues(alpha: 0.6),
                   ),
                 ),
               ],
@@ -54,16 +61,31 @@ class ColumnListItem extends StatelessWidget {
                 color: Colors.orange.withValues(alpha: 0.2),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text('HIDDEN', style: AppTheme.sourceCodePro(fontSize: 9, color: Colors.orange)),
+              child: Text(
+                'HIDDEN',
+                style: AppTheme.sourceCodePro(
+                  fontSize: 9,
+                  color: Colors.orange,
+                ),
+              ),
             ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: theme.scaffoldBackgroundColor,
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: (theme.textTheme.bodyMedium?.color ?? Colors.grey).withValues(alpha: 0.3)),
+              border: Border.all(
+                color: (theme.textTheme.bodyMedium?.color ?? Colors.grey)
+                    .withValues(alpha: 0.3),
+              ),
             ),
-            child: Text(column.type.toUpperCase(), style: AppTheme.sourceCodePro(fontSize: 10, color: theme.textTheme.bodyMedium?.color ?? Colors.grey)),
+            child: Text(
+              column.type.toUpperCase(),
+              style: AppTheme.sourceCodePro(
+                fontSize: 10,
+                color: theme.textTheme.bodyMedium?.color ?? Colors.grey,
+              ),
+            ),
           ),
           const SizedBox(width: 8),
           IconButton(
@@ -83,16 +105,26 @@ class ColumnListItem extends StatelessWidget {
 
   IconData _getIconForType(String type) {
     switch (type.toLowerCase()) {
-      case 'text': return Icons.text_fields;
-      case 'number': return Icons.numbers;
-      case 'date': return Icons.calendar_today;
-      case 'select': return Icons.list;
-      case 'formula': return Icons.functions;
-      case 'scanner': return Icons.qr_code_scanner;
-      case 'currency': return Icons.attach_money;
-      case 'boolean': return Icons.check_box;
-      case 'image': return Icons.image;
-      default: return Icons.short_text;
+      case 'text':
+        return Icons.text_fields;
+      case 'number':
+        return Icons.numbers;
+      case 'date':
+        return Icons.calendar_today;
+      case 'select':
+        return Icons.list;
+      case 'calculated':
+        return Icons.functions;
+      case 'scanner':
+        return Icons.qr_code_scanner;
+      case 'currency':
+        return Icons.attach_money;
+      case 'boolean':
+        return Icons.check_box;
+      case 'image':
+        return Icons.image;
+      default:
+        return Icons.short_text;
     }
   }
 }

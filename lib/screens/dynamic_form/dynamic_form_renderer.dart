@@ -5,39 +5,38 @@ import 'fields/text_field.dart';
 import 'conditional_utils.dart';
 import 'fields/date_field.dart';
 import 'fields/boolean_field.dart';
-import 'fields/formula_field.dart';
+import 'fields/calculated_field.dart';
 import 'fields/dropdown_field.dart';
 import 'fields/relation_field.dart';
 import 'fields/media_field.dart';
+import 'fields/file_field.dart';
 import 'fields/list_field.dart';
 import 'fields/table_field.dart';
 
 class DynamicFormRenderer extends StatelessWidget {
-  final List<ColumnConfig> columns;
+  final List<FieldDefinition> fields;
   final Map<String, dynamic> data;
   final Color primaryColor;
   final Function(String key, dynamic value) onFieldChanged;
   final Map<String, TextEditingController> controllers;
   final ModuleSchema? module;
   final Map<String, SettingItem> settings;
-  final String? moduleFilesId;
 
   const DynamicFormRenderer({
     super.key,
-    required this.columns,
+    required this.fields,
     required this.data,
     required this.primaryColor,
     required this.onFieldChanged,
     required this.controllers,
     this.module,
     this.settings = const {},
-    this.moduleFilesId,
   });
 
   @override
   Widget build(BuildContext context) {
     return Column(
-      children: columns.map((col) {
+      children: fields.map((col) {
         if (!_shouldShowField(col)) {
           return const SizedBox.shrink();
         }
@@ -49,12 +48,12 @@ class DynamicFormRenderer extends StatelessWidget {
     );
   }
 
-  bool _shouldShowField(ColumnConfig col) {
+  bool _shouldShowField(FieldDefinition col) {
     if (col.hidden == true) return false;
     if (col.dependsOn == null) return true;
     final dependency = col.dependsOn!;
 
-    // Check for negation prefix in dependsOn (legacy support: '!field')
+    // A leading exclamation mark negates the dependency.
     bool negate = false;
     String actualDependency = dependency;
     if (dependency.startsWith('!')) {
@@ -73,10 +72,13 @@ class DynamicFormRenderer extends StatelessWidget {
     // Check if it depends on another field in the form
     final dependentValue = data[actualDependency];
 
-
     // If a specific expected value is provided on the column, use that
     if (col.dependsValue != null) {
-      final match = evaluateDependency(dependentValue, col.dependsValue, col.dependsOperator);
+      final match = evaluateDependency(
+        dependentValue,
+        col.dependsValue,
+        col.dependsOperator,
+      );
       return negate ? !match : match;
     }
 
@@ -84,16 +86,21 @@ class DynamicFormRenderer extends StatelessWidget {
     bool isTruthy = false;
     if (dependentValue is bool) {
       isTruthy = dependentValue;
-    } else if (dependentValue is String) isTruthy = dependentValue.isNotEmpty;
-    else isTruthy = dependentValue != null;
+    } else if (dependentValue is String) {
+      isTruthy = dependentValue.isNotEmpty;
+    } else {
+      isTruthy = dependentValue != null;
+    }
 
     return negate ? !isTruthy : isTruthy;
   }
 
-  Widget _buildField(BuildContext context, ColumnConfig col) {
+  Widget _buildField(BuildContext context, FieldDefinition col) {
     final value = data[col.key];
 
     switch (col.type) {
+      case 'url':
+      case 'integer':
       case 'text':
       case 'long_text':
       case 'longtext':
@@ -125,8 +132,8 @@ class DynamicFormRenderer extends StatelessWidget {
           onChanged: (val) => onFieldChanged(col.key, val),
         );
 
-      case 'formula':
-        return DynamicFormulaField(
+      case 'calculated':
+        return DynamicCalculatedField(
           column: col,
           controllers: controllers,
           onCalculated: (val) => onFieldChanged(col.key, val),
@@ -150,6 +157,12 @@ class DynamicFormRenderer extends StatelessWidget {
           data: data,
         );
 
+      case 'file':
+        return DynamicFileField(
+          label: col.label,
+          value: value?.toString(),
+          onChanged: (v) => onFieldChanged(col.key, v),
+        );
       case 'image':
       case 'signature':
       case 'scanner':
@@ -160,7 +173,6 @@ class DynamicFormRenderer extends StatelessWidget {
           onChanged: (val) => onFieldChanged(col.key, val),
           type: col.type,
           module: module,
-          moduleFilesId: moduleFilesId,
         );
 
       case 'list':
@@ -186,7 +198,11 @@ class DynamicFormRenderer extends StatelessWidget {
       case 'table':
         return DynamicTableField(
           column: col,
-          value: (value as List?)?.map((e) => Map<String, dynamic>.from(e)).toList() ?? [],
+          value:
+              (value as List?)
+                  ?.map((e) => Map<String, dynamic>.from(e))
+                  .toList() ??
+              [],
           primaryColor: primaryColor,
           onChanged: (val) => onFieldChanged(col.key, val),
           module: module,

@@ -9,10 +9,16 @@ class ModuleSchema {
   final String name;
   final String icon;
   final String primaryColor;
-  final String version;
+  final int version;
+  @JsonKey(name: 'company_id')
+  final String? companyId;
+  @JsonKey(name: 'template_key')
+  final String? templateKey;
+  @JsonKey(name: 'access_level')
+  final String accessLevel;
   final Map<String, SettingItem> settings;
   final DashboardConfig dashboard;
-  final List<TabConfig> tabs;
+  final List<CollectionSchema> collections;
 
   ModuleSchema({
     required this.id,
@@ -20,12 +26,16 @@ class ModuleSchema {
     required this.icon,
     required this.primaryColor,
     required this.version,
+    this.companyId,
+    this.templateKey,
+    this.accessLevel = 'manage',
     required this.settings,
     required this.dashboard,
-    required this.tabs,
+    required this.collections,
   });
 
-  factory ModuleSchema.fromJson(Map<String, dynamic> json) => _$ModuleSchemaFromJson(json);
+  factory ModuleSchema.fromJson(Map<String, dynamic> json) =>
+      _$ModuleSchemaFromJson(json);
   Map<String, dynamic> toJson() => _$ModuleSchemaToJson(this);
 
   ModuleSchema copyWith({
@@ -33,10 +43,10 @@ class ModuleSchema {
     String? name,
     String? icon,
     String? primaryColor,
-    String? version,
+    int? version,
     Map<String, SettingItem>? settings,
     DashboardConfig? dashboard,
-    List<TabConfig>? tabs,
+    List<CollectionSchema>? collections,
   }) {
     return ModuleSchema(
       id: id ?? this.id,
@@ -44,9 +54,12 @@ class ModuleSchema {
       icon: icon ?? this.icon,
       primaryColor: primaryColor ?? this.primaryColor,
       version: version ?? this.version,
+      companyId: companyId,
+      templateKey: templateKey,
+      accessLevel: accessLevel,
       settings: settings ?? this.settings,
       dashboard: dashboard ?? this.dashboard,
-      tabs: tabs ?? this.tabs,
+      collections: collections ?? this.collections,
     );
   }
 }
@@ -76,7 +89,8 @@ class SettingItem {
     this.options,
   });
 
-  factory SettingItem.fromJson(Map<String, dynamic> json) => _$SettingItemFromJson(json);
+  factory SettingItem.fromJson(Map<String, dynamic> json) =>
+      _$SettingItemFromJson(json);
   Map<String, dynamic> toJson() => _$SettingItemToJson(this);
 }
 
@@ -84,41 +98,37 @@ class SettingItem {
 class DashboardConfig {
   final List<DashboardCard> cards;
 
-  DashboardConfig({
-    required this.cards,
-  });
+  DashboardConfig({required this.cards});
 
-  factory DashboardConfig.fromJson(Map<String, dynamic> json) => _$DashboardConfigFromJson(json);
+  factory DashboardConfig.fromJson(Map<String, dynamic> json) =>
+      _$DashboardConfigFromJson(json);
   Map<String, dynamic> toJson() => _$DashboardConfigToJson(this);
 }
 
 @JsonSerializable(explicitToJson: true)
 class DashboardCard {
   final String label;
-  final String formula;
+  final Map<String, dynamic> query;
   final String? format;
-  final String type; // 'kpi', 'line', 'bar', 'pie'
-  
-  // Optional config for charts (e.g. {xAxisLabel: 'Date', yAxisLabel: 'Sales'})
-  final Map<String, dynamic>? config; 
-
+  final String type;
+  final Map<String, dynamic>? config;
   DashboardCard({
     required this.label,
-    required this.formula,
+    required this.query,
     this.format,
     this.type = 'kpi',
     this.config,
   });
-
-  factory DashboardCard.fromJson(Map<String, dynamic> json) => _$DashboardCardFromJson(json);
+  factory DashboardCard.fromJson(Map<String, dynamic> json) =>
+      _$DashboardCardFromJson(json);
   Map<String, dynamic> toJson() => _$DashboardCardToJson(this);
 }
 
 @JsonSerializable(explicitToJson: true)
-class TabConfig {
+class CollectionSchema {
   final String id;
   final String label;
-  final List<ColumnConfig> columns;
+  final List<FieldDefinition> fields;
   @JsonKey(name: 'quick_filters')
   final List<QuickFilter>? quickFilters;
   @JsonKey(name: 'enable_custom_filters')
@@ -127,59 +137,55 @@ class TabConfig {
   final ListTemplateConfig? listTemplate;
   @JsonKey(name: 'detail_template')
   final DetailTemplateConfig? detailTemplate;
-  @JsonKey(name: 'load_sub_table_data_automatically')
-  final bool? loadSubTableDataAutomatically;
+  @JsonKey(name: 'load_related_data')
+  final bool? loadRelatedData;
   @JsonKey(name: 'initial_data')
   final List<Map<String, dynamic>>? initialData;
-  @JsonKey(name: 'fileId')
-  final String? fileId;
 
-  TabConfig({
+  CollectionSchema({
     required this.id,
     required this.label,
-    required this.columns,
+    required this.fields,
     this.quickFilters,
     this.enableCustomFilters = true,
     this.listTemplate,
     this.detailTemplate,
-    this.loadSubTableDataAutomatically = true,
+    this.loadRelatedData = true,
     this.initialData,
-    this.fileId,
   });
 
-  TabConfig copyWith({
+  CollectionSchema copyWith({
     String? id,
     String? label,
-    List<ColumnConfig>? columns,
+    List<FieldDefinition>? fields,
     List<QuickFilter>? quickFilters,
     bool? enableCustomFilters,
     ListTemplateConfig? listTemplate,
     DetailTemplateConfig? detailTemplate,
-    bool? loadSubTableDataAutomatically,
+    bool? loadRelatedData,
     List<Map<String, dynamic>>? initialData,
-    String? fileId,
   }) {
-    return TabConfig(
+    return CollectionSchema(
       id: id ?? this.id,
       label: label ?? this.label,
-      columns: columns ?? this.columns,
+      fields: fields ?? this.fields,
       quickFilters: quickFilters ?? this.quickFilters,
       enableCustomFilters: enableCustomFilters ?? this.enableCustomFilters,
       listTemplate: listTemplate ?? this.listTemplate,
       detailTemplate: detailTemplate ?? this.detailTemplate,
-      loadSubTableDataAutomatically: loadSubTableDataAutomatically ?? this.loadSubTableDataAutomatically,
+      loadRelatedData: loadRelatedData ?? this.loadRelatedData,
       initialData: initialData ?? this.initialData,
-      fileId: fileId ?? this.fileId,
     );
   }
 
-  factory TabConfig.fromJson(Map<String, dynamic> json) => _$TabConfigFromJson(json);
-  Map<String, dynamic> toJson() => _$TabConfigToJson(this);
+  factory CollectionSchema.fromJson(Map<String, dynamic> json) =>
+      _$CollectionSchemaFromJson(json);
+  Map<String, dynamic> toJson() => _$CollectionSchemaToJson(this);
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is TabConfig &&
+      other is CollectionSchema &&
           runtimeType == other.runtimeType &&
           id == other.id &&
           label == other.label &&
@@ -187,7 +193,7 @@ class TabConfig {
           enableCustomFilters == other.enableCustomFilters &&
           listTemplate == other.listTemplate &&
           detailTemplate == other.detailTemplate &&
-          loadSubTableDataAutomatically == other.loadSubTableDataAutomatically;
+          loadRelatedData == other.loadRelatedData;
 
   @override
   int get hashCode =>
@@ -197,7 +203,7 @@ class TabConfig {
       enableCustomFilters.hashCode ^
       listTemplate.hashCode ^
       detailTemplate.hashCode ^
-      loadSubTableDataAutomatically.hashCode;
+      loadRelatedData.hashCode;
 }
 
 @JsonSerializable(explicitToJson: true)
@@ -251,7 +257,8 @@ class ListTemplateConfig {
     );
   }
 
-  factory ListTemplateConfig.fromJson(Map<String, dynamic> json) => _$ListTemplateConfigFromJson(json);
+  factory ListTemplateConfig.fromJson(Map<String, dynamic> json) =>
+      _$ListTemplateConfigFromJson(json);
   Map<String, dynamic> toJson() => _$ListTemplateConfigToJson(this);
 
   @override
@@ -323,7 +330,8 @@ class DetailTemplateConfig {
     );
   }
 
-  factory DetailTemplateConfig.fromJson(Map<String, dynamic> json) => _$DetailTemplateConfigFromJson(json);
+  factory DetailTemplateConfig.fromJson(Map<String, dynamic> json) =>
+      _$DetailTemplateConfigFromJson(json);
   Map<String, dynamic> toJson() => _$DetailTemplateConfigToJson(this);
 }
 
@@ -342,7 +350,8 @@ class ConditionalLogic {
     required this.falsyKey,
   });
 
-  factory ConditionalLogic.fromJson(Map<String, dynamic> json) => _$ConditionalLogicFromJson(json);
+  factory ConditionalLogic.fromJson(Map<String, dynamic> json) =>
+      _$ConditionalLogicFromJson(json);
   Map<String, dynamic> toJson() => _$ConditionalLogicToJson(this);
 }
 
@@ -352,13 +361,10 @@ class QuickFilter {
   final String key;
   final List<FilterRule> rules;
 
-  QuickFilter({
-    required this.label,
-    required this.key,
-    required this.rules,
-  });
+  QuickFilter({required this.label, required this.key, required this.rules});
 
-  factory QuickFilter.fromJson(Map<String, dynamic> json) => _$QuickFilterFromJson(json);
+  factory QuickFilter.fromJson(Map<String, dynamic> json) =>
+      _$QuickFilterFromJson(json);
   Map<String, dynamic> toJson() => _$QuickFilterToJson(this);
 
   @override
@@ -368,7 +374,7 @@ class QuickFilter {
           runtimeType == other.runtimeType &&
           key == other.key &&
           label == other.label &&
-        _rulesEqual(rules, other.rules);
+          _rulesEqual(rules, other.rules);
 
   @override
   int get hashCode => key.hashCode ^ label.hashCode ^ rules.hashCode;
@@ -380,13 +386,10 @@ class FilterRule {
   final String operator;
   final dynamic value;
 
-  FilterRule({
-    required this.field,
-    required this.operator,
-    this.value,
-  });
+  FilterRule({required this.field, required this.operator, this.value});
 
-  factory FilterRule.fromJson(Map<String, dynamic> json) => _$FilterRuleFromJson(json);
+  factory FilterRule.fromJson(Map<String, dynamic> json) =>
+      _$FilterRuleFromJson(json);
   Map<String, dynamic> toJson() => _$FilterRuleToJson(this);
 
   @override
@@ -410,19 +413,21 @@ bool _rulesEqual(List<FilterRule> a, List<FilterRule> b) {
   return true;
 }
 
-@JsonSerializable(explicitToJson: true)
-class ColumnConfig {
+@JsonSerializable(explicitToJson: true, createFactory: false)
+class FieldDefinition {
   final String key;
   final String label;
   final String? help;
+  @JsonKey(name: 'display_field')
+  final String? displayField;
   final String type;
   final dynamic options; // Can be List<String> or String (reference)
-  final String? formula;
+  final Map<String, dynamic>? calculation;
   @JsonKey(name: 'depends_on')
   final String? dependsOn;
   @JsonKey(name: 'default')
   final dynamic defaultValue;
-  final List<ColumnConfig>? columns;
+  final List<FieldDefinition>? fields;
   final bool? hidden;
   @JsonKey(name: 'dynamic_label')
   final String? dynamicLabel;
@@ -436,16 +441,17 @@ class ColumnConfig {
   final String? dependsOperator;
   final bool? readonly;
 
-  ColumnConfig({
+  FieldDefinition({
     required this.key,
     required this.label,
     this.help,
+    this.displayField,
     required this.type,
     this.options,
-    this.formula,
+    this.calculation,
     this.dependsOn,
     this.defaultValue,
-    this.columns,
+    this.fields,
     this.hidden,
     this.dynamicLabel,
     this.isRequired,
@@ -455,15 +461,16 @@ class ColumnConfig {
     this.readonly,
   });
 
-  ColumnConfig copyWith({
+  FieldDefinition copyWith({
     String? key,
     String? label,
     String? type,
+    String? displayField,
     dynamic options,
-    String? formula,
+    Map<String, dynamic>? calculation,
     String? dependsOn,
     dynamic defaultValue,
-    List<ColumnConfig>? columns,
+    List<FieldDefinition>? fields,
     bool? hidden,
     String? dynamicLabel,
     bool? isRequired,
@@ -472,15 +479,17 @@ class ColumnConfig {
     String? dependsOperator,
     bool? readonly,
   }) {
-    return ColumnConfig(
+    return FieldDefinition(
       key: key ?? this.key,
       label: label ?? this.label,
       type: type ?? this.type,
       options: options ?? this.options,
-      formula: formula ?? this.formula,
+      help: help,
+      displayField: displayField ?? this.displayField,
+      calculation: calculation ?? this.calculation,
       dependsOn: dependsOn ?? this.dependsOn,
       defaultValue: defaultValue ?? this.defaultValue,
-      columns: columns ?? this.columns,
+      fields: fields ?? this.fields,
       hidden: hidden ?? this.hidden,
       dynamicLabel: dynamicLabel ?? this.dynamicLabel,
       isRequired: isRequired ?? this.isRequired,
@@ -491,7 +500,7 @@ class ColumnConfig {
     );
   }
 
-  factory ColumnConfig.fromJson(Map<String, dynamic> json) {
+  factory FieldDefinition.fromJson(Map<String, dynamic> json) {
     // Robustly handle 'readonly' as both boolean and string "true"
     bool? readonlyValue;
     if (json.containsKey('readonly')) {
@@ -502,17 +511,19 @@ class ColumnConfig {
         readonlyValue = val.toLowerCase() == 'true';
       }
     }
-    
-    return ColumnConfig(
+
+    return FieldDefinition(
       key: json['key'] as String,
       label: json['label'] as String,
+      help: json['help'] as String?,
+      displayField: json['display_field'] as String?,
       type: json['type'] as String,
       options: json['options'],
-      formula: json['formula'] as String?,
+      calculation: (json['calculation'] as Map?)?.cast<String, dynamic>(),
       dependsOn: json['depends_on'] as String?,
       defaultValue: json['default'],
-      columns: (json['columns'] as List<dynamic>?)
-          ?.map((e) => ColumnConfig.fromJson(e as Map<String, dynamic>))
+      fields: (json['fields'] as List<dynamic>?)
+          ?.map((e) => FieldDefinition.fromJson(e as Map<String, dynamic>))
           .toList(),
       hidden: json['hidden'] as bool?,
       dynamicLabel: json['dynamic_label'] as String?,
@@ -523,5 +534,5 @@ class ColumnConfig {
       readonly: readonlyValue,
     );
   }
-  Map<String, dynamic> toJson() => _$ColumnConfigToJson(this);
+  Map<String, dynamic> toJson() => _$FieldDefinitionToJson(this);
 }

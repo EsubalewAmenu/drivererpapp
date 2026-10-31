@@ -21,16 +21,16 @@ void main() {
     test('toggleTheme should switch between light and dark', () async {
       final provider = ThemeProvider();
       await Future.delayed(Duration.zero);
-      
+
       // Default system usually depends on platform, but we can force it to light/dark
       // and then toggle.
       // Initially system. If we toggle, it should go to dark (if it was lightish) or light.
       // Let's check toggle logic in provider.
-      
+
       // If we call toggleTheme() multiple times
       provider.toggleTheme();
       expect(provider.themeMode, anyOf(ThemeMode.light, ThemeMode.dark));
-      
+
       final firstMode = provider.themeMode;
       provider.toggleTheme();
       expect(provider.themeMode, isNot(firstMode));
@@ -52,17 +52,17 @@ void main() {
     test('setThemeMode should persist value', () async {
       final provider = ThemeProvider();
       await provider.setThemeMode(ThemeMode.dark);
-      
+
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getString('theme_mode'), 'dark');
     });
 
     test('loadTheme should reading from SharedPreferences', () async {
       SharedPreferences.setMockInitialValues({'theme_mode': 'light'});
-      
+
       final provider = ThemeProvider();
       await Future.delayed(Duration.zero);
-      
+
       expect(provider.themeMode, ThemeMode.light);
     });
   });

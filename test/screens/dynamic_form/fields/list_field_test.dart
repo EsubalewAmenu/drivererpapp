@@ -4,20 +4,24 @@ import 'package:drivererpapp/screens/dynamic_form/fields/list_field.dart';
 import 'package:drivererpapp/models/schema_models.dart';
 
 void main() {
-  testWidgets('DynamicListField adds and removes items', (WidgetTester tester) async {
-    final column = ColumnConfig(key: 'tags', label: 'Tags', type: 'list');
+  testWidgets('DynamicListField adds and removes items', (
+    WidgetTester tester,
+  ) async {
+    final column = FieldDefinition(key: 'tags', label: 'Tags', type: 'list');
     List<String>? result;
 
-    await tester.pumpWidget(MaterialApp(
-      home: Scaffold(
-        body: DynamicListField(
-          column: column,
-          value: const ['Tag1'],
-          primaryColor: Colors.blue,
-          onChanged: (val) => result = val,
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DynamicListField(
+            column: column,
+            value: const ['Tag1'],
+            primaryColor: Colors.blue,
+            onChanged: (val) => result = val,
+          ),
         ),
       ),
-    ));
+    );
 
     expect(find.text('TAGS'), findsOneWidget);
     expect(find.text('Tag1'), findsOneWidget);

@@ -1,37 +1,90 @@
 {
+  "id": "payroll",
+  "name": "Payroll",
+  "icon": "badge",
+  "primaryColor": "#8B5CF6",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "payroll" },
-    "icon": { "label": "Icon", "type": "icon", "value": "badge" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#8B5CF6" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Payroll", "help": "Main module title" }
-
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "payroll"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "badge"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#8B5CF6"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Payroll",
+      "help": "Main module title"
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Monthly Payroll",
-        "formula": "=SUM(HR:employees:employees!F:F)",
+        "label": "Payroll Runs Records",
+        "type": "kpi",
+        "query": {
+          "collection": "payroll",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Bonuses",
         "type": "kpi",
         "format": "currency",
-        "note": "Visible to Admin only via role logic in UI"
+        "query": {
+          "collection": "payroll",
+          "operation": "sum",
+          "field": "bonuses"
+        }
+      },
+      {
+        "label": "Total Deductions",
+        "type": "kpi",
+        "format": "currency",
+        "query": {
+          "collection": "payroll",
+          "operation": "sum",
+          "field": "deductions"
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "payroll",
       "label": "Payroll Runs",
       "depends_on": "settings.enable_payroll",
-      "allowed_roles": ["admin"],
+      "allowed_roles": [
+        "admin"
+      ],
       "enable_custom_filters": true,
-      "load_sub_table_data_automatically": false,
+      "load_related_data": false,
       "list_template": {
         "template": "standard",
         "title_key": "employee_ref",
         "subtitle_key": "month",
         "trailing_key": "status",
-        "detail_keys": ["basic_pay", "bonuses", "deductions", "net_pay"]
+        "detail_keys": [
+          "basic_pay",
+          "bonuses",
+          "deductions",
+          "net_pay"
+        ]
       },
       "detail_template": {
         "template": "standard",
@@ -40,9 +93,39 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "Draft", "key": "draft", "rules": [ { "field": "status", "operator": "==", "value": "Draft" } ] },
-        { "label": "Processed", "key": "processed", "rules": [ { "field": "status", "operator": "==", "value": "Processed" } ] },
-        { "label": "Paid", "key": "paid", "rules": [ { "field": "status", "operator": "==", "value": "Paid" } ] }
+        {
+          "label": "Draft",
+          "key": "draft",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Draft"
+            }
+          ]
+        },
+        {
+          "label": "Processed",
+          "key": "processed",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Processed"
+            }
+          ]
+        },
+        {
+          "label": "Paid",
+          "key": "paid",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Paid"
+            }
+          ]
+        }
       ],
       "initial_data": [
         {
@@ -66,14 +149,65 @@
           "status": "Paid"
         }
       ],
-      "columns": [
-        { "key": "month", "label": "Month", "type": "date", "format": "MM-yyyy" },
-        { "key": "employee_ref", "label": "Employee", "type": "relation", "options": "employees" },
-        { "key": "basic_pay", "label": "Basic", "type": "lookup", "lookup_source": "employees", "lookup_key": "salary", "match_key": "employee_ref" },
-        { "key": "bonuses", "label": "Bonuses", "type": "currency" },
-        { "key": "deductions", "label": "Deductions", "type": "currency" },
-        { "key": "net_pay", "label": "Net Payable", "type": "formula", "formula": "=basic_pay + bonuses - deductions" },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Draft", "Processed", "Paid"] }
+      "fields": [
+        {
+          "key": "month",
+          "label": "Month",
+          "type": "date",
+          "format": "MM-yyyy"
+        },
+        {
+          "key": "employee_ref",
+          "label": "Employee",
+          "type": "relation",
+          "options": "employees"
+        },
+        {
+          "key": "basic_pay",
+          "label": "Basic",
+          "type": "calculated",
+          "calculation": {
+            "operation": "lookup",
+            "relation": "employee_ref",
+            "collection": "employees",
+            "field": "salary"
+          }
+        },
+        {
+          "key": "bonuses",
+          "label": "Bonuses",
+          "type": "currency"
+        },
+        {
+          "key": "deductions",
+          "label": "Deductions",
+          "type": "currency"
+        },
+        {
+          "key": "net_pay",
+          "label": "Net Payable",
+          "type": "calculated",
+          "calculation": {
+            "operation": "sum",
+            "fields": [
+              "basic_pay",
+              "bonuses"
+            ],
+            "subtract": [
+              "deductions"
+            ]
+          }
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "options": [
+            "Draft",
+            "Processed",
+            "Paid"
+          ]
+        }
       ]
     }
   ]

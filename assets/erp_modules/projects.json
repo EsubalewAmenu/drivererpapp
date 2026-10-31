@@ -1,26 +1,85 @@
 {
+  "id": "projects",
+  "name": "Projects",
+  "icon": "assignment",
+  "primaryColor": "#14B8A6",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "projects" },
-    "icon": { "label": "Icon", "type": "icon", "value": "assignment" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#14B8A6" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Projects" }
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "projects"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "assignment"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#14B8A6"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Projects"
+    }
   },
   "dashboard": {
     "cards": [
-      { "label": "Completion Rate", "formula": "=AVERAGE(Projects:tasks:tasks!D:D)", "format": "percentage" }
+      {
+        "label": "Tasks Records",
+        "type": "kpi",
+        "query": {
+          "collection": "tasks",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Progress (%)",
+        "type": "kpi",
+        "format": "number",
+        "query": {
+          "collection": "tasks",
+          "operation": "sum",
+          "field": "progress"
+        }
+      }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "tasks",
       "label": "Tasks",
-      "columns": [
-        { "key": "title", "label": "Task Title", "type": "text" },
-        { "key": "assignee", "label": "Assignee", "type": "text" },
-        { "key": "progress", "label": "Progress (%)", "type": "number" },
-        { "key": "due_date", "label": "Due Date", "type": "date" }
-      ]
+      "fields": [
+        {
+          "key": "title",
+          "label": "Task Title",
+          "type": "text"
+        },
+        {
+          "key": "assignee",
+          "label": "Assignee",
+          "type": "text"
+        },
+        {
+          "key": "progress",
+          "label": "Progress (%)",
+          "type": "number"
+        },
+        {
+          "key": "due_date",
+          "label": "Due Date",
+          "type": "date"
+        }
+      ],
+      "initial_data": []
     }
   ]
 }

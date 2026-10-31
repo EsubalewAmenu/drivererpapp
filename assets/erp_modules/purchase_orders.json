@@ -1,26 +1,57 @@
-
 {
+  "id": "purchase_orders",
+  "name": "Purchase Orders",
+  "icon": "shopping_cart",
+  "primaryColor": "#4CAF50",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "purchase_orders" },
-    "icon": { "label": "Icon", "type": "icon", "value": "shopping_cart" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Purchase Orders" },
-  
-    "depends_on": ["inventory"]
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "purchase_orders"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "shopping_cart"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#4CAF50"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Purchase Orders"
+    },
+    "depends_on": {
+      "label": "Depends On",
+      "type": "list",
+      "value": [
+        "inventory"
+      ]
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Low Stock Alerts",
-        "formula": "=COUNTIF(Inventory:variants:variants!G:G, \"<10\")",
-        "format": "number",
-        "color": "#F44336"
+        "label": "Purchase Orders Records",
+        "type": "kpi",
+        "query": {
+          "collection": "purchase_orders",
+          "operation": "count"
+        }
       }
     ]
   },
-  "tabs": [
-      {
+  "collections": [
+    {
       "id": "purchase_orders",
       "label": "Purchase Orders",
       "enable_custom_filters": true,
@@ -37,51 +68,126 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "Draft", "key": "draft", "rules": [ { "field": "status", "operator": "==", "value": "Draft" } ] },
-        { "label": "Ordered", "key": "ordered", "rules": [ { "field": "status", "operator": "==", "value": "Ordered" } ] },
-        { "label": "Received", "key": "received", "rules": [ { "field": "status", "operator": "==", "value": "Received" } ] },
-        { "label": "Cancelled", "key": "cancelled", "rules": [ { "field": "status", "operator": "==", "value": "Cancelled" } ] }
-      ],
-      "columns": [
-        { "key": "po_number", "label": "PO #", "type": "text", "required": true },
-        { 
-          "key": "supplier", 
-          "label": "Supplier", 
-          "type": "relation", 
-          "options": "crm.contacts", 
-          "display_field": "name" 
+        {
+          "label": "Draft",
+          "key": "draft",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Draft"
+            }
+          ]
         },
-        { "key": "date", "label": "Order Date", "type": "date" },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Draft", "Ordered", "Received", "Cancelled"] },
-        { 
-          "key": "items", 
-          "label": "Order Items", 
+        {
+          "label": "Ordered",
+          "key": "ordered",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Ordered"
+            }
+          ]
+        },
+        {
+          "label": "Received",
+          "key": "received",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Received"
+            }
+          ]
+        },
+        {
+          "label": "Cancelled",
+          "key": "cancelled",
+          "rules": [
+            {
+              "field": "status",
+              "operator": "==",
+              "value": "Cancelled"
+            }
+          ]
+        }
+      ],
+      "fields": [
+        {
+          "key": "po_number",
+          "label": "PO #",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "supplier",
+          "label": "Supplier",
+          "type": "relation",
+          "options": "crm.contacts",
+          "display_field": "name"
+        },
+        {
+          "key": "date",
+          "label": "Order Date",
+          "type": "date"
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "options": [
+            "Draft",
+            "Ordered",
+            "Received",
+            "Cancelled"
+          ]
+        },
+        {
+          "key": "items",
+          "label": "Order Items",
           "type": "table",
-          "columns": [
-            { 
-              "key": "sku_ref", 
-              "label": "Item", 
-              "type": "relation", 
-              "options": "variants", 
-              "display_field": "name" 
+          "fields": [
+            {
+              "key": "sku_ref",
+              "label": "Item",
+              "type": "relation",
+              "options": "variants",
+              "display_field": "name"
             },
-            { "key": "qty", "label": "Qty", "type": "number" },
-            { "key": "cost", "label": "Unit Cost", "type": "currency" },
-            { 
-              "key": "line_total", 
-              "label": "Total", 
-              "type": "formula", 
-              "formula": "=qty * cost" 
+            {
+              "key": "qty",
+              "label": "Qty",
+              "type": "number"
+            },
+            {
+              "key": "cost",
+              "label": "Unit Cost",
+              "type": "currency"
+            },
+            {
+              "key": "line_total",
+              "label": "Total",
+              "type": "calculated",
+              "calculation": {
+                "operation": "multiply",
+                "fields": [
+                  "qty",
+                  "cost"
+                ]
+              }
             }
           ]
         },
         {
           "key": "grand_total",
           "label": "Grand Total",
-          "type": "rollup",
-          "source_tab": "self.items",
-          "source_field": "line_total",
-          "function": "sum"
+          "type": "calculated",
+          "calculation": {
+            "operation": "nested_sum",
+            "collection_field": "items",
+            "field": "line_total"
+          }
         }
       ],
       "initial_data": [
@@ -124,6 +230,6 @@
           "grand_total": 1250
         }
       ]
-      }
+    }
   ]
 }

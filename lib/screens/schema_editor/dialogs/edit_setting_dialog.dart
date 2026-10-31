@@ -23,7 +23,7 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
   late TextEditingController _helpController;
   late String _type;
   String? _dependsOn;
-  
+
   // For list type
   List<String> _options = [];
 
@@ -31,11 +31,15 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
   void initState() {
     super.initState();
     _keyController = TextEditingController(text: widget.settingKey ?? '');
-    _labelController = TextEditingController(text: widget.settingData?['label'] ?? '');
-    _helpController = TextEditingController(text: widget.settingData?['help'] ?? '');
+    _labelController = TextEditingController(
+      text: widget.settingData?['label'] ?? '',
+    );
+    _helpController = TextEditingController(
+      text: widget.settingData?['help'] ?? '',
+    );
     _type = widget.settingData?['type'] ?? 'text';
     _dependsOn = widget.settingData?['dependsOn'];
-    
+
     if (widget.settingData?['options'] != null) {
       _options = List<String>.from(widget.settingData!['options']);
     }
@@ -55,8 +59,12 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
     final isEditing = widget.settingKey != null;
 
     return AlertDialog(
-      backgroundColor: theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
-      title: Text(isEditing ? 'Edit Setting' : 'Add Setting', style: AppTheme.inter(color: theme.textTheme.titleLarge?.color)),
+      backgroundColor:
+          theme.dialogTheme.backgroundColor ?? theme.colorScheme.surface,
+      title: Text(
+        isEditing ? 'Edit Setting' : 'Add Setting',
+        style: AppTheme.inter(color: theme.textTheme.titleLarge?.color),
+      ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -71,7 +79,7 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             TextField(
               controller: _labelController,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
@@ -88,13 +96,18 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             DropdownButtonFormField<String>(
               initialValue: _type,
               dropdownColor: theme.cardTheme.color,
               style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               items: ['text', 'boolean', 'list', 'number', 'icon', 'color']
-                  .map((t) => DropdownMenuItem(value: t, child: Text(t.toUpperCase())))
+                  .map(
+                    (t) => DropdownMenuItem(
+                      value: t,
+                      child: Text(t.toUpperCase()),
+                    ),
+                  )
                   .toList(),
               onChanged: (val) {
                 setState(() => _type = val!);
@@ -115,15 +128,23 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
 
             if (_type == 'list') ...[
               const SizedBox(height: 24),
-              Text('Options', style: AppTheme.inter(fontWeight: FontWeight.bold, color: theme.textTheme.bodyLarge?.color)),
+              Text(
+                'Options',
+                style: AppTheme.inter(
+                  fontWeight: FontWeight.bold,
+                  color: theme.textTheme.bodyLarge?.color,
+                ),
+              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 children: [
-                  ..._options.map((opt) => Chip(
-                    label: Text(opt),
-                    onDeleted: () => setState(() => _options.remove(opt)),
-                  )),
+                  ..._options.map(
+                    (opt) => Chip(
+                      label: Text(opt),
+                      onDeleted: () => setState(() => _options.remove(opt)),
+                    ),
+                  ),
                   ActionChip(
                     label: const Icon(Icons.add, size: 16),
                     onPressed: () {
@@ -137,14 +158,17 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
         TextButton(
           onPressed: () {
             if (_labelController.text.isEmpty) return;
             if (_keyController.text.isEmpty) return;
-            
+
             final key = _keyController.text.toLowerCase().replaceAll(' ', '_');
-            
+
             // Check if key exists (exclude current key if editing)
             if (widget.existingKeys.contains(key) && key != widget.settingKey) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -155,16 +179,19 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
 
             final newSetting = {
               'label': _labelController.text,
-              'help': _helpController.text.isEmpty ? null : _helpController.text,
+              'help': _helpController.text.isEmpty
+                  ? null
+                  : _helpController.text,
               'type': _type,
               'dependsOn': _dependsOn,
               if (_type == 'list') 'options': _options,
-              'value': widget.settingData?['value'], // Keep existing value if editing
+              'value': widget
+                  .settingData?['value'], // Keep existing value if editing
             };
-            
+
             Navigator.pop(context, {'key': key, 'data': newSetting});
-          }, 
-          child: const Text('Save')
+          },
+          child: const Text('Save'),
         ),
       ],
     );
@@ -176,12 +203,12 @@ class _EditSettingDialogState extends State<EditSettingDialog> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Add Option'),
-        content: TextField(
-          autofocus: true,
-          onChanged: (v) => val = v,
-        ),
+        content: TextField(autofocus: true, onChanged: (v) => val = v),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Add')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Add'),
+          ),
         ],
       ),
     ).then((_) {

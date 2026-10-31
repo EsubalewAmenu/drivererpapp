@@ -1,29 +1,66 @@
 {
+  "id": "recruitments",
+  "name": "Recruitments",
+  "icon": "badge",
+  "primaryColor": "#8B5CF6",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "recruitments" },
-    "icon": { "label": "Icon", "type": "icon", "value": "badge" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#8B5CF6" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Recruitments", "help": "Main module title" }
-
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "recruitments"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "badge"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#8B5CF6"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Recruitments",
+      "help": "Main module title"
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Total Headcount",
-        "formula": "=COUNTIFS(HR:employees:employees!E:E, \"Active\")",
+        "label": "Recruitment Records",
         "type": "kpi",
-        "format": "number"
+        "query": {
+          "collection": "recruitments",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Score (1-5)",
+        "type": "kpi",
+        "format": "number",
+        "query": {
+          "collection": "recruitments",
+          "operation": "sum",
+          "field": "rating"
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "recruitments",
       "label": "Recruitment",
       "depends_on": "settings.enable_recruitment",
       "enable_custom_filters": true,
-      "load_sub_table_data_automatically": false,
+      "load_related_data": false,
       "list_template": {
         "template": "kanban",
         "group_by": "stage",
@@ -38,9 +75,39 @@
         "show_all_fields": true
       },
       "quick_filters": [
-        { "label": "Applied", "key": "applied", "rules": [ { "field": "stage", "operator": "==", "value": "Applied" } ] },
-        { "label": "Interview", "key": "interview", "rules": [ { "field": "stage", "operator": "==", "value": "Interview" } ] },
-        { "label": "Hired", "key": "hired", "rules": [ { "field": "stage", "operator": "==", "value": "Hired" } ] }
+        {
+          "label": "Applied",
+          "key": "applied",
+          "rules": [
+            {
+              "field": "stage",
+              "operator": "==",
+              "value": "Applied"
+            }
+          ]
+        },
+        {
+          "label": "Interview",
+          "key": "interview",
+          "rules": [
+            {
+              "field": "stage",
+              "operator": "==",
+              "value": "Interview"
+            }
+          ]
+        },
+        {
+          "label": "Hired",
+          "key": "hired",
+          "rules": [
+            {
+              "field": "stage",
+              "operator": "==",
+              "value": "Hired"
+            }
+          ]
+        }
       ],
       "initial_data": [
         {
@@ -58,12 +125,40 @@
           "rating": 0
         }
       ],
-      "columns": [
-        { "key": "candidate_name", "label": "Name", "type": "text", "required": true },
-        { "key": "position", "label": "Role Applied For", "type": "text" },
-        { "key": "stage", "label": "Pipeline Stage", "type": "select", "options": ["Applied", "Screening", "Interview", "Offer", "Hired"] },
-        { "key": "resume", "label": "Resume", "type": "file" },
-        { "key": "rating", "label": "Score (1-5)", "type": "number" }
+      "fields": [
+        {
+          "key": "candidate_name",
+          "label": "Name",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "position",
+          "label": "Role Applied For",
+          "type": "text"
+        },
+        {
+          "key": "stage",
+          "label": "Pipeline Stage",
+          "type": "select",
+          "options": [
+            "Applied",
+            "Screening",
+            "Interview",
+            "Offer",
+            "Hired"
+          ]
+        },
+        {
+          "key": "resume",
+          "label": "Resume",
+          "type": "file"
+        },
+        {
+          "key": "rating",
+          "label": "Score (1-5)",
+          "type": "number"
+        }
       ]
     }
   ]

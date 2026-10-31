@@ -1,40 +1,36 @@
-# DriverERPApp
+# DriveERP
 
-DriverERPApp is a Flutter-based, modular ERP frontend focused on dynamic schemas, forms and Drive-backed data storage. It provides an extensible UI for modules, schema editing, dynamic record forms, drive integration, and workspace management.
+Flutter ERP app backed by an independently maintained WordPress plugin and native custom SQL tables. Google sign-in supplies identity (name, email, picture); company data and files live on the WordPress platform.
 
-Key features
-- Dynamic schema-driven forms and tables
-- Module-based UI with dashboards, filters, and tabs
-- Google Drive / sheet-backed storage mixins and services
-- Workspace and company management
-- Onboarding, settings and system scanning screens
-- Theming and provider-based state management
+Features include companies, staff invitations and module permissions, 21 module templates, editable schemas, dynamic forms with nested items and related records, versioned record updates, search, filters, pagination, SQL dashboards, CSV import, attachments, audit history, credits, subscriptions, and themes.
 
-Quick start (macOS)
-1. Install Flutter and dependencies: `brew install --cask flutter` (or follow Flutter docs)
-2. Open project in VS Code:
-   - `code /Users/esubalewamenu/personal/drivererpapp`
-3. Get packages: `flutter pub get`
-4. Run app: `flutter run -d macos` or `flutter run -d <device>`
+## Development
 
-Project layout (lib/)
-- main.dart — app entry
-- models/ — company and schema models + generated files
-- providers/ — state providers (drive, schema, theme, workspace)
-- screens/ — all UI screens grouped by feature
-- services/ — auth, drive, schema services and Drive mixins
-- theme/ — app theme
-- widgets/ — shared widgets and drawer
+The plugin repository is at `/Users/esubalewamenu/personal/wordpress/wp-content/plugins/driveerp`. There is no plugin copy in this repository.
 
-Development notes
-- Uses provider pattern for state
-- Schema models are generated (see *.g.dart)
-- Drive integration split into mixins for files/folders/sheets
-- Keep generated files in sync with build_runner when editing models
+```sh
+flutter pub get
+flutter run --dart-define=DRIVEERP_API_URL=http://10.0.2.2:8040/wp-json/driveerp/v2
+flutter analyze
+flutter test
+```
 
-Contributing
-- Create feature branch, run unit/ui tests, open PR with description
-- Keep UI and business logic separated; add tests for providers/services
+Android emulator uses `10.0.2.2`; iOS simulator can use `localhost`. Release builds require an HTTPS API URL. Set `DRIVEERP_GOOGLE_CLIENT_ID` if using a different web OAuth client, and configure the corresponding signing fingerprints and iOS OAuth client.
 
-License
-- Add project license here.
+## Architecture
+
+- `lib/services/erp_api.dart`: native REST requests, typed record paging, attachments, billing.
+- `lib/services/auth_service.dart`: Google identity and backend session establishment.
+- `lib/providers/erp_controller.dart`: company selection and installed module schemas.
+- `lib/models/schema_models.dart`: modules, collections, fields, structured dashboard queries and calculations.
+- `lib/screens/erp_app.dart`: company/module/record workflows, staff, history, schema editing.
+- `lib/screens/dynamic_form/`: reusable schema-driven fields and nested forms.
+- `assets/erp_modules/`: native module templates; sample records are optional during installation.
+
+Regenerate serializers after changing models:
+
+```sh
+dart run build_runner build --delete-conflicting-outputs
+```
+
+See [backend architecture and acceptance notes](documents/wordpress_migration.md).

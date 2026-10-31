@@ -1,78 +1,165 @@
-
 {
+  "id": "stock_ledger",
+  "name": "Stock Ledger",
+  "icon": "shopping_cart",
+  "primaryColor": "#4CAF50",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "stock_ledger" },
-    "icon": { "label": "Icon", "type": "icon", "value": "shopping_cart" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Stock Ledger" },
-  
-    "depends_on": ["inventory"]
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "stock_ledger"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "shopping_cart"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#4CAF50"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Stock Ledger"
+    },
+    "depends_on": {
+      "label": "Depends On",
+      "type": "list",
+      "value": [
+        "inventory"
+      ]
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Low Stock Alerts",
-        "formula": "=COUNTIF(Inventory:variants:variants!G:G, \"<10\")",
+        "label": "Stock Ledger Records",
+        "type": "kpi",
+        "query": {
+          "collection": "stock_ledger",
+          "operation": "count"
+        }
+      },
+      {
+        "label": "Total Qty",
+        "type": "kpi",
         "format": "number",
-        "color": "#F44336"
+        "query": {
+          "collection": "stock_ledger",
+          "operation": "sum",
+          "field": "qty"
+        }
       }
     ]
   },
-  "tabs": [
-      {
-        "id": "stock_ledger",
-        "label": "Stock Ledger",
-        "enable_custom_filters": true,
-        "list_template": {
-          "template": "standard",
-          "title_key": "item_ref",
-          "subtitle_key": "type",
-          "trailing_key": "qty"
+  "collections": [
+    {
+      "id": "stock_ledger",
+      "label": "Stock Ledger",
+      "enable_custom_filters": true,
+      "list_template": {
+        "template": "standard",
+        "title_key": "item_ref",
+        "subtitle_key": "type",
+        "trailing_key": "qty"
+      },
+      "detail_template": {
+        "template": "standard",
+        "title_key": "item_ref",
+        "subtitle_key": "type",
+        "show_all_fields": true
+      },
+      "quick_filters": [
+        {
+          "label": "Stock In",
+          "key": "stock_in",
+          "rules": [
+            {
+              "field": "type",
+              "operator": "==",
+              "value": "In"
+            }
+          ]
         },
-        "detail_template": {
-          "template": "standard",
-          "title_key": "item_ref",
-          "subtitle_key": "type",
-          "show_all_fields": true
+        {
+          "label": "Stock Out",
+          "key": "stock_out",
+          "rules": [
+            {
+              "field": "type",
+              "operator": "==",
+              "value": "Out"
+            }
+          ]
+        }
+      ],
+      "fields": [
+        {
+          "key": "date",
+          "label": "Date",
+          "type": "date"
         },
-        "quick_filters": [
-          { "label": "Stock In", "key": "stock_in", "rules": [ { "field": "type", "operator": "==", "value": "In" } ] },
-          { "label": "Stock Out", "key": "stock_out", "rules": [ { "field": "type", "operator": "==", "value": "Out" } ] }
-        ],
-        "columns": [
-          { "key": "date", "label": "Date", "type": "date" },
-          { "key": "type", "label": "Type", "type": "select", "options": ["In", "Out"] },
-          { "key": "item_ref", "label": "Item", "type": "relation", "options": "variants", "display_field": "full_name" },
-          { "key": "qty", "label": "Qty", "type": "number" },
-          { "key": "notes", "label": "Note", "type": "text" }
-        ],
-        "initial_data": [
-          {
-            "record_id": 1,
-            "date": "2024-03-01",
-            "type": "In",
-            "item_ref": 101,
-            "qty": 10,
-            "notes": "Initial Apple Shipment"
-          },
-          {
-            "record_id": 2,
-            "date": "2024-03-01",
-            "type": "In",
-            "item_ref": 102,
-            "qty": 5,
-            "notes": "Initial Apple Shipment"
-          },
-          {
-            "record_id": 3,
-            "date": "2024-03-05",
-            "type": "In",
-            "item_ref": 103,
-            "qty": 50,
-            "notes": "Accessory Restock"
-          }
-        ]
-      }
+        {
+          "key": "type",
+          "label": "Type",
+          "type": "select",
+          "options": [
+            "In",
+            "Out"
+          ]
+        },
+        {
+          "key": "item_ref",
+          "label": "Item",
+          "type": "relation",
+          "options": "variants",
+          "display_field": "full_name"
+        },
+        {
+          "key": "qty",
+          "label": "Qty",
+          "type": "number"
+        },
+        {
+          "key": "notes",
+          "label": "Note",
+          "type": "text"
+        }
+      ],
+      "initial_data": [
+        {
+          "record_id": 1,
+          "date": "2024-03-01",
+          "type": "In",
+          "item_ref": 101,
+          "qty": 10,
+          "notes": "Initial Apple Shipment"
+        },
+        {
+          "record_id": 2,
+          "date": "2024-03-01",
+          "type": "In",
+          "item_ref": 102,
+          "qty": 5,
+          "notes": "Initial Apple Shipment"
+        },
+        {
+          "record_id": 3,
+          "date": "2024-03-05",
+          "type": "In",
+          "item_ref": 103,
+          "qty": 50,
+          "notes": "Accessory Restock"
+        }
+      ]
+    }
   ]
 }

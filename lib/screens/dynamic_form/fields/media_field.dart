@@ -1,22 +1,37 @@
-import 'package:drivererpapp/providers/drive_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../models/schema_models.dart';
-import '../../../theme/app_theme.dart';
-import '../../../providers/workspace_provider.dart';
-import '../../../services/drive_service.dart';
-import 'package:googleapis/drive/v3.dart' as drive;
+import '../../../providers/erp_controller.dart';
+import '../../../services/backend/backend_session.dart';
+
+class AttachmentScope extends InheritedWidget {
+  final String moduleId;
+  final String collection;
+  final String recordId;
+  const AttachmentScope({
+    super.key,
+    required this.moduleId,
+    required this.collection,
+    required this.recordId,
+    required super.child,
+  });
+  static AttachmentScope? of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<AttachmentScope>();
+  @override
+  bool updateShouldNotify(AttachmentScope old) =>
+      old.recordId != recordId ||
+      old.collection != collection ||
+      old.moduleId != moduleId;
+}
 
 class DynamicMediaField extends StatefulWidget {
-  final ColumnConfig column;
+  final FieldDefinition column;
   final String? value;
   final Color primaryColor;
-  final Function(String) onChanged;
-  final String type; // 'image', 'scanner', 'signature'
+  final ValueChanged<String> onChanged;
+  final String type;
   final ModuleSchema? module;
-  final String? moduleFilesId;
-
   const DynamicMediaField({
     super.key,
     required this.column,
@@ -25,470 +40,133 @@ class DynamicMediaField extends StatefulWidget {
     required this.onChanged,
     required this.type,
     this.module,
-    this.moduleFilesId,
   });
-
   @override
   State<DynamicMediaField> createState() => _DynamicMediaFieldState();
 }
 
 class _DynamicMediaFieldState extends State<DynamicMediaField> {
-  bool _isUploading = false;
+  bool loading = false;
+  Future<void> _pick(ImageSource source) async {
+    final scope = AttachmentScope.of(context);
+    final erp = context.read<ErpController>();
+    if (scope == null || erp.company == null) return;
+    try {
+      final file = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 2400,
+        imageQuality: 85,
+      );
+      if (file == null) return;
+      if (!mounted) return;
+      setState(() => loading = true);
+      final id = await erp.api.upload(
+        company: erp.company!.id,
+        module: scope.moduleId,
+        collection: scope.collection,
+        recordId: scope.recordId,
+        name: file.name,
+        bytes: await file.readAsBytes(),
+      );
+      if (mounted) widget.onChanged(id);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('$e')));
+      }
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _choose() async {
+    final choice = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Select image source'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Camera'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Gallery'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice != null && mounted) await _pick(choice);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    Widget field;
-    switch (widget.type) {
-      case 'image':
-        field = _buildImagePicker(context);
-        break;
-      case 'scanner':
-        field = _buildScanner(context);
-        break;
-      case 'signature':
-        field = _buildSignaturePad(context);
-        break;
-      default:
-        field = const SizedBox.shrink();
-    }
-
-    if (widget.column.help == null) return field;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        field,
-        Padding(
-          padding: const EdgeInsets.only(top: 4, left: 4),
-          child: Text(
-            widget.column.help!,
-            style: AppTheme.inter(
-              fontSize: 12,
-              color: theme.textTheme.bodySmall?.color,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildImagePicker(BuildContext context) {
-    final theme = Theme.of(context);
-    
-    // Check if we have an image URL or ID
-    final hasImage = widget.value != null && widget.value!.isNotEmpty;
-    // Construct display URL (handling both raw ID and full URL)
-    String? imageUrl;
-    if (hasImage) {
-      if (widget.value!.startsWith('http')) {
-        imageUrl = widget.value;
-      } else {
-        imageUrl = 'https://drive.google.com/uc?export=view&id=${widget.value}';
-      }
-    }
-
+    final hasImage = widget.value?.isNotEmpty == true;
+    final url = hasImage ? BackendSession.mediaUrl(widget.value!) : '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           widget.column.label.toUpperCase(),
-          style: AppTheme.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: theme.textTheme.bodyMedium?.color,
-            letterSpacing: 1.0,
-          ),
+          style: Theme.of(context).textTheme.labelLarge,
         ),
         const SizedBox(height: 8),
-        Container(
-          height: 200,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: widget.column.readonly == true ? theme.dividerColor.withValues(alpha: 0.05) : theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: theme.dividerColor, style: BorderStyle.solid),
-          ),
-          child: InkWell(
-            onTap: (_isUploading || widget.column.readonly == true) ? null : () => _showImageSourceSheet(context),
-            borderRadius: BorderRadius.circular(12),
-            child: Stack(
-              children: [
-                if (hasImage && imageUrl != null)
-                   ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      imageUrl,
-                      width: double.infinity,
-                      height: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.broken_image_rounded, size: 48, color: theme.disabledColor),
-                            const SizedBox(height: 8),
-                            Text('Failed to load image', style: TextStyle(color: theme.textTheme.bodySmall?.color)),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                else
-                  Center(
-                    child: Column(
+        if (widget.type == 'scanner')
+          TextFormField(
+            initialValue: widget.value,
+            decoration: const InputDecoration(
+              labelText: 'Barcode or scanned value',
+              border: OutlineInputBorder(),
+            ),
+            onChanged: widget.onChanged,
+          )
+        else if (loading)
+          const LinearProgressIndicator()
+        else
+          InkWell(
+            onTap: widget.column.readonly == true ? null : _choose,
+            child: Container(
+              height: 160,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                border: Border.all(
+                  color: widget.primaryColor.withValues(alpha: 0.4),
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: hasImage
+                  ? Image.network(
+                      url,
+                      headers: BackendSession.mediaHeaders(url),
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, e, s) =>
+                          const Center(child: Icon(Icons.broken_image)),
+                    )
+                  : const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_a_photo_rounded, size: 48, color: theme.textTheme.bodyMedium?.color),
-                        const SizedBox(height: 12),
-                        Text(
-                          'Tap to pick or capture image',
-                          style: AppTheme.inter(color: theme.textTheme.bodyMedium?.color),
-                        ),
+                        Icon(Icons.add_a_photo_rounded),
+                        SizedBox(height: 8),
+                        Text('Tap to pick or capture image'),
                       ],
                     ),
-                  ),
-
-                // Uploading Indicator Overlay
-                if (_isUploading)
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.black45,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Center(
-                      child: CircularProgressIndicator(),
-                    ),
-                  ),
-                
-                // Edit/Remove buttons if image exists and not uploading
-                if (hasImage && !_isUploading)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _buildActionButton(
-                          context, 
-                          icon: Icons.edit_rounded, 
-                          onTap: () => _showImageSourceSheet(context)
-                        ),
-                        if (widget.column.readonly != true) ...[
-                          const SizedBox(width: 8),
-                          _buildActionButton(
-                            context, 
-                            icon: Icons.delete_outline_rounded, 
-                            color: Colors.red,
-                            onTap: () => widget.onChanged(''), // Clear value
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-              ],
             ),
           ),
-        ),
-        if (hasImage) 
-           Padding(
-             padding: const EdgeInsets.only(top: 8.0),
-             child: Text(
-               'Image saved to Drive.',
-               style: TextStyle(fontSize: 12, color: Colors.green.shade600),
-             ),
-           ),
-      ],
-    );
-  }
-
-  Widget _buildActionButton(BuildContext context, {required IconData icon, required VoidCallback onTap, Color? color}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          )
-        ]
-      ),
-      child: IconButton(
-        icon: Icon(icon, color: color ?? Theme.of(context).primaryColor, size: 20),
-        onPressed: onTap,
-        constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-        padding: EdgeInsets.zero,
-      ),
-    );
-  }
-
-  void _showImageSourceSheet(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Select Image Source',
-              style: AppTheme.inter(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Theme.of(context).textTheme.bodyLarge?.color,
-              ),
-            ),
-            const SizedBox(height: 24),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: widget.primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.camera_alt_rounded, color: widget.primaryColor),
-              ),
-              title: const Text('Camera'),
-              subtitle: const Text('Capture a new photo'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickAndUploadImage(ImageSource.camera);
-              },
-            ),
-            const SizedBox(height: 8),
-            ListTile(
-              leading: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: widget.primaryColor.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(Icons.photo_library_rounded, color: widget.primaryColor),
-              ),
-              title: const Text('Gallery'),
-              subtitle: const Text('Choose from existing photos'),
-              onTap: () {
-                Navigator.pop(context);
-                _pickAndUploadImage(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _pickAndUploadImage(ImageSource source) async {
-    final ImagePicker picker = ImagePicker();
-    try {
-      final XFile? image = await picker.pickImage(
-        source: source,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        imageQuality: 80,
-      );
-
-      if (image == null) return;
-      
-      setState(() => _isUploading = true);
-
-      final bytes = await image.readAsBytes();
-      final extension = image.path.split('.').last.toLowerCase();
-      final fileName = 'form_${DateTime.now().millisecondsSinceEpoch}.$extension';
-      final mimeType = extension == 'png' ? 'image/png' : 'image/jpeg';
-      
-      if (!mounted) return;
-
-      final workspaceProvider = Provider.of<WorkspaceProvider>(context, listen: false);
-      
-      DriveService? driveService;
-      try {
-        final driveProvider = Provider.of<DriveProvider>(context, listen: false);
-        driveService = driveProvider.driveService;
-      } catch (_) {
-        debugPrint('DriveProvider not found in context.');
-      }
-
-      if (driveService == null) {
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Upload failed: Service unavailable')));
-         }
-         return;
-      }
-
-      // Determine target folder based on context
-      String targetFolderId;
-      
-      if (widget.module != null) {
-        // Module context: require moduleFilesId, no fallback
-        if (widget.moduleFilesId == null || widget.moduleFilesId!.isEmpty) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Upload failed: Module files folder not configured'))
-            );
-          }
-          return;
-        }
-        targetFolderId = widget.moduleFilesId!;
-      } else {
-        // Settings context (e.g., company logo): use workspace root
-        final rootId = workspaceProvider.currentWorkspace?.id;
-        if (rootId == null) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Upload failed: No active workspace'))
-            );
-          }
-          return;
-        }
-        targetFolderId = rootId;
-      }
-
-      final fileId = await driveService.uploadFile(
-        targetFolderId, 
-        fileName, 
-        bytes, 
-        mimeType: mimeType
-      );
-      
-      await driveService.driveApi.permissions.create(
-        drive.Permission()
-          ..role = 'reader'
-          ..type = 'anyone',
-        fileId,
-      );
-      
-      widget.onChanged(fileId);
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Image uploaded successfully')));
-      }
-
-    } catch (e) {
-      debugPrint('Error capturing/uploading image: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isUploading = false);
-      }
-    }
-  }
-
-  Widget _buildScanner(BuildContext context) {
-    final theme = Theme.of(context);
-    final isReadonly = widget.column.readonly == true;
-    // We need a controller to show the value in the text field part of the scanner
-    final controller = TextEditingController(text: widget.value);
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.column.label.toUpperCase(),
-          style: AppTheme.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: theme.textTheme.bodyMedium?.color,
-            letterSpacing: 1.0,
+        if (hasImage && widget.column.readonly != true)
+          TextButton.icon(
+            onPressed: () => widget.onChanged(''),
+            icon: const Icon(Icons.clear),
+            label: const Text('Remove reference'),
           ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: controller,
-                readOnly: isReadonly,
-                style: AppTheme.inter(color: isReadonly ? theme.textTheme.bodyLarge?.color?.withValues(alpha: 0.6) : theme.textTheme.bodyLarge?.color),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: isReadonly ? theme.dividerColor.withValues(alpha: 0.05) : theme.cardTheme.color,
-                  hintText: 'Scan or enter code',
-                  hintStyle: TextStyle(color: theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.5)),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  prefixIcon: Icon(Icons.qr_code, color: theme.textTheme.bodyMedium?.color),
-                ),
-                onChanged: widget.onChanged,
-              ),
-            ),
-            const SizedBox(width: 12),
-            InkWell(
-              onTap: isReadonly ? null : () {
-                // Mock scanner action
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanner started...')));
-                // Simulate scan result
-                final mockCode = 'SCAN-${DateTime.now().millisecondsSinceEpoch}';
-                widget.onChanged(mockCode);
-                controller.text = mockCode; // Update local controller
-              },
-              borderRadius: BorderRadius.circular(12),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: isReadonly ? theme.dividerColor.withValues(alpha: 0.2) : widget.primaryColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isReadonly ? Colors.transparent : widget.primaryColor),
-                ),
-                child: Icon(Icons.qr_code_scanner_rounded, color: isReadonly ? theme.disabledColor : Colors.white),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildSignaturePad(BuildContext context) {
-    final theme = Theme.of(context);
-    final isReadonly = widget.column.readonly == true;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.column.label.toUpperCase(),
-          style: AppTheme.inter(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: theme.textTheme.bodyMedium?.color,
-            letterSpacing: 1.0,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Container(
-          height: 150,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: isReadonly ? theme.dividerColor.withValues(alpha: 0.05) : theme.cardTheme.color,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: theme.dividerColor),
-          ),
-          child: InkWell(
-            onTap: isReadonly ? null : () {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Signature pad coming soon')));
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Center(
-              child: Text(
-                isReadonly ? 'View Signature' : 'Tap to sign',
-                style: AppTheme.inter(color: isReadonly ? theme.textTheme.bodyMedium?.color?.withValues(alpha: 0.6) : theme.textTheme.bodyMedium?.color),
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }

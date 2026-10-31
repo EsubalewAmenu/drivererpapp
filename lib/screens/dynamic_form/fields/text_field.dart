@@ -3,7 +3,7 @@ import '../../../models/schema_models.dart';
 import '../../../theme/app_theme.dart';
 
 class DynamicTextField extends StatefulWidget {
-  final ColumnConfig column;
+  final FieldDefinition column;
   final String value;
   final Color primaryColor;
   final Function(String) onChanged;
@@ -43,14 +43,16 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
     if (widget.controller != null && _controller != widget.controller) {
       _controller = widget.controller!;
     }
-    
+
     // If we are using an external controller, it's the source of truth.
-    // We should NOT overwrite its text from widget.value unless they are out of sync 
+    // We should NOT overwrite its text from widget.value unless they are out of sync
     // AND we are NOT using an external controller (local controller case).
     // Actually, if using external controller, the parent 'data' Map is just a copy.
     if (_localController && widget.value != _controller.text) {
-       _controller.text = widget.value;
-       _controller.selection = TextSelection.fromPosition(TextPosition(offset: _controller.text.length));
+      _controller.text = widget.value;
+      _controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: _controller.text.length),
+      );
     }
   }
 
@@ -65,11 +67,13 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isNumeric = widget.column.type == 'number' || widget.column.type == 'currency';
+    final isNumeric =
+        widget.column.type == 'number' || widget.column.type == 'currency';
     final isEmail = widget.column.type == 'email';
     final isPhone = widget.column.type == 'phone';
     final isCurrency = widget.column.type == 'currency';
-    final isLongText = widget.column.type == 'long_text' || widget.column.type == 'longtext';
+    final isLongText =
+        widget.column.type == 'long_text' || widget.column.type == 'longtext';
     final maxLines = isLongText ? 4 : 1;
 
     final textColor = theme.textTheme.bodyMedium?.color ?? AppTheme.textColor;
@@ -91,25 +95,38 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
         const SizedBox(height: 8),
         TextFormField(
           controller: _controller,
-          keyboardType: isNumeric 
-            ? TextInputType.number 
-            : (isEmail 
-                ? TextInputType.emailAddress 
-                : (isPhone 
-                    ? TextInputType.phone 
-                    : (isLongText ? TextInputType.multiline : TextInputType.text))),
+          keyboardType: isNumeric
+              ? TextInputType.number
+              : (isEmail
+                    ? TextInputType.emailAddress
+                    : (isPhone
+                          ? TextInputType.phone
+                          : (isLongText
+                                ? TextInputType.multiline
+                                : TextInputType.text))),
           maxLines: maxLines,
           readOnly: widget.column.readonly == true,
-          style: AppTheme.inter(color: widget.column.readonly == true ? textColor.withValues(alpha: 0.6) : textColor),
+          style: AppTheme.inter(
+            color: widget.column.readonly == true
+                ? textColor.withValues(alpha: 0.6)
+                : textColor,
+          ),
           decoration: InputDecoration(
             filled: true,
-            fillColor: widget.column.readonly == true ? theme.dividerColor.withValues(alpha: 0.05) : fillColor,
+            fillColor: widget.column.readonly == true
+                ? theme.dividerColor.withValues(alpha: 0.05)
+                : fillColor,
             hintText: 'Enter ${widget.column.label.toLowerCase()}',
             hintStyle: TextStyle(color: hintColor),
             helperText: widget.column.help,
             helperMaxLines: 2,
-            prefixText: isCurrency ? '${widget.column.currencySymbol ?? '\$'} ' : null,
-            prefixStyle: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+            prefixText: isCurrency
+                ? '${widget.column.currencySymbol ?? '\$'} '
+                : null,
+            prefixStyle: TextStyle(
+              color: textColor,
+              fontWeight: FontWeight.bold,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -131,13 +148,17 @@ class _DynamicTextFieldState extends State<DynamicTextField> {
                 return 'Please enter a valid number';
               }
             }
-            if (widget.column.type == 'email' && value != null && value.isNotEmpty) {
-              final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+            if (widget.column.type == 'email' &&
+                value != null &&
+                value.isNotEmpty) {
+              final emailRegex = RegExp(r"^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}$");
               if (!emailRegex.hasMatch(value)) {
                 return 'Please enter a valid email';
               }
             }
-            if (widget.column.type == 'phone' && value != null && value.isNotEmpty) {
+            if (widget.column.type == 'phone' &&
+                value != null &&
+                value.isNotEmpty) {
               // Basic phone validation: allows +, digits, spaces, dashes
               final phoneRegex = RegExp(r'^\+?[\d\s-]{7,15}$');
               if (!phoneRegex.hasMatch(value)) {

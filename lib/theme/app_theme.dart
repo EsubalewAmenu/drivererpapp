@@ -47,7 +47,7 @@ class AppTheme {
     Color? color,
     double? height,
   }) {
-     if (useGoogleFonts) {
+    if (useGoogleFonts) {
       return GoogleFonts.sourceCodePro(
         fontSize: fontSize,
         fontWeight: fontWeight,
@@ -116,9 +116,7 @@ class AppTheme {
       ),
       cardTheme: CardThemeData(
         color: lightSurfaceColor,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         elevation: 0,
       ),
       appBarTheme: AppBarTheme(

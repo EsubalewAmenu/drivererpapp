@@ -1,24 +1,56 @@
-
 {
+  "id": "support",
+  "name": "Support Tickets",
+  "icon": "support_agent",
+  "primaryColor": "#4CAF50",
+  "version": 1,
   "settings": {
-    "id": { "label": "Module ID", "type": "text", "value": "tickets" },
-    "icon": { "label": "Icon", "type": "icon", "value": "support_agent" },
-    "primaryColor": { "label": "Primary Color", "type": "color", "value": "#4CAF50" },
-    "version": { "label": "Version", "type": "text", "value": "1.0" },
-    "name": { "label": "Name", "type": "text", "value": "Support Tickets" },
-  
-    "depends_on": ["crm"]
+    "id": {
+      "label": "Module ID",
+      "type": "text",
+      "value": "tickets"
+    },
+    "icon": {
+      "label": "Icon",
+      "type": "icon",
+      "value": "support_agent"
+    },
+    "primaryColor": {
+      "label": "Primary Color",
+      "type": "color",
+      "value": "#4CAF50"
+    },
+    "version": {
+      "label": "Version",
+      "type": "text",
+      "value": "1.0"
+    },
+    "name": {
+      "label": "Name",
+      "type": "text",
+      "value": "Support Tickets"
+    },
+    "depends_on": {
+      "label": "Depends On",
+      "type": "list",
+      "value": [
+        "crm"
+      ]
+    }
   },
   "dashboard": {
     "cards": [
       {
-        "label": "Open Tickets",
-        "formula": "=COUNTIF(Support Tickets:tickets:tickets!C:C, \"Open\")",
-        "format": "number"
+        "label": "Support Tickets Records",
+        "type": "kpi",
+        "query": {
+          "collection": "tickets",
+          "operation": "count"
+        }
       }
     ]
   },
-  "tabs": [
+  "collections": [
     {
       "id": "tickets",
       "label": "Support Tickets",
@@ -30,8 +62,28 @@
         "trailing_key": "priority"
       },
       "quick_filters": [
-        { "label": "My Tickets", "key": "my_tickets", "rules": [ { "field": "assigned_to", "operator": "==", "value": "user.email" } ] },
-        { "label": "Critical", "key": "critical", "rules": [ { "field": "priority", "operator": "==", "value": "Critical" } ] }
+        {
+          "label": "My Tickets",
+          "key": "my_tickets",
+          "rules": [
+            {
+              "field": "assigned_to",
+              "operator": "==",
+              "value": "user.email"
+            }
+          ]
+        },
+        {
+          "label": "Critical",
+          "key": "critical",
+          "rules": [
+            {
+              "field": "priority",
+              "operator": "==",
+              "value": "Critical"
+            }
+          ]
+        }
       ],
       "initial_data": [
         {
@@ -43,19 +95,52 @@
           "assigned_to": "esubalewbusiness@gmail.com"
         }
       ],
-      "columns": [
-        { "key": "subject", "label": "Subject", "type": "text", "required": true },
-        { 
-          "key": "related_client", 
-          "label": "Client", 
-          "type": "relation", 
+      "fields": [
+        {
+          "key": "subject",
+          "label": "Subject",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "related_client",
+          "label": "Client",
+          "type": "relation",
           "options": "contacts",
           "display_field": "name"
         },
-        { "key": "priority", "label": "Priority", "type": "select", "options": ["Low", "Medium", "High", "Critical"] },
-        { "key": "status", "label": "Status", "type": "select", "options": ["Open", "In Progress", "Resolved"] },
-        { "key": "description", "label": "Details", "type": "long_text" },
-        { "key": "assigned_to", "label": "Assigned Agent", "type": "email", "default": "user.email" }
+        {
+          "key": "priority",
+          "label": "Priority",
+          "type": "select",
+          "options": [
+            "Low",
+            "Medium",
+            "High",
+            "Critical"
+          ]
+        },
+        {
+          "key": "status",
+          "label": "Status",
+          "type": "select",
+          "options": [
+            "Open",
+            "In Progress",
+            "Resolved"
+          ]
+        },
+        {
+          "key": "description",
+          "label": "Details",
+          "type": "long_text"
+        },
+        {
+          "key": "assigned_to",
+          "label": "Assigned Agent",
+          "type": "email",
+          "default": "user.email"
+        }
       ]
     }
   ]
