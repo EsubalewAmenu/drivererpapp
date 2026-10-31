@@ -9,6 +9,11 @@ class ErpController extends ChangeNotifier {
   List<Company> companies = [];
   Company? company;
   List<ModuleSchema> modules = [];
+  List<ModuleSchema> get rootModules =>
+      modules.where((m) => !m.isExtension).toList();
+  List<ModuleSchema> extensionsFor(ModuleSchema parent) =>
+      modules.where((m) => m.parentModuleId == parent.id).toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
   bool loading = false;
   ErpController({ErpApi? api}) : api = api ?? ErpApi();
   String get _selectionKey => 'erp_company_${BackendSession.userId}';

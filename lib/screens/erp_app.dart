@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../models/schema_models.dart';
@@ -17,6 +18,7 @@ import 'dynamic_form/fields/media_field.dart';
 import 'schema_editor/structure_editor.dart';
 import 'schema_editor/settings_editor.dart';
 import 'native_dashboard_editor.dart';
+import 'record_detail/record_field_value.dart';
 import 'native_billing_screen.dart';
 
 void showError(BuildContext context, Object error) {
@@ -336,25 +338,7 @@ class CompanyHome extends StatefulWidget {
 }
 
 class _CompanyHomeState extends State<CompanyHome> {
-  late Future<Map<String, dynamic>> summary;
-  @override
-  void initState() {
-    super.initState();
-    summary = context.read<ErpController>().api.companyDashboard(
-      context.read<ErpController>().company!.id,
-    );
-  }
-
-  Future<void> _refresh() async {
-    await context.read<ErpController>().refresh();
-    if (mounted) {
-      setState(
-        () => summary = context.read<ErpController>().api.companyDashboard(
-          context.read<ErpController>().company!.id,
-        ),
-      );
-    }
-  }
+  Future<void> _refresh() => context.read<ErpController>().refresh();
 
   @override
   Widget build(BuildContext context) {
@@ -435,53 +419,26 @@ class _CompanyHomeState extends State<CompanyHome> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            FutureBuilder<Map<String, dynamic>>(
-              future: summary,
-              builder: (context, s) {
-                if (s.hasError) return Text('${s.error}');
-                if (!s.hasData) return const LinearProgressIndicator();
-                return Row(
-                  children: [
-                    Expanded(
-                      child: MetricTile(
-                        label: 'Modules',
-                        value: '${s.data!['module_count']}',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: MetricTile(
-                        label: 'Records',
-                        value: '${s.data!['record_count']}',
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-            const SizedBox(height: 24),
             Text('Modules', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 12),
-            if (erp.modules.isEmpty)
+            if (erp.rootModules.isEmpty)
               const Padding(
                 padding: EdgeInsets.all(24),
                 child: Text('No modules installed yet.'),
               ),
-            for (final module in erp.modules)
+            for (final module in erp.rootModules)
               Card(
                 child: ListTile(
                   leading: Icon(iconFromName(module.icon)),
                   title: Text(module.name),
-                  subtitle: Text(
-                    '${module.collections.length} collections · ${module.accessLevel}',
-                  ),
+
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (_) => NativeModuleScreen(moduleId: module.id),
                     ),
-                  ).then((_) => _refresh()),
+                  ),
                 ),
               ),
             if (company.canManage) ...[
@@ -492,7 +449,7 @@ class _CompanyHomeState extends State<CompanyHome> {
                   MaterialPageRoute(
                     builder: (_) => const ModuleCatalogScreen(),
                   ),
-                ).then((_) => _refresh()),
+                ),
                 icon: const Icon(Icons.add),
                 label: const Text('Add module'),
               ),
@@ -533,7 +490,7 @@ class _ModuleCatalogScreenState extends State<ModuleCatalogScreen> {
   List<ModuleSchema>? templates;
   String? error;
   bool busy = false;
-  bool samples = false;
+  bool samples = true;
   @override
   void initState() {
     super.initState();
@@ -565,7 +522,7 @@ class _ModuleCatalogScreenState extends State<ModuleCatalogScreen> {
       await erp.api.createModule(
         erp.company!.id,
         schema,
-        templateKey: schema.id,
+        templateKey: schema.id == 'custom' ? null : schema.id,
         includeSamples: samples,
       );
       await erp.refresh();
@@ -632,14 +589,18 @@ class _ModuleCatalogScreenState extends State<ModuleCatalogScreen> {
               if (error != null) Text(error!),
               if (templates == null && error == null)
                 const LinearProgressIndicator(),
-              for (final template in templates ?? <ModuleSchema>[])
+              for (final template in (templates ?? <ModuleSchema>[]).where(
+                (m) =>
+                    !m.isExtension &&
+                    !context.watch<ErpController>().rootModules.any(
+                      (installed) => installed.templateKey == m.id,
+                    ),
+              ))
                 Card(
                   child: ListTile(
                     leading: Icon(iconFromName(template.icon)),
                     title: Text(template.name),
-                    subtitle: Text(
-                      '${template.collections.length} collections',
-                    ),
+
                     trailing: const Icon(Icons.add_circle_outline),
                     onTap: () => _install(template),
                   ),
@@ -658,6 +619,48 @@ class NativeModuleScreen extends StatefulWidget {
 
 class _NativeModuleScreenState extends State<NativeModuleScreen> {
   int revision = 0;
+  bool showExtensionHint = false;
+  String? hintKey;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadHint());
+  }
+
+  Future<void> _loadHint() async {
+    final erp = context.read<ErpController>();
+    final module = erp.modules
+        .where((m) => m.id == widget.moduleId)
+        .firstOrNull;
+    if (module == null ||
+        module.isExtension ||
+        module.accessLevel != 'manage') {
+      return;
+    }
+    if (module.extensionKeys.isEmpty) return;
+    hintKey = 'extension_hint_${erp.company?.id}_${widget.moduleId}';
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() => showExtensionHint = !(prefs.getBool(hintKey!) ?? false));
+    }
+  }
+
+  Future<void> _dismissHint() async {
+    if (mounted) setState(() => showExtensionHint = false);
+    if (hintKey != null) {
+      await (await SharedPreferences.getInstance()).setBool(hintKey!, true);
+    }
+  }
+
+  Future<void> _openExtensions(ModuleSchema module) async {
+    await _dismissHint();
+    if (!mounted) return;
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => NativeExtensionsScreen(parent: module)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final erp = context.watch<ErpController>();
@@ -666,78 +669,132 @@ class _NativeModuleScreenState extends State<NativeModuleScreen> {
       return const Scaffold(body: Center(child: Text('Module is unavailable')));
     }
     final module = matches.first;
+    final extensions = erp.extensionsFor(module);
+    final entries = [
+      for (final owner in [module, ...extensions])
+        for (final collection in owner.collections)
+          (owner: owner, collection: collection),
+    ];
     return DefaultTabController(
-      length: module.collections.length + 1,
+      length: entries.length + 1,
       child: Scaffold(
         appBar: AppBar(
           title: Text(module.name),
           actions: [
-            if (module.accessLevel == 'manage')
-              PopupMenuButton<String>(
-                onSelected: (_) async {
-                  if (!await confirm(
+            if (module.accessLevel == 'manage' && !module.isExtension)
+              IconButton(
+                tooltip: 'Extensions',
+                icon: const Icon(Icons.extension_outlined),
+                onPressed: () => _openExtensions(module),
+              ),
+            PopupMenuButton<String>(
+              tooltip: 'Module options',
+              onSelected: (action) async {
+                if (action == 'history') {
+                  await Navigator.push(
                     context,
-                    'Deactivate module?',
-                    'The module will leave the active list. Its data and history remain in the database.',
-                  )) {
-                    return;
-                  }
-                  if (!context.mounted) return;
-                  try {
-                    await erp.api.deactivateModule(module.id);
-                    await erp.refresh();
-                    if (context.mounted) Navigator.pop(context);
-                  } catch (e) {
-                    if (context.mounted) showError(context, e);
-                  }
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
+                    MaterialPageRoute(
+                      builder: (_) => HistoryScreen(module: module),
+                    ),
+                  );
+                  return;
+                }
+                if (action == 'schema') {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => NativeSchemaScreen(module: module),
+                    ),
+                  );
+                  return;
+                }
+                if (!await confirm(
+                  context,
+                  'Deactivate module?',
+                  'The module will leave the active list. Its data and history remain in the database.',
+                )) {
+                  return;
+                }
+                if (!context.mounted) return;
+                try {
+                  await erp.api.deactivateModule(module.id);
+                  await erp.refresh();
+                  if (context.mounted) Navigator.pop(context);
+                } catch (e) {
+                  if (context.mounted) showError(context, e);
+                }
+              },
+              itemBuilder: (_) => [
+                const PopupMenuItem(
+                  value: 'history',
+                  child: Text('Activity history'),
+                ),
+                if (module.accessLevel == 'manage') ...[
+                  const PopupMenuItem(
+                    value: 'schema',
+                    child: Text('Edit schema'),
+                  ),
+                  const PopupMenuItem(
                     value: 'deactivate',
                     child: Text('Deactivate module'),
                   ),
                 ],
-              ),
-            IconButton(
-              icon: const Icon(Icons.history),
-              onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => HistoryScreen(module: module),
-                ),
-              ),
+              ],
             ),
-            if (module.accessLevel == 'manage')
-              IconButton(
-                icon: const Icon(Icons.edit_note),
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => NativeSchemaScreen(module: module),
-                  ),
-                ),
-              ),
           ],
           bottom: TabBar(
             isScrollable: true,
             tabs: [
               const Tab(text: 'Dashboard'),
-              for (final c in module.collections) Tab(text: c.label),
+              for (final entry in entries)
+                Tab(
+                  text: entry.owner.id == module.id
+                      ? entry.collection.label
+                      : '${entry.owner.name} · ${entry.collection.label}',
+                ),
             ],
           ),
         ),
-        body: TabBarView(
+        body: Column(
           children: [
-            NativeDashboard(key: ValueKey(revision), module: module),
-            for (final collection in module.collections)
-              CollectionScreen(
-                key: ValueKey(
-                  '${module.id}:${collection.id}:${module.version}',
+            if (showExtensionHint)
+              MaterialBanner(
+                content: const Text(
+                  'Add more features to this module. Tap here for extensions.',
                 ),
-                module: module,
-                collection: collection,
-                onChanged: () => setState(() => revision++),
+                leading: const Icon(Icons.extension_outlined),
+                actions: [
+                  TextButton(
+                    onPressed: () => _dismissHint(),
+                    child: const Text('Dismiss'),
+                  ),
+                  TextButton(
+                    onPressed: () => _openExtensions(module),
+                    child: const Text('Extensions'),
+                  ),
+                ],
               ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  NativeDashboard(
+                    key: ValueKey(
+                      '$revision:${extensions.map((m) => "${m.id}:${m.version}").join(",")}',
+                    ),
+                    module: module,
+                  ),
+                  for (final entry in entries)
+                    CollectionScreen(
+                      key: ValueKey(
+                        '${entry.owner.id}:${entry.collection.id}:${entry.owner.version}',
+                      ),
+                      module: entry.owner,
+                      collection: entry.collection,
+                      onChanged: () => setState(() => revision++),
+                    ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -799,7 +856,21 @@ class _NativeDashboardState extends State<NativeDashboard> {
                 padding: EdgeInsets.all(24),
                 child: Text('Add dashboard metrics in the schema editor.'),
               ),
-            for (final card in cards) _metric(card),
+            for (final entry in cards.asMap().entries) ...[
+              if (entry.value['module_id'] != null &&
+                  entry.value['module_id'] != widget.module.id &&
+                  (entry.key == 0 ||
+                      cards[entry.key - 1]['module_id'] !=
+                          entry.value['module_id']))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
+                  child: Text(
+                    entry.value['module_name'] ?? 'Extension',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+              _metric(entry.value),
+            ],
           ],
         );
       },
@@ -1539,25 +1610,8 @@ class _NativeRecordDetailState extends State<NativeRecordDetail> {
     );
   }
 
-  Widget _value(FieldDefinition field, dynamic value) {
-    if (value == null || value == '') return const Text('—');
-    if (['image', 'signature'].contains(field.type)) {
-      final url = BackendSession.mediaUrl(value.toString());
-      return Image.network(
-        url,
-        headers: BackendSession.mediaHeaders(url),
-        height: 200,
-        fit: BoxFit.contain,
-        errorBuilder: (_, e, s) => const Text('Image unavailable'),
-      );
-    }
-    if (value is List || value is Map) {
-      return SelectableText(const JsonEncoder.withIndent('  ').convert(value));
-    }
-    return SelectableText(
-      value is bool ? (value ? 'Yes' : 'No') : value.toString(),
-    );
-  }
+  Widget _value(FieldDefinition field, dynamic value) =>
+      RecordFieldValue(field: field, value: value);
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -1935,7 +1989,9 @@ class _TeamScreenState extends State<TeamScreen> {
     final erp = context.read<ErpController>();
     var email = '';
     String role = 'staff';
-    final permissions = {for (final module in erp.modules) module.id: 'write'};
+    final permissions = {
+      for (final module in erp.rootModules) module.id: 'write',
+    };
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -1965,7 +2021,7 @@ class _TeamScreenState extends State<TeamScreen> {
                     onChanged: (v) => set(() => role = v!),
                   ),
                   const SizedBox(height: 16),
-                  for (final module in erp.modules)
+                  for (final module in erp.rootModules)
                     DropdownButtonFormField<String>(
                       initialValue: permissions[module.id],
                       decoration: InputDecoration(labelText: module.name),
@@ -2040,7 +2096,7 @@ class _TeamScreenState extends State<TeamScreen> {
   Future<void> _permissions(Map<String, dynamic> member) async {
     final erp = context.read<ErpController>();
     final values = <String, String>{};
-    for (final module in erp.modules) {
+    for (final module in erp.rootModules) {
       final list = await erp.api.permissions(module.id);
       values[module.id] =
           list
@@ -2059,7 +2115,7 @@ class _TeamScreenState extends State<TeamScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (final module in erp.modules)
+                for (final module in erp.rootModules)
                   DropdownButtonFormField<String>(
                     initialValue: values[module.id],
                     decoration: InputDecoration(labelText: module.name),
@@ -2311,6 +2367,123 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
               title: const Text('Company active'),
               value: company.status == 'active',
               onChanged: (v) => _update({'status': v ? 'active' : 'inactive'}),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class NativeExtensionsScreen extends StatefulWidget {
+  final ModuleSchema parent;
+  const NativeExtensionsScreen({super.key, required this.parent});
+  @override
+  State<NativeExtensionsScreen> createState() => _NativeExtensionsScreenState();
+}
+
+class _NativeExtensionsScreenState extends State<NativeExtensionsScreen> {
+  List<ModuleSchema>? templates;
+  String? error;
+  String? busy;
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final list = await Future.wait(
+        widget.parent.extensionKeys.map(
+          (key) async => ModuleSchema.fromJson(
+            jsonDecode(
+              await rootBundle.loadString('assets/erp_modules/$key.json'),
+            ),
+          ),
+        ),
+      );
+      list.sort((a, b) => a.name.compareTo(b.name));
+      if (mounted) setState(() => templates = list);
+    } catch (e) {
+      if (mounted) setState(() => error = '$e');
+    }
+  }
+
+  Future<void> _toggle(ModuleSchema template, ModuleSchema? installed) async {
+    setState(() => busy = template.id);
+    final erp = context.read<ErpController>();
+    try {
+      if (installed == null) {
+        await erp.api.activateExtension(widget.parent.id, template);
+      } else {
+        await erp.api.deactivateModule(installed.id);
+      }
+      await erp.refresh();
+    } catch (e) {
+      if (mounted) showError(context, e);
+    } finally {
+      if (mounted) setState(() => busy = null);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final erp = context.watch<ErpController>();
+    final active = erp.extensionsFor(widget.parent);
+    return Scaffold(
+      appBar: AppBar(title: Text('${widget.parent.name} extensions')),
+      body: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          const Text(
+            'Activated extensions add their collections and dashboard cards here. Turning an extension off keeps its records for reactivation.',
+          ),
+          const SizedBox(height: 20),
+          if (error != null) Text(error!),
+          if (templates == null && error == null)
+            const LinearProgressIndicator(),
+          if (templates?.isEmpty == true)
+            const Text('No extensions available for this module.'),
+          for (final template in templates ?? <ModuleSchema>[])
+            Builder(
+              builder: (context) {
+                final installed = active
+                    .where((m) => m.templateKey == template.id)
+                    .firstOrNull;
+                return Card(
+                  child: SwitchListTile(
+                    title: Text(template.name),
+                    subtitle: Text(
+                      installed == null
+                          ? 'Inactive'
+                          : 'Active · ${installed.collections.length} collections',
+                    ),
+                    value: installed != null,
+                    onChanged: busy != null
+                        ? null
+                        : (_) => _toggle(template, installed),
+                    secondary: busy == template.id
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : installed != null
+                        ? IconButton(
+                            tooltip: 'Edit ${template.name} schema',
+                            icon: const Icon(Icons.edit_note),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    NativeSchemaScreen(module: installed),
+                              ),
+                            ),
+                          )
+                        : Icon(iconFromName(template.icon)),
+                  ),
+                );
+              },
             ),
         ],
       ),

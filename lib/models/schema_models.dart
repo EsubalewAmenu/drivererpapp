@@ -14,6 +14,13 @@ class ModuleSchema {
   final String? companyId;
   @JsonKey(name: 'template_key')
   final String? templateKey;
+  @JsonKey(name: 'parent_key')
+  final String? parentKey;
+  @JsonKey(name: 'parent_module_id')
+  final String? parentModuleId;
+  @JsonKey(name: 'extension_keys')
+  final List<String> extensionKeys;
+  bool get isExtension => parentKey != null || parentModuleId != null;
   @JsonKey(name: 'access_level')
   final String accessLevel;
   final Map<String, SettingItem> settings;
@@ -28,6 +35,9 @@ class ModuleSchema {
     required this.version,
     this.companyId,
     this.templateKey,
+    this.parentKey,
+    this.parentModuleId,
+    this.extensionKeys = const [],
     this.accessLevel = 'manage',
     required this.settings,
     required this.dashboard,
@@ -56,6 +66,9 @@ class ModuleSchema {
       version: version ?? this.version,
       companyId: companyId,
       templateKey: templateKey,
+      parentKey: parentKey,
+      parentModuleId: parentModuleId,
+      extensionKeys: extensionKeys,
       accessLevel: accessLevel,
       settings: settings ?? this.settings,
       dashboard: dashboard ?? this.dashboard,

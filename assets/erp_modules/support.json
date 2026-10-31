@@ -29,13 +29,6 @@
       "label": "Name",
       "type": "text",
       "value": "Support Tickets"
-    },
-    "depends_on": {
-      "label": "Depends On",
-      "type": "list",
-      "value": [
-        "crm"
-      ]
     }
   },
   "dashboard": {
@@ -143,5 +136,7 @@
         }
       ]
     }
-  ]
+  ],
+  "parent_key": "crm",
+  "extension_keys": []
 }

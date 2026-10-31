@@ -29,14 +29,6 @@
       "label": "Name",
       "type": "text",
       "value": "Inventory"
-    },
-    "extensions": {
-      "label": "Extensions",
-      "type": "list",
-      "value": [
-        "Stock Ledger",
-        "Purchase Orders"
-      ]
     }
   },
   "dashboard": {
@@ -272,5 +264,10 @@
         }
       ]
     }
+  ],
+  "parent_key": null,
+  "extension_keys": [
+    "purchase_orders",
+    "stock_ledger"
   ]
 }

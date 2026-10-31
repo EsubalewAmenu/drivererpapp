@@ -30,14 +30,6 @@
       "type": "text",
       "value": "CRM",
       "help": "Main module title"
-    },
-    "extensions": {
-      "label": "Extensions",
-      "type": "list",
-      "value": [
-        "Deals",
-        "Support Tickets"
-      ]
     }
   },
   "dashboard": {
@@ -343,5 +335,10 @@
         }
       ]
     }
+  ],
+  "parent_key": null,
+  "extension_keys": [
+    "deals",
+    "support"
   ]
 }

@@ -29,13 +29,6 @@
       "label": "Name",
       "type": "text",
       "value": "Stock Ledger"
-    },
-    "depends_on": {
-      "label": "Depends On",
-      "type": "list",
-      "value": [
-        "inventory"
-      ]
     }
   },
   "dashboard": {
@@ -161,5 +154,7 @@
         }
       ]
     }
-  ]
+  ],
+  "parent_key": "inventory",
+  "extension_keys": []
 }

@@ -227,5 +227,7 @@
         }
       ]
     }
-  ]
+  ],
+  "parent_key": "finance",
+  "extension_keys": []
 }

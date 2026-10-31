@@ -30,16 +30,6 @@
       "type": "text",
       "value": "HR",
       "help": "Main module title"
-    },
-    "extensions": {
-      "label": "Extensions",
-      "type": "list",
-      "value": [
-        "Leave Requests",
-        "Recruitments",
-        "Payroll",
-        "Expense Claims"
-      ]
     }
   },
   "dashboard": {
@@ -245,5 +235,12 @@
         }
       ]
     }
+  ],
+  "parent_key": null,
+  "extension_keys": [
+    "expense_claims",
+    "leave_requests",
+    "payroll",
+    "recruitments"
   ]
 }

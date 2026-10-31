@@ -30,16 +30,6 @@
       "type": "text",
       "value": "Bills",
       "help": "Main module title"
-    },
-    "extensions": {
-      "label": "Extensions",
-      "type": "list",
-      "value": [
-        "invoicing",
-        "bills",
-        "assets",
-        "budgeting"
-      ]
     }
   },
   "dashboard": {
@@ -193,5 +183,7 @@
         }
       ]
     }
-  ]
+  ],
+  "parent_key": "finance",
+  "extension_keys": []
 }

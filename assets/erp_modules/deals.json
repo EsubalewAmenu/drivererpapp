@@ -29,13 +29,6 @@
       "label": "Name",
       "type": "text",
       "value": "Deals"
-    },
-    "depends_on": {
-      "label": "Depends On",
-      "type": "list",
-      "value": [
-        "crm"
-      ]
     }
   },
   "dashboard": {
@@ -189,5 +182,7 @@
         }
       ]
     }
-  ]
+  ],
+  "parent_key": "crm",
+  "extension_keys": []
 }

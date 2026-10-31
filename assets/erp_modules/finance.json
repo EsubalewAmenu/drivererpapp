@@ -30,16 +30,6 @@
       "type": "text",
       "value": "Finance",
       "help": "Main module title"
-    },
-    "extensions": {
-      "label": "Extensions",
-      "type": "list",
-      "value": [
-        "Invoicing",
-        "Expenses / Bills",
-        "Fixed Assets (Free)",
-        "Budgets (Free)"
-      ]
     }
   },
   "dashboard": {
@@ -223,5 +213,13 @@
         }
       ]
     }
+  ],
+  "parent_key": null,
+  "extension_keys": [
+    "bills",
+    "budgets",
+    "expenses",
+    "fixed_assets",
+    "invoicing"
   ]
 }

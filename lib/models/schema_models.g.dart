@@ -14,6 +14,13 @@ ModuleSchema _$ModuleSchemaFromJson(Map<String, dynamic> json) => ModuleSchema(
   version: (json['version'] as num).toInt(),
   companyId: json['company_id'] as String?,
   templateKey: json['template_key'] as String?,
+  parentKey: json['parent_key'] as String?,
+  parentModuleId: json['parent_module_id'] as String?,
+  extensionKeys:
+      (json['extension_keys'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const [],
   accessLevel: json['access_level'] as String? ?? 'manage',
   settings: (json['settings'] as Map<String, dynamic>).map(
     (k, e) => MapEntry(k, SettingItem.fromJson(e as Map<String, dynamic>)),
@@ -35,6 +42,9 @@ Map<String, dynamic> _$ModuleSchemaToJson(ModuleSchema instance) =>
       'version': instance.version,
       'company_id': instance.companyId,
       'template_key': instance.templateKey,
+      'parent_key': instance.parentKey,
+      'parent_module_id': instance.parentModuleId,
+      'extension_keys': instance.extensionKeys,
       'access_level': instance.accessLevel,
       'settings': instance.settings.map((k, e) => MapEntry(k, e.toJson())),
       'dashboard': instance.dashboard.toJson(),

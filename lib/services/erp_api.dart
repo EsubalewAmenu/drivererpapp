@@ -115,7 +115,7 @@ class ErpApi {
     String company,
     ModuleSchema schema, {
     String? templateKey,
-    bool includeSamples = false,
+    bool includeSamples = true,
   }) async => ModuleSchema.fromJson(
     await request(
       'POST',
@@ -124,6 +124,20 @@ class ErpApi {
         'schema': schema.toJson(),
         'template_key': templateKey,
         'include_samples': includeSamples,
+      },
+    ),
+  );
+  Future<ModuleSchema> activateExtension(
+    String parent,
+    ModuleSchema template,
+  ) async => ModuleSchema.fromJson(
+    await request(
+      'POST',
+      'modules/$parent/extensions',
+      body: {
+        'template_key': template.id,
+        'schema': template.toJson(),
+        'include_samples': true,
       },
     ),
   );

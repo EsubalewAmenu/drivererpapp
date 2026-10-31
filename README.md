@@ -2,7 +2,7 @@
 
 Flutter ERP app backed by an independently maintained WordPress plugin and native custom SQL tables. Google sign-in supplies identity (name, email, picture); company data and files live on the WordPress platform.
 
-Features include companies, staff invitations and module permissions, 21 module templates, editable schemas, dynamic forms with nested items and related records, versioned record updates, search, filters, pagination, SQL dashboards, CSV import, attachments, audit history, credits, subscriptions, and themes.
+Features include companies, staff invitations and module permissions, parent modules with activatable extensions, 21 module templates, editable schemas, dynamic forms and readable details with nested items and related records, versioned record updates, search, filters, pagination, SQL dashboards, CSV import, attachments, audit history, credits, subscriptions, and themes.
 
 ## Development
 

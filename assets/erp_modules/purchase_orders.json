@@ -29,13 +29,6 @@
       "label": "Name",
       "type": "text",
       "value": "Purchase Orders"
-    },
-    "depends_on": {
-      "label": "Depends On",
-      "type": "list",
-      "value": [
-        "inventory"
-      ]
     }
   },
   "dashboard": {
@@ -231,5 +224,7 @@
         }
       ]
     }
-  ]
+  ],
+  "parent_key": "inventory",
+  "extension_keys": []
 }

@@ -15,9 +15,11 @@ void main() {
     tester,
   ) async {
     SharedPreferences.setMockInitialValues({});
+    final requests = <String>[];
     final api = ErpApi(
       client: MockClient((r) async {
         final path = r.url.path;
+        requests.add(path);
         if (path.endsWith('/companies') && r.method == 'GET') {
           return http.Response('{"companies":[]}', 200);
         }
@@ -62,5 +64,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.text('Native Test Company'), findsOneWidget);
     expect(find.text('Add module'), findsOneWidget);
+    expect(requests.where((p) => p.endsWith('/dashboard')), isEmpty);
+    expect(find.text('Records'), findsNothing);
   });
 }

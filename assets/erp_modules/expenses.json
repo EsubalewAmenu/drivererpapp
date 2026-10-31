@@ -105,5 +105,7 @@
       ],
       "initial_data": []
     }
-  ]
+  ],
+  "parent_key": "finance",
+  "extension_keys": []
 }
